@@ -100,6 +100,7 @@ func TestLoadDoesNotValidateAgainstSchema(t *testing.T) {
 	loaded, err := Load(filename)
 	require.NoError(t, err)
 	assert.Equal(t, &Config{}, loaded)
+	assert.Empty(t, loaded.TestHandlerGeneratedPath())
 }
 
 func TestGitHubRepositoryValidate(t *testing.T) {

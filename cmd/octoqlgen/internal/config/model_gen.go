@@ -31,8 +31,8 @@ type TestHandler struct {
 }
 
 type Config struct {
-	Generated   string      `json:"generated"`
-	Operations  []string    `json:"operations"`
-	Schema      Schema      `json:"schema"`
-	TestHandler TestHandler `json:"test_handler"`
+	Generated   string       `json:"generated"`
+	Operations  []string     `json:"operations"`
+	Schema      Schema       `json:"schema"`
+	TestHandler *TestHandler `json:"test_handler"`
 }

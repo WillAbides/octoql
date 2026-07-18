@@ -54,7 +54,9 @@ func (c *Config) resolvePaths(baseDir string) {
 		c.Operations[index] = resolvePath(baseDir, operation)
 	}
 	c.Generated = resolvePath(baseDir, c.Generated)
-	c.TestHandler.Generated = resolvePath(baseDir, c.TestHandler.Generated)
+	if c.TestHandler != nil {
+		c.TestHandler.Generated = resolvePath(baseDir, c.TestHandler.Generated)
+	}
 }
 
 func (c *Config) SchemaPath() string {
@@ -70,6 +72,9 @@ func (c *Config) GeneratedPath() string {
 }
 
 func (c *Config) TestHandlerGeneratedPath() string {
+	if c.TestHandler == nil || c.TestHandler.Generated == "" {
+		return ""
+	}
 	return filepath.Clean(c.TestHandler.Generated)
 }
 

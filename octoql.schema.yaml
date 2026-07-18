@@ -8,7 +8,6 @@ required:
   - schema
   - operations
   - generated
-  - test_handler
 properties:
   schema:
     $ref: '#/$defs/schema'
@@ -114,7 +113,6 @@ $defs:
         examples:
           - github.example.com
           - 192.0.2.10:8443
-          - '[2001:db8::1]'
   testHandler:
     description: Generated test handler configuration.
     type: object
