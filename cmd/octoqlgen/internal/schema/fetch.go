@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -38,6 +39,7 @@ func sanitizeURLDiagnostic(err error, requestURL string) error {
 	collectURLErrorURLs(err, &urls)
 
 	message := err.Error()
+	urls = uniqueURLsByDescendingLength(urls)
 	for _, value := range urls {
 		message = redactURLValue(message, value)
 	}
@@ -70,6 +72,28 @@ func collectURLErrorURLs(err error, urls *[]string) {
 	if ok {
 		collectURLErrorURLs(unwrapOne.Unwrap(), urls)
 	}
+}
+
+func uniqueURLsByDescendingLength(values []string) []string {
+	unique := make(map[string]struct{}, len(values))
+	urls := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+
+		_, exists := unique[value]
+		if exists {
+			continue
+		}
+		unique[value] = struct{}{}
+		urls = append(urls, value)
+	}
+
+	sort.Slice(urls, func(left, right int) bool {
+		return len(urls[left]) > len(urls[right])
+	})
+	return urls
 }
 
 func redactURLValue(message, value string) string {

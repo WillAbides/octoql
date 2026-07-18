@@ -198,7 +198,7 @@ func schemaSourcePresent(content []byte) (bool, error) {
 	}
 
 	root := document.Content[0]
-	schema := mappingValue(root, "schema")
+	schema := effectiveMappingValue(root, "schema")
 	if schema == nil {
 		return false, nil
 	}
@@ -212,7 +212,8 @@ func mappingValue(node *yaml.Node, key string) *yaml.Node {
 	}
 
 	for index := 0; index < len(node.Content); index += 2 {
-		if node.Content[index].Value == key {
+		mappingKey := resolveAlias(node.Content[index])
+		if mappingKey != nil && mappingKey.Value == key {
 			return node.Content[index+1]
 		}
 	}
@@ -231,7 +232,8 @@ func effectiveMappingValue(node *yaml.Node, key string) *yaml.Node {
 	}
 
 	for index := 0; index < len(node.Content); index += 2 {
-		if node.Content[index].Value != "<<" {
+		mappingKey := resolveAlias(node.Content[index])
+		if mappingKey == nil || mappingKey.Value != "<<" {
 			continue
 		}
 

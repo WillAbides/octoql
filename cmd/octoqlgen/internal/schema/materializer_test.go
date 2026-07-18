@@ -160,6 +160,36 @@ func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
 	assert.NotContains(t, err.Error(), spacedQuerySecret)
 }
 
+func TestFetchURLSanitizesPrefixRelatedURLErrors(t *testing.T) {
+	t.Parallel()
+
+	const (
+		outerSecret = "unmistakable-outer-secret"
+		innerSecret = "unmistakable-inner-secret"
+	)
+	outerURL := "https://example.test/schema?signature=" + outerSecret
+	innerURL := outerURL + "&redirect=)" + innerSecret
+	client := httpClientFunc(func(*http.Request) (*http.Response, error) {
+		inner := &url.Error{
+			Op:  "redirect",
+			URL: innerURL,
+			Err: errors.New("redirect refused"),
+		}
+		return nil, &url.Error{
+			Op:  "Get",
+			URL: outerURL,
+			Err: inner,
+		}
+	})
+
+	_, err := fetchURL(t.Context(), client, outerURL, "", false, 1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "example.test/schema")
+	assert.Contains(t, err.Error(), "redirect refused")
+	assert.NotContains(t, err.Error(), outerSecret)
+	assert.NotContains(t, err.Error(), innerSecret)
+}
+
 func TestMaterializerDownloadFailures(t *testing.T) {
 	tests := []struct {
 		handler       http.Handler

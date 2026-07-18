@@ -272,6 +272,82 @@ func TestLoadMergedSource(t *testing.T) {
 	}
 }
 
+func TestLoadRootMergedSchema(t *testing.T) {
+	tests := []struct {
+		name          string
+		content       string
+		expectedError string
+	}{
+		{
+			name: "empty source",
+			content: "<<: &config_defaults\n" +
+				"  schema:\n" +
+				"    path: .octoql/schema.graphql\n" +
+				"    sha256: " + testSHA256 + "\n" +
+				"    source: {}\n" +
+				"generated: internal/githubapi/generated.go\n",
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+		{
+			name: "valid remote source",
+			content: "<<: &config_defaults\n" +
+				"  schema:\n" +
+				"    path: .octoql/schema.graphql\n" +
+				"    sha256: " + testSHA256 + "\n" +
+				"    source:\n" +
+				"      github_docs:\n" +
+				"        version: fpt\n" +
+				"        revision: " + testRevision + "\n" +
+				"generated: internal/githubapi/generated.go\n",
+		},
+		{
+			name: "direct schema overrides merge",
+			content: "<<: &config_defaults\n" +
+				"  schema:\n" +
+				"    path: .octoql/schema.graphql\n" +
+				"    sha256: " + testSHA256 + "\n" +
+				"    source: {}\n" +
+				"schema:\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: " + testSHA256 + "\n" +
+				"generated: internal/githubapi/generated.go\n",
+		},
+		{
+			name: "alias schema key",
+			content: "generated: &schema_key schema\n" +
+				"*schema_key:\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: " + testSHA256 + "\n" +
+				"  source: {}\n",
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			filename := filepath.Join(t.TempDir(), DefaultFilename)
+			err := os.WriteFile(filename, []byte(configWithRoot(test.content)), 0o600)
+			require.NoError(t, err)
+
+			loaded, err := Load(filename)
+			if test.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			if test.name == "valid remote source" {
+				assert.Equal(t, "fpt", loaded.Schema.Source.GitHubDocs.Version)
+				return
+			}
+			assert.Equal(t, Source{}, loaded.Schema.Source)
+		})
+	}
+}
+
 func TestGitHubRepositoryValidate(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -362,6 +438,14 @@ func configWithSchema(schema string) string {
 		"operations:\n" +
 		"  - graphql/**/*.graphql\n" +
 		"generated: internal/githubapi/generated.go\n" +
+		"test_handler:\n" +
+		"  generated: internal/githubapitest/generated.go\n"
+}
+
+func configWithRoot(root string) string {
+	return root +
+		"operations:\n" +
+		"  - graphql/**/*.graphql\n" +
 		"test_handler:\n" +
 		"  generated: internal/githubapitest/generated.go\n"
 }
