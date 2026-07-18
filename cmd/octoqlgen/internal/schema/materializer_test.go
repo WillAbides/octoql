@@ -283,6 +283,58 @@ func TestMaterializerDownloadFailures(t *testing.T) {
 	}
 }
 
+func TestMaterializerRejectsConflictingSources(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		source config.Source
+		name   string
+	}{
+		{
+			name: "url and github docs",
+			source: config.Source{
+				Url:        new("https://example.test/schema.graphql"),
+				GithubDocs: &config.GithubDocs{},
+			},
+		},
+		{
+			name: "url and github repository",
+			source: config.Source{
+				Url:              new("https://example.test/schema.graphql"),
+				GithubRepository: &config.GithubRepository{},
+			},
+		},
+		{
+			name: "github docs and github repository",
+			source: config.Source{
+				GithubDocs:       &config.GithubDocs{},
+				GithubRepository: &config.GithubRepository{},
+			},
+		},
+		{
+			name: "all variants",
+			source: config.Source{
+				Url:              new("https://example.test/schema.graphql"),
+				GithubDocs:       &config.GithubDocs{},
+				GithubRepository: &config.GithubRepository{},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := NewMaterializer().Materialize(t.Context(), Request{
+				Source: test.source,
+				SHA256: "checksum",
+			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "multiple remote source variants")
+		})
+	}
+}
+
 func TestMaterializerGitHubDocsPaths(t *testing.T) {
 	tests := []struct {
 		version      string

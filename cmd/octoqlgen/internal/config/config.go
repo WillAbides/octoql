@@ -7,10 +7,14 @@ package config
 //go:generate ../../../../script/jsonschematogo --package config --output model_gen.go ../../../../octoqlgen.schema.yaml
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
+	yamlv3 "gopkg.in/yaml.v3"
 	"sigs.k8s.io/yaml"
 )
 
@@ -30,6 +34,10 @@ func Load(filename string) (*Config, error) {
 		return nil, fmt.Errorf("reading config file %q: %w", filename, err)
 	}
 
+	err = requireSingleYAMLDocument(content)
+	if err != nil {
+		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
+	}
 	loaded, err := decodeConfig(content)
 	if err != nil {
 		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
@@ -37,6 +45,28 @@ func Load(filename string) (*Config, error) {
 
 	loaded.resolvePaths(filepath.Dir(absoluteFilename))
 	return loaded, nil
+}
+
+func requireSingleYAMLDocument(content []byte) error {
+	decoder := yamlv3.NewDecoder(bytes.NewReader(content))
+	var document yamlv3.Node
+	err := decoder.Decode(&document)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	var extra yamlv3.Node
+	err = decoder.Decode(&extra)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return errors.New("multiple YAML documents are not allowed")
 }
 
 func decodeConfig(content []byte) (*Config, error) {

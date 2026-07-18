@@ -48,13 +48,20 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		content   string
-		wantError string
+		assertLoaded func(*testing.T, *Config)
+		name         string
+		content      string
+		wantError    string
 	}{
 		{
 			name:    "aliases",
 			content: readTestFile(t, "yaml", "valid_aliases.yaml"),
+			assertLoaded: func(t *testing.T, loaded *Config) {
+				require.Len(t, loaded.Operations, 2)
+				assert.Equal(t, loaded.Operations[0], loaded.Operations[1])
+				require.NotNil(t, loaded.TestHandler)
+				assert.Equal(t, loaded.Generated, loaded.TestHandler.Generated)
+			},
 		},
 		{
 			name:    "merge",
@@ -70,6 +77,11 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 			content:   validConfigYAML() + "unknown: true\n",
 			wantError: `unknown field "unknown"`,
 		},
+		{
+			name:      "multiple documents",
+			content:   validConfigYAML() + "---\n{}\n",
+			wantError: "multiple YAML documents are not allowed",
+		},
 	}
 
 	for _, test := range tests {
@@ -79,9 +91,12 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 			filename := filepath.Join(t.TempDir(), DefaultFilename)
 			err := os.WriteFile(filename, []byte(test.content), 0o600)
 			require.NoError(t, err)
-			_, err = Load(filename)
+			loaded, err := Load(filename)
 			if test.wantError == "" {
 				require.NoError(t, err)
+				if test.assertLoaded != nil {
+					test.assertLoaded(t, loaded)
+				}
 				return
 			}
 			require.Error(t, err)
