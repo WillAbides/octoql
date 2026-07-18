@@ -1,9 +1,6 @@
-<img width="100%" alt="generated graphql client ⇒ octoql" src="docs/images/genqlient.svg">
-
 [![Go Reference](https://pkg.go.dev/badge/github.com/willabides/octoql.svg)](https://pkg.go.dev/github.com/willabides/octoql)
 [![Test Status](https://github.com/willabides/octoql/actions/workflows/ci.yaml/badge.svg)](https://github.com/willabides/octoql/actions)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](docs/CODE_OF_CONDUCT.md)
-[![GoReportcard](https://goreportcard.com/badge/github.com/willabides/octoql?status.svg)](https://goreportcard.com/report/github.com/willabides/octoql)
 
 # octoql: a truly type-safe Go GraphQL client
 
