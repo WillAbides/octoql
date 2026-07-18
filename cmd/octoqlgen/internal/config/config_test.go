@@ -154,6 +154,20 @@ func TestUpdatePinPreservesUnrelatedFormatting(t *testing.T) {
 	)
 }
 
+func TestUpdatePinRejectsSharedAlias(t *testing.T) {
+	t.Parallel()
+
+	content := []byte(
+		"shared: &checksum " + testSHA256 + "\n" +
+			"schema:\n" +
+			"  path: .octoql/schema.graphql\n" +
+			"  sha256: *checksum\n",
+	)
+	_, err := UpdatePin(content, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "shared YAML alias")
+}
+
 func readTestFile(t *testing.T, elements ...string) string {
 	t.Helper()
 	content, err := os.ReadFile(filepath.Join(append([]string{"testdata"}, elements...)...))

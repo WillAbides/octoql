@@ -238,6 +238,10 @@ func (cmd *SchemaUpdateCommand) Run() error {
 	if err != nil {
 		return err
 	}
+	_, err = config.Parse(updatedConfig)
+	if err != nil {
+		return fmt.Errorf("validating updated config: %w", err)
+	}
 	err = cmd.outputWriter.Write(loaded.SchemaPath(), result.Data)
 	if err != nil {
 		return fmt.Errorf("publishing updated schema: %w", err)

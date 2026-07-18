@@ -65,6 +65,9 @@ type scalarReplacement struct {
 func replaceScalars(content []byte, replacements []scalarReplacement) ([]byte, error) {
 	lines := bytes.SplitAfter(content, []byte("\n"))
 	for _, replacement := range replacements {
+		if replacement.node.Kind == yamlv3.AliasNode {
+			return nil, errors.New("config pin must not use a shared YAML alias")
+		}
 		node := dereference(replacement.node)
 		if node.Kind != yamlv3.ScalarNode || node.Line < 1 || node.Line > len(lines) {
 			return nil, errors.New("config pin must be a scalar value")
