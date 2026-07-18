@@ -1,0 +1,39 @@
+#!/bin/sh
+#/ script/generate runs all generators for this repository.
+#/ `script/generate --check` verifies generated files are up to date.
+
+set -e
+
+CDPATH="" cd -- "$(dirname -- "$0")/.."
+
+if [ "$1" = "--check" ]; then
+  temporary_worktree="$(mktemp -d)"
+  git worktree add -q --detach "$temporary_worktree"
+  trap 'git worktree remove -f "$temporary_worktree"; rm -rf "$temporary_worktree"' EXIT
+  for file in $(git ls-files -com --exclude-standard); do
+    target="$temporary_worktree/$file"
+    if [ ! -f "$file" ]; then
+      rm -f "$target"
+      continue
+    fi
+    mkdir -p "$(dirname -- "$target")"
+    cp "$file" "$target"
+  done
+  (
+    cd "$temporary_worktree"
+    git add .
+    git -c user.name=octoql -c user.email=octoql@example.invalid commit -q --allow-empty -m generate
+    script/generate
+    if [ -n "$(git status --porcelain)" ]; then
+      echo "script/generate resulted in changes." >&2
+      git status --short
+      git diff --stat
+      git diff
+      exit 1
+    fi
+  )
+  exit 0
+fi
+
+go generate ./...
+go mod tidy

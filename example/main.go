@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Khan/genqlient/graphql"
+	"github.com/willabides/octoql/graphql"
 )
 
 type authedTransport struct {
@@ -65,4 +65,4 @@ func main() {
 	}
 }
 
-//go:generate go run github.com/Khan/genqlient genqlient.yaml
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate genqlient.yaml

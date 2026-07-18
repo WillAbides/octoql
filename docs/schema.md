@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Khan/genqlient/generate"
+	"github.com/willabides/octoql/generate"
 	"github.com/suessflorian/gqlfetch"
 )
 

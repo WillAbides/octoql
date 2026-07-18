@@ -258,4 +258,4 @@ func (r *resolver) Subscription() SubscriptionResolver {
 	return &subscriptionResolver{}
 }
 
-//go:generate go run github.com/99designs/gqlgen@v0.17.57
+//go:generate go run github.com/99designs/gqlgen@v0.17.94

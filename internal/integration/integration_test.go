@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
-	"github.com/Khan/genqlient/graphql"
-	"github.com/Khan/genqlient/internal/integration/server"
+	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql/internal/integration/server"
 )
 
 func TestSimpleQuery(t *testing.T) {
@@ -184,7 +184,7 @@ func TestSubscriptionConnectionParams(t *testing.T) {
 		},
 		{
 			name:          "unauthorized_user_gets_error",
-			expectedError: "input: countAuthorized unauthorized\n",
+			expectedError: "input:3:2: countAuthorized unauthorized\n",
 		},
 	}
 
@@ -981,4 +981,4 @@ func TestGeneratedCode(t *testing.T) {
 	RunGenerateTest(t, "internal/integration/genqlient.yaml")
 }
 
-//go:generate go run github.com/Khan/genqlient genqlient.yaml
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate genqlient.yaml

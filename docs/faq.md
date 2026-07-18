@@ -97,16 +97,14 @@ If your tools are backed by [gopls](https://github.com/golang/tools/blob/master/
 
 ### genqlient fails after `go mod tidy`
 
-If genqlient fails with an error `missing go.sum entry for module providing package`, this is typically because `go mod tidy` removed its dependencies because they weren't imported by your Go module.  You can read more about this in golang/go#45552; see in particular [this comment](https://github.com/golang/go/issues/45552#issuecomment-819545037).  In short, if you want to be able to `go run` on newer Go you'll need to have a (blank) import of genqlient's entrypoint in a special `tools.go` file somewhere in your module so `go mod tidy` doesn't prune it:
+If genqlient fails with an error `missing go.sum entry for module providing package`, add octoqlgen as a Go tool dependency:
 
-```go
-//go:build tools
-// +build tools
-
-package client
-
-import _ "github.com/Khan/genqlient"
+```sh
+go get -tool github.com/willabides/octoql/cmd/octoqlgen
 ```
+
+Then run it with `go tool octoqlgen generate`. Go 1.26 records tool
+dependencies in `go.mod`, so `go mod tidy` retains them without a blank import.
 
 ### I'm getting confusing errors from `@genqlient` directives
 
@@ -118,4 +116,4 @@ Common examples of this error:
 
 ### My issue is fixed in `main` but not in the latest release
 
-genqlient does not publish a release for every bugfix; read more about our [versioning strategy](versioning.md) or use `go get -u github.com/Khan/genqlient@main` to install from latest `main`.
+genqlient does not publish a release for every bugfix; read more about our [versioning strategy](versioning.md) or use `go get -u github.com/willabides/octoql@main` to install from latest `main`.

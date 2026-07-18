@@ -2,7 +2,7 @@
 
 This document describes common patterns for using the genqlient client at runtime. For full client reference documentation, see the [godoc].
 
-[godoc]: https://pkg.go.dev/github.com/Khan/genqlient/graphql
+[godoc]: https://pkg.go.dev/github.com/willabides/octoql/graphql
 
 ## Creating a client
 
@@ -19,7 +19,7 @@ fmt.Println(resp.User.Name, err)
 
 You can pass the client around however you like to inject dependencies, such as via a global variable, context value, or [fancy typed context][kacontext].
 
-[godoc#NewClient]: https://pkg.go.dev/github.com/Khan/genqlient/graphql#NewClient
+[godoc#NewClient]: https://pkg.go.dev/github.com/willabides/octoql/graphql#NewClient
 [kacontext]: https://blog.khanacademy.org/statically-typed-context-in-go/
 
 ### Authentication and other headers
@@ -64,13 +64,13 @@ https://api.github.com/graphql?operationName%3DgetUser%26query%3D%0Aquery%20getU
 
 This is useful for caching requests in a CDN or browser cache. It's not recommended for requests containing sensitive data. This client does not support mutations, and will return an error if used for a mutation.
 
-[godoc#NewClientUsingGet]: https://pkg.go.dev/github.com/Khan/genqlient/graphql#NewClientUsingGet
+[godoc#NewClientUsingGet]: https://pkg.go.dev/github.com/willabides/octoql/graphql#NewClientUsingGet
 
 ### Custom clients
 
 The genqlient client is an interface; you may define your own implementation. This could wrap the ordinary client to handle GraphQL extensions or set query-specific headers; or start from scratch to use a custom transport. For details, see the [documentation][godoc#Client].
 
-[godoc#Client]: https://pkg.go.dev/github.com/Khan/genqlient/graphql#Client
+[godoc#Client]: https://pkg.go.dev/github.com/willabides/octoql/graphql#Client
 
 ## Testing
 
@@ -129,7 +129,7 @@ In case of a GraphQL error, the response-struct may be partly-populated (if one 
 
 [As]: https://pkg.go.dev/errors#As
 [gqlerror]: https://pkg.go.dev/github.com/vektah/gqlparser/v2/gqlerror#List
-[HTTPError]: https://pkg.go.dev/github.com/Khan/genqlient/graphql#HTTPError
+[HTTPError]: https://pkg.go.dev/github.com/willabides/octoql/graphql#HTTPError
 [urlError]: https://pkg.go.dev/net/url#Error
 
 For example, you might do one of the following:

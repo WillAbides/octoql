@@ -1,0 +1,9 @@
+#!/bin/sh
+#/ script/fmt formats Go and shell source.
+
+set -e
+
+CDPATH="" cd -- "$(dirname -- "$0")/.."
+script/bindown -q install gofumpt shfmt
+git ls-files -o -c --exclude-standard '*.go' | xargs bin/gofumpt -w -extra
+bin/shfmt -ci -i 2 -sr -w script
