@@ -42,7 +42,7 @@ type SchemaCommand struct {
 	outputWriter OutputWriter
 	stdout       io.Writer
 
-	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoql configuration file. Defaults to octoql.yaml."`
+	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoqlgen configuration file. Defaults to octoql.yaml."`
 	Output        string `short:"o" name:"output" type:"path" placeholder:"PATH" help:"Write the exact schema bytes to a file instead of stdout."`
 	GitHubVersion string `name:"github-version" placeholder:"VERSION" help:"Fetch a pinned github/docs schema version (fpt, ghec, or ghes-X.Y)."`
 	SourceURL     string `name:"source-url" placeholder:"URL" help:"Fetch a schema from an immutable URL."`

@@ -6,8 +6,8 @@ Flags:
   -h, --help                      Show context-sensitive help.
       --version                   Show version information.
 
-      --config=PATH               Path to an octoql configuration file. Defaults
-                                  to octoql.yaml.
+      --config=PATH               Path to an octoqlgen configuration file.
+                                  Defaults to octoql.yaml.
   -o, --output=PATH               Write the exact schema bytes to a file instead
                                   of stdout.
       --github-version=VERSION    Fetch a pinned github/docs schema version

@@ -1,5 +1,5 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-title: octoql configuration
+title: octoqlgen configuration
 description: Configuration for generating a GitHub GraphQL client with octoqlgen.
 type: object
 x-go-type-name: Config

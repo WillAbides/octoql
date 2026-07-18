@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../octoql.schema.yaml
+# yaml-language-server: $schema=../octoqlgen.schema.yaml
 # octoql.yaml is octoqlgen's configuration file.
 #
 # `octoqlgen schema` reads octoql.yaml by default. Pass `--config PATH` to use

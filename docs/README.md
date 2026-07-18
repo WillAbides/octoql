@@ -16,15 +16,16 @@ Welcome to the genqlient documentation! This documentation is made possible by v
 # Reference
 
 - [Go package reference](https://pkg.go.dev/github.com/willabides/octoql)
-- [`octoql.yaml` YAML Schema](../octoql.schema.yaml)
+- [octoqlgen configuration schema](../octoqlgen.schema.yaml)
 - [`genqlient.yaml` configuration reference](genqlient.yaml)
 - [`@genqlient` directive reference](genqlient_directive.graphql)
 - [changelog](CHANGELOG.md)
 
 The committed YAML Schema is the canonical structural definition of
-`octoql.yaml`. Repository checkouts can reference it relatively, as shown in
-[`octoql.yaml`](octoql.yaml). Downstream editor configuration can use
-`https://raw.githubusercontent.com/WillAbides/octoql/main/octoql.schema.yaml`.
+octoqlgen's `octoql.yaml` configuration. Repository checkouts can reference it
+relatively, as shown in [`octoql.yaml`](octoql.yaml). Downstream editor
+configuration can use
+`https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml`.
 
 ## Background
 

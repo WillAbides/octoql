@@ -1,10 +1,10 @@
 // Copyright (c) 2026 octoql contributors
 // SPDX-License-Identifier: MIT
 
-// Package config loads octoql configuration files and validates schema sources.
+// Package config loads octoqlgen configuration files.
 package config
 
-//go:generate ../../../../script/jsonschematogo --package config --output model_gen.go ../../../../octoql.schema.yaml
+//go:generate ../../../../script/jsonschematogo --package config --output model_gen.go ../../../../octoqlgen.schema.yaml
 
 import (
 	"fmt"
