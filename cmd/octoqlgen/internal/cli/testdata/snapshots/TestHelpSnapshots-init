@@ -3,23 +3,7 @@ Usage: octoqlgen init [flags]
 Create an octoqlgen configuration and materialized schema.
 
 Flags:
-  -h, --help                      Show context-sensitive help.
-      --version                   Show version information.
+  -h, --help           Show context-sensitive help.
+      --version        Show version information.
 
-      --config=PATH               Path for the new octoqlgen configuration.
-      --schema-path=PATH          Materialized schema path. Defaults to
-                                  .octoql/schema.graphql.
-      --operations=GLOB           Operations glob. Defaults to
-                                  graphql/**/*.graphql.
-      --generated=PATH            Generated Go file. Defaults to
-                                  internal/githubapi/generated.go.
-      --test-handler-generated=PATH
-                                  Optional generated test handler Go file.
-      --github-version=VERSION    Use github/docs (fpt, ghec, or ghes-X.Y).
-      --github-repository=OWNER/REPO
-                                  Use a schema file from a GitHub repository.
-      --github-path=PATH          Path to the schema in --github-repository.
-      --github-host=HOST          GitHub host for --github-repository. Defaults
-                                  to github.com.
-      --source-url=URL            Use an arbitrary schema URL. Immutable URLs
-                                  are required for reproducibility.
+      --config=PATH    Path for the new octoqlgen configuration.

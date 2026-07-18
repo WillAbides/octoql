@@ -246,49 +246,63 @@ func TestInitCommandRun(t *testing.T) {
 	t.Parallel()
 
 	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
-	writer := &stubOutputWriter{}
 	var stdout bytes.Buffer
 	command := InitCommand{
 		ConfigPath: configPath,
-		sourceFlags: sourceFlags{
-			GitHubVersion: "fpt",
-		},
-		context: t.Context(),
-		resolver: &stubRemoteResolver{result: schema.RemoteResult{
-			Data:     []byte("type Query { viewer: String }\n"),
-			Revision: cliRevision,
-			SHA256:   cliSHA256,
-		}},
-		outputWriter: writer,
-		stdout:       &stdout,
+		stdout:     &stdout,
 	}
 
 	err := command.Run()
 	require.NoError(t, err)
-	assert.Equal(t, configPath, writer.path)
-	assert.Contains(t, string(writer.data), "github_docs:")
-	assert.Contains(t, string(writer.data), "revision: "+cliRevision)
-	assert.Contains(t, stdout.String(), cliSHA256)
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		"schema:\n  path: .octoql/schema.graphql\noperations:\n  - graphql/**/*.graphql\ngenerated: internal/githubapi/generated.go\n",
+		string(content),
+	)
+	gitignorePath := filepath.Join(filepath.Dir(configPath), ".octoql", ".gitignore")
+	gitignore, err := os.ReadFile(gitignorePath)
+	require.NoError(t, err)
+	assert.Equal(t, "*\n!.gitignore\n", string(gitignore))
+	assert.Equal(t, "created "+configPath+" and "+gitignorePath+"\n", stdout.String())
 }
 
-func TestInitCommandRejectsAmbiguousSource(t *testing.T) {
+func TestInitCommandPreservesExistingGitignore(t *testing.T) {
 	t.Parallel()
 
+	directory := t.TempDir()
+	gitignorePath := filepath.Join(directory, ".octoql", ".gitignore")
+	err := os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
+	require.NoError(t, err)
+	err = os.WriteFile(gitignorePath, []byte("keep\n"), 0o600)
+	require.NoError(t, err)
 	command := InitCommand{
-		ConfigPath: filepath.Join(t.TempDir(), "octoql.yaml"),
-		sourceFlags: sourceFlags{
-			GitHubVersion: "fpt",
-			SourceURL:     "https://example.test/schema.graphql",
-		},
-		context:      t.Context(),
-		resolver:     &stubRemoteResolver{},
-		outputWriter: &stubOutputWriter{},
-		stdout:       io.Discard,
+		ConfigPath: filepath.Join(directory, "nested", "octoql.yaml"),
+		stdout:     io.Discard,
 	}
 
-	err := command.Run()
+	err = command.Run()
+	require.NoError(t, err)
+	gitignore, err := os.ReadFile(gitignorePath)
+	require.NoError(t, err)
+	assert.Equal(t, "keep\n", string(gitignore))
+}
+
+func TestInitCommandRefusesExistingConfig(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	err := os.WriteFile(configPath, []byte("existing\n"), 0o600)
+	require.NoError(t, err)
+	command := InitCommand{
+		ConfigPath: configPath,
+		stdout:     io.Discard,
+	}
+
+	err = command.Run()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "exactly one schema source")
+	assert.Contains(t, err.Error(), "refusing to overwrite")
 }
 
 func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
@@ -301,13 +315,25 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 		Config:     configPath,
 		context:    t.Context(),
 		loadConfig: config.Load,
-		resolver:   &stubRemoteResolver{},
 		stdout:     io.Discard,
 	}
 
 	err = command.Run()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "requires a configured remote")
+}
+
+func TestAcquireUpdateLock(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	unlock, err := acquireUpdateLock(configPath)
+	require.NoError(t, err)
+	defer unlock()
+
+	_, err = acquireUpdateLock(configPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already in progress")
 }
 
 func TestHelpSnapshots(t *testing.T) {
@@ -410,18 +436,6 @@ type stubOutputWriter struct {
 	err  error
 	path string
 	data []byte
-}
-
-type stubRemoteResolver struct {
-	err    error
-	result schema.RemoteResult
-}
-
-func (resolver *stubRemoteResolver) Resolve(
-	_ context.Context,
-	_ config.Source,
-) (schema.RemoteResult, error) {
-	return resolver.result, resolver.err
 }
 
 func (w *stubOutputWriter) Write(path string, data []byte) error {

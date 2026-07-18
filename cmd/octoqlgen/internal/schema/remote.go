@@ -29,6 +29,10 @@ type RemoteResult struct {
 // Resolve fetches a remote schema. GitHub-backed sources are pinned to the
 // latest commit that changed the selected path before their content is fetched.
 func (m *Materializer) Resolve(ctx context.Context, source config.Source) (RemoteResult, error) {
+	sourceCount := sourceVariantCount(source)
+	if sourceCount != 1 {
+		return RemoteResult{}, errors.New("schema source must set exactly one remote source variant")
+	}
 	deps := m.dependencies()
 	timeoutContext, cancel := context.WithTimeout(ctx, deps.timeout)
 	defer cancel()
@@ -111,7 +115,10 @@ func (m *Materializer) latestRevision(
 	}
 	client := github.NewClient(&http.Client{
 		Transport: httpClientTransport{client: deps.httpClient},
-	}).WithAuthToken(token)
+	})
+	if token != "" {
+		client = client.WithAuthToken(token)
+	}
 	if host != "github.com" {
 		baseURL := deps.githubAPIBaseURL(host)
 		client, err = client.WithEnterpriseURLs(baseURL, baseURL)
