@@ -119,7 +119,8 @@ func (path *Path) UnmarshalJSON(data []byte) error {
 		}
 
 		var listIndex int
-		err = json.Unmarshal(trimmed, &listIndex)
+		var parsed int64
+		parsed, err = strconv.ParseInt(string(trimmed), 10, strconv.IntSize)
 		if err != nil {
 			return fmt.Errorf(
 				"decode graphql path segment %d: expected string or integer: %w",
@@ -127,6 +128,7 @@ func (path *Path) UnmarshalJSON(data []byte) error {
 				err,
 			)
 		}
+		listIndex = int(parsed)
 		segments[index] = listIndex
 	}
 

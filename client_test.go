@@ -154,6 +154,26 @@ func TestDoHTTPResponses(t *testing.T) {
 				assert.True(t, syntaxErrorFound)
 			},
 		},
+		{
+			name:       "2xx decode failure after GraphQL errors",
+			statusCode: http.StatusOK,
+			body: `{
+				"errors":[{"type":"PARTIAL","message":"decoded before data"}],
+				"data":{"repository":"not an object"}
+			}`,
+			check: func(t *testing.T, response *octoql.Response[testData], err error) {
+				t.Helper()
+				require.NotNil(t, response)
+				require.Len(t, response.Errors, 1)
+				assert.Equal(t, octoql.ErrorType("PARTIAL"), response.Errors[0].Type)
+
+				var graphqlErrors octoql.Errors
+				require.ErrorAs(t, err, &graphqlErrors)
+				assert.Equal(t, response.Errors, graphqlErrors)
+				_, typeErrorFound := errors.AsType[*json.UnmarshalTypeError](err)
+				assert.True(t, typeErrorFound)
+			},
+		},
 	}
 
 	for _, test := range tests {

@@ -250,6 +250,9 @@ func finishResponse[T any](
 	if !isSuccessfulStatus(statusCode) {
 		return response, newHTTPError(metadata, body, response.Errors, cause)
 	}
+	if len(response.Errors) > 0 {
+		return response, joinErrors(response.Errors, cause)
+	}
 	return response, cause
 }
 

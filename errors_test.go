@@ -42,16 +42,40 @@ func TestPathRejectsInvalidSegments(t *testing.T) {
 		name string
 	}{
 		{
-			name: "boolean",
+			name: "marshal boolean",
 			path: octoql.Path{"repository", true},
+		},
+		{
+			name: "null",
+			path: json.RawMessage(`["repository",null]`),
+		},
+		{
+			name: "boolean",
+			path: json.RawMessage(`["repository",true]`),
 		},
 		{
 			name: "fractional number",
 			path: json.RawMessage(`["repository",1.5]`),
 		},
 		{
+			name: "exponent",
+			path: json.RawMessage(`["repository",1e2]`),
+		},
+		{
 			name: "object",
 			path: json.RawMessage(`["repository",{"field":"name"}]`),
+		},
+		{
+			name: "array",
+			path: json.RawMessage(`["repository",[1]]`),
+		},
+		{
+			name: "positive overflow",
+			path: json.RawMessage(`["repository",999999999999999999999999999999]`),
+		},
+		{
+			name: "negative overflow",
+			path: json.RawMessage(`["repository",-999999999999999999999999999999]`),
 		},
 	}
 
