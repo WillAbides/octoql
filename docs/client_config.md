@@ -68,6 +68,9 @@ If you want, you can use genqlient to test your GraphQL APIs; as with mocking yo
 
 Each generated query or mutation helper returns an `*octoql.Response[T]`, where `T` is the generated operation response type. For example, given a simple query:
 
+octoql does not support GraphQL subscriptions. octoqlgen rejects subscription
+operations during generation.
+
 ```graphql
 query getUser($login: String!) {
   user(login: $login) {
