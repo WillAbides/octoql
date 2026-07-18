@@ -1,7 +1,7 @@
 <!--
 Thanks for your contribution! Check out the
-[contributing docs](https://github.com/Khan/genqlient/blob/main/docs/CONTRIBUTING.md)
-for more on contributing to genqlient.
+[contributing docs](https://github.com/willabides/octoql/blob/main/CONTRIBUTING.md)
+for more on contributing to octoql.
 -->
 
 

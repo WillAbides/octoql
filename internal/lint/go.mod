@@ -1,4 +1,4 @@
-module github.com/Khan/genqlient/internal/lint
+module github.com/willabides/octoql/internal/lint
 
 go 1.22.1
 

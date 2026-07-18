@@ -100,7 +100,7 @@ type client struct {
 // [http.Transport] to add those headers.  See [example/main.go] for an
 // example.
 //
-// [example/main.go]: https://github.com/Khan/genqlient/blob/main/example/main.go#L12-L20
+// [example/main.go]: https://github.com/willabides/octoql/blob/main/example/main.go#L12-L20
 func NewClient(endpoint string, httpClient Doer) Client {
 	return newClient(endpoint, httpClient, http.MethodPost)
 }
@@ -121,7 +121,7 @@ func NewClient(endpoint string, httpClient Doer) Client {
 // [http.Transport] to add those headers.  See [example/main.go] for an
 // example.
 //
-// [example/main.go]: https://github.com/Khan/genqlient/blob/main/example/main.go#L12-L20
+// [example/main.go]: https://github.com/willabides/octoql/blob/main/example/main.go#L12-L20
 func NewClientUsingGet(endpoint string, httpClient Doer) Client {
 	return newClient(endpoint, httpClient, http.MethodGet)
 }

@@ -4,8 +4,8 @@
 
 Welcome to the genqlient documentation! This documentation is made possible by viewers like you; if you see something unclear, file an [issue] or make a [pull request] to improve it!
 
-[issue]: https://github.com/Khan/genqlient/issues/new/choose
-[pull request]: https://github.com/Khan/genqlient/compare
+[issue]: https://github.com/willabides/octoql/issues/new/choose
+[pull request]: https://github.com/willabides/octoql/compare
 
 ## Usage/recipes
 
@@ -17,7 +17,7 @@ Welcome to the genqlient documentation! This documentation is made possible by v
 
 # Reference
 
-- [Go package reference](https://pkg.go.dev/github.com/Khan/genqlient)
+- [Go package reference](https://pkg.go.dev/github.com/willabides/octoql)
 - [`genqlient.yaml` configuration reference](genqlient.yaml)
 - [`@genqlient` directive reference](genqlient_directive.graphql)
 - [changelog](CHANGELOG.md)

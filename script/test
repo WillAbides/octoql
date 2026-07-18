@@ -1,0 +1,7 @@
+#!/bin/sh
+#/ script/test runs the Go test suite.
+
+set -e
+
+CDPATH="" cd -- "$(dirname -- "$0")/.."
+go test -race -covermode=atomic ./...

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+	"github.com/willabides/octoql/graphql"
 )
 
 // lastResponseTransport is an HTTP transport that keeps track of the last response

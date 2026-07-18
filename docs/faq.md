@@ -105,12 +105,12 @@ If genqlient fails with an error `missing go.sum entry for module providing pack
 
 package client
 
-import _ "github.com/Khan/genqlient"
+import _ "github.com/willabides/octoql"
 ```
 
 ### I'm getting confusing errors from `@genqlient` directives
 
-Currently, `@genqlient` directives apply to all relevant nodes on the following line, see [#151](https://github.com/Khan/genqlient/issues/151) or the [`@genqlient` documentation](genqlient_directive.graphql). If in doubt, spread things out onto more lines and they'll probably work!
+Currently, `@genqlient` directives apply to all relevant nodes on the following line, see [#151](https://github.com/willabides/octoql/issues/151) or the [`@genqlient` documentation](genqlient_directive.graphql). If in doubt, spread things out onto more lines and they'll probably work!
 
 Common examples of this error:
 - `for is only applicable to operations and arguments`
@@ -118,4 +118,4 @@ Common examples of this error:
 
 ### My issue is fixed in `main` but not in the latest release
 
-genqlient does not publish a release for every bugfix; read more about our [versioning strategy](versioning.md) or use `go get -u github.com/Khan/genqlient@main` to install from latest `main`.
+genqlient does not publish a release for every bugfix; read more about our [versioning strategy](versioning.md) or use `go get -u github.com/willabides/octoql@main` to install from latest `main`.

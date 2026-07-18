@@ -1,14 +1,14 @@
 # Versioning policy
 
-This document describes how we manage genqlient versions. See all published versions on [pkg.go.dev](https://pkg.go.dev/github.com/Khan/genqlient?tab=versions) or [GitHub](https://github.com/Khan/genqlient/releases).
+This document describes how we manage genqlient versions. See all published versions on [pkg.go.dev](https://pkg.go.dev/github.com/willabides/octoql?tab=versions) or [GitHub](https://github.com/willabides/octoql/releases).
 
 ## When do we make a release?
 
 In general, we do not cut a release for every bugfix; instead we try to cut a release after major changes have had some time to bake, and in some cases after large codebases using genqlient have tried them. This ensures releases are somewhat more likely to work.
 
-If that stability is desirable to you, use tagged releases of genqlient only (e.g. `go get github.com/Khan/genqlient@latest`), and be aware that new features may take somewhat longer to make it to a release. (Feel free to make an issue to request a release if it's been a while.)
+If that stability is desirable to you, use tagged releases of genqlient only (e.g. `go get github.com/willabides/octoql@latest`), and be aware that new features may take somewhat longer to make it to a release. (Feel free to make an issue to request a release if it's been a while.)
 
-If you always want the latest and greatest changes quickly, Go has excellent support for installing packages at any commit. We do have extensive tests and try to keep the main branch safe for production use, but we're never perfect, so take care appropriate to your use case. You can install the main branch with `go get github.com/Khan/genqlient@main`, or replace `main` with any commit SHA. Please report any bugs you see so they can be fixed before the next release!
+If you always want the latest and greatest changes quickly, Go has excellent support for installing packages at any commit. We do have extensive tests and try to keep the main branch safe for production use, but we're never perfect, so take care appropriate to your use case. You can install the main branch with `go get github.com/willabides/octoql@main`, or replace `main` with any commit SHA. Please report any bugs you see so they can be fixed before the next release!
 
 For the details of actually making a release, see the [contributor docs](CONTRIBUTING.md#making-a-release).
 

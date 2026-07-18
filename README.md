@@ -1,29 +1,32 @@
-<img width="100%" alt="generated graphql client ⇒ genqlient" src="docs/images/genqlient.svg">
+<img width="100%" alt="generated graphql client ⇒ octoql" src="docs/images/genqlient.svg">
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/Khan/genqlient.svg)](https://pkg.go.dev/github.com/Khan/genqlient)
-[![Test Status](https://github.com/Khan/genqlient/actions/workflows/go.yml/badge.svg)](https://github.com/Khan/genqlient/actions)
+[![Go Reference](https://pkg.go.dev/badge/github.com/willabides/octoql.svg)](https://pkg.go.dev/github.com/willabides/octoql)
+[![Test Status](https://github.com/willabides/octoql/actions/workflows/ci.yaml/badge.svg)](https://github.com/willabides/octoql/actions)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](docs/CODE_OF_CONDUCT.md)
-[![GoReportcard](https://goreportcard.com/badge/github.com/Khan/genqlient?status.svg)](https://goreportcard.com/report/github.com/Khan/genqlient)
+[![GoReportcard](https://goreportcard.com/badge/github.com/willabides/octoql?status.svg)](https://goreportcard.com/report/github.com/willabides/octoql)
 
-# genqlient: a truly type-safe Go GraphQL client
+# octoql: a truly type-safe Go GraphQL client
 
-## What is genqlient?
+octoql is a standalone project derived from Khan/genqlient. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
 
-genqlient is a Go library to easily generate type-safe code to query a GraphQL API. It takes advantage of the fact that both GraphQL and Go are typed languages to ensure at compile-time that your code is making a valid GraphQL query and using the result correctly, all with a minimum of boilerplate.
+## What is octoql?
 
-genqlient provides:
+octoql is a Go library that generates type-safe code to query a GraphQL API. It takes advantage of the fact that both GraphQL and Go are typed languages to ensure at compile-time that your code is making a valid GraphQL query and using the result correctly, all with a minimum of boilerplate.
+
+octoql provides:
 
 - Compile-time validation of GraphQL queries: never ship an invalid GraphQL query again!
 - Type-safe response objects: genqlient generates the right type for each query, so you know the response will unmarshal correctly and never need to use `interface{}`.
-- Production-readiness: genqlient is used in production at Khan Academy, where it supports millions of learners and teachers around the world.
+- Production-readiness: its inherited generator is used in production at Khan Academy, where it supports millions of learners and teachers around the world.
 
-## How do I use genqlient?
+## How do I use octoql?
 
-You can download and run genqlient the usual way: `go run github.com/Khan/genqlient`.  To set your project up to use genqlient, see the [getting started guide](docs/introduction.md), or the [example](example).  For more complete documentation, see the [docs](docs).
+You can run octoqlgen with `go run github.com/willabides/octoql/cmd/octoqlgen generate`. To set your project up to use octoql, see the [getting started guide](docs/introduction.md), or the [example](example). For more complete documentation, see the [docs](docs).
 
 ## How can I help?
 
-genqlient welcomes contributions!  Check out the ([Contribution Guidelines](docs/CONTRIBUTING.md)), or file an issue [on GitHub](issues).
+octoql welcomes contributions. Check out the [contribution guidelines](CONTRIBUTING.md), or file an issue [on GitHub](issues).
 
 ## Why another GraphQL client?
 

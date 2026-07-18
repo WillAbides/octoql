@@ -5,7 +5,7 @@ use_extensions: true
 bindings:
   Date:
     type: time.Time
-    marshaler: "github.com/Khan/genqlient/internal/testutil.MarshalDate"
-    unmarshaler: "github.com/Khan/genqlient/internal/testutil.UnmarshalDate"
+    marshaler: "github.com/willabides/octoql/internal/testutil.MarshalDate"
+    unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate"
   MyGreatScalar:
-    type: github.com/Khan/genqlient/internal/integration.MyGreatScalar
+    type: github.com/willabides/octoql/internal/integration.MyGreatScalar

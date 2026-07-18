@@ -1,5 +1,7 @@
 generate/testdata/tmp
 internal/lint/golangci-lint
+/.bindown/
+/bin/
 
 ## Go standard gitignore
 # Binaries for programs and plugins
