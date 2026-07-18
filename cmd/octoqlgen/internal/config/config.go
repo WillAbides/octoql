@@ -48,6 +48,20 @@ func decodeConfig(content []byte) (*Config, error) {
 	return loaded, nil
 }
 
+func (s *Schema) SHA256Value() string {
+	if s.Sha256 == nil {
+		return ""
+	}
+	return *s.Sha256
+}
+
+func (s *Schema) SourceValue() Source {
+	if s.Source == nil {
+		return Source{}
+	}
+	return *s.Source
+}
+
 func (c *Config) resolvePaths(baseDir string) {
 	c.Schema.Path = resolvePath(baseDir, c.Schema.Path)
 	for index, operation := range c.Operations {

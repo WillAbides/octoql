@@ -206,6 +206,11 @@ func TestMaterializerDownloadFailures(t *testing.T) {
 		timeout       time.Duration
 	}{
 		{
+			name:          "missing checksum",
+			handler:       http.NotFoundHandler(),
+			expectedError: "sha256 is required for remote sources",
+		},
+		{
 			name: "checksum mismatch",
 			handler: http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 				_, _ = response.Write(exactSchema)
@@ -347,6 +352,12 @@ func TestGitHubRepositoryRequestEscaping(t *testing.T) {
 			"schema%20dir/schema%23one.graphql?ref="+schemaRevision,
 		requestURL,
 	)
+
+	_, err = githubContentsURL(
+		"https://github.example.com/api/v3",
+		config.GithubRepository{Repository: "invalid"},
+	)
+	require.Error(t, err)
 }
 
 func TestGitHubTokenPrecedence(t *testing.T) {
