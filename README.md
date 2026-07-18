@@ -2,19 +2,22 @@
 [![Test Status](https://github.com/willabides/octoql/actions/workflows/ci.yaml/badge.svg)](https://github.com/willabides/octoql/actions)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](docs/CODE_OF_CONDUCT.md)
 
-# octoql: a truly type-safe Go GraphQL client
+# octoql: a truly type-safe GitHub v4 GraphQL client
 
 octoql is a standalone project derived from Khan/genqlient. See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
 
 ## What is octoql?
 
-octoql is a Go library that generates type-safe code to query a GraphQL API. It takes advantage of the fact that both GraphQL and Go are typed languages to ensure at compile-time that your code is making a valid GraphQL query and using the result correctly, all with a minimum of boilerplate.
+octoql is a Go library that generates type-safe code for GitHub's v4 GraphQL
+API. It takes advantage of the fact that both GraphQL and Go are typed
+languages to ensure at compile time that your code makes valid GitHub API
+queries with minimal boilerplate.
 
 octoql provides:
 
-- Compile-time validation of GraphQL queries: never ship an invalid GraphQL query again!
-- Type-safe response objects: genqlient generates the right type for each query, so you know the response will unmarshal correctly and never need to use `interface{}`.
+- Compile-time validation of GitHub GraphQL queries: never ship an invalid query again!
+- Type-safe response objects: octoql generates the right type for each query, so you know the response will unmarshal correctly and never need to use `interface{}`.
 - Production-readiness: its inherited generator is used in production at Khan Academy, where it supports millions of learners and teachers around the world.
 
 ## How do I use octoql?
