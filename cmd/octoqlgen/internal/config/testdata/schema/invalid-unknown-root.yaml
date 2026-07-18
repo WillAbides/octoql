@@ -1,4 +1,5 @@
 schema: {path: schema.graphql}
 operations: [operations.graphql]
 generated: generated.go
+test_handler: {generated: internal/githubapitest/generated.go}
 unknown: true

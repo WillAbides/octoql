@@ -4,3 +4,4 @@ schema:
   source: {github_repository: {repository: octo-org/api-schema, revision: 45d83f459620340069df7c375a8867be62616d61, path: schema/github.graphql, host: github.example.com/path}}
 operations: [operations.graphql]
 generated: generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

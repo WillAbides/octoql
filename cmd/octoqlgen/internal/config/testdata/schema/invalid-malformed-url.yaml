@@ -4,3 +4,4 @@ schema:
   source: {url: ftp://example.com/schema.graphql}
 operations: [operations.graphql]
 generated: generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

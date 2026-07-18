@@ -3,3 +3,4 @@ schema:
   source: {url: https://example.com/schema.graphql}
 operations: [operations.graphql]
 generated: generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

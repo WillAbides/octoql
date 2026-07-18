@@ -5,3 +5,4 @@ schema:
     github_docs: {version: fpt, revision: 45d83f459620340069df7c375a8867be62616d61, unknown: true}
 operations: [operations.graphql]
 generated: generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

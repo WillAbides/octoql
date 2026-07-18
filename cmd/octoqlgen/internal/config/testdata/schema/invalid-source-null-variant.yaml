@@ -4,3 +4,4 @@ schema:
   source: {url: null}
 operations: [operations.graphql]
 generated: generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

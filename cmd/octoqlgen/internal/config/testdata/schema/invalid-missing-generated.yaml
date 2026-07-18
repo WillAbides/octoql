@@ -1,2 +1,3 @@
 schema: {path: schema.graphql}
 operations: [operations.graphql]
+test_handler: {generated: internal/githubapitest/generated.go}
