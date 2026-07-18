@@ -1,0 +1,269 @@
+// Copyright (c) 2026 octoql contributors
+// SPDX-License-Identifier: MIT
+
+// Package configschema provides the canonical JSON Schema for octoql.yaml.
+package configschema
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+)
+
+const document = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "octoql configuration",
+  "description": "Configuration for octoqlgen. This schema is generated from the reviewed source in internal/configschema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "operations",
+    "generated"
+  ],
+  "properties": {
+    "schema": {
+      "$ref": "#/$defs/schema"
+    },
+    "operations": {
+      "description": "One or more GraphQL operation file paths or glob patterns, relative to octoql.yaml.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "examples": [
+        [
+          "graphql/**/*.graphql"
+        ]
+      ]
+    },
+    "generated": {
+      "description": "Path for generated Go code, relative to octoql.yaml.",
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "internal/githubapi/generated.go"
+      ]
+    },
+    "test_handler": {
+      "$ref": "#/$defs/testHandler"
+    }
+  },
+  "$defs": {
+    "schema": {
+      "description": "The GraphQL schema input and, optionally, a pinned remote source.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "description": "Path where octoqlgen reads or materializes the GraphQL schema.",
+          "type": "string",
+          "minLength": 1,
+          "examples": [
+            ".octoql/schema.graphql"
+          ]
+        },
+        "sha256": {
+          "description": "Canonical SHA-256 of the schema bytes. Required for a remote source and optional for a local schema.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "examples": [
+            "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "required": [
+              "sha256"
+            ]
+          }
+        }
+      ]
+    },
+    "source": {
+      "description": "Exactly one pinned remote source. Omit source for a local-only schema.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "github_docs": {
+          "$ref": "#/$defs/githubDocs"
+        },
+        "github_repository": {
+          "$ref": "#/$defs/githubRepository"
+        },
+        "url": {
+          "$ref": "#/$defs/url"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "github_docs"
+          ]
+        },
+        {
+          "required": [
+            "github_repository"
+          ]
+        },
+        {
+          "required": [
+            "url"
+          ]
+        }
+      ]
+    },
+    "githubDocs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "revision"
+      ],
+      "properties": {
+        "version": {
+          "description": "The GitHub documentation version.",
+          "type": "string",
+          "pattern": "^(?:fpt|ghec|ghes-[0-9]+\\.[0-9]+)$",
+          "examples": [
+            "fpt",
+            "ghec",
+            "ghes-3.14"
+          ]
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        }
+      }
+    },
+    "githubRepository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "revision",
+        "path"
+      ],
+      "properties": {
+        "repository": {
+          "description": "Repository owner and name.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "examples": [
+            "octo-org/api-schema"
+          ]
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "path": {
+          "description": "Repository-relative schema file path using forward slashes.",
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:[^/\\\\]|[^/\\\\].*[^/\\\\])$"
+            },
+            {
+              "not": {
+                "pattern": "(^|/)\\.\\.?(/|$)"
+              }
+            },
+            {
+              "not": {
+                "pattern": "//"
+              }
+            },
+            {
+              "not": {
+                "pattern": "\\\\"
+              }
+            }
+          ],
+          "examples": [
+            "schema/github.graphql"
+          ]
+        },
+        "host": {
+          "description": "GitHub host and optional port. Defaults to github.com.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]+)?$",
+          "examples": [
+            "github.com",
+            "github.example.com"
+          ]
+        }
+      }
+    },
+    "url": {
+      "description": "An absolute HTTP or HTTPS schema URL without credentials.",
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https?://[^/@[:space:]]+(?:[/?#]|$)",
+      "examples": [
+        "https://example.com/schema.graphql"
+      ]
+    },
+    "revision": {
+      "description": "A full lowercase hexadecimal Git commit SHA.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "examples": [
+        "45d83f459620340069df7c375a8867be62616d61"
+      ]
+    },
+    "testHandler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generated"
+      ],
+      "properties": {
+        "generated": {
+          "description": "Path for generated test handler code, relative to octoql.yaml.",
+          "type": "string",
+          "minLength": 1,
+          "examples": [
+            "internal/githubapitest/generated.go"
+          ]
+        }
+      }
+    }
+  }
+}
+`
+
+// JSONDocument returns the canonical JSON Schema with a trailing newline.
+func JSONDocument() []byte {
+	return []byte(document)
+}
+
+// YAMLDocument returns the YAML Schema generated from the canonical JSON Schema.
+func YAMLDocument() ([]byte, error) {
+	var value any
+	err := json.Unmarshal(JSONDocument(), &value)
+	if err != nil {
+		return nil, fmt.Errorf("decoding canonical JSON Schema: %w", err)
+	}
+
+	content, err := yaml.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("encoding YAML Schema: %w", err)
+	}
+	return append([]byte("# Code generated by generateconfigschema. DO NOT EDIT.\n"), content...), nil
+}

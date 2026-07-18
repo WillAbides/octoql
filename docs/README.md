@@ -13,10 +13,20 @@ Welcome to the genqlient documentation! This documentation is made possible by v
 - [Client configuration and usage](client_config.md)
 - [Writing your GraphQL operations](operations.md)
 
+## Configuration editor support
+
+The repository's [`octoql.yaml` example](octoql.yaml) uses a
+`yaml-language-server` directive that resolves to
+[`schema/octoql.schema.yaml`](../schema/octoql.schema.yaml) in this repository.
+The YAML schema is generated from the reviewed JSON Schema source, alongside
+[`schema/octoql.schema.json`](../schema/octoql.schema.json). Downstream projects
+can point an editor at either committed file or at its raw `main`-branch URL:
+`https://raw.githubusercontent.com/WillAbides/octoql/main/schema/octoql.schema.yaml`.
+
 # Reference
 
 - [Go package reference](https://pkg.go.dev/github.com/willabides/octoql)
-- [`genqlient.yaml` configuration reference](genqlient.yaml)
+- [`octoql.yaml` configuration example](octoql.yaml)
 - [`@genqlient` directive reference](genqlient_directive.graphql)
 - [changelog](CHANGELOG.md)
 

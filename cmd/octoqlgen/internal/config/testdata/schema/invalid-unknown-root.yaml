@@ -1,0 +1,4 @@
+schema: {path: schema.graphql}
+operations: [operations.graphql]
+generated: generated.go
+unknown: true

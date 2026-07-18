@@ -1,0 +1,3 @@
+schema: {path: schema.graphql, sha256: C98CB9EDEEDD1FB56C8678C19A8AD540C8D0739DD94579DFEDBE044192E4AB18}
+operations: [operations.graphql]
+generated: generated.go

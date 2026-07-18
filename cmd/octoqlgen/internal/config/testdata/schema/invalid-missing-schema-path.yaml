@@ -1,0 +1,3 @@
+schema: {}
+operations: [operations.graphql]
+generated: generated.go

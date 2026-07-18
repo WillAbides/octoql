@@ -1,0 +1,6 @@
+schema:
+  path: .octoql/schema.graphql
+operations:
+  - graphql/**/*.graphql
+  - graphql/admin.graphql
+generated: internal/githubapi/generated.go

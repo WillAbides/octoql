@@ -1,0 +1,5 @@
+schema:
+  path: schema.graphql
+  source: {url: https://example.com/schema.graphql}
+operations: [operations.graphql]
+generated: generated.go
