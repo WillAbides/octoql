@@ -10,10 +10,49 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 )
+
+var urlDiagnosticPattern = regexp.MustCompile(`https?://[^\s"'<>()[\]{}]+`)
+
+type sanitizedURLDiagnostic struct {
+	cause   error
+	message string
+}
+
+func (e *sanitizedURLDiagnostic) Error() string {
+	return e.message
+}
+
+func (e *sanitizedURLDiagnostic) Is(target error) bool {
+	return errors.Is(e.cause, target)
+}
+
+func sanitizeURLDiagnostic(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return &sanitizedURLDiagnostic{
+		cause:   err,
+		message: urlDiagnosticPattern.ReplaceAllStringFunc(err.Error(), redactURL),
+	}
+}
+
+func redactURL(value string) string {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return value
+	}
+
+	parsed.User = nil
+	parsed.RawQuery = ""
+	parsed.ForceQuery = false
+	return parsed.String()
+}
 
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
@@ -88,7 +127,7 @@ func fetchURL(
 ) (data []byte, err error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("creating schema request: %w", err)
+		return nil, fmt.Errorf("creating schema request: %w", sanitizeURLDiagnostic(err))
 	}
 	if isGitHub {
 		request.Header.Set("Accept", "application/vnd.github.raw+json")
@@ -99,7 +138,7 @@ func fetchURL(
 
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("fetching schema: %w", err)
+		return nil, fmt.Errorf("fetching schema: %w", sanitizeURLDiagnostic(err))
 	}
 	defer func() {
 		err = errors.Join(err, response.Body.Close())

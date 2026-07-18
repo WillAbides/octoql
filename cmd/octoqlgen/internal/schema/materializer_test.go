@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -118,6 +119,35 @@ func TestMaterializerURLFetch(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, written)
 	assert.Empty(t, temporaryFiles(t, destination))
+}
+
+func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
+	t.Parallel()
+
+	const (
+		userSecret  = "unmistakable-user-secret"
+		querySecret = "unmistakable-query-secret"
+	)
+	requestURL := "https://" + userSecret + "@example.test/schema.graphql?signature=" + querySecret
+	client := httpClientFunc(func(*http.Request) (*http.Response, error) {
+		inner := &url.Error{
+			Op:  "dial",
+			URL: requestURL,
+			Err: errors.New("connection refused"),
+		}
+		return nil, fmt.Errorf("transport retry: %w", &url.Error{
+			Op:  "Get",
+			URL: requestURL,
+			Err: inner,
+		})
+	})
+
+	_, err := fetchURL(t.Context(), client, requestURL, "", false, 1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "example.test/schema.graphql")
+	assert.Contains(t, err.Error(), "connection refused")
+	assert.NotContains(t, err.Error(), userSecret)
+	assert.NotContains(t, err.Error(), querySecret)
 }
 
 func TestMaterializerDownloadFailures(t *testing.T) {

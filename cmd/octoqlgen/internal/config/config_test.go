@@ -48,6 +48,42 @@ func TestLoad(t *testing.T) {
 			expectedError: "schema.source must set exactly one remote source variant",
 		},
 		{
+			name: "empty source object",
+			mutate: func(input string) string {
+				return strings.Replace(
+					input,
+					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
+					"  source: {}",
+					1,
+				)
+			},
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+		{
+			name: "null source",
+			mutate: func(input string) string {
+				return strings.Replace(
+					input,
+					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
+					"  source: null",
+					1,
+				)
+			},
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+		{
+			name: "null url source",
+			mutate: func(input string) string {
+				return strings.Replace(
+					input,
+					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
+					"  source:\n    url: null",
+					1,
+				)
+			},
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+		{
 			name: "remote source without checksum",
 			mutate: func(input string) string {
 				return strings.Replace(input, "  sha256: "+testSHA256+"\n", "", 1)
