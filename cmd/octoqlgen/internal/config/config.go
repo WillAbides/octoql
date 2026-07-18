@@ -6,6 +6,7 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,41 +29,18 @@ var (
 	repositoryPartPattern  = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 )
 
+//nolint:govet // Keep fields grouped by the configuration document shape.
 type Config struct {
-	Schema      Schema      `yaml:"schema"`
-	Generated   string      `yaml:"generated"`
-	TestHandler TestHandler `yaml:"test_handler"`
-	baseDir     string
-	Operations  []string `yaml:"operations"`
+	Schema      Schema      `json:"schema"`
+	Operations  []string    `json:"operations"`
+	TestHandler TestHandler `json:"test_handler"`
+	Generated   string      `json:"generated"`
+	state       *configState
 }
 
-type Schema struct {
-	Source        Source `yaml:"source,omitempty"`
-	Path          string `yaml:"path"`
-	SHA256        string `yaml:"sha256,omitempty"`
+type configState struct {
+	baseDir       string
 	sourcePresent bool
-}
-
-type Source struct {
-	GitHubDocs       *GitHubDocs       `yaml:"github_docs,omitempty"`
-	GitHubRepository *GitHubRepository `yaml:"github_repository,omitempty"`
-	URL              *string           `yaml:"url,omitempty"`
-}
-
-type GitHubDocs struct {
-	Version  string `yaml:"version"`
-	Revision string `yaml:"revision"`
-}
-
-type GitHubRepository struct {
-	Repository string `yaml:"repository"`
-	Revision   string `yaml:"revision"`
-	Path       string `yaml:"path"`
-	Host       string `yaml:"host,omitempty"`
-}
-
-type TestHandler struct {
-	Generated string `yaml:"generated"`
 }
 
 func Load(filename string) (*Config, error) {
@@ -80,36 +58,59 @@ func Load(filename string) (*Config, error) {
 		return nil, fmt.Errorf("reading config file %q: %w", filename, err)
 	}
 
-	decoder := yaml.NewDecoder(bytes.NewReader(content))
-	decoder.KnownFields(true)
+	jsonContent, err := yamlToJSON(content)
+	if err != nil {
+		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
+	}
 
-	config := &Config{}
+	config := &Config{
+		state: &configState{},
+	}
+	decoder := json.NewDecoder(bytes.NewReader(jsonContent))
+	decoder.DisallowUnknownFields()
 	err = decoder.Decode(config)
 	if err != nil {
 		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
 	}
 
-	var extra any
-	err = decoder.Decode(&extra)
-	if !errors.Is(err, io.EOF) {
-		if err == nil {
-			return nil, fmt.Errorf("decoding config file %q: multiple yaml documents are not allowed", filename)
-		}
-		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
-	}
-
-	config.baseDir = filepath.Dir(absoluteFilename)
+	config.state.baseDir = filepath.Dir(absoluteFilename)
 	sourcePresent, err := schemaSourcePresent(content)
 	if err != nil {
 		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
 	}
-	config.Schema.sourcePresent = sourcePresent
+
+	config.state.sourcePresent = sourcePresent
 	err = config.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("validating config file %q: %w", filename, err)
 	}
 
 	return config, nil
+}
+
+func yamlToJSON(content []byte) ([]byte, error) {
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
+
+	var document any
+	err := decoder.Decode(&document)
+	if err != nil {
+		return nil, err
+	}
+
+	var extra any
+	err = decoder.Decode(&extra)
+	if !errors.Is(err, io.EOF) {
+		if err == nil {
+			return nil, errors.New("multiple yaml documents are not allowed")
+		}
+		return nil, err
+	}
+
+	jsonContent, err := json.Marshal(document)
+	if err != nil {
+		return nil, fmt.Errorf("converting YAML to JSON: %w", err)
+	}
+	return jsonContent, nil
 }
 
 func (c *Config) Validate() error {
@@ -129,7 +130,8 @@ func (c *Config) Validate() error {
 		return errors.New("test_handler.generated is required")
 	}
 
-	err := validateSource(c.Schema.Source, c.Schema.SHA256, c.Schema.sourcePresent)
+	sourcePresent := c.state != nil && c.state.sourcePresent
+	err := validateSource(c.Schema.Source, c.Schema.SHA256, sourcePresent)
 	if err != nil {
 		return err
 	}
@@ -320,23 +322,30 @@ func (g *GitHubRepository) Validate() error {
 }
 
 func (c *Config) SchemaPath() string {
-	return resolvePath(c.baseDir, c.Schema.Path)
+	return resolvePath(c.baseDir(), c.Schema.Path)
 }
 
 func (c *Config) OperationPaths() []string {
 	paths := make([]string, 0, len(c.Operations))
 	for _, operation := range c.Operations {
-		paths = append(paths, resolvePath(c.baseDir, operation))
+		paths = append(paths, resolvePath(c.baseDir(), operation))
 	}
 	return paths
 }
 
 func (c *Config) GeneratedPath() string {
-	return resolvePath(c.baseDir, c.Generated)
+	return resolvePath(c.baseDir(), c.Generated)
 }
 
 func (c *Config) TestHandlerGeneratedPath() string {
-	return resolvePath(c.baseDir, c.TestHandler.Generated)
+	return resolvePath(c.baseDir(), c.TestHandler.Generated)
+}
+
+func (c *Config) baseDir() string {
+	if c.state == nil {
+		return ""
+	}
+	return c.state.baseDir
 }
 
 func validateURL(value string) error {

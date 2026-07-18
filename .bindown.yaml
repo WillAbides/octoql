@@ -16,11 +16,41 @@ dependencies:
     template: origin#goreleaser
     vars:
       version: 2.14.3
+  jsonschematogo:
+    template: jsonschematogo#jsonschematogo
+    vars:
+      version: 0.2.0
   shfmt:
     template: origin#shfmt
     vars:
       version: 3.13.0
 templates:
+  jsonschematogo#jsonschematogo:
+    homepage: https://github.com/WillAbides/jsonschematogo
+    url: https://github.com/WillAbides/jsonschematogo/releases/download/v{{.version}}/jsonschematogo_{{.version}}_{{.os}}_{{.arch}}{{.urlSuffix}}
+    archive_path: jsonschematogo{{.archivePathSuffix}}
+    bin: jsonschematogo
+    vars:
+      archivePathSuffix: ""
+      urlSuffix: .tar.gz
+    overrides:
+      - matcher:
+          os:
+            - windows
+        dependency:
+          vars:
+            archivePathSuffix: .exe
+    systems:
+      - darwin/amd64
+      - darwin/arm64
+      - linux/386
+      - linux/amd64
+      - linux/arm64
+      - windows/386
+      - windows/amd64
+      - windows/arm64
+    required_vars:
+      - version
   origin#gofumpt:
     url: https://github.com/mvdan/gofumpt/releases/download/v{{.version}}/gofumpt_v{{.version}}_{{.os}}_{{.arch}}{{.urlSuffix}}
     archive_path: gofumpt_v{{.version}}_{{.os}}_{{.arch}}{{.urlSuffix}}
@@ -89,8 +119,13 @@ templates:
           vars:
             urlSuffix: .exe
 template_sources:
+  jsonschematogo: https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/bindown.yaml
   origin: https://raw.githubusercontent.com/WillAbides/bindown-templates/master/bindown.yml
 url_checksums:
+  https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_darwin_amd64.tar.gz: 783c79296e7f14555ef554705602e067f119dce244ca35d022a1cc071b60e1cd
+  https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_darwin_arm64.tar.gz: ed0800be4e46e2339035a04f5a4480ed7144d5eae49ade983f0fbbdb2a991def
+  https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_linux_amd64.tar.gz: 964e4154abd2ad7cca30c37c674441dde7e019143393d365e21232907f705512
+  https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_windows_amd64.tar.gz: 472bd30dd320f1777d459fc16ca349825436cf5e3674099209ae0f1305a30fa2
   https://github.com/golangci/golangci-lint/releases/download/v2.11.3/golangci-lint-2.11.3-darwin-amd64.tar.gz: f93bda1f2cc981fd1326464020494be62f387bbf262706e1b3b644e5afacc440
   https://github.com/golangci/golangci-lint/releases/download/v2.11.3/golangci-lint-2.11.3-darwin-arm64.tar.gz: 30ee39979c516b9d1adca289a3f93429d130c4c0fda5e57d637850894221f6cc
   https://github.com/golangci/golangci-lint/releases/download/v2.11.3/golangci-lint-2.11.3-linux-amd64.tar.gz: 87bb8cddbcc825d5778b64e8a91b46c0526b247f4e2f2904dea74ec7450475d1

@@ -21,7 +21,8 @@
         "version",
         "revision"
       ],
-      "type": "object"
+      "type": "object",
+      "x-go-type-name": "GitHubDocs"
     },
     "githubRepository": {
       "additionalProperties": false,
@@ -91,7 +92,8 @@
         "revision",
         "path"
       ],
-      "type": "object"
+      "type": "object",
+      "x-go-type-name": "GitHubRepository"
     },
     "revision": {
       "description": "A full lowercase hexadecimal Git commit SHA.",
@@ -142,7 +144,8 @@
       "required": [
         "path"
       ],
-      "type": "object"
+      "type": "object",
+      "x-go-type-name": "Schema"
     },
     "source": {
       "additionalProperties": false,
@@ -175,7 +178,8 @@
           "$ref": "#/$defs/url"
         }
       },
-      "type": "object"
+      "type": "object",
+      "x-go-type-name": "Source"
     },
     "testHandler": {
       "additionalProperties": false,
@@ -192,7 +196,8 @@
       "required": [
         "generated"
       ],
-      "type": "object"
+      "type": "object",
+      "x-go-type-name": "TestHandler"
     },
     "url": {
       "description": "An absolute HTTP or HTTPS schema URL without credentials.",
@@ -244,5 +249,6 @@
     "test_handler"
   ],
   "title": "octoql configuration",
-  "type": "object"
+  "type": "object",
+  "x-go-type-name": "ConfigModel"
 }

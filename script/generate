@@ -35,5 +35,9 @@ if [ "$1" = "--check" ]; then
   exit 0
 fi
 
+script/bindown -q install jsonschematogo
+bin/jsonschematogo --output cmd/octoqlgen/internal/config/config_generated.go --package config schema/octoql.schema.json
+go run ./cmd/internal/generateconfigtypes cmd/octoqlgen/internal/config/config_generated.go
+gofmt -w cmd/octoqlgen/internal/config/config_generated.go
 go generate ./...
 go mod tidy

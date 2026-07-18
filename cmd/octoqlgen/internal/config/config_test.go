@@ -33,7 +33,7 @@ func TestLoad(t *testing.T) {
 			mutate: func(input string) string {
 				return input + "unknown: true\n"
 			},
-			expectedError: "field unknown not found",
+			expectedError: `json: unknown field "unknown"`,
 		},
 		{
 			name: "multiple source variants",
