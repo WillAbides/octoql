@@ -1,3 +1,5 @@
-subscription SubscriptionUnsupported {
-  count
+subscription WatchRepository($owner: String!, $name: String!) {
+  repositoryUpdated(owner: $owner, name: $name) {
+    nameWithOwner
+  }
 }
