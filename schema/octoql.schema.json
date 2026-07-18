@@ -200,7 +200,7 @@
         "https://example.com/schema.graphql"
       ],
       "format": "uri",
-      "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^/@\\s]+(?:[/?#][^\\s]*)?$",
+      "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^/@\\s?#]+(?:[/?#][^\\s]*)?$",
       "type": "string"
     }
   },

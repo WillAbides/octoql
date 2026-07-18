@@ -119,6 +119,14 @@ func TestURLPatternUsesECMAScriptSyntax(t *testing.T) {
 			name:  "URL with credentials",
 			value: "https://user@example.com/schema.graphql",
 		},
+		{
+			name:  "URL with empty host query",
+			value: "https://?query",
+		},
+		{
+			name:  "URL with empty host fragment",
+			value: "https://#fragment",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
