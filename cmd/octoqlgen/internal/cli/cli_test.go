@@ -39,8 +39,8 @@ func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 			return &config.Config{
 				Schema: config.Schema{
 					Path:   ".octoql/schema.graphql",
-					SHA256: cliSHA256,
-					Source: config.Source{URL: new("https://example.test/schema.graphql")},
+					SHA256: new(cliSHA256),
+					Source: new(config.Source{URL: new("https://example.test/schema.graphql")}),
 				},
 			}, nil
 		},

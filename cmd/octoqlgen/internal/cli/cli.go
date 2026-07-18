@@ -92,8 +92,8 @@ func (cmd *SchemaCommand) request() (schema.Request, error) {
 		}
 		return schema.Request{
 			Path:   loaded.SchemaPath(),
-			SHA256: loaded.Schema.SHA256,
-			Source: loaded.Schema.Source,
+			SHA256: loaded.Schema.SHA256Value(),
+			Source: loaded.Schema.SourceValue(),
 		}, nil
 	}
 

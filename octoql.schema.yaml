@@ -1,0 +1,179 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: octoql configuration
+description: Configuration for generating a GitHub GraphQL client with octoqlgen.
+type: object
+x-go-type-name: Config
+additionalProperties: false
+required:
+  - schema
+  - operations
+  - generated
+  - test_handler
+properties:
+  schema:
+    description: Local schema path and optional pinned remote source.
+    type: object
+    x-go-type-name: Schema
+    additionalProperties: false
+    required:
+      - path
+    dependentRequired:
+      source:
+        - sha256
+    properties:
+      path:
+        description: Path where the GraphQL schema is read or materialized.
+        type: string
+        minLength: 1
+        examples:
+          - .octoql/schema.graphql
+      sha256:
+        description: Canonical lowercase SHA-256 digest for the schema bytes.
+        type: string
+        x-go-name: SHA256
+        minLength: 64
+        maxLength: 64
+        pattern: ^[0-9a-f]{64}$
+        examples:
+          - c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
+      source:
+        description: Exactly one pinned remote source for the GraphQL schema.
+        type: object
+        x-go-type-name: Source
+        additionalProperties: false
+        minProperties: 1
+        maxProperties: 1
+        properties:
+          github_docs:
+            description: Pinned GitHub Docs GraphQL schema source.
+            type: object
+            x-go-name: GitHubDocs
+            x-go-type-name: GitHubDocs
+            additionalProperties: false
+            required:
+              - version
+              - revision
+            properties:
+              version:
+                description: GitHub product schema version.
+                type: string
+                pattern: ^(fpt|ghec|ghes-[0-9]+\.[0-9]+)$
+                not:
+                  pattern: '[\r\n                      ]'
+                examples:
+                  - fpt
+                  - ghec
+                  - ghes-3.17
+              revision:
+                description: Full lowercase Git commit revision in github/docs.
+                type: string
+                minLength: 40
+                maxLength: 40
+                pattern: ^[0-9a-f]{40}$
+                examples:
+                  - 45d83f459620340069df7c375a8867be62616d61
+          github_repository:
+            description: Pinned schema file in a GitHub or GitHub Enterprise repository.
+            type: object
+            x-go-name: GitHubRepository
+            x-go-type-name: GitHubRepository
+            additionalProperties: false
+            required:
+              - repository
+              - revision
+              - path
+            properties:
+              repository:
+                description: Repository in owner/name form.
+                type: string
+                pattern: ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$
+                not:
+                  pattern: '[\r\n                      ]'
+                allOf:
+                  - not:
+                      pattern: ^(\.|\.\.)/
+                  - not:
+                      pattern: /(\.|\.\.)$
+                examples:
+                  - octo-org/octo-repo
+              revision:
+                description: Full lowercase Git commit revision.
+                type: string
+                minLength: 40
+                maxLength: 40
+                pattern: ^[0-9a-f]{40}$
+                examples:
+                  - 45d83f459620340069df7c375a8867be62616d61
+              path:
+                description: Repository-relative path without traversal.
+                type: string
+                minLength: 1
+                allOf:
+                  - pattern: ^[^/\\\s\x00-\x1F\x7F]+(/[^/\\\s\x00-\x1F\x7F]+)*$
+                  - not:
+                      pattern: (^|/)\.\.?(/|$)
+                examples:
+                  - schema/github.graphql
+              host:
+                description: GitHub host as a DNS name, IPv4 address, or bracketed IPv6 address with an optional port.
+                type: string
+                minLength: 1
+                maxLength: 259
+                not:
+                  pattern: '[\r\n                      ]'
+                anyOf:
+                  - pattern: ^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}(:([0-9]{1,4}|[0-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$
+                  - pattern: ^\[((([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,7}:|([0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,5}(:[0-9A-Fa-f]{1,4}){1,2}|([0-9A-Fa-f]{1,4}:){1,4}(:[0-9A-Fa-f]{1,4}){1,3}|([0-9A-Fa-f]{1,4}:){1,3}(:[0-9A-Fa-f]{1,4}){1,4}|([0-9A-Fa-f]{1,4}:){1,2}(:[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:((:[0-9A-Fa-f]{1,4}){1,6})|:((:[0-9A-Fa-f]{1,4}){1,7}|:)))\](:([0-9]{1,4}|[0-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$
+                  - allOf:
+                      - pattern: ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.?(:([0-9]{1,4}|[0-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$
+                      - not:
+                          pattern: ^[0-9.]+(:[0-9]+)?$
+                examples:
+                  - github.example.com
+                  - 192.0.2.10:8443
+                  - '[2001:db8::1]'
+          url:
+            description: Immutable HTTP or HTTPS URL for the exact schema bytes.
+            type: string
+            x-go-name: URL
+            minLength: 1
+            format: uri
+            allOf:
+              - pattern: ^[Hh][Tt][Tt][Pp]([Ss])?://((%[0-9A-Fa-f]{2})|[^%/?#@\s\x00-\x1F\x7F])+(/((%[0-9A-Fa-f]{2})|[^%?#\s\x00-\x1F\x7F])*)?(\?((%[0-9A-Fa-f]{2})|[^%#\s\x00-\x1F\x7F])*)?(#((%[0-9A-Fa-f]{2})|[^%\s\x00-\x1F\x7F])*)?$
+              - not:
+                  pattern: ^[Hh][Tt][Tt][Pp]([Ss])?://[^/?#]*@
+              - not:
+                  pattern: ^[Hh][Tt][Tt][Pp]([Ss])?://[^/?#]+:(/|\?|#|$)
+              - not:
+                  pattern: ^[Hh][Tt][Tt][Pp]([Ss])?://[^/?#]+:(6553[6-9]|655[4-9][0-9]|65[6-9][0-9]{2}|6[6-9][0-9]{3}|[7-9][0-9]{4}|[0-9]{6,})(/|\?|#|$)
+            examples:
+              - https://schemas.example.com/github.graphql?version=stable#schema
+  operations:
+    description: Nonempty paths or glob patterns selecting GraphQL operations.
+    type: array
+    minItems: 1
+    items:
+      type: string
+      minLength: 1
+    examples:
+      - - graphql/**/*.graphql
+  generated:
+    description: Path for the generated GraphQL client Go file.
+    type: string
+    minLength: 1
+    examples:
+      - githubapi/generated.go
+  test_handler:
+    description: Generated test handler configuration.
+    type: object
+    x-go-type-name: TestHandler
+    additionalProperties: false
+    required:
+      - generated
+    properties:
+      generated:
+        description: Path for the generated test handler Go file.
+        type: string
+        minLength: 1
+        examples:
+          - githubapitest/generated.go

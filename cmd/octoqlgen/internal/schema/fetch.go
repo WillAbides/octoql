@@ -158,7 +158,7 @@ func (m *Materializer) fetch(
 
 	token, err := discoverToken(
 		ctx,
-		repository.Host,
+		*repository.Host,
 		dependencies.lookupEnvironment,
 		dependencies.commandRunner,
 	)
@@ -167,7 +167,7 @@ func (m *Materializer) fetch(
 	}
 
 	requestURL, err := githubContentsURL(
-		dependencies.githubAPIBaseURL(repository.Host),
+		dependencies.githubAPIBaseURL(*repository.Host),
 		*repository,
 	)
 	if err != nil {
@@ -238,11 +238,12 @@ func githubDocsRepository(source config.GitHubDocs) *config.GitHubRepository {
 	if strings.HasPrefix(source.Version, "ghes-") {
 		filename = "schema.docs-enterprise.graphql"
 	}
+	host := "github.com"
 	return &config.GitHubRepository{
 		Repository: "github/docs",
 		Revision:   source.Revision,
 		Path:       "src/graphql/data/" + source.Version + "/" + filename,
-		Host:       "github.com",
+		Host:       &host,
 	}
 }
 

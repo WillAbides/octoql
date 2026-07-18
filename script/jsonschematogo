@@ -1,0 +1,8 @@
+#!/bin/sh
+#/ script/jsonschematogo runs the repository-pinned jsonschematogo.
+
+set -e
+
+repo_root="$(CDPATH="" cd -- "$(dirname -- "$0")/.." && pwd)"
+"$repo_root/script/bindown" -q install jsonschematogo
+exec "$repo_root/bin/jsonschematogo" "$@"

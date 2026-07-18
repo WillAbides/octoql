@@ -16,9 +16,18 @@ Welcome to the genqlient documentation! This documentation is made possible by v
 # Reference
 
 - [Go package reference](https://pkg.go.dev/github.com/willabides/octoql)
+- [`octoql.yaml` JSON Schema](../octoql.schema.json)
+- [`octoql.yaml` YAML Schema](../octoql.schema.yaml)
 - [`genqlient.yaml` configuration reference](genqlient.yaml)
 - [`@genqlient` directive reference](genqlient_directive.graphql)
 - [changelog](CHANGELOG.md)
+
+The committed JSON Schema is the canonical structural definition of
+`octoql.yaml`, with an equivalent YAML copy for tools that prefer YAML.
+Repository checkouts can reference the JSON file relatively, as shown in
+[`octoql.yaml`](octoql.yaml). Downstream editor configuration can use
+`https://raw.githubusercontent.com/WillAbides/octoql/main/octoql.schema.json` or
+`https://raw.githubusercontent.com/WillAbides/octoql/main/octoql.schema.yaml`.
 
 ## Background
 

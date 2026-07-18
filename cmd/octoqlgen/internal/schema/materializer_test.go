@@ -337,7 +337,7 @@ func TestGitHubRepositoryRequestEscaping(t *testing.T) {
 			Repository: "octo-org/octo.repo",
 			Revision:   schemaRevision,
 			Path:       "schema dir/schema#one.graphql",
-			Host:       "github.example.com",
+			Host:       new("github.example.com"),
 		},
 	)
 	require.NoError(t, err)
