@@ -6,7 +6,9 @@ package octoql
 import (
 	"errors"
 	"io"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -121,6 +123,38 @@ func TestRateLimitRejectsNegativeAndOverflowNumericHeaders(t *testing.T) {
 	}
 }
 
+func TestNonnegativeHeaderUnixRepresentability(t *testing.T) {
+	maximum := maxUnixSeconds()
+	tests := map[string]struct {
+		value string
+		want  bool
+	}{
+		"largest representable Unix second": {
+			value: strconv.FormatUint(maximum, 10),
+			want:  true,
+		},
+		"first unrepresentable Unix second": {
+			value: strconv.FormatUint(maximum+1, 10),
+		},
+		"maximum int64 Unix second": {
+			value: strconv.FormatInt(math.MaxInt64, 10),
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			header := http.Header{"X-RateLimit-Reset": {test.value}}
+			got, valid := nonnegativeHeaderUnix(header, "X-RateLimit-Reset")
+			assert.Equal(t, test.want, valid)
+			if test.want {
+				assert.Equal(t, time.Unix(int64(maximum), 0).UTC(), got)
+			} else {
+				assert.Equal(t, time.Time{}, got)
+			}
+		})
+	}
+}
+
 func TestDoClassifiesRateLimits(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 19, 0, 0, 0, time.UTC)
 	previousNow := rateLimitNow
@@ -180,6 +214,22 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 			statusCode: http.StatusForbidden,
 			wantRate:   true,
 			wantSecond: true,
+			wantHTTP:   true,
+		},
+		"retry after service unavailable response": {
+			body: `{"errors":[{"message":"temporarily unavailable"}]}`,
+			header: http.Header{
+				"Retry-After": {"30"},
+			},
+			statusCode: http.StatusServiceUnavailable,
+			wantHTTP:   true,
+		},
+		"retry after redirect response": {
+			body: `{"errors":[{"message":"redirected"}]}`,
+			header: http.Header{
+				"Retry-After": {"30"},
+			},
+			statusCode: http.StatusFound,
 			wantHTTP:   true,
 		},
 		"arbitrary forbidden response": {

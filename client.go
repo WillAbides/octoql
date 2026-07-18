@@ -152,17 +152,17 @@ func Do[T any](
 
 	if !isSuccessfulStatus(httpResponse.StatusCode) {
 		err = newHTTPError(&metadata, body, response.Errors, responseCause)
-		return response, classifyRateLimit(&rateLimit, err)
+		return response, classifyRateLimit(httpResponse.StatusCode, &rateLimit, err)
 	}
 	if responseCause != nil {
 		if len(response.Errors) > 0 {
 			err = errors.Join(response.Errors, responseCause)
-			return response, classifyRateLimit(&rateLimit, err)
+			return response, classifyRateLimit(httpResponse.StatusCode, &rateLimit, err)
 		}
-		return response, classifyRateLimit(&rateLimit, responseCause)
+		return response, classifyRateLimit(httpResponse.StatusCode, &rateLimit, responseCause)
 	}
 	if len(response.Errors) > 0 {
-		return response, classifyRateLimit(&rateLimit, response.Errors)
+		return response, classifyRateLimit(httpResponse.StatusCode, &rateLimit, response.Errors)
 	}
 	return response, nil
 }
@@ -257,13 +257,13 @@ func finishResponse[T any](
 ) (*Response[T], error) {
 	if !isSuccessfulStatus(statusCode) {
 		err := newHTTPError(metadata, body, response.Errors, cause)
-		return response, classifyRateLimit(rateLimit, err)
+		return response, classifyRateLimit(statusCode, rateLimit, err)
 	}
 	if len(response.Errors) > 0 {
 		err := joinErrors(response.Errors, cause)
-		return response, classifyRateLimit(rateLimit, err)
+		return response, classifyRateLimit(statusCode, rateLimit, err)
 	}
-	return response, classifyRateLimit(rateLimit, cause)
+	return response, classifyRateLimit(statusCode, rateLimit, cause)
 }
 
 func isSuccessfulStatus(statusCode int) bool {

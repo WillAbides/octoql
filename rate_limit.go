@@ -75,6 +75,11 @@ func (rateLimitError *RateLimitError) Unwrap() error {
 
 var rateLimitNow = time.Now
 
+func maxUnixSeconds() uint64 {
+	firstUnixSecond := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC).Unix()
+	return uint64(math.MaxInt64 + firstUnixSecond)
+}
+
 func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
 	rateLimit := parsedRateLimit{}
 
@@ -118,6 +123,9 @@ func nonnegativeHeaderInt(header http.Header, name string) (int, bool) {
 func nonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
 	value, valid := parseNonnegativeDecimal(headerValue(header, name), 63)
 	if !valid {
+		return time.Time{}, false
+	}
+	if value > maxUnixSeconds() {
 		return time.Time{}, false
 	}
 	return time.Unix(int64(value), 0).UTC(), true
@@ -177,12 +185,13 @@ func headerValue(header http.Header, name string) string {
 	return ""
 }
 
-func classifyRateLimit(rateLimit *parsedRateLimit, err error) error {
+func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) error {
 	if err == nil {
 		return nil
 	}
 
-	if rateLimit.retryAfterValid {
+	isSecondaryResponse := statusCode == http.StatusOK || statusCode == http.StatusForbidden
+	if rateLimit.retryAfterValid && isSecondaryResponse {
 		return &RateLimitError{
 			Kind:      RateLimitSecondary,
 			RateLimit: rateLimit.RateLimit,
