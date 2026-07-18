@@ -115,6 +115,8 @@ func redactURL(value string) string {
 	parsed.User = nil
 	parsed.RawQuery = ""
 	parsed.ForceQuery = false
+	parsed.Fragment = ""
+	parsed.RawFragment = ""
 	return parsed.String()
 }
 

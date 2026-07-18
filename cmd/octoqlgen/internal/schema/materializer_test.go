@@ -125,21 +125,25 @@ func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
 	t.Parallel()
 
 	const (
-		userSecret         = "unmistakable-user-secret"
-		closingQuerySecret = "unmistakable-closing-query-secret"
-		quotedQuerySecret  = "unmistakable-quoted-query-secret"
-		spacedQuerySecret  = "unmistakable-spaced-query-secret"
+		userSecret           = "unmistakable-user-secret"
+		closingQuerySecret   = "unmistakable-closing-query-secret"
+		quotedQuerySecret    = "unmistakable-quoted-query-secret"
+		spacedQuerySecret    = "unmistakable-spaced-query-secret"
+		directFragmentSecret = "unmistakable-direct-fragment-secret"
+		nestedFragmentSecret = "unmistakable-nested-fragment-secret"
 	)
-	requestURL := "https://" + userSecret + "@example.test/schema.graphql?" +
+	requestBaseURL := "https://" + userSecret + "@example.test/schema.graphql?" +
 		"closing=)" + closingQuerySecret +
 		"&quoted='" + quotedQuerySecret +
 		"&spaced=%20" + spacedQuerySecret
+	requestURL := requestBaseURL + "#" + directFragmentSecret
+	nestedURL := requestBaseURL + "#" + nestedFragmentSecret
 	var receivedURL string
 	client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
 		receivedURL = request.URL.String()
 		inner := &url.Error{
 			Op:  "dial",
-			URL: requestURL,
+			URL: nestedURL,
 			Err: errors.New("connection refused"),
 		}
 		return nil, fmt.Errorf("transport retry: %w", &url.Error{
@@ -158,6 +162,8 @@ func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
 	assert.NotContains(t, err.Error(), closingQuerySecret)
 	assert.NotContains(t, err.Error(), quotedQuerySecret)
 	assert.NotContains(t, err.Error(), spacedQuerySecret)
+	assert.NotContains(t, err.Error(), directFragmentSecret)
+	assert.NotContains(t, err.Error(), nestedFragmentSecret)
 }
 
 func TestFetchURLSanitizesPrefixRelatedURLErrors(t *testing.T) {
