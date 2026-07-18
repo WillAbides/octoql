@@ -40,46 +40,6 @@ type Client interface {
 	) error
 }
 
-type WebSocketClient interface {
-	// Start must open a webSocket connection and subscribe to an endpoint
-	// of the client's GraphQL API.
-	//
-	// errChan is a channel on which are sent the errors of webSocket
-	// communication. It will be closed when calling the `Close()` method.
-	//
-	// err is any error that occurs when setting up the webSocket connection.
-	Start(ctx context.Context) (errChan chan error, err error)
-
-	// Close must close the webSocket connection and close the error channel.
-	// If no connection was started, Close is a no-op
-	Close() error
-
-	// Subscribe must subscribe to an endpoint of the client's GraphQL API.
-	//
-	// req contains the data to be sent to the GraphQL server. Will be marshaled
-	// into JSON bytes.
-	//
-	// interfaceChan is a channel used to send the data that arrives via the
-	// webSocket connection (it is the channel that is passed to `forwardDataFunc`).
-	//
-	// forwardDataFunc is the function that will cast the received interface into
-	// the valid type for the subscription's response.
-	//
-	// Returns a subscriptionID if successful, an error otherwise.
-	Subscribe(
-		req *Request,
-		interfaceChan interface{},
-		forwardDataFunc ForwardDataFunction,
-	) (string, error)
-
-	// Unsubscribe must unsubscribe from an endpoint of the client's GraphQL API.
-	Unsubscribe(subscriptionID string) error
-}
-
-// ForwardDataFunction is a part of the WebSocketClient interface, see
-// [WebSocketClient.Subscribe] for details.
-type ForwardDataFunction func(interfaceChan interface{}, jsonRawMsg json.RawMessage) error
-
 type client struct {
 	httpClient Doer
 	endpoint   string
@@ -126,48 +86,6 @@ func NewClientUsingGet(endpoint string, httpClient Doer) Client {
 	return newClient(endpoint, httpClient, http.MethodGet)
 }
 
-type WebSocketOption func(*webSocketClient)
-
-// NewClientUsingWebSocket returns a [WebSocketClient] which makes subscription requests
-// to the given endpoint using webSocket.
-//
-// The client does not support queries nor mutations, and will return an error
-// if passed a request that attempts one.
-func NewClientUsingWebSocket(endpoint string, wsDialer Dialer, opts ...WebSocketOption) WebSocketClient {
-	client := &webSocketClient{
-		Dialer:        wsDialer,
-		header:        http.Header{},
-		errChan:       make(chan error),
-		endpoint:      endpoint,
-		subscriptions: subscriptionMap{map_: make(map[string]*subscription)},
-	}
-
-	for _, opt := range opts {
-		opt(client)
-	}
-
-	if client.header.Get("Sec-WebSocket-Protocol") == "" {
-		client.header.Add("Sec-WebSocket-Protocol", "graphql-transport-ws")
-	}
-
-	return client
-}
-
-// WithConnectionParams sets up connection params to be sent to the server
-// during the initial connection handshake.
-func WithConnectionParams(connParams map[string]interface{}) WebSocketOption {
-	return func(ws *webSocketClient) {
-		ws.connParams = connParams
-	}
-}
-
-// WithWebsocketHeader sets a header to be sent to the server.
-func WithWebsocketHeader(header http.Header) WebSocketOption {
-	return func(ws *webSocketClient) {
-		ws.header = header
-	}
-}
-
 func newClient(endpoint string, httpClient Doer, method string) Client {
 	if httpClient == nil || httpClient == (*http.Client)(nil) {
 		httpClient = http.DefaultClient
@@ -180,20 +98,6 @@ func newClient(endpoint string, httpClient Doer, method string) Client {
 // (or mocks for the same).
 type Doer interface {
 	Do(*http.Request) (*http.Response, error)
-}
-
-// Dialer encapsulates DialContext method and is similar to [github.com/gorilla/websocket]
-// [*websocket.Dialer] method
-type Dialer interface {
-	DialContext(ctx context.Context, urlStr string, requestHeader http.Header) (WSConn, error)
-}
-
-// WSConn encapsulates basic methods for a webSocket connection, taking model on
-// [github.com/gorilla/websocket] [*websocket.Conn]
-type WSConn interface {
-	Close() error
-	WriteMessage(messageType int, data []byte) error
-	ReadMessage() (messageType int, p []byte, err error)
 }
 
 // Request contains all the values required to build queries executed by

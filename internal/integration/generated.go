@@ -6,7 +6,6 @@ package integration
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -1312,30 +1311,6 @@ type __queryWithVariablesInput struct {
 
 // GetId returns __queryWithVariablesInput.Id, and is useful for accessing the field via an interface.
 func (v *__queryWithVariablesInput) GetId() string { return v.Id }
-
-// countAuthorizedResponse is returned by countAuthorized on success.
-type countAuthorizedResponse struct {
-	CountAuthorized int `json:"countAuthorized"`
-}
-
-// GetCountAuthorized returns countAuthorizedResponse.CountAuthorized, and is useful for accessing the field via an interface.
-func (v *countAuthorizedResponse) GetCountAuthorized() int { return v.CountAuthorized }
-
-// countCloseResponse is returned by countClose on success.
-type countCloseResponse struct {
-	CountClose int `json:"countClose"`
-}
-
-// GetCountClose returns countCloseResponse.CountClose, and is useful for accessing the field via an interface.
-func (v *countCloseResponse) GetCountClose() int { return v.CountClose }
-
-// countResponse is returned by count on success.
-type countResponse struct {
-	Count int `json:"count"`
-}
-
-// GetCount returns countResponse.Count, and is useful for accessing the field via an interface.
-func (v *countResponse) GetCount() int { return v.Count }
 
 // createUserCreateUser includes the requested fields of the GraphQL type User.
 type createUserCreateUser struct {
@@ -3113,150 +3088,6 @@ type simpleQueryResponse struct {
 
 // GetMe returns simpleQueryResponse.Me, and is useful for accessing the field via an interface.
 func (v *simpleQueryResponse) GetMe() simpleQueryMeUser { return v.Me }
-
-// The subscription executed by count.
-const count_Operation = `
-subscription count {
-	count
-}
-`
-
-// To unsubscribe, use [graphql.WebSocketClient.Unsubscribe]
-func count(
-	ctx_ context.Context,
-	client_ graphql.WebSocketClient,
-) (dataChan_ chan countWsResponse, subscriptionID_ string, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "count",
-		Query:  count_Operation,
-	}
-
-	dataChan_ = make(chan countWsResponse)
-	subscriptionID_, err_ = client_.Subscribe(req_, dataChan_, countForwardData)
-
-	return dataChan_, subscriptionID_, err_
-}
-
-type countWsResponse graphql.BaseResponse[*countResponse]
-
-func countForwardData(interfaceChan interface{}, jsonRawMsg json.RawMessage) error {
-	var gqlResp graphql.Response
-	var wsResp countWsResponse
-	err := json.Unmarshal(jsonRawMsg, &gqlResp)
-	if err != nil {
-		return err
-	}
-	if len(gqlResp.Errors) == 0 {
-		err = json.Unmarshal(jsonRawMsg, &wsResp)
-		if err != nil {
-			return err
-		}
-	} else {
-		wsResp.Errors = gqlResp.Errors
-	}
-	dataChan_, ok := interfaceChan.(chan countWsResponse)
-	if !ok {
-		return errors.New("failed to cast interface into 'chan countWsResponse'")
-	}
-	dataChan_ <- wsResp
-	return nil
-}
-
-// The subscription executed by countAuthorized.
-const countAuthorized_Operation = `
-subscription countAuthorized {
-	countAuthorized
-}
-`
-
-// To unsubscribe, use [graphql.WebSocketClient.Unsubscribe]
-func countAuthorized(
-	ctx_ context.Context,
-	client_ graphql.WebSocketClient,
-) (dataChan_ chan countAuthorizedWsResponse, subscriptionID_ string, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "countAuthorized",
-		Query:  countAuthorized_Operation,
-	}
-
-	dataChan_ = make(chan countAuthorizedWsResponse)
-	subscriptionID_, err_ = client_.Subscribe(req_, dataChan_, countAuthorizedForwardData)
-
-	return dataChan_, subscriptionID_, err_
-}
-
-type countAuthorizedWsResponse graphql.BaseResponse[*countAuthorizedResponse]
-
-func countAuthorizedForwardData(interfaceChan interface{}, jsonRawMsg json.RawMessage) error {
-	var gqlResp graphql.Response
-	var wsResp countAuthorizedWsResponse
-	err := json.Unmarshal(jsonRawMsg, &gqlResp)
-	if err != nil {
-		return err
-	}
-	if len(gqlResp.Errors) == 0 {
-		err = json.Unmarshal(jsonRawMsg, &wsResp)
-		if err != nil {
-			return err
-		}
-	} else {
-		wsResp.Errors = gqlResp.Errors
-	}
-	dataChan_, ok := interfaceChan.(chan countAuthorizedWsResponse)
-	if !ok {
-		return errors.New("failed to cast interface into 'chan countAuthorizedWsResponse'")
-	}
-	dataChan_ <- wsResp
-	return nil
-}
-
-// The subscription executed by countClose.
-const countClose_Operation = `
-subscription countClose {
-	countClose
-}
-`
-
-// To unsubscribe, use [graphql.WebSocketClient.Unsubscribe]
-func countClose(
-	ctx_ context.Context,
-	client_ graphql.WebSocketClient,
-) (dataChan_ chan countCloseWsResponse, subscriptionID_ string, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "countClose",
-		Query:  countClose_Operation,
-	}
-
-	dataChan_ = make(chan countCloseWsResponse)
-	subscriptionID_, err_ = client_.Subscribe(req_, dataChan_, countCloseForwardData)
-
-	return dataChan_, subscriptionID_, err_
-}
-
-type countCloseWsResponse graphql.BaseResponse[*countCloseResponse]
-
-func countCloseForwardData(interfaceChan interface{}, jsonRawMsg json.RawMessage) error {
-	var gqlResp graphql.Response
-	var wsResp countCloseWsResponse
-	err := json.Unmarshal(jsonRawMsg, &gqlResp)
-	if err != nil {
-		return err
-	}
-	if len(gqlResp.Errors) == 0 {
-		err = json.Unmarshal(jsonRawMsg, &wsResp)
-		if err != nil {
-			return err
-		}
-	} else {
-		wsResp.Errors = gqlResp.Errors
-	}
-	dataChan_, ok := interfaceChan.(chan countCloseWsResponse)
-	if !ok {
-		return errors.New("failed to cast interface into 'chan countCloseWsResponse'")
-	}
-	dataChan_ <- wsResp
-	return nil
-}
 
 // The mutation executed by createUser.
 const createUser_Operation = `

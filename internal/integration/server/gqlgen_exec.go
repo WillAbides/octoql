@@ -29,7 +29,6 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 type ResolverRoot interface {
 	Mutation() MutationResolver
 	Query() QueryResolver
-	Subscription() SubscriptionResolver
 }
 
 type DirectiveRoot struct {
@@ -68,12 +67,6 @@ type ComplexityRoot struct {
 		UsersBornOnDates func(childComplexity int, dates []string) int
 	}
 
-	Subscription struct {
-		Count           func(childComplexity int) int
-		CountAuthorized func(childComplexity int) int
-		CountClose      func(childComplexity int) int
-	}
-
 	User struct {
 		Birthdate   func(childComplexity int) int
 		Friends     func(childComplexity int) int
@@ -102,11 +95,6 @@ type QueryResolver interface {
 	UsersBornOnDates(ctx context.Context, dates []string) ([]*User, error)
 	UserSearch(ctx context.Context, birthdate *string, id *string) ([]*User, error)
 	Fail(ctx context.Context) (*bool, error)
-}
-type SubscriptionResolver interface {
-	Count(ctx context.Context) (<-chan int, error)
-	CountAuthorized(ctx context.Context) (<-chan int, error)
-	CountClose(ctx context.Context) (<-chan int, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -275,25 +263,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.UsersBornOnDates(childComplexity, args["dates"].([]string)), true
 
-	case "Subscription.count":
-		if e.ComplexityRoot.Subscription.Count == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Subscription.Count(childComplexity), true
-	case "Subscription.countAuthorized":
-		if e.ComplexityRoot.Subscription.CountAuthorized == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Subscription.CountAuthorized(childComplexity), true
-	case "Subscription.countClose":
-		if e.ComplexityRoot.Subscription.CountClose == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Subscription.CountClose(childComplexity), true
-
 	case "User.birthdate":
 		if e.ComplexityRoot.User.Birthdate == nil {
 			break
@@ -395,23 +364,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 				Data: buf.Bytes(),
 			}
 		}
-	case ast.Subscription:
-		next := ec._Subscription(ctx, opCtx.Operation.SelectionSet)
-
-		var buf bytes.Buffer
-		return func(ctx context.Context) *graphql.Response {
-			buf.Reset()
-			data := next(ctx)
-
-			if data == nil {
-				return nil
-			}
-			data.MarshalGQL(&buf)
-
-			return &graphql.Response{
-				Data: buf.Bytes(),
-			}
-		}
 
 	default:
 		return graphql.OneShot(graphql.ErrorResponse(ctx, "unsupported GraphQL operation"))
@@ -455,12 +407,6 @@ type Query {
 
 type Mutation {
   createUser(input: NewUser!): User!
-}
-
-type Subscription {
-  count: Int!
-  countAuthorized: Int!
-  countClose: Int!
 }
 
 type User implements Being & Lucky {
@@ -1516,75 +1462,6 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 		},
 	}
 	return fc, nil
-}
-
-func (ec *executionContext) _Subscription_count(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	return graphql.ResolveFieldStream(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Subscription_count(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Subscription().Count(ctx)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Subscription_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Subscription", field, true, true, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Subscription_countAuthorized(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	return graphql.ResolveFieldStream(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Subscription_countAuthorized(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Subscription().CountAuthorized(ctx)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Subscription_countAuthorized(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Subscription", field, true, true, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Subscription_countClose(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	return graphql.ResolveFieldStream(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Subscription_countClose(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Subscription().CountClose(ctx)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Subscription_countClose(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Subscription", field, true, true, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _User_id(ctx context.Context, field graphql.CollectedField, obj *User) (ret graphql.Marshaler) {
@@ -3343,30 +3220,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	})
 
 	return out
-}
-
-var subscriptionImplementors = []string{"Subscription"}
-
-func (ec *executionContext) _Subscription(ctx context.Context, sel ast.SelectionSet) func(ctx context.Context) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, subscriptionImplementors)
-	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
-		Object: "Subscription",
-	})
-	if len(fields) != 1 {
-		graphql.AddErrorf(ctx, "must subscribe to exactly one stream")
-		return nil
-	}
-
-	switch fields[0].Name {
-	case "count":
-		return ec._Subscription_count(ctx, fields[0])
-	case "countAuthorized":
-		return ec._Subscription_countAuthorized(ctx, fields[0])
-	case "countClose":
-		return ec._Subscription_countClose(ctx, fields[0])
-	default:
-		panic("unknown field " + strconv.Quote(fields[0].Name))
-	}
 }
 
 var userImplementors = []string{"User", "Being", "Lucky"}

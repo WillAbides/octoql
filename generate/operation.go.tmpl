@@ -1,72 +1,6 @@
 // The {{.Type}} executed by {{.Name}}.
 const {{.Name}}_Operation = `{{$.Body}}`
 
-{{if eq .Type "subscription" -}}
-{{.Doc}}
-func {{.Name}}(
-    {{if ne .Config.ContextType "-" -}}
-    ctx_ {{ref .Config.ContextType}},
-    {{end}}
-    {{- if not .Config.ClientGetter -}}
-    client_ {{ref "github.com/willabides/octoql/graphql.WebSocketClient"}},
-    {{end}}
-    {{- if .Input -}}
-    {{- range .Input.Fields -}}
-    {{/* the GraphQL name here is the user-specified variable-name */ -}}
-    {{.GraphQLName}} {{.GoType.Reference}},
-    {{end -}}
-    {{end -}}
-) (dataChan_ chan {{.Name}}WsResponse, subscriptionID_ string, err_ error) {
-    req_ := &graphql.Request{
-        OpName: "{{.Name}}",
-        Query:  {{.Name}}_Operation,
-    {{if .Input -}}
-        Variables: &{{.Input.GoName}}{
-        {{range .Input.Fields -}}
-        {{.GoName}}: {{.GraphQLName}},
-        {{end -}}
-        },
-    {{end -}}
-    }
-    {{if .Config.ClientGetter -}}
-    var client_ graphql.Client
-
-    client_, err_ = {{ref .Config.ClientGetter}}({{if ne .Config.ContextType "-"}}ctx_{{else}}{{end}})
-    if err_ != nil {
-        return nil, err_
-    }
-    {{end}}
-    dataChan_ = make(chan {{.Name}}WsResponse)
-    subscriptionID_, err_ = client_.Subscribe(req_, dataChan_, {{.Name}}ForwardData)
-
-    return dataChan_, subscriptionID_, err_
-}
-
-type {{.Name}}WsResponse graphql.BaseResponse[*{{.ResponseName}}]
-
-func {{.Name}}ForwardData(interfaceChan interface{}, jsonRawMsg json.RawMessage) error {
-    var gqlResp graphql.Response
-    var wsResp {{.Name}}WsResponse
-    err := json.Unmarshal(jsonRawMsg, &gqlResp)
-    if err != nil {
-        return err
-    }
-    if len(gqlResp.Errors) == 0 {
-        err = json.Unmarshal(jsonRawMsg, &wsResp)
-        if err != nil {
-            return err
-        }
-    } else {
-        wsResp.Errors = gqlResp.Errors
-    }
-    dataChan_, ok := interfaceChan.(chan {{.Name}}WsResponse)
-	if !ok {
-		return errors.New("failed to cast interface into 'chan {{.Name}}WsResponse'")
-	}
-	dataChan_ <- wsResp
-	return nil
-}
-{{else -}}
 {{.Doc}}
 func {{.Name}}(
     {{if ne .Config.ContextType "-" -}}
@@ -105,4 +39,3 @@ func {{.Name}}(
         {{if .Input}}&variables_{{else}}nil{{end}},
     )
 }
-{{end}}

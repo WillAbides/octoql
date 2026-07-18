@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
 	"github.com/willabides/octoql/internal/testutil"
@@ -321,6 +322,30 @@ func TestGenerateWithConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunRejectsSubscriptionWithoutOutput(t *testing.T) {
+	tempDir := t.TempDir()
+	generatedFilename := filepath.Join(tempDir, "generated.go")
+	configFilename := filepath.Join(tempDir, "genqlient.yaml")
+	schemaFilename, err := filepath.Abs(filepath.Join(errorsDir, "SubscriptionUnsupported.schema.graphql"))
+	require.NoError(t, err)
+	operationsFilename, err := filepath.Abs(filepath.Join(errorsDir, "SubscriptionUnsupported.graphql"))
+	require.NoError(t, err)
+	config := fmt.Sprintf(
+		"schema: %q\noperations: %q\ngenerated: %q\npackage: subscriptiontest\n",
+		schemaFilename,
+		operationsFilename,
+		generatedFilename,
+	)
+	err = os.WriteFile(configFilename, []byte(config), 0o600)
+	require.NoError(t, err)
+
+	err = Run(configFilename)
+
+	require.ErrorContains(t, err, "subscriptions are not supported by octoql")
+	_, statErr := os.Stat(generatedFilename)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
 }
 
 // TestGenerateErrors is a snapshot-based test of error text.

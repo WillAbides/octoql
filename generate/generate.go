@@ -47,7 +47,7 @@ type generator struct {
 
 // JSON tags in operation are for ExportOperations (see Config for details).
 type operation struct {
-	// The type of the operation (query, mutation, or subscription).
+	// The type of the operation (query or mutation).
 	Type ast.Operation `json:"-"`
 	// The name of the operation, from GraphQL.
 	Name string `json:"operationName"`
@@ -228,6 +228,10 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 // considers valid but we don't allow, and returns an error if this operation
 // is invalid for genqlient's purposes.
 func (g *generator) validateOperation(op *ast.OperationDefinition) error {
+	if op.Operation == ast.Subscription {
+		return errorf(op.Position, "subscriptions are not supported by octoql")
+	}
+
 	_, err := g.baseTypeForOperation(op.Operation)
 	if err != nil {
 		return err
@@ -280,9 +284,6 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 	var docComment string
 	if commentLines != "" {
 		docComment = "// " + strings.ReplaceAll(commentLines, "\n", "\n// ")
-	}
-	if op.Operation == ast.Subscription {
-		docComment += "\n// To unsubscribe, use [graphql.WebSocketClient.Unsubscribe]"
 	}
 
 	// If the filename is a pseudo-filename filename.go:startline, just
