@@ -3,3 +3,4 @@ schema:
   sha256: c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
 operations: [graphql/**/*.graphql]
 generated: internal/githubapi/generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

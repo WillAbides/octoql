@@ -7,3 +7,4 @@ schema:
       revision: 45d83f459620340069df7c375a8867be62616d61
 operations: [graphql/**/*.graphql]
 generated: internal/githubapi/generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

@@ -7,6 +7,7 @@ require (
 	github.com/alecthomas/kong v1.16.0
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/bradleyjkemp/cupaloy/v2 v2.6.0
+	github.com/dlclark/regexp2 v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2

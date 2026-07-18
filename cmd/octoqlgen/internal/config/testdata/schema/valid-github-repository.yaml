@@ -9,3 +9,4 @@ schema:
       host: github.example.com
 operations: [graphql/**/*.graphql]
 generated: internal/githubapi/generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

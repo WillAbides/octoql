@@ -29,12 +29,11 @@ var (
 )
 
 type Config struct {
-	Schema             Schema      `yaml:"schema"`
-	Generated          string      `yaml:"generated"`
-	TestHandler        TestHandler `yaml:"test_handler"`
-	baseDir            string
-	Operations         []string `yaml:"operations"`
-	testHandlerPresent bool
+	Schema      Schema      `yaml:"schema"`
+	Generated   string      `yaml:"generated"`
+	TestHandler TestHandler `yaml:"test_handler"`
+	baseDir     string
+	Operations  []string `yaml:"operations"`
 }
 
 type Schema struct {
@@ -105,11 +104,6 @@ func Load(filename string) (*Config, error) {
 		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
 	}
 	config.Schema.sourcePresent = sourcePresent
-	testHandlerPresent, err := configFieldPresent(content, "test_handler")
-	if err != nil {
-		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
-	}
-	config.testHandlerPresent = testHandlerPresent
 	err = config.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("validating config file %q: %w", filename, err)
@@ -131,7 +125,7 @@ func (c *Config) Validate() error {
 	if c.Generated == "" {
 		return errors.New("generated is required")
 	}
-	if c.testHandlerPresent && c.TestHandler.Generated == "" {
+	if c.TestHandler.Generated == "" {
 		return errors.New("test_handler.generated is required")
 	}
 
@@ -209,18 +203,6 @@ func schemaSourcePresent(content []byte) (bool, error) {
 		return false, nil
 	}
 	return effectiveMappingValue(schema, "source") != nil, nil
-}
-
-func configFieldPresent(content []byte, key string) (bool, error) {
-	var document yaml.Node
-	err := yaml.Unmarshal(content, &document)
-	if err != nil {
-		return false, err
-	}
-	if document.Kind != yaml.DocumentNode || len(document.Content) != 1 {
-		return false, nil
-	}
-	return effectiveMappingValue(document.Content[0], key) != nil, nil
 }
 
 func mappingValue(node *yaml.Node, key string) *yaml.Node {

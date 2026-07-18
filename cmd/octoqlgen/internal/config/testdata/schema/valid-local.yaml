@@ -4,3 +4,5 @@ operations:
   - graphql/**/*.graphql
   - graphql/admin.graphql
 generated: internal/githubapi/generated.go
+test_handler:
+  generated: internal/githubapitest/generated.go

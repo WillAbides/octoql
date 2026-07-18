@@ -63,6 +63,18 @@
           "type": "string"
         },
         "repository": {
+          "allOf": [
+            {
+              "not": {
+                "pattern": "^(?:\\.|\\.\\.)/"
+              }
+            },
+            {
+              "not": {
+                "pattern": "/(?:\\.|\\.\\.)$"
+              }
+            }
+          ],
           "description": "Repository owner and name.",
           "examples": [
             "octo-org/api-schema"
@@ -188,13 +200,13 @@
         "https://example.com/schema.graphql"
       ],
       "format": "uri",
-      "pattern": "^https?://[^/@[:space:]]+(?:[/?#]|$)",
+      "pattern": "^https?://[^/@\\s]+(?:[/?#][^\\s]*)?$",
       "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Configuration for octoqlgen. This schema is generated from the reviewed source in internal/configschema.",
+  "description": "Configuration for octoqlgen.",
   "properties": {
     "generated": {
       "description": "Path for generated Go code, relative to octoql.yaml.",
@@ -228,7 +240,8 @@
   "required": [
     "schema",
     "operations",
-    "generated"
+    "generated",
+    "test_handler"
   ],
   "title": "octoql configuration",
   "type": "object"

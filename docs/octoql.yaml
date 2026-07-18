@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../schema/octoql.schema.yaml
+# yaml-language-server: $schema=../schema/octoql.schema.json
 #
 # octoql.yaml is octoqlgen's strict v1 configuration file.
 #

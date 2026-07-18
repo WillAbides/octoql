@@ -5,3 +5,4 @@ schema:
     url: https://example.com/schema.graphql
 operations: [graphql/**/*.graphql]
 generated: internal/githubapi/generated.go
+test_handler: {generated: internal/githubapitest/generated.go}

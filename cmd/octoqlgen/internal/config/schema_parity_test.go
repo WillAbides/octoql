@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dlclark/regexp2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -41,6 +42,7 @@ func TestJSONSchemaParity(t *testing.T) {
 		if fixture.IsDir() || filepath.Ext(fixture.Name()) != ".yaml" {
 			continue
 		}
+
 		t.Run(strings.TrimSuffix(fixture.Name(), ".yaml"), func(t *testing.T) {
 			content, err := os.ReadFile(filepath.Join(schemaFixtureDir, fixture.Name()))
 			require.NoError(t, err)
@@ -74,6 +76,50 @@ func TestJSONSchemaParity(t *testing.T) {
 				"config loader result disagrees with fixture expectation: %v",
 				configError,
 			)
+		})
+	}
+}
+
+func TestURLPatternUsesECMAScriptSyntax(t *testing.T) {
+	schemaContent, err := os.ReadFile(schemaOutputPath)
+	require.NoError(t, err)
+
+	var schemaDocument struct {
+		Definitions map[string]struct {
+			Pattern string `json:"pattern"`
+		} `json:"$defs"`
+	}
+	err = json.Unmarshal(schemaContent, &schemaDocument)
+	require.NoError(t, err)
+
+	urlPattern := schemaDocument.Definitions["url"].Pattern
+	pattern, err := regexp2.Compile(urlPattern, regexp2.ECMAScript)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		value string
+		valid bool
+	}{
+		{
+			name:  "https URL",
+			value: "https://example.com/schema.graphql",
+			valid: true,
+		},
+		{
+			name:  "URL with whitespace",
+			value: "https://example.com/schema graphql",
+		},
+		{
+			name:  "URL with credentials",
+			value: "https://user@example.com/schema.graphql",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			matched, err := pattern.MatchString(test.value)
+			require.NoError(t, err)
+			require.Equal(t, test.valid, matched)
 		})
 	}
 }

@@ -35,6 +35,5 @@ if [ "$1" = "--check" ]; then
   exit 0
 fi
 
-go run ./cmd/internal/generateconfigschema
 go generate ./...
 go mod tidy
