@@ -202,18 +202,22 @@ type SchemaUpdateCommand struct {
 }
 
 func (cmd *SchemaUpdateCommand) Run() error {
-	unlock, err := acquireUpdateLock(cmd.Config)
+	configPath, err := canonicalPath(cmd.Config)
+	if err != nil {
+		return err
+	}
+	unlock, err := acquireUpdateLock(configPath)
 	if err != nil {
 		return err
 	}
 	defer unlock()
 
-	rawConfig, err := os.ReadFile(cmd.Config)
+	rawConfig, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
 	}
 
-	loaded, err := cmd.loadConfig(cmd.Config)
+	loaded, err := cmd.loadConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -242,20 +246,45 @@ func (cmd *SchemaUpdateCommand) Run() error {
 	if err != nil {
 		return fmt.Errorf("validating updated config: %w", err)
 	}
+	finalConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("checking config before schema publication: %w", err)
+	}
+	finalSchema, schemaErr := os.ReadFile(loaded.SchemaPath())
+	if schemaErr != nil && !errors.Is(schemaErr, os.ErrNotExist) {
+		return fmt.Errorf("checking schema before publication: %w", schemaErr)
+	}
+	if !bytes.Equal(finalConfig, rawConfig) || !bytes.Equal(finalSchema, currentData) {
+		return errors.New("config or schema changed while updating; no files were published")
+	}
 	err = cmd.outputWriter.Write(loaded.SchemaPath(), result.Data)
 	if err != nil {
 		return fmt.Errorf("publishing updated schema: %w", err)
 	}
-	currentConfig, err := os.ReadFile(cmd.Config)
+	rollbackSchema := func(cause error) error {
+		if schemaErr != nil {
+			return fmt.Errorf("schema update failed after publication and cannot restore an absent schema: %w", cause)
+		}
+		rollbackErr := cmd.outputWriter.Write(loaded.SchemaPath(), currentData)
+		if rollbackErr != nil {
+			return fmt.Errorf("schema update failed after publication and schema rollback failed: %w", errors.Join(cause, rollbackErr))
+		}
+		return fmt.Errorf("schema update failed after publication; restored original schema: %w", cause)
+	}
+	currentConfig, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("checking config before update: %w", err)
+		return rollbackSchema(fmt.Errorf("checking config before update: %w", err))
 	}
 	if !bytes.Equal(currentConfig, rawConfig) {
-		return errors.New("config changed while updating schema; schema was published but config was not changed")
+		return rollbackSchema(errors.New("config changed while updating schema"))
 	}
-	err = cmd.outputWriter.Write(cmd.Config, updatedConfig)
+	err = cmd.outputWriter.Write(configPath, updatedConfig)
 	if err != nil {
-		return fmt.Errorf("config update failed after schema publication; rerun schema update to recover: %w", err)
+		return rollbackSchema(fmt.Errorf("config update failed: %w", err))
+	}
+	_, err = cmd.loadConfig(configPath)
+	if err != nil {
+		return rollbackSchema(fmt.Errorf("validating published config: %w", err))
 	}
 	_, err = fmt.Fprintf(
 		cmd.stdout,
@@ -274,12 +303,28 @@ func acquireUpdateLock(configPath string) (func(), error) {
 	if errors.Is(err, os.ErrExist) {
 		return nil, errors.New("another schema update is already in progress")
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("acquiring schema update lock: %w", err)
 	}
 	return func() {
 		_ = os.Remove(lockPath)
 	}, nil
+}
+
+func canonicalPath(path string) (string, error) {
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolving config path: %w", err)
+	}
+	resolvedPath, err := filepath.EvalSymlinks(absolutePath)
+	if err == nil {
+		return resolvedPath, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return absolutePath, nil
+	}
+	return "", fmt.Errorf("resolving config symlinks: %w", err)
 }
 
 func sourceRevision(source config.Source) string {

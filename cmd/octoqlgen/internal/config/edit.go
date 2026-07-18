@@ -33,6 +33,10 @@ func UpdatePin(content []byte, sha256, revision string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = ensureUnanchoredPin(shaNode)
+	if err != nil {
+		return nil, err
+	}
 	replacements := []scalarReplacement{{node: shaNode, value: sha256}}
 	if revision != "" {
 		sourceNode, sourceErr := mappingValue(schemaNode, "source")
@@ -49,12 +53,26 @@ func UpdatePin(content []byte, sha256, revision string) ([]byte, error) {
 				if sourceErr != nil {
 					return nil, sourceErr
 				}
+				sourceErr = ensureUnanchoredPin(revisionNode)
+				if sourceErr != nil {
+					return nil, sourceErr
+				}
 				replacements = append(replacements, scalarReplacement{node: revisionNode, value: revision})
 				break
 			}
 		}
 	}
 	return replaceScalars(content, replacements)
+}
+
+func ensureUnanchoredPin(node *yamlv3.Node) error {
+	if node.Kind == yamlv3.AliasNode {
+		return errors.New("config pin must not use a shared YAML alias")
+	}
+	if node.Anchor != "" {
+		return errors.New("config pin must not define a YAML anchor; remove the anchor before updating")
+	}
+	return nil
 }
 
 type scalarReplacement struct {

@@ -168,6 +168,20 @@ func TestUpdatePinRejectsSharedAlias(t *testing.T) {
 	assert.Contains(t, err.Error(), "shared YAML alias")
 }
 
+func TestUpdatePinRejectsAnchoredPin(t *testing.T) {
+	t.Parallel()
+
+	content := []byte(
+		"schema:\n" +
+			"  path: .octoql/schema.graphql\n" +
+			"  sha256: &checksum " + testSHA256 + "\n" +
+			"generated: *checksum\n",
+	)
+	_, err := UpdatePin(content, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not define a YAML anchor")
+}
+
 func readTestFile(t *testing.T, elements ...string) string {
 	t.Helper()
 	content, err := os.ReadFile(filepath.Join(append([]string{"testdata"}, elements...)...))
