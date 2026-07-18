@@ -1,7 +1,5 @@
 # genqlient documentation
 
-<img width="100%" alt="generated graphql client ⇒ genqlient" src="images/genqlient.svg">
-
 Welcome to the genqlient documentation! This documentation is made possible by viewers like you; if you see something unclear, file an [issue] or make a [pull request] to improve it!
 
 [issue]: https://github.com/willabides/octoql/issues/new/choose

@@ -1,0 +1,16 @@
+Usage: octoqlgen <command> [flags]
+
+Generate GraphQL client code for a given schema and queries.
+
+Flags:
+  -h, --help       Show context-sensitive help.
+      --version    Show version information.
+
+Commands:
+  generate [<config-filename>] [flags]
+    Generate GraphQL client code.
+
+  schema [flags]
+    Materialize or verify a pinned GraphQL schema.
+
+Run "octoqlgen <command> --help" for more information on a command.
