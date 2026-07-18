@@ -137,20 +137,20 @@ func (m *Materializer) fetch(
 	source config.Source,
 	dependencies *dependencies,
 ) ([]byte, error) {
-	if source.URL != nil {
+	if source.Url != nil {
 		return fetchURL(
 			ctx,
 			dependencies.httpClient,
-			*source.URL,
+			*source.Url,
 			"",
 			false,
 			dependencies.maxResponseBytes,
 		)
 	}
 
-	repository := source.GitHubRepository
-	if source.GitHubDocs != nil {
-		repository = githubDocsRepository(*source.GitHubDocs)
+	repository := source.GithubRepository
+	if source.GithubDocs != nil {
+		repository = githubDocsRepository(*source.GithubDocs)
 	}
 	if repository == nil {
 		return nil, errors.New("remote schema source is missing")

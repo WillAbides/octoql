@@ -110,7 +110,7 @@ func TestMaterializerURLFetch(t *testing.T) {
 	data, err := materializer.Materialize(t.Context(), Request{
 		Path:   destination,
 		SHA256: checksum(exactSchema),
-		Source: config.Source{URL: new(server.URL + "/schema.graphql")},
+		Source: config.Source{Url: new(server.URL + "/schema.graphql")},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, data)
@@ -267,7 +267,7 @@ func TestMaterializerDownloadFailures(t *testing.T) {
 			_, err := materializer.Materialize(t.Context(), Request{
 				Path:   destination,
 				SHA256: test.sha256,
-				Source: config.Source{URL: new(server.URL)},
+				Source: config.Source{Url: new(server.URL)},
 			})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.expectedError)
@@ -314,7 +314,7 @@ func TestMaterializerGitHubDocsPaths(t *testing.T) {
 			data, err := materializer.Materialize(t.Context(), Request{
 				SHA256: checksum(exactSchema),
 				Source: config.Source{
-					GitHubDocs: &config.GitHubDocs{
+					GithubDocs: &config.GitHubDocs{
 						Version:  test.version,
 						Revision: schemaRevision,
 					},
@@ -472,7 +472,7 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 			data, err := materializer.Materialize(t.Context(), Request{
 				SHA256: checksum(exactSchema),
 				Source: config.Source{
-					GitHubRepository: &config.GitHubRepository{
+					GithubRepository: &config.GitHubRepository{
 						Repository: "octo-org/private-repo",
 						Revision:   schemaRevision,
 						Path:       "schema.graphql",
@@ -538,7 +538,7 @@ func TestMaterializerAtomicWriteFailures(t *testing.T) {
 			_, err := materializer.Materialize(t.Context(), Request{
 				Path:   destination,
 				SHA256: checksum(exactSchema),
-				Source: config.Source{URL: new(server.URL)},
+				Source: config.Source{Url: new(server.URL)},
 			})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.expectedError)
@@ -568,7 +568,7 @@ func TestMaterializerConcurrent(t *testing.T) {
 			results[worker], errorsByWorker[worker] = materializer.Materialize(t.Context(), Request{
 				Path:   destination,
 				SHA256: checksum(exactSchema),
-				Source: config.Source{URL: new(server.URL)},
+				Source: config.Source{Url: new(server.URL)},
 			})
 		})
 	}
@@ -603,12 +603,12 @@ func TestMaterializerConcurrentDifferentBytes(t *testing.T) {
 		{
 			Path:   destination,
 			SHA256: checksum(firstSchema),
-			Source: config.Source{URL: new(firstServer.URL)},
+			Source: config.Source{Url: new(firstServer.URL)},
 		},
 		{
 			Path:   destination,
 			SHA256: checksum(secondSchema),
-			Source: config.Source{URL: new(secondServer.URL)},
+			Source: config.Source{Url: new(secondServer.URL)},
 		},
 	}
 	results := make([][]byte, len(requests))

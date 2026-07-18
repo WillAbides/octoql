@@ -24,10 +24,10 @@ var (
 )
 
 func (s *Schema) SHA256Value() string {
-	if s.SHA256 == nil {
+	if s.Sha256 == nil {
 		return ""
 	}
-	return *s.SHA256
+	return *s.Sha256
 }
 
 func (s *Schema) SourceValue() Source {
@@ -39,13 +39,13 @@ func (s *Schema) SourceValue() Source {
 
 func ValidateSource(source Source, sha256 string) error {
 	sourceCount := 0
-	if source.GitHubDocs != nil {
+	if source.GithubDocs != nil {
 		sourceCount++
 	}
-	if source.GitHubRepository != nil {
+	if source.GithubRepository != nil {
 		sourceCount++
 	}
-	if source.URL != nil {
+	if source.Url != nil {
 		sourceCount++
 	}
 	if sourceCount > 1 {
@@ -59,20 +59,20 @@ func ValidateSource(source Source, sha256 string) error {
 		return errors.New("schema.sha256 must be a canonical 64-character lowercase hexadecimal sha-256")
 	}
 
-	if source.GitHubDocs != nil {
-		err := source.GitHubDocs.Validate()
+	if source.GithubDocs != nil {
+		err := source.GithubDocs.Validate()
 		if err != nil {
 			return fmt.Errorf("schema.source.github_docs: %w", err)
 		}
 	}
-	if source.GitHubRepository != nil {
-		err := source.GitHubRepository.Validate()
+	if source.GithubRepository != nil {
+		err := source.GithubRepository.Validate()
 		if err != nil {
 			return fmt.Errorf("schema.source.github_repository: %w", err)
 		}
 	}
-	if source.URL != nil {
-		err := validateURL(*source.URL)
+	if source.Url != nil {
+		err := validateURL(*source.Url)
 		if err != nil {
 			return fmt.Errorf("schema.source.url: %w", err)
 		}

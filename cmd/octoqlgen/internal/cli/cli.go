@@ -110,7 +110,7 @@ func (cmd *SchemaCommand) request() (schema.Request, error) {
 		return schema.Request{
 			SHA256: cmd.SHA256,
 			Source: config.Source{
-				GitHubDocs: &config.GitHubDocs{
+				GithubDocs: &config.GitHubDocs{
 					Version:  cmd.GitHubVersion,
 					Revision: cmd.Revision,
 				},
@@ -122,7 +122,7 @@ func (cmd *SchemaCommand) request() (schema.Request, error) {
 	}
 	return schema.Request{
 		SHA256: cmd.SHA256,
-		Source: config.Source{URL: new(cmd.SourceURL)},
+		Source: config.Source{Url: new(cmd.SourceURL)},
 	}, nil
 }
 

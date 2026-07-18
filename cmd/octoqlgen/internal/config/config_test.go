@@ -75,8 +75,8 @@ func TestLoad(t *testing.T) {
 	loaded, err := Load(filename)
 	require.NoError(t, err)
 	require.NotNil(t, loaded.Schema.Source)
-	require.NotNil(t, loaded.Schema.Source.GitHubDocs)
-	assert.Equal(t, "fpt", loaded.Schema.Source.GitHubDocs.Version)
+	require.NotNil(t, loaded.Schema.Source.GithubDocs)
+	assert.Equal(t, "fpt", loaded.Schema.Source.GithubDocs.Version)
 	assert.Equal(t, filepath.Join(configDir, ".octoql", "schema.graphql"), loaded.SchemaPath())
 	assert.Equal(
 		t,
@@ -215,7 +215,7 @@ func TestValidateSourceURL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSource(Source{URL: &test.url}, testSHA256)
+			err := ValidateSource(Source{Url: &test.url}, testSHA256)
 			if test.wantError != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.wantError)
@@ -251,18 +251,18 @@ func TestGeneratedModelUsesPresencePointers(t *testing.T) {
 	model := Config{
 		Schema: Schema{
 			Path:   ".octoql/schema.graphql",
-			SHA256: &sha256,
+			Sha256: &sha256,
 			Source: &Source{
-				URL: &sourceURL,
-				GitHubRepository: &GitHubRepository{
+				Url: &sourceURL,
+				GithubRepository: &GitHubRepository{
 					Host: &host,
 				},
 			},
 		},
 	}
-	assert.Same(t, &sha256, model.Schema.SHA256)
-	assert.Same(t, &sourceURL, model.Schema.Source.URL)
-	assert.Same(t, &host, model.Schema.Source.GitHubRepository.Host)
+	assert.Same(t, &sha256, model.Schema.Sha256)
+	assert.Same(t, &sourceURL, model.Schema.Source.Url)
+	assert.Same(t, &host, model.Schema.Source.GithubRepository.Host)
 }
 
 func readCorpus() ([]corpusFixture, error) {

@@ -15,14 +15,14 @@ type GitHubRepository struct {
 }
 
 type Source struct {
-	GitHubDocs       *GitHubDocs       `json:"github_docs"`
-	GitHubRepository *GitHubRepository `json:"github_repository"`
-	URL              *string           `json:"url"`
+	GithubDocs       *GitHubDocs       `json:"github_docs"`
+	GithubRepository *GitHubRepository `json:"github_repository"`
+	Url              *string           `json:"url"`
 }
 
 type Schema struct {
 	Path   string  `json:"path"`
-	SHA256 *string `json:"sha256"`
+	Sha256 *string `json:"sha256"`
 	Source *Source `json:"source"`
 }
 

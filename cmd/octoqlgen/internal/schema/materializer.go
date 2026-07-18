@@ -197,9 +197,9 @@ func validateSDL(data []byte) error {
 }
 
 func isRemote(source config.Source) bool {
-	return source.GitHubDocs != nil ||
-		source.GitHubRepository != nil ||
-		source.URL != nil
+	return source.GithubDocs != nil ||
+		source.GithubRepository != nil ||
+		source.Url != nil
 }
 
 type FileSystem interface {
