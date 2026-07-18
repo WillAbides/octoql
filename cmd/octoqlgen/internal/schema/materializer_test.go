@@ -125,11 +125,18 @@ func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
 	t.Parallel()
 
 	const (
-		userSecret  = "unmistakable-user-secret"
-		querySecret = "unmistakable-query-secret"
+		userSecret         = "unmistakable-user-secret"
+		closingQuerySecret = "unmistakable-closing-query-secret"
+		quotedQuerySecret  = "unmistakable-quoted-query-secret"
+		spacedQuerySecret  = "unmistakable-spaced-query-secret"
 	)
-	requestURL := "https://" + userSecret + "@example.test/schema.graphql?signature=" + querySecret
-	client := httpClientFunc(func(*http.Request) (*http.Response, error) {
+	requestURL := "https://" + userSecret + "@example.test/schema.graphql?" +
+		"closing=)" + closingQuerySecret +
+		"&quoted='" + quotedQuerySecret +
+		"&spaced=%20" + spacedQuerySecret
+	var receivedURL string
+	client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
+		receivedURL = request.URL.String()
 		inner := &url.Error{
 			Op:  "dial",
 			URL: requestURL,
@@ -144,10 +151,13 @@ func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
 
 	_, err := fetchURL(t.Context(), client, requestURL, "", false, 1024)
 	require.Error(t, err)
+	assert.Equal(t, requestURL, receivedURL)
 	assert.Contains(t, err.Error(), "example.test/schema.graphql")
 	assert.Contains(t, err.Error(), "connection refused")
 	assert.NotContains(t, err.Error(), userSecret)
-	assert.NotContains(t, err.Error(), querySecret)
+	assert.NotContains(t, err.Error(), closingQuerySecret)
+	assert.NotContains(t, err.Error(), quotedQuerySecret)
+	assert.NotContains(t, err.Error(), spacedQuerySecret)
 }
 
 func TestMaterializerDownloadFailures(t *testing.T) {

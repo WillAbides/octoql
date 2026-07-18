@@ -202,11 +202,12 @@ func schemaSourcePresent(content []byte) (bool, error) {
 	if schema == nil {
 		return false, nil
 	}
-	return mappingValue(schema, "source") != nil, nil
+	return effectiveMappingValue(schema, "source") != nil, nil
 }
 
 func mappingValue(node *yaml.Node, key string) *yaml.Node {
-	if node.Kind != yaml.MappingNode {
+	node = resolveAlias(node)
+	if node == nil || node.Kind != yaml.MappingNode {
 		return nil
 	}
 
@@ -216,6 +217,54 @@ func mappingValue(node *yaml.Node, key string) *yaml.Node {
 		}
 	}
 	return nil
+}
+
+func effectiveMappingValue(node *yaml.Node, key string) *yaml.Node {
+	node = resolveAlias(node)
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	value := mappingValue(node, key)
+	if value != nil {
+		return value
+	}
+
+	for index := 0; index < len(node.Content); index += 2 {
+		if node.Content[index].Value != "<<" {
+			continue
+		}
+
+		value = effectiveMergeValue(node.Content[index+1], key)
+		if value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
+func effectiveMergeValue(node *yaml.Node, key string) *yaml.Node {
+	node = resolveAlias(node)
+	if node == nil {
+		return nil
+	}
+	if node.Kind == yaml.SequenceNode {
+		for _, item := range node.Content {
+			value := effectiveMappingValue(item, key)
+			if value != nil {
+				return value
+			}
+		}
+		return nil
+	}
+	return effectiveMappingValue(node, key)
+}
+
+func resolveAlias(node *yaml.Node) *yaml.Node {
+	if node != nil && node.Kind == yaml.AliasNode {
+		return node.Alias
+	}
+	return node
 }
 
 func (g GitHubDocs) Validate() error {

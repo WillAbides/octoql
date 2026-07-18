@@ -195,6 +195,83 @@ func TestLoadLocalSchema(t *testing.T) {
 	assert.Equal(t, Source{}, loaded.Schema.Source)
 }
 
+func TestLoadMergedSource(t *testing.T) {
+	tests := []struct {
+		name          string
+		schema        string
+		expectedError string
+	}{
+		{
+			name: "empty source",
+			schema: "  <<: &source_defaults\n" +
+				"    source: {}\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: " + testSHA256 + "\n",
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+		{
+			name: "null source",
+			schema: "  <<: &source_defaults\n" +
+				"    source: null\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: " + testSHA256 + "\n",
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+		{
+			name: "null url source",
+			schema: "  <<: &source_defaults\n" +
+				"    source:\n" +
+				"      url: null\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: " + testSHA256 + "\n",
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+		{
+			name: "valid remote source",
+			schema: "  <<: &source_defaults\n" +
+				"    source:\n" +
+				"      github_docs:\n" +
+				"        version: fpt\n" +
+				"        revision: " + testRevision + "\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: " + testSHA256 + "\n",
+		},
+		{
+			name: "direct source overrides merge",
+			schema: "  <<: &source_defaults\n" +
+				"    source:\n" +
+				"      github_docs:\n" +
+				"        version: fpt\n" +
+				"        revision: " + testRevision + "\n" +
+				"  source: null\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: " + testSHA256 + "\n",
+			expectedError: "schema.source must set exactly one remote source variant",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			filename := filepath.Join(t.TempDir(), DefaultFilename)
+			err := os.WriteFile(filename, []byte(configWithSchema(test.schema)), 0o600)
+			require.NoError(t, err)
+
+			loaded, err := Load(filename)
+			if test.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "fpt", loaded.Schema.Source.GitHubDocs.Version)
+			assert.Equal(t, testRevision, loaded.Schema.Source.GitHubDocs.Revision)
+		})
+	}
+}
+
 func TestGitHubRepositoryValidate(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -270,13 +347,18 @@ func TestGitHubRepositoryValidate(t *testing.T) {
 }
 
 func validConfigYAML() string {
-	return "schema:\n" +
+	return configWithSchema(
 		"  path: .octoql/schema.graphql\n" +
-		"  sha256: " + testSHA256 + "\n" +
-		"  source:\n" +
-		"    github_docs:\n" +
-		"      version: fpt\n" +
-		"      revision: " + testRevision + "\n" +
+			"  sha256: " + testSHA256 + "\n" +
+			"  source:\n" +
+			"    github_docs:\n" +
+			"      version: fpt\n" +
+			"      revision: " + testRevision + "\n",
+	)
+}
+
+func configWithSchema(schema string) string {
+	return "schema:\n" + schema +
 		"operations:\n" +
 		"  - graphql/**/*.graphql\n" +
 		"generated: internal/githubapi/generated.go\n" +
