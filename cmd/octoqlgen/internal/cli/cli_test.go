@@ -31,7 +31,7 @@ func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 
 	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
 	var stdout bytes.Buffer
-	command := SchemaCommand{
+	command := SchemaMaterializeCommand{
 		Config:  "custom.yaml",
 		context: t.Context(),
 		loadConfig: func(filename string) (*config.Config, error) {
@@ -62,7 +62,7 @@ func TestSchemaCommandRunDirectOutput(t *testing.T) {
 	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
 	outputWriter := &stubOutputWriter{}
 	var stdout bytes.Buffer
-	command := SchemaCommand{
+	command := SchemaMaterializeCommand{
 		Output:        "schema.graphql",
 		GitHubVersion: "ghec",
 		Revision:      cliRevision,
@@ -89,12 +89,12 @@ func TestSchemaCommandRunDirectOutput(t *testing.T) {
 func TestSchemaCommandDirectValidation(t *testing.T) {
 	tests := []struct {
 		name          string
-		command       SchemaCommand
+		command       SchemaMaterializeCommand
 		expectedError string
 	}{
 		{
 			name: "multiple direct sources",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				GitHubVersion: "fpt",
 				SourceURL:     "https://example.test/schema.graphql",
 			},
@@ -102,14 +102,14 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "missing checksum",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				SourceURL: "https://example.test/schema.graphql",
 			},
 			expectedError: "--sha256 is required",
 		},
 		{
 			name: "missing github revision",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				GitHubVersion: "fpt",
 				SHA256:        cliSHA256,
 			},
@@ -117,7 +117,7 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "url with revision",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				SourceURL: "https://example.test/schema.graphql",
 				Revision:  cliRevision,
 				SHA256:    cliSHA256,
@@ -126,14 +126,14 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "checksum without direct source",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				SHA256: cliSHA256,
 			},
 			expectedError: "--revision and --sha256 require",
 		},
 		{
 			name: "config with direct source",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				Config:    "octoql.yaml",
 				SourceURL: "https://example.test/schema.graphql",
 				SHA256:    cliSHA256,
@@ -165,7 +165,7 @@ func TestSchemaCommandMaterializeFailureDoesNotWriteOutput(t *testing.T) {
 
 	expectedErr := errors.New("materialize failed")
 	outputWriter := &stubOutputWriter{}
-	command := SchemaCommand{
+	command := SchemaMaterializeCommand{
 		Output:    "schema.graphql",
 		SourceURL: "https://example.test/schema.graphql",
 		SHA256:    cliSHA256,
@@ -181,6 +181,31 @@ func TestSchemaCommandMaterializeFailureDoesNotWriteOutput(t *testing.T) {
 	err := command.Run()
 	require.ErrorIs(t, err, expectedErr)
 	assert.Empty(t, outputWriter.path)
+}
+
+func TestRunSchemaDefaultsToMaterialize(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	materializer := &stubMaterializer{data: []byte("schema")}
+	err := Run(
+		[]string{
+			"schema",
+			"--source-url",
+			"https://example.test/schema.graphql",
+			"--sha256",
+			cliSHA256,
+		},
+		"test",
+		&Dependencies{
+			Context:      t.Context(),
+			Materializer: materializer,
+			Stdout:       &stdout,
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "schema", stdout.String())
+	assert.Equal(t, "https://example.test/schema.graphql", *materializer.request.Source.Url)
 }
 
 func TestAtomicOutputWriter(t *testing.T) {
@@ -217,13 +242,83 @@ func TestGenerateCommandRun(t *testing.T) {
 	assert.Equal(t, "genqlient.yaml", filename)
 }
 
+func TestInitCommandRun(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	writer := &stubOutputWriter{}
+	var stdout bytes.Buffer
+	command := InitCommand{
+		ConfigPath: configPath,
+		sourceFlags: sourceFlags{
+			GitHubVersion: "fpt",
+		},
+		context: t.Context(),
+		resolver: &stubRemoteResolver{result: schema.RemoteResult{
+			Data:     []byte("type Query { viewer: String }\n"),
+			Revision: cliRevision,
+			SHA256:   cliSHA256,
+		}},
+		outputWriter: writer,
+		stdout:       &stdout,
+	}
+
+	err := command.Run()
+	require.NoError(t, err)
+	assert.Equal(t, configPath, writer.path)
+	assert.Contains(t, string(writer.data), "github_docs:")
+	assert.Contains(t, string(writer.data), "revision: "+cliRevision)
+	assert.Contains(t, stdout.String(), cliSHA256)
+}
+
+func TestInitCommandRejectsAmbiguousSource(t *testing.T) {
+	t.Parallel()
+
+	command := InitCommand{
+		ConfigPath: filepath.Join(t.TempDir(), "octoql.yaml"),
+		sourceFlags: sourceFlags{
+			GitHubVersion: "fpt",
+			SourceURL:     "https://example.test/schema.graphql",
+		},
+		context:      t.Context(),
+		resolver:     &stubRemoteResolver{},
+		outputWriter: &stubOutputWriter{},
+		stdout:       io.Discard,
+	}
+
+	err := command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exactly one schema source")
+}
+
+func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	err := os.WriteFile(configPath, []byte("schema:\n  path: schema.graphql\n"), 0o600)
+	require.NoError(t, err)
+	command := SchemaUpdateCommand{
+		Config:     configPath,
+		context:    t.Context(),
+		loadConfig: config.Load,
+		resolver:   &stubRemoteResolver{},
+		stdout:     io.Discard,
+	}
+
+	err = command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires a configured remote")
+}
+
 func TestHelpSnapshots(t *testing.T) {
 	tests := []struct {
 		name string
 		args []string
 	}{
 		{name: "root", args: []string{"--help"}},
+		{name: "init", args: []string{"init", "--help"}},
 		{name: "schema", args: []string{"schema", "--help"}},
+		{name: "schema-update", args: []string{"schema", "update", "--help"}},
 	}
 
 	for _, test := range tests {
@@ -315,6 +410,18 @@ type stubOutputWriter struct {
 	err  error
 	path string
 	data []byte
+}
+
+type stubRemoteResolver struct {
+	err    error
+	result schema.RemoteResult
+}
+
+func (resolver *stubRemoteResolver) Resolve(
+	_ context.Context,
+	_ config.Source,
+) (schema.RemoteResult, error) {
+	return resolver.result, resolver.err
 }
 
 func (w *stubOutputWriter) Write(path string, data []byte) error {

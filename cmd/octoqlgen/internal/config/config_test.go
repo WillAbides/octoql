@@ -118,6 +118,42 @@ func TestLoadDoesNotValidateAgainstSchema(t *testing.T) {
 	assert.Empty(t, loaded.TestHandlerGeneratedPath())
 }
 
+func TestUpdatePinPreservesUnrelatedFormatting(t *testing.T) {
+	t.Parallel()
+
+	content := []byte(
+		"# keep this comment\n" +
+			"schema:\n" +
+			"  path: '.octoql/schema.graphql'\n" +
+			"  sha256: \"" + testSHA256 + "\" # keep this too\n" +
+			"  source:\n" +
+			"    github_docs:\n" +
+			"      version: fpt\n" +
+			"      revision: '" + testRevision + "'\n" +
+			"operations: [graphql/**/*.graphql]\n" +
+			"generated: internal/githubapi/generated.go\n",
+	)
+	newSHA := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	newRevision := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+	updated, err := UpdatePin(content, newSHA, newRevision)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		"# keep this comment\n"+
+			"schema:\n"+
+			"  path: '.octoql/schema.graphql'\n"+
+			"  sha256: \""+newSHA+"\" # keep this too\n"+
+			"  source:\n"+
+			"    github_docs:\n"+
+			"      version: fpt\n"+
+			"      revision: '"+newRevision+"'\n"+
+			"operations: [graphql/**/*.graphql]\n"+
+			"generated: internal/githubapi/generated.go\n",
+		string(updated),
+	)
+}
+
 func readTestFile(t *testing.T, elements ...string) string {
 	t.Helper()
 	content, err := os.ReadFile(filepath.Join(append([]string{"testdata"}, elements...)...))
