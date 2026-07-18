@@ -31,7 +31,7 @@ func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 
 	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
 	var stdout bytes.Buffer
-	command := SchemaCommand{
+	command := SchemaMaterializeCommand{
 		Config:  "custom.yaml",
 		context: t.Context(),
 		loadConfig: func(filename string) (*config.Config, error) {
@@ -62,7 +62,7 @@ func TestSchemaCommandRunDirectOutput(t *testing.T) {
 	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
 	outputWriter := &stubOutputWriter{}
 	var stdout bytes.Buffer
-	command := SchemaCommand{
+	command := SchemaMaterializeCommand{
 		Output:        "schema.graphql",
 		GitHubVersion: "ghec",
 		Revision:      cliRevision,
@@ -89,12 +89,12 @@ func TestSchemaCommandRunDirectOutput(t *testing.T) {
 func TestSchemaCommandDirectValidation(t *testing.T) {
 	tests := []struct {
 		name          string
-		command       SchemaCommand
+		command       SchemaMaterializeCommand
 		expectedError string
 	}{
 		{
 			name: "multiple direct sources",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				GitHubVersion: "fpt",
 				SourceURL:     "https://example.test/schema.graphql",
 			},
@@ -102,14 +102,14 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "missing checksum",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				SourceURL: "https://example.test/schema.graphql",
 			},
 			expectedError: "--sha256 is required",
 		},
 		{
 			name: "missing github revision",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				GitHubVersion: "fpt",
 				SHA256:        cliSHA256,
 			},
@@ -117,7 +117,7 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "url with revision",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				SourceURL: "https://example.test/schema.graphql",
 				Revision:  cliRevision,
 				SHA256:    cliSHA256,
@@ -126,14 +126,14 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "checksum without direct source",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				SHA256: cliSHA256,
 			},
 			expectedError: "--revision and --sha256 require",
 		},
 		{
 			name: "config with direct source",
-			command: SchemaCommand{
+			command: SchemaMaterializeCommand{
 				Config:    "octoql.yaml",
 				SourceURL: "https://example.test/schema.graphql",
 				SHA256:    cliSHA256,
@@ -165,7 +165,7 @@ func TestSchemaCommandMaterializeFailureDoesNotWriteOutput(t *testing.T) {
 
 	expectedErr := errors.New("materialize failed")
 	outputWriter := &stubOutputWriter{}
-	command := SchemaCommand{
+	command := SchemaMaterializeCommand{
 		Output:    "schema.graphql",
 		SourceURL: "https://example.test/schema.graphql",
 		SHA256:    cliSHA256,
@@ -181,6 +181,31 @@ func TestSchemaCommandMaterializeFailureDoesNotWriteOutput(t *testing.T) {
 	err := command.Run()
 	require.ErrorIs(t, err, expectedErr)
 	assert.Empty(t, outputWriter.path)
+}
+
+func TestRunSchemaDefaultsToMaterialize(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	materializer := &stubMaterializer{data: []byte("schema")}
+	err := Run(
+		[]string{
+			"schema",
+			"--source-url",
+			"https://example.test/schema.graphql",
+			"--sha256",
+			cliSHA256,
+		},
+		"test",
+		&Dependencies{
+			Context:      t.Context(),
+			Materializer: materializer,
+			Stdout:       &stdout,
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "schema", stdout.String())
+	assert.Equal(t, "https://example.test/schema.graphql", *materializer.request.Source.Url)
 }
 
 func TestAtomicOutputWriter(t *testing.T) {
@@ -217,13 +242,109 @@ func TestGenerateCommandRun(t *testing.T) {
 	assert.Equal(t, "genqlient.yaml", filename)
 }
 
+func TestInitCommandRun(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	var stdout bytes.Buffer
+	command := InitCommand{
+		ConfigPath: configPath,
+		stdout:     &stdout,
+	}
+
+	err := command.Run()
+	require.NoError(t, err)
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		"schema:\n  path: .octoql/schema.graphql\noperations:\n  - graphql/**/*.graphql\ngenerated: internal/githubapi/generated.go\n",
+		string(content),
+	)
+	gitignorePath := filepath.Join(filepath.Dir(configPath), ".octoql", ".gitignore")
+	gitignore, err := os.ReadFile(gitignorePath)
+	require.NoError(t, err)
+	assert.Equal(t, "*\n!.gitignore\n", string(gitignore))
+	assert.Equal(t, "created "+configPath+" and "+gitignorePath+"\n", stdout.String())
+}
+
+func TestInitCommandPreservesExistingGitignore(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	gitignorePath := filepath.Join(directory, ".octoql", ".gitignore")
+	err := os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
+	require.NoError(t, err)
+	err = os.WriteFile(gitignorePath, []byte("keep\n"), 0o600)
+	require.NoError(t, err)
+	command := InitCommand{
+		ConfigPath: filepath.Join(directory, "nested", "octoql.yaml"),
+		stdout:     io.Discard,
+	}
+
+	err = command.Run()
+	require.NoError(t, err)
+	gitignore, err := os.ReadFile(gitignorePath)
+	require.NoError(t, err)
+	assert.Equal(t, "keep\n", string(gitignore))
+}
+
+func TestInitCommandRefusesExistingConfig(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	err := os.WriteFile(configPath, []byte("existing\n"), 0o600)
+	require.NoError(t, err)
+	command := InitCommand{
+		ConfigPath: configPath,
+		stdout:     io.Discard,
+	}
+
+	err = command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing to overwrite")
+}
+
+func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	err := os.WriteFile(configPath, []byte("schema:\n  path: schema.graphql\n"), 0o600)
+	require.NoError(t, err)
+	command := SchemaUpdateCommand{
+		Config:     configPath,
+		context:    t.Context(),
+		loadConfig: config.Load,
+		stdout:     io.Discard,
+	}
+
+	err = command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires a configured remote")
+}
+
+func TestAcquireUpdateLock(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	unlock, err := acquireUpdateLock(configPath)
+	require.NoError(t, err)
+	defer unlock()
+
+	_, err = acquireUpdateLock(configPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already in progress")
+}
+
 func TestHelpSnapshots(t *testing.T) {
 	tests := []struct {
 		name string
 		args []string
 	}{
 		{name: "root", args: []string{"--help"}},
+		{name: "init", args: []string{"init", "--help"}},
 		{name: "schema", args: []string{"schema", "--help"}},
+		{name: "schema-update", args: []string{"schema", "update", "--help"}},
 	}
 
 	for _, test := range tests {

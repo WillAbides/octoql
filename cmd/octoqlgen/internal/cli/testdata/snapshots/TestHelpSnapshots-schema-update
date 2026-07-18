@@ -1,0 +1,9 @@
+Usage: octoqlgen schema update [flags]
+
+Update a configured remote schema pin.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --version        Show version information.
+
+      --config=PATH    Path to an octoqlgen configuration file.

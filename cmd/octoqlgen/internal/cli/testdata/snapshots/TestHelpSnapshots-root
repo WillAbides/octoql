@@ -10,7 +10,13 @@ Commands:
   generate [<config-filename>] [flags]
     Generate GraphQL client code.
 
-  schema [flags]
+  init [flags]
+    Create an octoqlgen configuration and materialized schema.
+
+  schema materialize [flags]
     Materialize or verify a pinned GraphQL schema.
+
+  schema update [flags]
+    Update a configured remote schema pin.
 
 Run "octoqlgen <command> --help" for more information on a command.

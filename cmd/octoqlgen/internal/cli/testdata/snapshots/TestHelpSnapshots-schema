@@ -1,18 +1,14 @@
-Usage: octoqlgen schema [flags]
+Usage: octoqlgen schema <command> [flags]
 
 Materialize or verify a pinned GraphQL schema.
 
 Flags:
-  -h, --help                      Show context-sensitive help.
-      --version                   Show version information.
+  -h, --help       Show context-sensitive help.
+      --version    Show version information.
 
-      --config=PATH               Path to an octoqlgen configuration file.
-                                  Defaults to octoql.yaml.
-  -o, --output=PATH               Write the exact schema bytes to a file instead
-                                  of stdout.
-      --github-version=VERSION    Fetch a pinned github/docs schema version
-                                  (fpt, ghec, or ghes-X.Y).
-      --source-url=URL            Fetch a schema from an immutable URL.
-      --revision=SHA              Full github/docs commit revision for
-                                  --github-version.
-      --sha256=HEX                Expected SHA-256 for a direct remote source.
+Commands:
+  schema materialize [flags]
+    Materialize or verify a pinned GraphQL schema.
+
+  schema update [flags]
+    Update a configured remote schema pin.

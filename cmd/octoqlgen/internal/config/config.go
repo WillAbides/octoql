@@ -34,17 +34,22 @@ func Load(filename string) (*Config, error) {
 		return nil, fmt.Errorf("reading config file %q: %w", filename, err)
 	}
 
-	err = requireSingleYAMLDocument(content)
-	if err != nil {
-		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
-	}
-	loaded, err := decodeConfig(content)
+	loaded, err := Parse(content)
 	if err != nil {
 		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
 	}
 
 	loaded.resolvePaths(filepath.Dir(absoluteFilename))
 	return loaded, nil
+}
+
+// Parse decodes one octoqlgen configuration document without resolving paths.
+func Parse(content []byte) (*Config, error) {
+	err := requireSingleYAMLDocument(content)
+	if err != nil {
+		return nil, err
+	}
+	return decodeConfig(content)
 }
 
 func requireSingleYAMLDocument(content []byte) error {

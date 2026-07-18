@@ -7,6 +7,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -17,10 +18,12 @@ import (
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
 	"github.com/willabides/octoql/generate"
+	yamlv3 "gopkg.in/yaml.v3"
 )
 
 type commandTree struct {
 	Generate GenerateCommand  `cmd:"" help:"Generate GraphQL client code."`
+	Init     InitCommand      `cmd:"" help:"Create an octoqlgen configuration and materialized schema."`
 	Schema   SchemaCommand    `cmd:"" help:"Materialize or verify a pinned GraphQL schema."`
 	Version  kong.VersionFlag `name:"version" help:"Show version information."`
 }
@@ -36,6 +39,11 @@ func (cmd GenerateCommand) Run() error {
 }
 
 type SchemaCommand struct {
+	Materialize SchemaMaterializeCommand `cmd:"" default:"1" help:"Materialize or verify a pinned GraphQL schema."`
+	Update      SchemaUpdateCommand      `cmd:"" help:"Update a configured remote schema pin."`
+}
+
+type SchemaMaterializeCommand struct {
 	context      context.Context
 	loadConfig   func(string) (*config.Config, error)
 	materializer Materializer
@@ -50,7 +58,348 @@ type SchemaCommand struct {
 	SHA256        string `name:"sha256" placeholder:"HEX" help:"Expected SHA-256 for a direct remote source."`
 }
 
-func (cmd *SchemaCommand) Run() error {
+type RemoteResolver interface {
+	Resolve(context.Context, config.Source) (schema.RemoteResult, error)
+}
+
+type InitCommand struct {
+	stdout io.Writer
+
+	ConfigPath string `name:"config" type:"path" default:"octoql.yaml" placeholder:"PATH" help:"Path for the new octoqlgen configuration."`
+}
+
+func (cmd *InitCommand) Run() error {
+	_, err := os.Lstat(cmd.ConfigPath)
+	if err == nil || !errors.Is(err, os.ErrNotExist) {
+		if err != nil {
+			return fmt.Errorf("checking config path %q: %w", cmd.ConfigPath, err)
+		}
+		return fmt.Errorf("refusing to overwrite existing config %q", cmd.ConfigPath)
+	}
+	model := config.Config{
+		Schema: config.Schema{
+			Path: ".octoql/schema.graphql",
+		},
+		Operations: []string{"graphql/**/*.graphql"},
+		Generated:  "internal/githubapi/generated.go",
+	}
+	configBytes, err := minimalConfigBytes(&model)
+	if err != nil {
+		return fmt.Errorf("encoding generated config: %w", err)
+	}
+	_, err = config.Parse(configBytes)
+	if err != nil {
+		return fmt.Errorf("validating generated config: %w", err)
+	}
+	configDir := filepath.Dir(cmd.ConfigPath)
+	gitignorePath := filepath.Join(configDir, ".octoql", ".gitignore")
+	err = os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
+	if err != nil {
+		return fmt.Errorf("creating schema directory: %w", err)
+	}
+	gitignore, err := os.OpenFile(gitignorePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err == nil {
+		_, err = gitignore.WriteString("*\n!.gitignore\n")
+		closeErr := gitignore.Close()
+		err = errors.Join(err, closeErr)
+	}
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("creating schema gitignore: %w", err)
+	}
+	err = createFileNoReplace(cmd.ConfigPath, configBytes)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.stdout, "created %s and %s\n", cmd.ConfigPath, gitignorePath)
+	return err
+}
+
+func minimalConfigBytes(model *config.Config) ([]byte, error) {
+	document := yamlv3.Node{
+		Kind: yamlv3.DocumentNode,
+		Content: []*yamlv3.Node{{
+			Kind: yamlv3.MappingNode,
+			Content: []*yamlv3.Node{
+				{Kind: yamlv3.ScalarNode, Value: "schema"},
+				{
+					Kind: yamlv3.MappingNode,
+					Content: []*yamlv3.Node{
+						{Kind: yamlv3.ScalarNode, Value: "path"},
+						{Kind: yamlv3.ScalarNode, Value: model.Schema.Path},
+					},
+				},
+				{Kind: yamlv3.ScalarNode, Value: "operations"},
+				{
+					Kind: yamlv3.SequenceNode,
+					Content: []*yamlv3.Node{
+						{Kind: yamlv3.ScalarNode, Value: model.Operations[0]},
+					},
+				},
+				{Kind: yamlv3.ScalarNode, Value: "generated"},
+				{Kind: yamlv3.ScalarNode, Value: model.Generated},
+			},
+		}},
+	}
+	var buffer bytes.Buffer
+	encoder := yamlv3.NewEncoder(&buffer)
+	encoder.SetIndent(2)
+	err := encoder.Encode(&document)
+	closeErr := encoder.Close()
+	err = errors.Join(err, closeErr)
+	if err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+func createFileNoReplace(destination string, data []byte) (err error) {
+	directory := filepath.Dir(destination)
+	err = os.MkdirAll(directory, 0o755)
+	if err != nil {
+		return fmt.Errorf("creating config directory: %w", err)
+	}
+	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("creating temporary config file: %w", err)
+	}
+	defer func() {
+		err = errors.Join(err, os.Remove(temp.Name()))
+	}()
+	_, err = temp.Write(data)
+	if err != nil {
+		return fmt.Errorf("writing temporary config file: %w", err)
+	}
+	err = temp.Chmod(0o644)
+	if err != nil {
+		return fmt.Errorf("setting config permissions: %w", err)
+	}
+	err = temp.Sync()
+	if err != nil {
+		return fmt.Errorf("syncing temporary config file: %w", err)
+	}
+	err = temp.Close()
+	if err != nil {
+		return fmt.Errorf("closing temporary config file: %w", err)
+	}
+	err = os.Link(temp.Name(), destination)
+	if errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("refusing to overwrite existing config %q", destination)
+	}
+	if err != nil {
+		return fmt.Errorf("publishing config file: %w", err)
+	}
+	return nil
+}
+
+type SchemaUpdateCommand struct {
+	context      context.Context
+	loadConfig   func(string) (*config.Config, error)
+	resolver     RemoteResolver
+	outputWriter OutputWriter
+	stdout       io.Writer
+
+	Config string `name:"config" type:"path" default:"octoql.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
+}
+
+func (cmd *SchemaUpdateCommand) Run() error {
+	userConfigPath, err := filepath.Abs(cmd.Config)
+	if err != nil {
+		return fmt.Errorf("resolving config path: %w", err)
+	}
+	configPath, err := canonicalPath(userConfigPath)
+	if err != nil {
+		return err
+	}
+	unlock, err := acquireUpdateLock(configPath)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	rawConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
+	}
+	originalConfig, err := snapshotFile(configPath)
+	if err != nil {
+		return fmt.Errorf("reading config metadata: %w", err)
+	}
+
+	loaded, err := cmd.loadConfig(userConfigPath)
+	if err != nil {
+		return err
+	}
+	source := loaded.Schema.SourceValue()
+	if !hasRemoteSource(source) {
+		return errors.New("schema update requires a configured remote schema source")
+	}
+	result, err := cmd.resolver.Resolve(cmd.context, source)
+	if err != nil {
+		return err
+	}
+	originalSchema, err := snapshotFile(loaded.SchemaPath())
+	if err != nil {
+		return fmt.Errorf("reading configured schema: %w", err)
+	}
+	currentHash := fmt.Sprintf("%x", sha256.Sum256(originalSchema.data))
+	if originalSchema.exists && currentHash == result.SHA256 && loaded.Schema.SHA256Value() == result.SHA256 {
+		_, outputErr := fmt.Fprintln(cmd.stdout, "schema is unchanged")
+		return outputErr
+	}
+	updatedConfig, err := config.UpdatePin(rawConfig, result.SHA256, result.Revision)
+	if err != nil {
+		return err
+	}
+	_, err = config.Parse(updatedConfig)
+	if err != nil {
+		return fmt.Errorf("validating updated config: %w", err)
+	}
+	finalConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("checking config before schema publication: %w", err)
+	}
+	finalSchema, err := snapshotFile(loaded.SchemaPath())
+	if err != nil {
+		return fmt.Errorf("checking schema before publication: %w", err)
+	}
+	if !bytes.Equal(finalConfig, rawConfig) || !sameFileSnapshot(finalSchema, originalSchema) {
+		return errors.New("config or schema changed while updating; no files were published")
+	}
+	err = cmd.outputWriter.Write(loaded.SchemaPath(), result.Data)
+	if err != nil {
+		return fmt.Errorf("publishing updated schema: %w", err)
+	}
+	rollbackSchema := func(cause error) error {
+		rollbackErr := restoreSnapshot(cmd.outputWriter, loaded.SchemaPath(), originalSchema)
+		if rollbackErr != nil {
+			return fmt.Errorf("schema update failed after publication and schema rollback failed: %w", errors.Join(cause, rollbackErr))
+		}
+		return fmt.Errorf("schema update failed after publication; restored original schema: %w", cause)
+	}
+	currentConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		return rollbackSchema(fmt.Errorf("checking config before update: %w", err))
+	}
+	if !bytes.Equal(currentConfig, rawConfig) {
+		return rollbackSchema(errors.New("config changed while updating schema"))
+	}
+	err = cmd.outputWriter.Write(configPath, updatedConfig)
+	if err != nil {
+		return rollbackSchema(fmt.Errorf("config update failed: %w", err))
+	}
+	_, err = cmd.loadConfig(userConfigPath)
+	if err != nil {
+		configRollbackErr := restoreSnapshot(cmd.outputWriter, configPath, originalConfig)
+		schemaRollbackErr := restoreSnapshot(cmd.outputWriter, loaded.SchemaPath(), originalSchema)
+		return fmt.Errorf(
+			"validating published config failed; rollback errors: %w",
+			errors.Join(err, configRollbackErr, schemaRollbackErr),
+		)
+	}
+	_, err = fmt.Fprintf(
+		cmd.stdout,
+		"updated schema revision %s -> %s, sha256 %s -> %s\n",
+		displayRevision(sourceRevision(source)),
+		displayRevision(result.Revision),
+		loaded.Schema.SHA256Value(),
+		result.SHA256,
+	)
+	return err
+}
+
+func acquireUpdateLock(configPath string) (func(), error) {
+	lockPath := configPath + ".schema-update.lock"
+	err := os.Mkdir(lockPath, 0o700)
+	if errors.Is(err, os.ErrExist) {
+		return nil, errors.New("another schema update is already in progress")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("acquiring schema update lock: %w", err)
+	}
+	return func() {
+		_ = os.Remove(lockPath)
+	}, nil
+}
+
+func canonicalPath(path string) (string, error) {
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolving config path: %w", err)
+	}
+
+	resolvedPath, err := filepath.EvalSymlinks(absolutePath)
+	if err == nil {
+		return resolvedPath, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return absolutePath, nil
+	}
+	return "", fmt.Errorf("resolving config symlinks: %w", err)
+}
+
+type fileSnapshot struct {
+	data   []byte
+	mode   os.FileMode
+	exists bool
+}
+
+func snapshotFile(path string) (fileSnapshot, error) {
+	info, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return fileSnapshot{}, nil
+	}
+	if err != nil {
+		return fileSnapshot{}, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fileSnapshot{}, err
+	}
+	return fileSnapshot{data: data, mode: info.Mode(), exists: true}, nil
+}
+
+func sameFileSnapshot(left, right fileSnapshot) bool {
+	return left.exists == right.exists && left.mode == right.mode && bytes.Equal(left.data, right.data)
+}
+
+func restoreSnapshot(writer OutputWriter, path string, snapshot fileSnapshot) error {
+	if !snapshot.exists {
+		err := os.Remove(path)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	err := writer.Write(path, snapshot.data)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(path, snapshot.mode)
+}
+
+func sourceRevision(source config.Source) string {
+	if source.GithubDocs != nil {
+		return source.GithubDocs.Revision
+	}
+	if source.GithubRepository != nil {
+		return source.GithubRepository.Revision
+	}
+	return ""
+}
+
+func hasRemoteSource(source config.Source) bool {
+	return source.GithubDocs != nil || source.GithubRepository != nil || source.Url != nil
+}
+
+func displayRevision(revision string) string {
+	if revision == "" {
+		return "n/a"
+	}
+	return revision
+}
+
+func (cmd *SchemaMaterializeCommand) Run() error {
 	request, err := cmd.request()
 	if err != nil {
 		return err
@@ -75,7 +424,7 @@ func (cmd *SchemaCommand) Run() error {
 	return nil
 }
 
-func (cmd *SchemaCommand) request() (schema.Request, error) {
+func (cmd *SchemaMaterializeCommand) request() (schema.Request, error) {
 	hasGitHubVersion := cmd.GitHubVersion != ""
 	hasSourceURL := cmd.SourceURL != ""
 	if hasGitHubVersion && hasSourceURL {
@@ -135,13 +484,14 @@ type OutputWriter interface {
 }
 
 type Dependencies struct {
-	Context      context.Context
-	Stdout       io.Writer
-	Stderr       io.Writer
-	Generate     func(string) error
-	LoadConfig   func(string) (*config.Config, error)
-	Materializer Materializer
-	OutputWriter OutputWriter
+	Context        context.Context
+	Stdout         io.Writer
+	Stderr         io.Writer
+	Generate       func(string) error
+	LoadConfig     func(string) (*config.Config, error)
+	Materializer   Materializer
+	RemoteResolver RemoteResolver
+	OutputWriter   OutputWriter
 }
 
 func Run(args []string, version string, dependencies *Dependencies) error {
@@ -158,11 +508,27 @@ func Run(args []string, version string, dependencies *Dependencies) error {
 	if err != nil {
 		return err
 	}
-	parsed, err := parser.Parse(args)
+	parsed, err := parser.Parse(normalizeArgs(args))
 	if err != nil {
 		return err
 	}
 	return parsed.Run()
+}
+
+func normalizeArgs(args []string) []string {
+	if len(args) == 0 || args[0] != "schema" {
+		return args
+	}
+	if len(args) == 1 {
+		return []string{"schema", "materialize"}
+	}
+	if args[1] == "update" || args[1] == "materialize" || args[1] == "--help" {
+		return args
+	}
+	normalized := make([]string, 0, len(args)+1)
+	normalized = append(normalized, "schema", "materialize")
+	normalized = append(normalized, args[1:]...)
+	return normalized
 }
 
 func newCommandTree(dependencies *Dependencies) *commandTree {
@@ -170,12 +536,24 @@ func newCommandTree(dependencies *Dependencies) *commandTree {
 		Generate: GenerateCommand{
 			run: dependencies.Generate,
 		},
+		Init: InitCommand{
+			stdout: dependencies.Stdout,
+		},
 		Schema: SchemaCommand{
-			context:      dependencies.Context,
-			loadConfig:   dependencies.LoadConfig,
-			materializer: dependencies.Materializer,
-			outputWriter: dependencies.OutputWriter,
-			stdout:       dependencies.Stdout,
+			Materialize: SchemaMaterializeCommand{
+				context:      dependencies.Context,
+				loadConfig:   dependencies.LoadConfig,
+				materializer: dependencies.Materializer,
+				outputWriter: dependencies.OutputWriter,
+				stdout:       dependencies.Stdout,
+			},
+			Update: SchemaUpdateCommand{
+				context:      dependencies.Context,
+				loadConfig:   dependencies.LoadConfig,
+				resolver:     dependencies.RemoteResolver,
+				outputWriter: dependencies.OutputWriter,
+				stdout:       dependencies.Stdout,
+			},
 		},
 	}
 }
@@ -209,6 +587,14 @@ func (d *Dependencies) setDefaults() {
 	if d.Materializer == nil {
 		d.Materializer = schema.NewMaterializer()
 	}
+	if d.RemoteResolver == nil {
+		resolver, ok := d.Materializer.(RemoteResolver)
+		if !ok {
+			d.RemoteResolver = schema.NewMaterializer()
+		} else {
+			d.RemoteResolver = resolver
+		}
+	}
 	if d.OutputWriter == nil {
 		d.OutputWriter = atomicOutputWriter{}
 	}
@@ -241,7 +627,15 @@ func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
 	if err != nil {
 		return fmt.Errorf("writing temporary output file: %w", err)
 	}
-	err = temp.Chmod(0o644)
+	mode := os.FileMode(0o644)
+	info, statErr := os.Stat(destination)
+	if statErr == nil {
+		mode = info.Mode()
+	}
+	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+		return fmt.Errorf("reading output permissions: %w", statErr)
+	}
+	err = temp.Chmod(mode)
 	if err != nil {
 		return fmt.Errorf("setting temporary output permissions: %w", err)
 	}
