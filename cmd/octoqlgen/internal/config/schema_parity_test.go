@@ -13,17 +13,21 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql/internal/configschema"
 	"gopkg.in/yaml.v3"
 )
 
-const schemaFixtureDir = "testdata/schema"
+const (
+	schemaFixtureDir = "testdata/schema"
+	schemaOutputPath = "../../../../schema/octoql.schema.json"
+)
 
 func TestJSONSchemaParity(t *testing.T) {
 	compiler := jsonschema.NewCompiler()
 	compiler.AssertFormat()
 
-	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(configschema.JSONDocument()))
+	schemaContent, err := os.ReadFile(schemaOutputPath)
+	require.NoError(t, err)
+	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(schemaContent))
 	require.NoError(t, err)
 	err = compiler.AddResource("octoql.schema.json", document)
 	require.NoError(t, err)

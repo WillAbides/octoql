@@ -16,7 +16,7 @@ import (
 
 const (
 	jsonOutputPath = "schema/octoql.schema.json"
-	yamlOutputPath = "schema/octoql.schema.yaml"
+	yamlInputPath  = "schema/octoql.schema.yaml"
 )
 
 func main() {
@@ -28,7 +28,11 @@ func main() {
 }
 
 func run() error {
-	yamlContent, err := configschema.YAMLDocument()
+	yamlContent, err := os.ReadFile(yamlInputPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", yamlInputPath, err)
+	}
+	jsonContent, err := configschema.JSONDocument(yamlContent)
 	if err != nil {
 		return err
 	}
@@ -38,11 +42,7 @@ func run() error {
 	}{
 		{
 			path:    jsonOutputPath,
-			content: configschema.JSONDocument(),
-		},
-		{
-			path:    yamlOutputPath,
-			content: yamlContent,
+			content: jsonContent,
 		},
 	}
 

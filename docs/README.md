@@ -18,7 +18,7 @@ Welcome to the genqlient documentation! This documentation is made possible by v
 The repository's [`octoql.yaml` example](octoql.yaml) uses a
 `yaml-language-server` directive that resolves to
 [`schema/octoql.schema.yaml`](../schema/octoql.schema.yaml) in this repository.
-The YAML schema is generated from the reviewed JSON Schema source, alongside
+The YAML schema is the hand-maintained source for the generated
 [`schema/octoql.schema.json`](../schema/octoql.schema.json). Downstream projects
 can point an editor at either committed file or at its raw `main`-branch URL:
 `https://raw.githubusercontent.com/WillAbides/octoql/main/schema/octoql.schema.yaml`.
