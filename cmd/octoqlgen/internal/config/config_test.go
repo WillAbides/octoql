@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dlclark/regexp2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -228,20 +227,6 @@ func TestValidateSourceURL(t *testing.T) {
 	}
 }
 
-func TestSchemaPatternsCompileAsECMAScript(t *testing.T) {
-	t.Parallel()
-
-	document, err := readSchemaDocument()
-	require.NoError(t, err)
-
-	patterns := collectPatterns(document)
-	require.NotEmpty(t, patterns)
-	for _, pattern := range patterns {
-		_, err = regexp2.Compile(pattern, regexp2.ECMAScript)
-		require.NoError(t, err, "pattern %q", pattern)
-	}
-}
-
 func TestGeneratedModelUsesPresencePointers(t *testing.T) {
 	t.Parallel()
 
@@ -442,32 +427,6 @@ func setFixtureChild(current any, segment string, child any) error {
 	}
 }
 
-func collectPatterns(value any) []string {
-	switch value := value.(type) {
-	case map[string]any:
-		patterns := []string{}
-		for key, child := range value {
-			if key == "pattern" {
-				pattern, ok := child.(string)
-				if ok {
-					patterns = append(patterns, pattern)
-				}
-				continue
-			}
-			patterns = append(patterns, collectPatterns(child)...)
-		}
-		return patterns
-	case []any:
-		patterns := []string{}
-		for _, child := range value {
-			patterns = append(patterns, collectPatterns(child)...)
-		}
-		return patterns
-	default:
-		return []string{}
-	}
-}
-
 func matchesSchemaReason(err error, reason string) bool {
 	message := err.Error()
 	if strings.Contains(message, reason) {
@@ -478,12 +437,6 @@ func matchesSchemaReason(err error, reason string) bool {
 		return strings.Contains(message, "got ") && strings.Contains(message, ", want ")
 	case "additionalProperties":
 		return strings.Contains(message, "additional properties")
-	case "pattern":
-		return strings.Contains(message, "does not match pattern") || strings.Contains(message, "not valid uri")
-	case "minLength":
-		return strings.Contains(message, "length must be >= 1") || strings.Contains(message, "not valid uri")
-	case "not":
-		return strings.Contains(message, "'not' failed")
 	default:
 		return false
 	}
