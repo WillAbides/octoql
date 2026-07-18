@@ -1,4 +1,4 @@
-#https://github.com/willabides/octoql/issues/342
+#https://github.com/Khan/genqlient/issues/342
 query UseStructReference(
   $input: UseStructReferencesInput!
 ) {

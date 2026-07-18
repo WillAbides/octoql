@@ -127,4 +127,4 @@ Some schemas/servers make use of GraphQL extensions, for example to add rate-lim
 
 ## Hasura, Dgraph, and other generated schemas
 
-Some GraphQL tools, like Hasura and Dgraph, generate large schemas automatically from non-GraphQL data (like database schemas). These schemas tend to be quite large and complex, and often run into trouble with GraphQL. See [#272](https://github.com/willabides/octoql/issues/272) for discussion of how to use these tools with genqlient.
+Some GraphQL tools, like Hasura and Dgraph, generate large schemas automatically from non-GraphQL data (like database schemas). These schemas tend to be quite large and complex, and often run into trouble with GraphQL. See [#272](https://github.com/Khan/genqlient/issues/272) for discussion of how to use these tools with genqlient.

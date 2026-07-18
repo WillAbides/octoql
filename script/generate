@@ -24,7 +24,13 @@ if [ "$1" = "--check" ]; then
     git add .
     git -c user.name=octoql -c user.email=octoql@example.invalid commit -q --allow-empty -m generate
     script/generate
-    git diff --exit-code
+    if [ -n "$(git status --porcelain)" ]; then
+      echo "script/generate resulted in changes." >&2
+      git status --short
+      git diff --stat
+      git diff
+      exit 1
+    fi
   )
   exit 0
 fi

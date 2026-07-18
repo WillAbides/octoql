@@ -62,7 +62,7 @@ query UseStructReference ($input: UseStructReferencesInput!) {
 }
 `
 
-// https://github.com/willabides/octoql/issues/342
+// https://github.com/Khan/genqlient/issues/342
 func UseStructReference(
 	client_ graphql.Client,
 	input UseStructReferencesInput,
