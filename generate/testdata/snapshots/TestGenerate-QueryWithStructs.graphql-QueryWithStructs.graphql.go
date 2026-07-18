@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 )
 
 // QueryWithStructsResponse is returned by QueryWithStructs on success.
@@ -57,22 +59,16 @@ query QueryWithStructs {
 `
 
 func QueryWithStructs(
-	client_ graphql.Client,
-) (data_ *QueryWithStructsResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "QueryWithStructs",
-		Query:  QueryWithStructs_Operation,
-	}
-
-	data_ = &QueryWithStructsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[QueryWithStructsResponse], error) {
+	return octoql.Do[QueryWithStructsResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "QueryWithStructs",
+			Query: QueryWithStructs_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

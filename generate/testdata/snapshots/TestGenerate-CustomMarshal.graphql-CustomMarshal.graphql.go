@@ -4,10 +4,12 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -186,26 +188,20 @@ query CustomMarshal ($date: Date!) {
 `
 
 func CustomMarshal(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	date time.Time,
-) (data_ *CustomMarshalResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "CustomMarshal",
-		Query:  CustomMarshal_Operation,
-		Variables: &__CustomMarshalInput{
-			Date: date,
-		},
+) (*octoql.Response[CustomMarshalResponse], error) {
+	variables_ := __CustomMarshalInput{
+		Date: date,
 	}
-
-	data_ = &CustomMarshalResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[CustomMarshalResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "CustomMarshal",
+			Query: CustomMarshal_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

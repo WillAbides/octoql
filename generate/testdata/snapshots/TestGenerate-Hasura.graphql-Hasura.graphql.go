@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -93,26 +95,20 @@ query GetPokemon ($where: getPokemonBoolExp!) {
 `
 
 func GetPokemon(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	where *GetPokemonBoolExp,
-) (data_ *GetPokemonResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "GetPokemon",
-		Query:  GetPokemon_Operation,
-		Variables: &__GetPokemonInput{
-			Where: where,
-		},
+) (*octoql.Response[GetPokemonResponse], error) {
+	variables_ := __GetPokemonInput{
+		Where: where,
 	}
-
-	data_ = &GetPokemonResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[GetPokemonResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "GetPokemon",
+			Query: GetPokemon_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

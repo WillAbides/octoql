@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -52,22 +54,16 @@ query QueryWithAlias {
 `
 
 func QueryWithAlias(
-	client_ graphql.Client,
-) (data_ *QueryWithAliasResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "QueryWithAlias",
-		Query:  QueryWithAlias_Operation,
-	}
-
-	data_ = &QueryWithAliasResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[QueryWithAliasResponse], error) {
+	return octoql.Do[QueryWithAliasResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "QueryWithAlias",
+			Query: QueryWithAlias_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

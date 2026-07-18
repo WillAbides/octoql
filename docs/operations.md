@@ -91,11 +91,11 @@ This will generate:
 ```go
 func MyQuery(
   ctx context.Context,
-  client graphql.Client,
+  client *octoql.Client,
   arg1 MyInputType,
   arg2 *string, // omitempty
   arg3 string,
-) (*MyQueryResponse, error)
+) (*octoql.Response[MyQueryResponse], error)
 
 type MyInputType struct {
   Id    *string `json:"id"`
@@ -144,8 +144,8 @@ These can be used in the ordinary Go ways: to access shared fields, use the inte
 
 ```go
 resp, err := GetBooks(...)
-fmt.Println("Favorite book:", resp.Favorite.GetTitle())
-if novel, ok := resp.Favorite.(*GetBooksFavoriteNovel); ok {
+fmt.Println("Favorite book:", resp.Data.Favorite.GetTitle())
+if novel, ok := resp.Data.Favorite.(*GetBooksFavoriteNovel); ok {
   fmt.Println("Protagonist:", novel.Protagonist)
 }
 ```
@@ -405,4 +405,3 @@ For any GraphQL types or fields with documentation in the GraphQL schema, genqli
 # @genqlient(omitempty: true)
 query GetUser { ... }
 ```
-

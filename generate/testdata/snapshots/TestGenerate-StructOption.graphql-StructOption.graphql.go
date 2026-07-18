@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -462,22 +464,16 @@ fragment VideoFields on Video {
 `
 
 func StructOption(
-	client_ graphql.Client,
-) (data_ *StructOptionResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "StructOption",
-		Query:  StructOption_Operation,
-	}
-
-	data_ = &StructOptionResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[StructOptionResponse], error) {
+	return octoql.Do[StructOptionResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "StructOption",
+			Query: StructOption_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

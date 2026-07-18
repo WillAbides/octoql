@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 type ID string
@@ -25,9 +25,9 @@ type MyContext interface {
 	MyMethod()
 }
 
-func GetClientFromNowhere() (graphql.Client, error)                    { return nil, nil }
-func GetClientFromContext(ctx context.Context) (graphql.Client, error) { return nil, nil }
-func GetClientFromMyContext(ctx MyContext) (graphql.Client, error)     { return nil, nil }
+func GetClientFromNowhere() (*octoql.Client, error)                    { return nil, nil }
+func GetClientFromContext(ctx context.Context) (*octoql.Client, error) { return nil, nil }
+func GetClientFromMyContext(ctx MyContext) (*octoql.Client, error)     { return nil, nil }
 
 const dateFormat = "2006-01-02"
 

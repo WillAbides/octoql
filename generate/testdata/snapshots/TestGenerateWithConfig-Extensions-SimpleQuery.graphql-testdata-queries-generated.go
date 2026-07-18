@@ -6,7 +6,7 @@ package queries
 import (
 	"context"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 // SimpleQueryResponse is returned by SimpleQuery on success.
@@ -46,22 +46,16 @@ query SimpleQuery {
 
 func SimpleQuery(
 	ctx_ context.Context,
-	client_ graphql.Client,
-) (data_ *SimpleQueryResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SimpleQuery",
-		Query:  SimpleQuery_Operation,
-	}
-
-	data_ = &SimpleQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[SimpleQueryResponse], error) {
+	return octoql.Do[SimpleQueryResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "SimpleQuery",
+			Query: SimpleQuery_Operation,
+		},
+		nil,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 

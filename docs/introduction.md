@@ -29,20 +29,24 @@ file `generated.go` with your queries.
 
 Finally, write your code!  The generated code will expose a function with the same name as your query, here
 ```go
-func getUser(ctx context.Context, client graphql.Client, login string) (*getUserResponse, error)
+func getUser(
+  ctx context.Context,
+  client *octoql.Client,
+  login string,
+) (*octoql.Response[getUserResponse], error)
 ```
 
 As for the arguments:
 - for `ctx`, pass your local context (see [`go doc context`](https://pkg.go.dev/context)) or `context.Background()` if you don't need one
-- for `client`, call [`graphql.NewClient`](https://pkg.go.dev/github.com/willabides/octoql/graphql), e.g. `graphql.NewClient("https://your.api.example/path", http.DefaultClient)`
+- for `client`, call [`octoql.NewClient`](https://pkg.go.dev/github.com/willabides/octoql#NewClient), e.g. `octoql.NewClient("https://your.api.example/path", http.DefaultClient)`
 - for `login`, pass your GitHub username (or whatever the arguments to your query are)
 
-The response object is a struct with fields corresponding to each GraphQL field; for the exact details check its GoDoc (perhaps via your IDE's autocomplete or hover).  For example, you might do:
+The response's `Data` field is a struct with fields corresponding to each GraphQL field; for the exact details check its GoDoc (perhaps via your IDE's autocomplete or hover).  For example, you might do:
 ```go
 ctx := context.Background()
-client := graphql.NewClient("https://api.github.com/graphql", http.DefaultClient)
+client := octoql.NewClient("https://api.github.com/graphql", http.DefaultClient)
 resp, err := getUser(ctx, client, "benjaminjkraft")
-fmt.Println(resp.User.Name, err)
+fmt.Println(resp.Data.User.Name, err)
 ```
 
 Now run your code!

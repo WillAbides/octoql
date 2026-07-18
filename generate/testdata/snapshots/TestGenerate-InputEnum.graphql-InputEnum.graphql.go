@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -70,26 +72,20 @@ query InputEnumQuery ($role: Role!) {
 `
 
 func InputEnumQuery(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	role Role,
-) (data_ *InputEnumQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "InputEnumQuery",
-		Query:  InputEnumQuery_Operation,
-		Variables: &__InputEnumQueryInput{
-			Role: role,
-		},
+) (*octoql.Response[InputEnumQueryResponse], error) {
+	variables_ := __InputEnumQueryInput{
+		Role: role,
 	}
-
-	data_ = &InputEnumQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[InputEnumQueryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "InputEnumQuery",
+			Query: InputEnumQuery_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -51,22 +53,16 @@ query SimpleQueryWithPointerFalseOverride {
 `
 
 func SimpleQueryWithPointerFalseOverride(
-	client_ graphql.Client,
-) (data_ *SimpleQueryWithPointerFalseOverrideResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SimpleQueryWithPointerFalseOverride",
-		Query:  SimpleQueryWithPointerFalseOverride_Operation,
-	}
-
-	data_ = &SimpleQueryWithPointerFalseOverrideResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[SimpleQueryWithPointerFalseOverrideResponse], error) {
+	return octoql.Do[SimpleQueryWithPointerFalseOverrideResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SimpleQueryWithPointerFalseOverride",
+			Query: SimpleQueryWithPointerFalseOverride_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

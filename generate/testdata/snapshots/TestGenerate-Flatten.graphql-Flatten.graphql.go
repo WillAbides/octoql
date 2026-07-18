@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -306,22 +308,16 @@ fragment ChildVideoFields on Video {
 `
 
 func ComplexNamedFragments(
-	client_ graphql.Client,
-) (data_ *InnerQueryFragment, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ComplexNamedFragments",
-		Query:  ComplexNamedFragments_Operation,
-	}
-
-	data_ = &InnerQueryFragment{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[InnerQueryFragment], error) {
+	return octoql.Do[InnerQueryFragment](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "ComplexNamedFragments",
+			Query: ComplexNamedFragments_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

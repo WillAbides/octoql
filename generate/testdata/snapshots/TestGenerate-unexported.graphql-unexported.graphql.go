@@ -4,10 +4,12 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -193,26 +195,20 @@ query unexported ($query: UserQueryInput) {
 `
 
 func unexported(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	query UserQueryInput,
-) (data_ *unexportedResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "unexported",
-		Query:  unexported_Operation,
-		Variables: &__unexportedInput{
-			Query: query,
-		},
+) (*octoql.Response[unexportedResponse], error) {
+	variables_ := __unexportedInput{
+		Query: query,
 	}
-
-	data_ = &unexportedResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[unexportedResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "unexported",
+			Query: unexported_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -41,22 +43,16 @@ query SnakeCaseType {
 `
 
 func SnakeCaseType(
-	client_ graphql.Client,
-) (data_ *SnakeCaseTypeResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SnakeCaseType",
-		Query:  SnakeCaseType_Operation,
-	}
-
-	data_ = &SnakeCaseTypeResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[SnakeCaseTypeResponse], error) {
+	return octoql.Do[SnakeCaseTypeResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SnakeCaseType",
+			Query: SnakeCaseType_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

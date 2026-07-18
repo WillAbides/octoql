@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 // __getUserInput is used internally by genqlient
@@ -83,27 +83,21 @@ query getUser ($Login: String!) {
 // getUser gets the given user's name from their username.
 func getUser(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	Login string,
-) (data_ *getUserResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "getUser",
-		Query:  getUser_Operation,
-		Variables: &__getUserInput{
-			Login: Login,
-		},
+) (*octoql.Response[getUserResponse], error) {
+	variables_ := __getUserInput{
+		Login: Login,
 	}
-
-	data_ = &getUserResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[getUserResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "getUser",
+			Query: getUser_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 
 // The query executed by getViewer.
@@ -118,21 +112,15 @@ query getViewer {
 
 func getViewer(
 	ctx_ context.Context,
-	client_ graphql.Client,
-) (data_ *getViewerResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "getViewer",
-		Query:  getViewer_Operation,
-	}
-
-	data_ = &getViewerResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[getViewerResponse], error) {
+	return octoql.Do[getViewerResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "getViewer",
+			Query: getViewer_Operation,
+		},
+		nil,
 	)
-
-	return data_, err_
 }

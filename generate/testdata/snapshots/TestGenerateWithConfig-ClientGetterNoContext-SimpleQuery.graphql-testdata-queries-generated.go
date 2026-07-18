@@ -4,7 +4,9 @@
 package queries
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -43,27 +45,19 @@ query SimpleQuery {
 }
 `
 
-func SimpleQuery() (data_ *SimpleQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SimpleQuery",
-		Query:  SimpleQuery_Operation,
-	}
-	var client_ graphql.Client
-
-	client_, err_ = testutil.GetClientFromNowhere()
+func SimpleQuery() (*octoql.Response[SimpleQueryResponse], error) {
+	client_, err_ := testutil.GetClientFromNowhere()
 	if err_ != nil {
 		return nil, err_
 	}
-
-	data_ = &SimpleQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[SimpleQueryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SimpleQuery",
+			Query: SimpleQuery_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

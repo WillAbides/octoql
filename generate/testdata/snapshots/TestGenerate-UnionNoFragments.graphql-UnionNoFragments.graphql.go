@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 )
 
@@ -185,22 +187,16 @@ query UnionNoFragmentsQuery {
 `
 
 func UnionNoFragmentsQuery(
-	client_ graphql.Client,
-) (data_ *UnionNoFragmentsQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UnionNoFragmentsQuery",
-		Query:  UnionNoFragmentsQuery_Operation,
-	}
-
-	data_ = &UnionNoFragmentsQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[UnionNoFragmentsQueryResponse], error) {
+	return octoql.Do[UnionNoFragmentsQueryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "UnionNoFragmentsQuery",
+			Query: UnionNoFragmentsQuery_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

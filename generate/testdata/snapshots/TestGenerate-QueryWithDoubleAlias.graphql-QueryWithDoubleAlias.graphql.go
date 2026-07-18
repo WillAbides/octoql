@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -52,22 +54,16 @@ query QueryWithDoubleAlias {
 `
 
 func QueryWithDoubleAlias(
-	client_ graphql.Client,
-) (data_ *QueryWithDoubleAliasResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "QueryWithDoubleAlias",
-		Query:  QueryWithDoubleAlias_Operation,
-	}
-
-	data_ = &QueryWithDoubleAliasResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[QueryWithDoubleAliasResponse], error) {
+	return octoql.Do[QueryWithDoubleAliasResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "QueryWithDoubleAlias",
+			Query: QueryWithDoubleAlias_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

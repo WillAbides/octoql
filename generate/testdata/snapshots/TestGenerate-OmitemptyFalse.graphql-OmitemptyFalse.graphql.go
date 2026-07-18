@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 )
 
 // OmitemptyFalseResponse is returned by OmitemptyFalse on success.
@@ -42,26 +44,20 @@ query OmitemptyFalse ($input: OmitemptyInput) {
 `
 
 func OmitemptyFalse(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	input OmitemptyInput,
-) (data_ *OmitemptyFalseResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "OmitemptyFalse",
-		Query:  OmitemptyFalse_Operation,
-		Variables: &__OmitemptyFalseInput{
-			Input: input,
-		},
+) (*octoql.Response[OmitemptyFalseResponse], error) {
+	variables_ := __OmitemptyFalseInput{
+		Input: input,
 	}
-
-	data_ = &OmitemptyFalseResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[OmitemptyFalseResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "OmitemptyFalse",
+			Query: OmitemptyFalse_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

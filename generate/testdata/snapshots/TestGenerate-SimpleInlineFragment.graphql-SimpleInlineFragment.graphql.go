@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -258,22 +260,16 @@ query SimpleInlineFragment {
 `
 
 func SimpleInlineFragment(
-	client_ graphql.Client,
-) (data_ *SimpleInlineFragmentResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SimpleInlineFragment",
-		Query:  SimpleInlineFragment_Operation,
-	}
-
-	data_ = &SimpleInlineFragmentResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[SimpleInlineFragmentResponse], error) {
+	return octoql.Do[SimpleInlineFragmentResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SimpleInlineFragment",
+			Query: SimpleInlineFragment_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

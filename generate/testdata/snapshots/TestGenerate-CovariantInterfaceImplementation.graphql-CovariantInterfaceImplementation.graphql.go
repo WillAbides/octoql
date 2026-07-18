@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -2394,22 +2396,16 @@ fragment TopicFields on Topic {
 `
 
 func CovariantInterfaceImplementation(
-	client_ graphql.Client,
-) (data_ *CovariantInterfaceImplementationResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "CovariantInterfaceImplementation",
-		Query:  CovariantInterfaceImplementation_Operation,
-	}
-
-	data_ = &CovariantInterfaceImplementationResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[CovariantInterfaceImplementationResponse], error) {
+	return octoql.Do[CovariantInterfaceImplementationResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "CovariantInterfaceImplementation",
+			Query: CovariantInterfaceImplementation_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

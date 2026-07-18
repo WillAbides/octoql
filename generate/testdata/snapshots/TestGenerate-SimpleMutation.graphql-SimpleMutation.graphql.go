@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -57,26 +59,20 @@ mutation SimpleMutation ($name: String!) {
 // It has a long doc-comment, to test that we handle that correctly.
 // What a long comment indeed.
 func SimpleMutation(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	name string,
-) (data_ *SimpleMutationResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SimpleMutation",
-		Query:  SimpleMutation_Operation,
-		Variables: &__SimpleMutationInput{
-			Name: name,
-		},
+) (*octoql.Response[SimpleMutationResponse], error) {
+	variables_ := __SimpleMutationInput{
+		Name: name,
 	}
-
-	data_ = &SimpleMutationResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[SimpleMutationResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SimpleMutation",
+			Query: SimpleMutation_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

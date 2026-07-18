@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 )
 
 // EmptyInterfaceResponse is returned by EmptyInterface on success.
@@ -30,22 +32,16 @@ query EmptyInterface {
 `
 
 func EmptyInterface(
-	client_ graphql.Client,
-) (data_ *EmptyInterfaceResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "EmptyInterface",
-		Query:  EmptyInterface_Operation,
-	}
-
-	data_ = &EmptyInterfaceResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[EmptyInterfaceResponse], error) {
+	return octoql.Do[EmptyInterfaceResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "EmptyInterface",
+			Query: EmptyInterface_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

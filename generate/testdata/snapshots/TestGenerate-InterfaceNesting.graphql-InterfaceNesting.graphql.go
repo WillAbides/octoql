@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -526,22 +528,16 @@ query InterfaceNesting {
 `
 
 func InterfaceNesting(
-	client_ graphql.Client,
-) (data_ *InterfaceNestingResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "InterfaceNesting",
-		Query:  InterfaceNesting_Operation,
-	}
-
-	data_ = &InterfaceNestingResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[InterfaceNestingResponse], error) {
+	return octoql.Do[InterfaceNestingResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "InterfaceNesting",
+			Query: InterfaceNesting_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -49,22 +51,16 @@ query AliasDirective {
 `
 
 func AliasDirective(
-	client_ graphql.Client,
-) (data_ *AliasDirectiveResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "AliasDirective",
-		Query:  AliasDirective_Operation,
-	}
-
-	data_ = &AliasDirectiveResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[AliasDirectiveResponse], error) {
+	return octoql.Do[AliasDirectiveResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "AliasDirective",
+			Query: AliasDirective_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

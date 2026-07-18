@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 )
 
 // DefaultInputsResponse is returned by DefaultInputs on success.
@@ -45,26 +47,20 @@ query DefaultInputs ($input: InputWithDefaults!) {
 // not a valid value there. However, nullableField should still be ok
 // (this will send null, overwriting the server's default)
 func DefaultInputs(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	input InputWithDefaults,
-) (data_ *DefaultInputsResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "DefaultInputs",
-		Query:  DefaultInputs_Operation,
-		Variables: &__DefaultInputsInput{
-			Input: input,
-		},
+) (*octoql.Response[DefaultInputsResponse], error) {
+	variables_ := __DefaultInputsInput{
+		Input: input,
 	}
-
-	data_ = &DefaultInputsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[DefaultInputsResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "DefaultInputs",
+			Query: DefaultInputs_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

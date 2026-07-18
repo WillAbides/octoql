@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 )
 
 // Role is a type a user may have.
@@ -81,22 +83,16 @@ query UsesEnumTwiceQuery {
 `
 
 func UsesEnumTwiceQuery(
-	client_ graphql.Client,
-) (data_ *UsesEnumTwiceQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UsesEnumTwiceQuery",
-		Query:  UsesEnumTwiceQuery_Operation,
-	}
-
-	data_ = &UsesEnumTwiceQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[UsesEnumTwiceQueryResponse], error) {
+	return octoql.Do[UsesEnumTwiceQueryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "UsesEnumTwiceQuery",
+			Query: UsesEnumTwiceQuery_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

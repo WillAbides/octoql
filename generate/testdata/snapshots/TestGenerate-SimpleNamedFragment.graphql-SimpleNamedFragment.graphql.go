@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -573,22 +575,16 @@ fragment VideoFields on Video {
 `
 
 func SimpleNamedFragment(
-	client_ graphql.Client,
-) (data_ *SimpleNamedFragmentResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SimpleNamedFragment",
-		Query:  SimpleNamedFragment_Operation,
-	}
-
-	data_ = &SimpleNamedFragmentResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[SimpleNamedFragmentResponse], error) {
+	return octoql.Do[SimpleNamedFragmentResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SimpleNamedFragment",
+			Query: SimpleNamedFragment_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

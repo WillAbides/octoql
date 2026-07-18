@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -426,34 +427,28 @@ query OmitEmptyQuery ($query: UserQueryInput, $queries: [UserQueryInput], $dt: D
 
 func OmitEmptyQuery(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	query *UserQueryInput,
 	queries []*UserQueryInput,
 	dt *time.Time,
 	tz *string,
 	tzNoOmitEmpty *string,
-) (data_ *OmitEmptyQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "OmitEmptyQuery",
-		Query:  OmitEmptyQuery_Operation,
-		Variables: &__OmitEmptyQueryInput{
-			Query:         query,
-			Queries:       queries,
-			Dt:            dt,
-			Tz:            tz,
-			TzNoOmitEmpty: tzNoOmitEmpty,
-		},
+) (*octoql.Response[OmitEmptyQueryResponse], error) {
+	variables_ := __OmitEmptyQueryInput{
+		Query:         query,
+		Queries:       queries,
+		Dt:            dt,
+		Tz:            tz,
+		TzNoOmitEmpty: tzNoOmitEmpty,
 	}
-
-	data_ = &OmitEmptyQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[OmitEmptyQueryResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "OmitEmptyQuery",
+			Query: OmitEmptyQuery_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

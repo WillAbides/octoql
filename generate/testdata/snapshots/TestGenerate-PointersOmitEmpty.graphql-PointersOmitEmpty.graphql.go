@@ -4,10 +4,12 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -253,30 +255,24 @@ query PointersOmitEmptyQuery ($query: UserQueryInput, $dt: DateTime, $tz: String
 `
 
 func PointersOmitEmptyQuery(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	query UserQueryInput,
 	dt time.Time,
 	tz string,
-) (data_ *PointersOmitEmptyQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "PointersOmitEmptyQuery",
-		Query:  PointersOmitEmptyQuery_Operation,
-		Variables: &__PointersOmitEmptyQueryInput{
-			Query: query,
-			Dt:    dt,
-			Tz:    tz,
-		},
+) (*octoql.Response[PointersOmitEmptyQueryResponse], error) {
+	variables_ := __PointersOmitEmptyQueryInput{
+		Query: query,
+		Dt:    dt,
+		Tz:    tz,
 	}
-
-	data_ = &PointersOmitEmptyQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[PointersOmitEmptyQueryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "PointersOmitEmptyQuery",
+			Query: PointersOmitEmptyQuery_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 
