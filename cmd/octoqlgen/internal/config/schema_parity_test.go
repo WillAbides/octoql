@@ -107,6 +107,11 @@ func TestURLPatternUsesECMAScriptSyntax(t *testing.T) {
 			valid: true,
 		},
 		{
+			name:  "uppercase HTTPS URL",
+			value: "HTTPS://example.com/schema.graphql",
+			valid: true,
+		},
+		{
 			name:  "URL with whitespace",
 			value: "https://example.com/schema graphql",
 		},
