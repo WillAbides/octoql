@@ -72,6 +72,9 @@ func ensureUnanchoredPin(node *yamlv3.Node) error {
 	if node.Anchor != "" {
 		return errors.New("config pin must not define a YAML anchor; remove the anchor before updating")
 	}
+	if node.Style == yamlv3.LiteralStyle || node.Style == yamlv3.FoldedStyle {
+		return errors.New("config pin must not use a block scalar")
+	}
 	return nil
 }
 
@@ -116,7 +119,15 @@ func scalarEnd(line []byte, start int, style yamlv3.Style) int {
 		return 0
 	}
 	end := start
-	for end < len(line) && line[end] != '#' && line[end] != '\n' && line[end] != '\r' && line[end] != ' ' && line[end] != '\t' {
+	for end < len(line) &&
+		line[end] != '#' &&
+		line[end] != '\n' &&
+		line[end] != '\r' &&
+		line[end] != ' ' &&
+		line[end] != '\t' &&
+		line[end] != ',' &&
+		line[end] != '}' &&
+		line[end] != ']' {
 		end++
 	}
 	return end

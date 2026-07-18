@@ -202,7 +202,11 @@ type SchemaUpdateCommand struct {
 }
 
 func (cmd *SchemaUpdateCommand) Run() error {
-	configPath, err := canonicalPath(cmd.Config)
+	userConfigPath, err := filepath.Abs(cmd.Config)
+	if err != nil {
+		return fmt.Errorf("resolving config path: %w", err)
+	}
+	configPath, err := canonicalPath(userConfigPath)
 	if err != nil {
 		return err
 	}
@@ -216,8 +220,12 @@ func (cmd *SchemaUpdateCommand) Run() error {
 	if err != nil {
 		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
 	}
+	originalConfig, err := snapshotFile(configPath)
+	if err != nil {
+		return fmt.Errorf("reading config metadata: %w", err)
+	}
 
-	loaded, err := cmd.loadConfig(configPath)
+	loaded, err := cmd.loadConfig(userConfigPath)
 	if err != nil {
 		return err
 	}
@@ -229,12 +237,12 @@ func (cmd *SchemaUpdateCommand) Run() error {
 	if err != nil {
 		return err
 	}
-	currentData, err := os.ReadFile(loaded.SchemaPath())
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	originalSchema, err := snapshotFile(loaded.SchemaPath())
+	if err != nil {
 		return fmt.Errorf("reading configured schema: %w", err)
 	}
-	currentHash := fmt.Sprintf("%x", sha256.Sum256(currentData))
-	if err == nil && currentHash == result.SHA256 && loaded.Schema.SHA256Value() == result.SHA256 {
+	currentHash := fmt.Sprintf("%x", sha256.Sum256(originalSchema.data))
+	if originalSchema.exists && currentHash == result.SHA256 && loaded.Schema.SHA256Value() == result.SHA256 {
 		_, outputErr := fmt.Fprintln(cmd.stdout, "schema is unchanged")
 		return outputErr
 	}
@@ -250,11 +258,11 @@ func (cmd *SchemaUpdateCommand) Run() error {
 	if err != nil {
 		return fmt.Errorf("checking config before schema publication: %w", err)
 	}
-	finalSchema, schemaErr := os.ReadFile(loaded.SchemaPath())
-	if schemaErr != nil && !errors.Is(schemaErr, os.ErrNotExist) {
-		return fmt.Errorf("checking schema before publication: %w", schemaErr)
+	finalSchema, err := snapshotFile(loaded.SchemaPath())
+	if err != nil {
+		return fmt.Errorf("checking schema before publication: %w", err)
 	}
-	if !bytes.Equal(finalConfig, rawConfig) || !bytes.Equal(finalSchema, currentData) {
+	if !bytes.Equal(finalConfig, rawConfig) || !sameFileSnapshot(finalSchema, originalSchema) {
 		return errors.New("config or schema changed while updating; no files were published")
 	}
 	err = cmd.outputWriter.Write(loaded.SchemaPath(), result.Data)
@@ -262,10 +270,7 @@ func (cmd *SchemaUpdateCommand) Run() error {
 		return fmt.Errorf("publishing updated schema: %w", err)
 	}
 	rollbackSchema := func(cause error) error {
-		if schemaErr != nil {
-			return fmt.Errorf("schema update failed after publication and cannot restore an absent schema: %w", cause)
-		}
-		rollbackErr := cmd.outputWriter.Write(loaded.SchemaPath(), currentData)
+		rollbackErr := restoreSnapshot(cmd.outputWriter, loaded.SchemaPath(), originalSchema)
 		if rollbackErr != nil {
 			return fmt.Errorf("schema update failed after publication and schema rollback failed: %w", errors.Join(cause, rollbackErr))
 		}
@@ -282,9 +287,14 @@ func (cmd *SchemaUpdateCommand) Run() error {
 	if err != nil {
 		return rollbackSchema(fmt.Errorf("config update failed: %w", err))
 	}
-	_, err = cmd.loadConfig(configPath)
+	_, err = cmd.loadConfig(userConfigPath)
 	if err != nil {
-		return rollbackSchema(fmt.Errorf("validating published config: %w", err))
+		configRollbackErr := restoreSnapshot(cmd.outputWriter, configPath, originalConfig)
+		schemaRollbackErr := restoreSnapshot(cmd.outputWriter, loaded.SchemaPath(), originalSchema)
+		return fmt.Errorf(
+			"validating published config failed; rollback errors: %w",
+			errors.Join(err, configRollbackErr, schemaRollbackErr),
+		)
 	}
 	_, err = fmt.Fprintf(
 		cmd.stdout,
@@ -317,6 +327,7 @@ func canonicalPath(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolving config path: %w", err)
 	}
+
 	resolvedPath, err := filepath.EvalSymlinks(absolutePath)
 	if err == nil {
 		return resolvedPath, nil
@@ -325,6 +336,46 @@ func canonicalPath(path string) (string, error) {
 		return absolutePath, nil
 	}
 	return "", fmt.Errorf("resolving config symlinks: %w", err)
+}
+
+type fileSnapshot struct {
+	data   []byte
+	mode   os.FileMode
+	exists bool
+}
+
+func snapshotFile(path string) (fileSnapshot, error) {
+	info, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return fileSnapshot{}, nil
+	}
+	if err != nil {
+		return fileSnapshot{}, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fileSnapshot{}, err
+	}
+	return fileSnapshot{data: data, mode: info.Mode(), exists: true}, nil
+}
+
+func sameFileSnapshot(left, right fileSnapshot) bool {
+	return left.exists == right.exists && left.mode == right.mode && bytes.Equal(left.data, right.data)
+}
+
+func restoreSnapshot(writer OutputWriter, path string, snapshot fileSnapshot) error {
+	if !snapshot.exists {
+		err := os.Remove(path)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	err := writer.Write(path, snapshot.data)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(path, snapshot.mode)
 }
 
 func sourceRevision(source config.Source) string {
