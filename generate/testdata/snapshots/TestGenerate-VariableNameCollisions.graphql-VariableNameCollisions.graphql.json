@@ -1,0 +1,9 @@
+{
+  "operations": [
+    {
+      "operationName": "RepositoryVariableNameCollisions",
+      "query": "\nquery RepositoryVariableNameCollisions ($variables_: String!, $octoql: String!, $context: String!, $ctx_: String!, $client_: String!, $err_: String!) {\n\tprimary: repository(owner: $octoql, name: $context) {\n\t\tnameWithOwner\n\t}\n\tvariables: repository(owner: $variables_, name: $client_) {\n\t\tnameWithOwner\n\t}\n\terrors: repository(owner: $err_, name: $octoql) {\n\t\tnameWithOwner\n\t}\n\tcontextName: repository(owner: $ctx_, name: $context) {\n\t\tnameWithOwner\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/VariableNameCollisions.graphql"
+    }
+  ]
+}

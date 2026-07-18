@@ -6,11 +6,13 @@ This document describes common questions about genqlient, and provides an index 
 
 ### How do I set up genqlient to use an API that requires authentication?
 
-Customize the `http.Client` of your [`graphql.Client`](client_config.md#authentication-and-other-headers).
+Construct an `*octoql.Client` with a customized
+[`http.Client`](client_config.md#authentication-and-other-headers).
 
 ### How do I make requests against a mock server, for tests?
 
-Inject a test HTTP response or server [into the `graphql.Client`](client_config.md#testing).
+Construct an `*octoql.Client` with a test HTTP client or server as described in
+the [testing documentation](client_config.md#testing).
 
 ### Does genqlient support custom scalars?
 

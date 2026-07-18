@@ -67,7 +67,7 @@ Each has its advantages.  Named types are the easiest to refer to -- if you want
 ```
 func MakeMyQueryAndReturnUser(...) (???, error) {
     resp, err := MyQuery(...)
-    return resp.User, err
+    return resp.Data.User, err
 }
 ```
 it's much easier to type in the named types world -- `???` is just `User`, whereas with unnamed types it's `struct { ID string }` or some nonsense like that.  (Some type systems have a way to say "the type of T's field F", but Go's doesn't.)  This is especially relevant in tests, which may want to construct a value of type `MyQueryResponse`.  They are also necessary to some approaches to dealing with interfaces and fragments (see the next section).
@@ -187,7 +187,7 @@ Each approach also naturally implies a different way to handle a query that uses
 query { a { b } }
 ```
 
-using the same schema as above.  In the former approach, we still define three types (plus two receivers); and `resp.A` is still of an interface type; it might be either `T` or `U`.  In the latter approach, this looks just like any other query: `resp.A` is a `struct{ B string }`.  This has implications for how we use this data: the latter approach lets us just do `resp.A.B`, whereas the former requires we do a type-switch, or add a `GetB()` method to `I`, and do `resp.A.GetB()`.
+using the same schema as above.  In the former approach, we still define three types (plus two receivers); and `resp.Data.A` is still of an interface type; it might be either `T` or `U`.  In the latter approach, this looks just like any other query: `resp.Data.A` is a `struct{ B string }`.  This has implications for how we use this data: the latter approach lets us just do `resp.Data.A.B`, whereas the former requires we do a type-switch, or add a `GetB()` method to `I`, and do `resp.Data.A.GetB()`.
 
 
 **Pros of Go interfaces:**
@@ -231,7 +231,7 @@ query {
 }
 ```
 
-What type is `resp.A.F`?  It has to be both `string` and `int`.
+What type is `resp.Data.A.F`?  It has to be both `string` and `int`.
 
 **In other libraries:**
 - Apollo does basically the interface approach, except with TypeScript/Flow's better support for sum types.
@@ -408,20 +408,17 @@ Many users will want to give us a context.  Some may want to customize their HTT
 Given that, here are some sample signatures for a function that accepts a single ID variable:
 
 ```go
-// None of the above
-func GetUser(id string) (*GetUserResponse, error)
+// No context parameter
+func GetUser(client *octoql.Client, id string) (*octoql.Response[GetUserResponse], error)
 
-// Uses a standard context
-func GetUser(ctx context.Context, id string) (*GetUserResponse, error)
+// Uses a standard context and explicit client
+func GetUser(ctx context.Context, client *octoql.Client, id string) (*octoql.Response[GetUserResponse], error)
 
-// Uses a custom context (used at Khan; this may become more common post-generics)
-func GetUser(ctx mypkg.Context, id string) (*GetUserResponse, error)
+// Uses a custom context and explicit client
+func GetUser(ctx mypkg.Context, client *octoql.Client, id string) (*octoql.Response[GetUserResponse], error)
 
-// Uses a client object
-func GetUser(client graphql.Client, id string) (*GetUserResponse, error)
-
-// Uses both
-func GetUser(ctx context.Context, client graphql.Client, id string) (*GetUserResponse, error)
+// Gets the client through client_getter
+func GetUser(ctx context.Context, id string) (*octoql.Response[GetUserResponse], error)
 ```
 
 Additionally, users may want to get the client from the context, using a custom method like Khan's KAContext or just ordinary `context.Value`.

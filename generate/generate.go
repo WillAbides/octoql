@@ -36,6 +36,8 @@ type generator struct {
 	importsLocked bool
 	// Cache of loaded templates.
 	templateCache map[string]*template.Template
+	// Collision-free identifiers for each generated operation.
+	operationIdentifiers map[*ast.OperationDefinition]operationIdentifiers
 	// Schema we are generating code against
 	schema *ast.Schema
 	// Named fragments (map by name), so we can look them up from spreads.
@@ -62,10 +64,22 @@ type operation struct {
 	Input *goStructType `json:"-"`
 	// The type-name for the operation's response type.
 	ResponseName string `json:"-"`
+	// Collision-free generated parameter and local names.
+	ContextName   string `json:"-"`
+	ClientName    string `json:"-"`
+	ErrorName     string `json:"-"`
+	VariablesName string `json:"-"`
 	// The original filename from which we got this query.
 	SourceFilename string `json:"sourceLocation"`
 	// The config within which we are generating code.
 	Config *Config `json:"-"`
+}
+
+type operationIdentifiers struct {
+	contextName   string
+	clientName    string
+	errorName     string
+	variablesName string
 }
 
 type exportedOperations struct {
@@ -83,8 +97,11 @@ func newGenerator(
 		imports:       map[string]string{},
 		usedAliases:   map[string]bool{},
 		templateCache: map[string]*template.Template{},
-		schema:        schema,
-		fragments:     make(map[string]*ast.FragmentDefinition, len(fragments)),
+		operationIdentifiers: make(
+			map[*ast.OperationDefinition]operationIdentifiers,
+		),
+		schema:    schema,
+		fragments: make(map[string]*ast.FragmentDefinition, len(fragments)),
 	}
 
 	for _, fragment := range fragments {
@@ -92,6 +109,28 @@ func newGenerator(
 	}
 
 	return &g
+}
+
+func (g *generator) prepareOperationIdentifiers(operations ast.OperationList) {
+	for _, op := range operations {
+		used := make(map[string]bool, len(op.VariableDefinitions)+4)
+		for _, definition := range op.VariableDefinitions {
+			used[definition.Variable] = true
+			g.usedAliases[definition.Variable] = true
+		}
+
+		identifiers := operationIdentifiers{
+			contextName:   allocateIdentifier("ctx_", used),
+			clientName:    allocateIdentifier("client_", used),
+			errorName:     allocateIdentifier("err_", used),
+			variablesName: allocateIdentifier("variables_", used),
+		}
+		g.operationIdentifiers[op] = identifiers
+		g.usedAliases[identifiers.contextName] = true
+		g.usedAliases[identifiers.clientName] = true
+		g.usedAliases[identifiers.errorName] = true
+		g.usedAliases[identifiers.variablesName] = true
+	}
 }
 
 func (g *generator) WriteTypes(w io.Writer) error {
@@ -296,6 +335,7 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 		sourceFilename = sourceFilename[:i]
 	}
 
+	identifiers := g.operationIdentifiers[op]
 	g.Operations = append(g.Operations, &operation{
 		Type: op.Operation,
 		Name: op.Name,
@@ -306,6 +346,10 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 		Body:           "\n" + builder.String(),
 		Input:          inputType,
 		ResponseName:   responseType.Reference(),
+		ContextName:    identifiers.contextName,
+		ClientName:     identifiers.clientName,
+		ErrorName:      identifiers.errorName,
+		VariablesName:  identifiers.variablesName,
 		SourceFilename: sourceFilename,
 		Config:         g.Config, // for the convenience of the template
 	})
@@ -348,6 +392,7 @@ func Generate(config *Config) (map[string][]byte, error) {
 	// in convert.go, and it additionally updates g.typeMap to include all the
 	// types it needs.
 	g := newGenerator(config, schema, document.Fragments)
+	g.prepareOperationIdentifiers(document.Operations)
 	for _, op := range document.Operations {
 		if err = g.addOperation(op); err != nil {
 			return nil, err

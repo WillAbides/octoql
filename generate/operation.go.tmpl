@@ -4,10 +4,10 @@ const {{.Name}}_Operation = `{{$.Body}}`
 {{.Doc}}
 func {{.Name}}(
     {{if ne .Config.ContextType "-" -}}
-    ctx_ {{ref .Config.ContextType}},
+    {{.ContextName}} {{ref .Config.ContextType}},
     {{end}}
     {{- if not .Config.ClientGetter -}}
-    client_ *{{ref "github.com/willabides/octoql.Client"}},
+    {{.ClientName}} *{{ref "github.com/willabides/octoql.Client"}},
     {{end}}
     {{- if .Input -}}
     {{- range .Input.Fields -}}
@@ -17,25 +17,25 @@ func {{.Name}}(
     {{end -}}
 ) (*{{ref "github.com/willabides/octoql.Response"}}[{{.ResponseName}}], error) {
     {{if .Config.ClientGetter -}}
-    client_, err_ := {{ref .Config.ClientGetter}}({{if ne .Config.ContextType "-"}}ctx_{{else}}{{end}})
-    if err_ != nil {
-        return nil, err_
+    {{.ClientName}}, {{.ErrorName}} := {{ref .Config.ClientGetter}}({{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{end}})
+    if {{.ErrorName}} != nil {
+        return nil, {{.ErrorName}}
     }
     {{end -}}
     {{if .Input -}}
-    variables_ := {{.Input.GoName}}{
+    {{.VariablesName}} := {{.Input.GoName}}{
         {{range .Input.Fields -}}
         {{.GoName}}: {{.GraphQLName}},
         {{end -}}
     }
     {{end -}}
     return {{ref "github.com/willabides/octoql.Do"}}[{{.ResponseName}}](
-        {{if ne .Config.ContextType "-"}}ctx_{{else}}{{ref "context.Background"}}(){{end}},
-        client_,
+        {{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{ref "context.Background"}}(){{end}},
+        {{.ClientName}},
         {{ref "github.com/willabides/octoql.Operation"}}{
             Name: "{{.Name}}",
             Query: {{.Name}}_Operation,
         },
-        {{if .Input}}&variables_{{else}}nil{{end}},
+        {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
     )
 }

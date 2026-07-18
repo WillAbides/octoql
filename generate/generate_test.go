@@ -216,6 +216,13 @@ func TestGenerateWithConfig(t *testing.T) {
 		{"Extensions", "", nil, &Config{
 			Extensions: true,
 		}},
+		{"VariableNameCollisionsDefault", "", []string{"VariableNameCollisions.graphql"}, &Config{}},
+		{"VariableNameCollisionsNoContext", "", []string{"VariableNameCollisions.graphql"}, &Config{
+			ContextType: "-",
+		}},
+		{"VariableNameCollisionsClientGetter", "", []string{"VariableNameCollisions.graphql"}, &Config{
+			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromContext",
+		}},
 		{"OptionalValue", "", []string{"ListInput.graphql", "QueryWithSlices.graphql"}, &Config{
 			Optional: "value",
 		}},

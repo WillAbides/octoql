@@ -173,6 +173,7 @@ type Query {
   usersWithRole(role: Role!): [User!]!
 
   usersBornOn(date: Date!): [User!]!
+  repository(owner: String!, name: String!): Repository
 
   root: Topic!
   randomItem: Content!
@@ -194,6 +195,10 @@ type Query {
   useStructReferencesInput(input: UseStructReferencesInput!): Boolean
   snake_case_type: snake_case_type
   object: ObjectType!
+}
+
+type Repository {
+  nameWithOwner: String!
 }
 
 type Mutation {
