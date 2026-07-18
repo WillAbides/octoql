@@ -4,7 +4,7 @@
 // Package config loads octoql configuration files and validates schema sources.
 package config
 
-//go:generate ../../../../script/jsonschematogo --package config --output model_gen.go ../../../../octoql.schema.json
+//go:generate ../../../../script/jsonschematogo --package config --output model_gen.go ../../../../octoql.schema.yaml
 
 import (
 	"fmt"

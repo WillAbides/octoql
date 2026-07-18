@@ -1,11 +1,11 @@
-# yaml-language-server: $schema=../octoql.schema.json
+# yaml-language-server: $schema=../octoql.schema.yaml
 # octoql.yaml is octoqlgen's configuration file.
 #
 # `octoqlgen schema` reads octoql.yaml by default. Pass `--config PATH` to use
 # a different file. Paths and operation globs are resolved relative to this
 # file without changing the values stored here.
 #
-# The JSON Schema directive above provides editor guidance for the intended
+# The schema directive above provides editor guidance for the intended
 # structure. Remote sources require a canonical lowercase SHA-256 when
 # materialized. GitHub sources also require a full commit revision.
 schema:

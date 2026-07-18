@@ -17,6 +17,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -230,10 +231,7 @@ func TestValidateSourceURL(t *testing.T) {
 func TestSchemaPatternsCompileAsECMAScript(t *testing.T) {
 	t.Parallel()
 
-	content, err := os.ReadFile(schemaPath())
-	require.NoError(t, err)
-	var document any
-	err = json.Unmarshal(content, &document)
+	document, err := readSchemaDocument()
 	require.NoError(t, err)
 
 	patterns := collectPatterns(document)
@@ -281,23 +279,35 @@ func readCorpus() ([]corpusFixture, error) {
 }
 
 func compileCanonicalSchema() (*jsonschema.Schema, error) {
-	content, err := os.ReadFile(schemaPath())
-	if err != nil {
-		return nil, err
-	}
-	var document any
-	err = json.Unmarshal(content, &document)
+	document, err := readSchemaDocument()
 	if err != nil {
 		return nil, err
 	}
 	compiler := jsonschema.NewCompiler()
 	compiler.DefaultDraft(jsonschema.Draft2020)
 	compiler.AssertFormat()
-	err = compiler.AddResource("octoql.schema.json", document)
+	err = compiler.AddResource("octoql.schema.yaml", document)
 	if err != nil {
 		return nil, err
 	}
-	return compiler.Compile("octoql.schema.json")
+	return compiler.Compile("octoql.schema.yaml")
+}
+
+func readSchemaDocument() (any, error) {
+	content, err := os.ReadFile(schemaPath())
+	if err != nil {
+		return nil, err
+	}
+	jsonContent, err := yaml.YAMLToJSON(content)
+	if err != nil {
+		return nil, err
+	}
+	var document any
+	err = json.Unmarshal(jsonContent, &document)
+	if err != nil {
+		return nil, err
+	}
+	return document, nil
 }
 
 func buildFixture(fixture *corpusFixture) ([]byte, any, error) {
@@ -480,7 +490,7 @@ func matchesSchemaReason(err error, reason string) bool {
 }
 
 func schemaPath() string {
-	return filepath.Join("..", "..", "..", "..", "octoql.schema.json")
+	return filepath.Join("..", "..", "..", "..", "octoql.schema.yaml")
 }
 
 func readTestFile(t *testing.T, elements ...string) string {
