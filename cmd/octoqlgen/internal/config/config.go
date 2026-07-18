@@ -40,6 +40,8 @@ type Schema struct {
 	Source Source `yaml:"source,omitempty"`
 	Path   string `yaml:"path"`
 	SHA256 string `yaml:"sha256,omitempty"`
+
+	sourcePresent bool
 }
 
 type Source struct {
@@ -87,6 +89,11 @@ func Load(filename string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
 	}
+	sourcePresent, err := schemaSourcePresent(content)
+	if err != nil {
+		return nil, fmt.Errorf("inspecting config file %q: %w", filename, err)
+	}
+	config.Schema.sourcePresent = sourcePresent
 
 	var extra any
 	err = decoder.Decode(&extra)
@@ -123,7 +130,7 @@ func (c *Config) Validate() error {
 		return errors.New("test_handler.generated is required")
 	}
 
-	err := ValidateSource(c.Schema.Source, c.Schema.SHA256)
+	err := validateSource(c.Schema.Source, c.Schema.SHA256, c.Schema.sourcePresent)
 	if err != nil {
 		return err
 	}
@@ -131,7 +138,98 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func schemaSourcePresent(content []byte) (bool, error) {
+	var document yaml.Node
+	err := yaml.Unmarshal(content, &document)
+	if err != nil {
+		return false, err
+	}
+	if len(document.Content) == 0 {
+		return false, nil
+	}
+
+	root := dereferenceAlias(document.Content[0])
+	schemaNode, found := mappingValue(root, "schema")
+	if !found {
+		return false, nil
+	}
+	schemaNode = dereferenceAlias(schemaNode)
+	_, found = mappingValue(schemaNode, "source")
+	return found, nil
+}
+
+func mappingValue(node *yaml.Node, key string) (*yaml.Node, bool) {
+	return mappingValueSeen(dereferenceAlias(node), key, map[*yaml.Node]bool{})
+}
+
+func mappingValueSeen(
+	node *yaml.Node,
+	key string,
+	seen map[*yaml.Node]bool,
+) (*yaml.Node, bool) {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil, false
+	}
+	if seen[node] {
+		return nil, false
+	}
+	seen[node] = true
+
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if node.Content[index].Value == key {
+			return node.Content[index+1], true
+		}
+	}
+
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		keyNode := node.Content[index]
+		if keyNode.Value != "<<" || keyNode.Tag != "!!merge" {
+			continue
+		}
+		value, found := mergedMappingValue(node.Content[index+1], key, seen)
+		if found {
+			return value, true
+		}
+	}
+	return nil, false
+}
+
+func mergedMappingValue(
+	node *yaml.Node,
+	key string,
+	seen map[*yaml.Node]bool,
+) (*yaml.Node, bool) {
+	node = dereferenceAlias(node)
+	if node == nil {
+		return nil, false
+	}
+	if node.Kind == yaml.MappingNode {
+		return mappingValueSeen(node, key, seen)
+	}
+	if node.Kind != yaml.SequenceNode {
+		return nil, false
+	}
+	for _, child := range node.Content {
+		value, found := mappingValueSeen(dereferenceAlias(child), key, seen)
+		if found {
+			return value, true
+		}
+	}
+	return nil, false
+}
+
+func dereferenceAlias(node *yaml.Node) *yaml.Node {
+	if node != nil && node.Kind == yaml.AliasNode {
+		return node.Alias
+	}
+	return node
+}
+
 func ValidateSource(source Source, sha256 string) error {
+	return validateSource(source, sha256, false)
+}
+
+func validateSource(source Source, sha256 string, requireVariant bool) error {
 	sourceCount := 0
 	if source.GitHubDocs != nil {
 		sourceCount++
@@ -144,6 +242,9 @@ func ValidateSource(source Source, sha256 string) error {
 	}
 	if sourceCount > 1 {
 		return errors.New("schema.source must set exactly one remote source variant")
+	}
+	if requireVariant && sourceCount == 0 {
+		return errors.New("schema.source must set exactly one non-null remote source variant")
 	}
 
 	isRemote := sourceCount == 1

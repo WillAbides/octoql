@@ -99,6 +99,49 @@ func TestLoad(t *testing.T) {
 			},
 			expectedError: "scheme must be http or https",
 		},
+		{
+			name: "empty source mapping",
+			mutate: func(input string) string {
+				return strings.Replace(
+					input,
+					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
+					"  source: {}",
+					1,
+				)
+			},
+			expectedError: "schema.source must set exactly one non-null remote source variant",
+		},
+		{
+			name: "null source",
+			mutate: func(input string) string {
+				return strings.Replace(
+					input,
+					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
+					"  source: null",
+					1,
+				)
+			},
+			expectedError: "schema.source must set exactly one non-null remote source variant",
+		},
+		{
+			name: "null url variant",
+			mutate: func(input string) string {
+				return strings.Replace(
+					input,
+					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
+					"  source:\n    url: null",
+					1,
+				)
+			},
+			expectedError: "schema.source must set exactly one non-null remote source variant",
+		},
+		{
+			name: "merged empty source",
+			mutate: func(string) string {
+				return mergedEmptySourceYAML()
+			},
+			expectedError: "schema.source must set exactly one non-null remote source variant",
+		},
 	}
 
 	for _, test := range tests {
@@ -246,4 +289,17 @@ func validConfigYAML() string {
 		"generated: internal/githubapi/generated.go\n" +
 		"test_handler:\n" +
 		"  generated: internal/githubapitest/generated.go\n"
+}
+
+func mergedEmptySourceYAML() string {
+	return "<<:\n" +
+		"  schema:\n" +
+		"    path: .octoql/schema.graphql\n" +
+		"    sha256: " + testSHA256 + "\n" +
+		"    source: {}\n" +
+		"  operations:\n" +
+		"    - graphql/**/*.graphql\n" +
+		"  generated: internal/githubapi/generated.go\n" +
+		"  test_handler:\n" +
+		"    generated: internal/githubapitest/generated.go\n"
 }

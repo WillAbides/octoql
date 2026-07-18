@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -118,6 +119,37 @@ func TestMaterializerURLFetch(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, written)
 	assert.Empty(t, temporaryFiles(t, destination))
+}
+
+func TestMaterializerURLFetchRedactsSecretQueryFromError(t *testing.T) {
+	t.Parallel()
+
+	const secret = "signed-secret-value"
+	sourceURL := "https://example.test/schema.graphql?signature=" + secret
+	client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
+		assert.Equal(t, secret, request.URL.Query().Get("signature"))
+		return nil, &url.Error{
+			Op:  "Get",
+			URL: request.URL.String(),
+			Err: &url.Error{
+				Op:  "dial",
+				URL: request.URL.String(),
+				Err: errors.New("dial failed"),
+			},
+		}
+	})
+	materializer := NewMaterializer()
+	materializer.HTTPClient = client
+
+	_, err := materializer.Materialize(t.Context(), Request{
+		SHA256: checksum(exactSchema),
+		Source: config.Source{URL: new(sourceURL)},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "https://example.test/schema.graphql")
+	assert.Contains(t, err.Error(), "dial failed")
+	assert.NotContains(t, err.Error(), secret)
+	assert.NotContains(t, err.Error(), "signature=")
 }
 
 func TestMaterializerDownloadFailures(t *testing.T) {

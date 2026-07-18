@@ -99,7 +99,7 @@ func fetchURL(
 
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("fetching schema: %w", err)
+		return nil, fmt.Errorf("fetching schema: %w", redactURLError(err, request.URL))
 	}
 	defer func() {
 		err = errors.Join(err, response.Body.Close())
@@ -126,6 +126,25 @@ func fetchURL(
 		)
 	}
 	return data, nil
+}
+
+func redactURLError(err error, requestURL *url.URL) error {
+	urlError, ok := errors.AsType[*url.Error](err)
+	if !ok {
+		return err
+	}
+
+	sanitizedURL := *requestURL
+	sanitizedURL.User = nil
+	sanitizedURL.RawQuery = ""
+	sanitizedURL.ForceQuery = false
+	sanitizedURL.Fragment = ""
+	sanitizedURL.RawFragment = ""
+
+	sanitizedError := *urlError
+	sanitizedError.URL = sanitizedURL.String()
+	sanitizedError.Err = redactURLError(urlError.Err, requestURL)
+	return &sanitizedError
 }
 
 func githubDocsRepository(source config.GitHubDocs) *config.GitHubRepository {
