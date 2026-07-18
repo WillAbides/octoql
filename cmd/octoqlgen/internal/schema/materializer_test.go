@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -118,6 +119,81 @@ func TestMaterializerURLFetch(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, written)
 	assert.Empty(t, temporaryFiles(t, destination))
+}
+
+func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
+	t.Parallel()
+
+	const (
+		userSecret           = "unmistakable-user-secret"
+		closingQuerySecret   = "unmistakable-closing-query-secret"
+		quotedQuerySecret    = "unmistakable-quoted-query-secret"
+		spacedQuerySecret    = "unmistakable-spaced-query-secret"
+		directFragmentSecret = "unmistakable-direct-fragment-secret"
+		nestedFragmentSecret = "unmistakable-nested-fragment-secret"
+	)
+	requestBaseURL := "https://" + userSecret + "@example.test/schema.graphql?" +
+		"closing=)" + closingQuerySecret +
+		"&quoted='" + quotedQuerySecret +
+		"&spaced=%20" + spacedQuerySecret
+	requestURL := requestBaseURL + "#" + directFragmentSecret
+	nestedURL := requestBaseURL + "#" + nestedFragmentSecret
+	var receivedURL string
+	client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
+		receivedURL = request.URL.String()
+		inner := &url.Error{
+			Op:  "dial",
+			URL: nestedURL,
+			Err: errors.New("connection refused"),
+		}
+		return nil, fmt.Errorf("transport retry: %w", &url.Error{
+			Op:  "Get",
+			URL: requestURL,
+			Err: inner,
+		})
+	})
+
+	_, err := fetchURL(t.Context(), client, requestURL, "", false, 1024)
+	require.Error(t, err)
+	assert.Equal(t, requestURL, receivedURL)
+	assert.Contains(t, err.Error(), "example.test/schema.graphql")
+	assert.Contains(t, err.Error(), "connection refused")
+	assert.NotContains(t, err.Error(), userSecret)
+	assert.NotContains(t, err.Error(), closingQuerySecret)
+	assert.NotContains(t, err.Error(), quotedQuerySecret)
+	assert.NotContains(t, err.Error(), spacedQuerySecret)
+	assert.NotContains(t, err.Error(), directFragmentSecret)
+	assert.NotContains(t, err.Error(), nestedFragmentSecret)
+}
+
+func TestFetchURLSanitizesPrefixRelatedURLErrors(t *testing.T) {
+	t.Parallel()
+
+	const (
+		outerSecret = "unmistakable-outer-secret"
+		innerSecret = "unmistakable-inner-secret"
+	)
+	outerURL := "https://example.test/schema?signature=" + outerSecret
+	innerURL := outerURL + "&redirect=)" + innerSecret
+	client := httpClientFunc(func(*http.Request) (*http.Response, error) {
+		inner := &url.Error{
+			Op:  "redirect",
+			URL: innerURL,
+			Err: errors.New("redirect refused"),
+		}
+		return nil, &url.Error{
+			Op:  "Get",
+			URL: outerURL,
+			Err: inner,
+		}
+	})
+
+	_, err := fetchURL(t.Context(), client, outerURL, "", false, 1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "example.test/schema")
+	assert.Contains(t, err.Error(), "redirect refused")
+	assert.NotContains(t, err.Error(), outerSecret)
+	assert.NotContains(t, err.Error(), innerSecret)
 }
 
 func TestMaterializerDownloadFailures(t *testing.T) {

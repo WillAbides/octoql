@@ -10,10 +10,115 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 )
+
+type sanitizedURLDiagnostic struct {
+	cause   error
+	message string
+}
+
+func (e *sanitizedURLDiagnostic) Error() string {
+	return e.message
+}
+
+func (e *sanitizedURLDiagnostic) Is(target error) bool {
+	return errors.Is(e.cause, target)
+}
+
+func sanitizeURLDiagnostic(err error, requestURL string) error {
+	if err == nil {
+		return nil
+	}
+
+	urls := []string{requestURL}
+	collectURLErrorURLs(err, &urls)
+
+	message := err.Error()
+	urls = uniqueURLsByDescendingLength(urls)
+	for _, value := range urls {
+		message = redactURLValue(message, value)
+	}
+
+	return &sanitizedURLDiagnostic{
+		cause:   err,
+		message: message,
+	}
+}
+
+func collectURLErrorURLs(err error, urls *[]string) {
+	if err == nil {
+		return
+	}
+
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		*urls = append(*urls, urlErr.URL)
+	}
+
+	unwrapMany, ok := err.(interface{ Unwrap() []error })
+	if ok {
+		for _, nested := range unwrapMany.Unwrap() {
+			collectURLErrorURLs(nested, urls)
+		}
+		return
+	}
+
+	unwrapOne, ok := err.(interface{ Unwrap() error })
+	if ok {
+		collectURLErrorURLs(unwrapOne.Unwrap(), urls)
+	}
+}
+
+func uniqueURLsByDescendingLength(values []string) []string {
+	unique := make(map[string]struct{}, len(values))
+	urls := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+
+		_, exists := unique[value]
+		if exists {
+			continue
+		}
+		unique[value] = struct{}{}
+		urls = append(urls, value)
+	}
+
+	sort.Slice(urls, func(left, right int) bool {
+		return len(urls[left]) > len(urls[right])
+	})
+	return urls
+}
+
+func redactURLValue(message, value string) string {
+	if value == "" {
+		return message
+	}
+
+	redacted := redactURL(value)
+	message = strings.ReplaceAll(message, value, redacted)
+	return strings.ReplaceAll(message, strconv.Quote(value), strconv.Quote(redacted))
+}
+
+func redactURL(value string) string {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return "[redacted URL]"
+	}
+
+	parsed.User = nil
+	parsed.RawQuery = ""
+	parsed.ForceQuery = false
+	parsed.Fragment = ""
+	parsed.RawFragment = ""
+	return parsed.String()
+}
 
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
@@ -88,7 +193,7 @@ func fetchURL(
 ) (data []byte, err error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("creating schema request: %w", err)
+		return nil, fmt.Errorf("creating schema request: %w", sanitizeURLDiagnostic(err, requestURL))
 	}
 	if isGitHub {
 		request.Header.Set("Accept", "application/vnd.github.raw+json")
@@ -99,7 +204,7 @@ func fetchURL(
 
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("fetching schema: %w", err)
+		return nil, fmt.Errorf("fetching schema: %w", sanitizeURLDiagnostic(err, requestURL))
 	}
 	defer func() {
 		err = errors.Join(err, response.Body.Close())

@@ -37,9 +37,10 @@ type Config struct {
 }
 
 type Schema struct {
-	Source Source `yaml:"source,omitempty"`
-	Path   string `yaml:"path"`
-	SHA256 string `yaml:"sha256,omitempty"`
+	Source        Source `yaml:"source,omitempty"`
+	Path          string `yaml:"path"`
+	SHA256        string `yaml:"sha256,omitempty"`
+	sourcePresent bool
 }
 
 type Source struct {
@@ -98,6 +99,11 @@ func Load(filename string) (*Config, error) {
 	}
 
 	config.baseDir = filepath.Dir(absoluteFilename)
+	sourcePresent, err := schemaSourcePresent(content)
+	if err != nil {
+		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
+	}
+	config.Schema.sourcePresent = sourcePresent
 	err = config.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("validating config file %q: %w", filename, err)
@@ -123,7 +129,7 @@ func (c *Config) Validate() error {
 		return errors.New("test_handler.generated is required")
 	}
 
-	err := ValidateSource(c.Schema.Source, c.Schema.SHA256)
+	err := validateSource(c.Schema.Source, c.Schema.SHA256, c.Schema.sourcePresent)
 	if err != nil {
 		return err
 	}
@@ -132,6 +138,10 @@ func (c *Config) Validate() error {
 }
 
 func ValidateSource(source Source, sha256 string) error {
+	return validateSource(source, sha256, false)
+}
+
+func validateSource(source Source, sha256 string, sourcePresent bool) error {
 	sourceCount := 0
 	if source.GitHubDocs != nil {
 		sourceCount++
@@ -142,7 +152,7 @@ func ValidateSource(source Source, sha256 string) error {
 	if source.URL != nil {
 		sourceCount++
 	}
-	if sourceCount > 1 {
+	if sourceCount > 1 || (sourcePresent && sourceCount == 0) {
 		return errors.New("schema.source must set exactly one remote source variant")
 	}
 
@@ -174,6 +184,89 @@ func ValidateSource(source Source, sha256 string) error {
 	}
 
 	return nil
+}
+
+func schemaSourcePresent(content []byte) (bool, error) {
+	var document yaml.Node
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
+	err := decoder.Decode(&document)
+	if err != nil {
+		return false, err
+	}
+	if document.Kind != yaml.DocumentNode || len(document.Content) != 1 {
+		return false, nil
+	}
+
+	root := document.Content[0]
+	schema := effectiveMappingValue(root, "schema")
+	if schema == nil {
+		return false, nil
+	}
+	return effectiveMappingValue(schema, "source") != nil, nil
+}
+
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
+	node = resolveAlias(node)
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	for index := 0; index < len(node.Content); index += 2 {
+		mappingKey := resolveAlias(node.Content[index])
+		if mappingKey != nil && mappingKey.Value == key {
+			return node.Content[index+1]
+		}
+	}
+	return nil
+}
+
+func effectiveMappingValue(node *yaml.Node, key string) *yaml.Node {
+	node = resolveAlias(node)
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	value := mappingValue(node, key)
+	if value != nil {
+		return value
+	}
+
+	for index := 0; index < len(node.Content); index += 2 {
+		mappingKey := resolveAlias(node.Content[index])
+		if mappingKey == nil || mappingKey.Value != "<<" {
+			continue
+		}
+
+		value = effectiveMergeValue(node.Content[index+1], key)
+		if value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
+func effectiveMergeValue(node *yaml.Node, key string) *yaml.Node {
+	node = resolveAlias(node)
+	if node == nil {
+		return nil
+	}
+	if node.Kind == yaml.SequenceNode {
+		for _, item := range node.Content {
+			value := effectiveMappingValue(item, key)
+			if value != nil {
+				return value
+			}
+		}
+		return nil
+	}
+	return effectiveMappingValue(node, key)
+}
+
+func resolveAlias(node *yaml.Node) *yaml.Node {
+	if node != nil && node.Kind == yaml.AliasNode {
+		return node.Alias
+	}
+	return node
 }
 
 func (g GitHubDocs) Validate() error {
