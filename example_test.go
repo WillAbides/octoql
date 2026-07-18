@@ -88,3 +88,32 @@ func ExampleDo_partialData() {
 	// octoql
 	// FORBIDDEN
 }
+
+func ExampleRateLimitError() {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Retry-After", "30")
+		_, err := io.WriteString(writer, `{"errors":[{"message":"slow down"}]}`)
+		if err != nil {
+			panic(err)
+		}
+	}))
+	defer server.Close()
+
+	client := octoql.NewClient(server.URL, server.Client())
+	_, err := octoql.Do[struct{}](
+		context.Background(),
+		client,
+		octoql.Operation{
+			Name:  "Viewer",
+			Query: "query Viewer { viewer { login } }",
+		},
+		nil,
+	)
+
+	rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
+	fmt.Println(ok)
+	fmt.Println(rateLimitError.Kind)
+	// Output:
+	// true
+	// secondary
+}

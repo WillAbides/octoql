@@ -49,6 +49,7 @@ type HTTPMetadata struct {
 	StatusCode int
 	Header     http.Header
 	RequestID  string
+	RateLimit  RateLimit
 }
 
 //nolint:govet // Preserve standard GraphQL request field order in encoded JSON.
@@ -127,39 +128,41 @@ func Do[T any](
 		responseCause = fmt.Errorf("send graphql request: %w", sendErr)
 	}
 
-	metadata := metadataFromResponse(httpResponse)
+	metadata, rateLimit := metadataFromResponse(httpResponse)
 	response := &Response[T]{HTTP: metadata}
 	if httpResponse.Body == nil {
 		err = errors.New("read graphql response: response body is nil")
 		err = joinErrors(responseCause, err)
-		return finishResponse(response, metadata, httpResponse.StatusCode, nil, err)
+		return finishResponse(response, &metadata, &rateLimit, httpResponse.StatusCode, nil, err)
 	}
 
 	body, readErr, closeErr := readAndClose(httpResponse.Body)
 	responseCause = joinErrors(responseCause, closeErr)
 	if readErr != nil {
 		err = joinErrors(responseCause, readErr)
-		return finishResponse(response, metadata, httpResponse.StatusCode, body, err)
+		return finishResponse(response, &metadata, &rateLimit, httpResponse.StatusCode, body, err)
 	}
 
 	err = json.Unmarshal(body, response)
 	if err != nil {
 		err = fmt.Errorf("decode graphql response: %w", err)
 		err = joinErrors(responseCause, err)
-		return finishResponse(response, metadata, httpResponse.StatusCode, body, err)
+		return finishResponse(response, &metadata, &rateLimit, httpResponse.StatusCode, body, err)
 	}
 
 	if !isSuccessfulStatus(httpResponse.StatusCode) {
-		return response, newHTTPError(metadata, body, response.Errors, responseCause)
+		err = newHTTPError(&metadata, body, response.Errors, responseCause)
+		return response, classifyRateLimit(httpResponse.StatusCode, &rateLimit, err)
 	}
 	if responseCause != nil {
 		if len(response.Errors) > 0 {
-			return response, errors.Join(response.Errors, responseCause)
+			err = errors.Join(response.Errors, responseCause)
+			return response, classifyRateLimit(httpResponse.StatusCode, &rateLimit, err)
 		}
-		return response, responseCause
+		return response, classifyRateLimit(httpResponse.StatusCode, &rateLimit, responseCause)
 	}
 	if len(response.Errors) > 0 {
-		return response, response.Errors
+		return response, classifyRateLimit(httpResponse.StatusCode, &rateLimit, response.Errors)
 	}
 	return response, nil
 }
@@ -210,13 +213,17 @@ func isGraphQLName(name string) bool {
 	return name != ""
 }
 
-func metadataFromResponse(response *http.Response) HTTPMetadata {
+func metadataFromResponse(response *http.Response) (HTTPMetadata, parsedRateLimit) {
 	header := cloneHeader(response.Header)
-	return HTTPMetadata{
+	now := rateLimitNow()
+	rateLimit := rateLimitFromHeader(header, now)
+	metadata := HTTPMetadata{
 		StatusCode: response.StatusCode,
 		Header:     header,
 		RequestID:  requestIDFromHeader(header),
+		RateLimit:  rateLimit.RateLimit,
 	}
+	return metadata, rateLimit
 }
 
 func requestIDFromHeader(header http.Header) string {
@@ -242,18 +249,21 @@ func readAndClose(body io.ReadCloser) ([]byte, error, error) {
 
 func finishResponse[T any](
 	response *Response[T],
-	metadata HTTPMetadata,
+	metadata *HTTPMetadata,
+	rateLimit *parsedRateLimit,
 	statusCode int,
 	body []byte,
 	cause error,
 ) (*Response[T], error) {
 	if !isSuccessfulStatus(statusCode) {
-		return response, newHTTPError(metadata, body, response.Errors, cause)
+		err := newHTTPError(metadata, body, response.Errors, cause)
+		return response, classifyRateLimit(statusCode, rateLimit, err)
 	}
 	if len(response.Errors) > 0 {
-		return response, joinErrors(response.Errors, cause)
+		err := joinErrors(response.Errors, cause)
+		return response, classifyRateLimit(statusCode, rateLimit, err)
 	}
-	return response, cause
+	return response, classifyRateLimit(statusCode, rateLimit, cause)
 }
 
 func isSuccessfulStatus(statusCode int) bool {
