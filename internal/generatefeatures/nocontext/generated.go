@@ -9,31 +9,59 @@ import (
 	"github.com/willabides/octoql"
 )
 
-// NoContextResponse is returned by NoContext on success.
-type NoContextResponse struct {
-	Value string `json:"value"`
+// GetRepositoryRepository includes the requested fields of the GraphQL type Repository.
+type GetRepositoryRepository struct {
+	NameWithOwner string `json:"nameWithOwner"`
 }
 
-// GetValue returns NoContextResponse.Value, and is useful for accessing the field via an interface.
-func (v *NoContextResponse) GetValue() string { return v.Value }
+// GetNameWithOwner returns GetRepositoryRepository.NameWithOwner, and is useful for accessing the field via an interface.
+func (v *GetRepositoryRepository) GetNameWithOwner() string { return v.NameWithOwner }
 
-// The query executed by NoContext.
-const NoContext_Operation = `
-query NoContext {
-	value
+// GetRepositoryResponse is returned by GetRepository on success.
+type GetRepositoryResponse struct {
+	Repository GetRepositoryRepository `json:"repository"`
+}
+
+// GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
+func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
+
+// __GetRepositoryInput is used internally by genqlient
+type __GetRepositoryInput struct {
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
+}
+
+// GetOwner returns __GetRepositoryInput.Owner, and is useful for accessing the field via an interface.
+func (v *__GetRepositoryInput) GetOwner() string { return v.Owner }
+
+// GetName returns __GetRepositoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__GetRepositoryInput) GetName() string { return v.Name }
+
+// The query executed by GetRepository.
+const GetRepository_Operation = `
+query GetRepository ($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		nameWithOwner
+	}
 }
 `
 
-func NoContext(
+func GetRepository(
 	client_ *octoql.Client,
-) (*octoql.Response[NoContextResponse], error) {
-	return octoql.Do[NoContextResponse](
+	owner string,
+	name string,
+) (*octoql.Response[GetRepositoryResponse], error) {
+	variables_ := __GetRepositoryInput{
+		Owner: owner,
+		Name:  name,
+	}
+	return octoql.Do[GetRepositoryResponse](
 		context.Background(),
 		client_,
 		octoql.Operation{
-			Name:  "NoContext",
-			Query: NoContext_Operation,
+			Name:  "GetRepository",
+			Query: GetRepository_Operation,
 		},
-		nil,
+		&variables_,
 	)
 }

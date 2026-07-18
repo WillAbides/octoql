@@ -27,7 +27,10 @@ func (ctx testContext) OctoqlClient() *octoql.Client {
 func TestClientGetterWithCustomContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(writer, `{"data":{"value":"custom context"}}`)
+		_, err := io.WriteString(
+			writer,
+			`{"data":{"repository":{"nameWithOwner":"octo-org/octo-repo"}}}`,
+		)
 		if err != nil {
 			panic(err)
 		}
@@ -38,8 +41,8 @@ func TestClientGetterWithCustomContext(t *testing.T) {
 		Context: t.Context(),
 		client:  octoql.NewClient(server.URL, server.Client()),
 	}
-	response, err := ClientGetter(ctx)
+	response, err := GetRepository(ctx, "octo-org", "octo-repo")
 
 	require.NoError(t, err)
-	assert.Equal(t, "custom context", response.Data.Value)
+	assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
 }

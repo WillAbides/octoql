@@ -3,5 +3,9 @@ schema {
 }
 
 type Query {
-  value: String!
+  repository(owner: String!, name: String!): Repository
+}
+
+type Repository {
+  nameWithOwner: String!
 }

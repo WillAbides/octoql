@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql"
+	githubclient "github.com/willabides/octoql/internal/generatefeatures/nocontext"
 )
 
 type integrationRoundTripFunc func(*http.Request) (*http.Response, error)
@@ -25,7 +26,7 @@ func (function integrationRoundTripFunc) RoundTrip(request *http.Request) (*http
 
 func TestGeneratedQueryResponseSemantics(t *testing.T) {
 	tests := []struct {
-		check      func(*testing.T, *octoql.Response[simpleQueryResponse], error)
+		check      func(*testing.T, *octoql.Response[githubclient.GetRepositoryResponse], error)
 		header     http.Header
 		name       string
 		body       string
@@ -39,14 +40,14 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				"X-Test":              {"original"},
 			},
 			body: `{
-				"data":{"me":{"id":"1","name":"octoql"}},
+				"data":{"repository":{"nameWithOwner":"octo-org/octo-repo"}},
 				"extensions":{"trace":"abc"}
 			}`,
-			check: func(t *testing.T, response *octoql.Response[simpleQueryResponse], err error) {
+			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, response)
-				assert.Equal(t, "1", response.Data.Me.Id)
+				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
 				assert.Equal(t, "abc", response.Extensions["trace"])
 				assert.Equal(t, http.StatusOK, response.HTTP.StatusCode)
 				assert.Equal(t, "request-123", response.HTTP.RequestID)
@@ -58,20 +59,20 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			statusCode: http.StatusOK,
 			header:     http.Header{},
 			body: `{
-				"data":{"me":{"id":"1","name":"partial"}},
-				"errors":[{"type":"FORBIDDEN","message":"field unavailable","path":["me","name"]}]
+				"data":{"repository":{"nameWithOwner":"octo-org/octo-repo"}},
+				"errors":[{"type":"FORBIDDEN","message":"field unavailable","path":["repository","nameWithOwner"]}]
 			}`,
-			check: func(t *testing.T, response *octoql.Response[simpleQueryResponse], err error) {
+			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
 				require.NotNil(t, response)
-				assert.Equal(t, "1", response.Data.Me.Id)
+				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
 				graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 				require.True(t, ok)
 				require.Len(t, graphqlErrors, 1)
 				assert.Equal(t, octoql.ErrorType("FORBIDDEN"), graphqlErrors[0].Type)
 				graphqlError, ok := errors.AsType[*octoql.Error](err)
 				require.True(t, ok)
-				assert.Equal(t, octoql.Path{"me", "name"}, graphqlError.Path)
+				assert.Equal(t, octoql.Path{"repository", "nameWithOwner"}, graphqlError.Path)
 			},
 		},
 		{
@@ -79,13 +80,13 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			statusCode: http.StatusForbidden,
 			header:     http.Header{},
 			body: `{
-				"data":{"me":{"id":"1"}},
+				"data":{"repository":{"nameWithOwner":"octo-org/octo-repo"}},
 				"errors":[{"type":"FORBIDDEN","message":"denied"}]
 			}`,
-			check: func(t *testing.T, response *octoql.Response[simpleQueryResponse], err error) {
+			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
 				require.NotNil(t, response)
-				assert.Equal(t, "1", response.Data.Me.Id)
+				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
 				httpError, ok := errors.AsType[*octoql.HTTPError](err)
 				require.True(t, ok)
 				assert.Equal(t, http.StatusForbidden, httpError.HTTP.StatusCode)
@@ -98,7 +99,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			statusCode: http.StatusBadGateway,
 			header:     http.Header{},
 			body:       `{"errors":[`,
-			check: func(t *testing.T, response *octoql.Response[simpleQueryResponse], err error) {
+			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
 				require.NotNil(t, response)
 				httpError, ok := errors.AsType[*octoql.HTTPError](err)
@@ -116,13 +117,13 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				"X-RateLimit-Resource":  {"graphql"},
 			},
 			body: `{
-				"data":{"me":{"id":"1"}},
+				"data":{"repository":{"nameWithOwner":"octo-org/octo-repo"}},
 				"errors":[{"type":"RATE_LIMITED","message":"quota exhausted"}]
 			}`,
-			check: func(t *testing.T, response *octoql.Response[simpleQueryResponse], err error) {
+			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
 				require.NotNil(t, response)
-				assert.Equal(t, "1", response.Data.Me.Id)
+				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
 				rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 				require.True(t, ok)
 				assert.Equal(t, octoql.RateLimitPrimary, rateLimitError.Kind)
@@ -136,7 +137,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				"Retry-After": {"30"},
 			},
 			body: `{"errors":[{"message":"slow down"}]}`,
-			check: func(t *testing.T, response *octoql.Response[simpleQueryResponse], err error) {
+			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
 				require.NotNil(t, response)
 				rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
@@ -161,7 +162,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			}
 			client := octoql.NewClient("https://api.github.example/graphql", httpClient)
 
-			response, err := simpleQuery(t.Context(), client)
+			response, err := githubclient.GetRepository(client, "octo-org", "octo-repo")
 			test.check(t, response, err)
 
 			test.header.Set("X-Test", "mutated")
@@ -179,7 +180,7 @@ func TestGeneratedQueryTransportFailure(t *testing.T) {
 	}
 	client := octoql.NewClient("https://api.github.example/graphql", httpClient)
 
-	response, err := simpleQuery(t.Context(), client)
+	response, err := githubclient.GetRepository(client, "octo-org", "octo-repo")
 
 	require.ErrorIs(t, err, transportError)
 	assert.Nil(t, response)

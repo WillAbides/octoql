@@ -12,35 +12,63 @@ import (
 // Check that context_type from genqlient.yaml implements context.Context.
 var _ context.Context = (Context)(nil)
 
-// ClientGetterResponse is returned by ClientGetter on success.
-type ClientGetterResponse struct {
-	Value string `json:"value"`
+// GetRepositoryRepository includes the requested fields of the GraphQL type Repository.
+type GetRepositoryRepository struct {
+	NameWithOwner string `json:"nameWithOwner"`
 }
 
-// GetValue returns ClientGetterResponse.Value, and is useful for accessing the field via an interface.
-func (v *ClientGetterResponse) GetValue() string { return v.Value }
+// GetNameWithOwner returns GetRepositoryRepository.NameWithOwner, and is useful for accessing the field via an interface.
+func (v *GetRepositoryRepository) GetNameWithOwner() string { return v.NameWithOwner }
 
-// The query executed by ClientGetter.
-const ClientGetter_Operation = `
-query ClientGetter {
-	value
+// GetRepositoryResponse is returned by GetRepository on success.
+type GetRepositoryResponse struct {
+	Repository GetRepositoryRepository `json:"repository"`
+}
+
+// GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
+func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
+
+// __GetRepositoryInput is used internally by genqlient
+type __GetRepositoryInput struct {
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
+}
+
+// GetOwner returns __GetRepositoryInput.Owner, and is useful for accessing the field via an interface.
+func (v *__GetRepositoryInput) GetOwner() string { return v.Owner }
+
+// GetName returns __GetRepositoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__GetRepositoryInput) GetName() string { return v.Name }
+
+// The query executed by GetRepository.
+const GetRepository_Operation = `
+query GetRepository ($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		nameWithOwner
+	}
 }
 `
 
-func ClientGetter(
+func GetRepository(
 	ctx_ Context,
-) (*octoql.Response[ClientGetterResponse], error) {
+	owner string,
+	name string,
+) (*octoql.Response[GetRepositoryResponse], error) {
 	client_, err_ := GetClient(ctx_)
 	if err_ != nil {
 		return nil, err_
 	}
-	return octoql.Do[ClientGetterResponse](
+	variables_ := __GetRepositoryInput{
+		Owner: owner,
+		Name:  name,
+	}
+	return octoql.Do[GetRepositoryResponse](
 		ctx_,
 		client_,
 		octoql.Operation{
-			Name:  "ClientGetter",
-			Query: ClientGetter_Operation,
+			Name:  "GetRepository",
+			Query: GetRepository_Operation,
 		},
-		nil,
+		&variables_,
 	)
 }
