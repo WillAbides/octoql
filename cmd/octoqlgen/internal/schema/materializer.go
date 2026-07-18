@@ -55,16 +55,19 @@ func NewMaterializer() *Materializer {
 }
 
 func (m *Materializer) Materialize(ctx context.Context, request Request) ([]byte, error) {
-	err := config.ValidateSource(request.Source, request.SHA256)
-	if err != nil {
-		return nil, fmt.Errorf("validating schema source: %w", err)
+	sourceCount := sourceVariantCount(request.Source)
+	if sourceCount > 1 {
+		return nil, errors.New("schema source must not set multiple remote source variants")
+	}
+	if sourceCount == 1 && request.SHA256 == "" {
+		return nil, errors.New("schema sha256 is required for remote sources")
 	}
 
 	deps := m.dependencies()
 	if request.Path != "" {
 		existing, readErr := deps.fileSystem.ReadFile(request.Path)
 		if readErr == nil {
-			err = verifyChecksum(existing, request.SHA256)
+			err := verifyChecksum(existing, request.SHA256)
 			if err != nil {
 				return nil, err
 			}
@@ -197,9 +200,21 @@ func validateSDL(data []byte) error {
 }
 
 func isRemote(source config.Source) bool {
-	return source.GitHubDocs != nil ||
-		source.GitHubRepository != nil ||
-		source.URL != nil
+	return sourceVariantCount(source) != 0
+}
+
+func sourceVariantCount(source config.Source) int {
+	count := 0
+	if source.GithubDocs != nil {
+		count++
+	}
+	if source.GithubRepository != nil {
+		count++
+	}
+	if source.Url != nil {
+		count++
+	}
+	return count
 }
 
 type FileSystem interface {

@@ -6,7 +6,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,433 +18,124 @@ const (
 )
 
 func TestLoad(t *testing.T) {
-	tests := []struct {
-		name          string
-		mutate        func(string) string
-		expectedError string
-	}{
-		{
-			name:   "valid github docs source",
-			mutate: func(input string) string { return input },
-		},
-		{
-			name: "unknown field",
-			mutate: func(input string) string {
-				return input + "unknown: true\n"
-			},
-			expectedError: "field unknown not found",
-		},
-		{
-			name: "multiple source variants",
-			mutate: func(input string) string {
-				return strings.Replace(
-					input,
-					"operations:",
-					"    url: https://example.test/schema.graphql\noperations:",
-					1,
-				)
-			},
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-		{
-			name: "empty source object",
-			mutate: func(input string) string {
-				return strings.Replace(
-					input,
-					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
-					"  source: {}",
-					1,
-				)
-			},
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-		{
-			name: "null source",
-			mutate: func(input string) string {
-				return strings.Replace(
-					input,
-					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
-					"  source: null",
-					1,
-				)
-			},
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-		{
-			name: "null url source",
-			mutate: func(input string) string {
-				return strings.Replace(
-					input,
-					"  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision,
-					"  source:\n    url: null",
-					1,
-				)
-			},
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-		{
-			name: "remote source without checksum",
-			mutate: func(input string) string {
-				return strings.Replace(input, "  sha256: "+testSHA256+"\n", "", 1)
-			},
-			expectedError: "schema.sha256 is required for remote sources",
-		},
-		{
-			name: "noncanonical checksum",
-			mutate: func(input string) string {
-				return strings.Replace(input, testSHA256, strings.ToUpper(testSHA256), 1)
-			},
-			expectedError: "canonical 64-character lowercase hexadecimal sha-256",
-		},
-		{
-			name: "short github revision",
-			mutate: func(input string) string {
-				return strings.Replace(input, testRevision, testRevision[:12], 1)
-			},
-			expectedError: "revision must be a full lowercase hexadecimal commit sha",
-		},
-		{
-			name: "invalid github docs version",
-			mutate: func(input string) string {
-				return strings.Replace(input, "version: fpt", "version: enterprise", 1)
-			},
-			expectedError: "version must be fpt, ghec, or ghes-X.Y",
-		},
-		{
-			name: "url credentials",
-			mutate: func(input string) string {
-				return strings.Replace(
-					input,
-					"    github_docs:\n      version: fpt\n      revision: "+testRevision,
-					"    url: https://user:password@example.test/schema.graphql",
-					1,
-				)
-			},
-			expectedError: "credentials in urls are not allowed",
-		},
-		{
-			name: "empty url",
-			mutate: func(input string) string {
-				return strings.Replace(
-					input,
-					"    github_docs:\n      version: fpt\n      revision: "+testRevision,
-					"    url: \"\"",
-					1,
-				)
-			},
-			expectedError: "scheme must be http or https",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			configDir := t.TempDir()
-			filename := filepath.Join(configDir, DefaultFilename)
-			content := test.mutate(validConfigYAML())
-			err := os.WriteFile(filename, []byte(content), 0o600)
-			require.NoError(t, err)
-
-			loaded, err := Load(filename)
-			if test.expectedError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), test.expectedError)
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, ".octoql/schema.graphql", loaded.Schema.Path)
-			assert.Equal(t, filepath.Join(configDir, ".octoql", "schema.graphql"), loaded.SchemaPath())
-			assert.Equal(
-				t,
-				[]string{filepath.Join(configDir, "graphql", "**", "*.graphql")},
-				loaded.OperationPaths(),
-			)
-			assert.Equal(
-				t,
-				filepath.Join(configDir, "internal", "githubapi", "generated.go"),
-				loaded.GeneratedPath(),
-			)
-			assert.Equal(
-				t,
-				filepath.Join(configDir, "internal", "githubapitest", "generated.go"),
-				loaded.TestHandlerGeneratedPath(),
-			)
-		})
-	}
-}
-
-func TestLoadLocalSchema(t *testing.T) {
 	t.Parallel()
 
-	content := strings.Replace(
-		validConfigYAML(),
-		"  sha256: "+testSHA256+"\n  source:\n    github_docs:\n      version: fpt\n      revision: "+testRevision+"\n",
-		"",
-		1,
-	)
-	filename := filepath.Join(t.TempDir(), DefaultFilename)
-	err := os.WriteFile(filename, []byte(content), 0o600)
+	configDir := t.TempDir()
+	filename := filepath.Join(configDir, DefaultFilename)
+	err := os.WriteFile(filename, []byte(validConfigYAML()), 0o600)
 	require.NoError(t, err)
 
 	loaded, err := Load(filename)
 	require.NoError(t, err)
-	assert.Empty(t, loaded.Schema.SHA256)
-	assert.Equal(t, Source{}, loaded.Schema.Source)
-}
-
-func TestLoadMergedSource(t *testing.T) {
-	tests := []struct {
-		name          string
-		schema        string
-		expectedError string
-	}{
-		{
-			name: "empty source",
-			schema: "  <<: &source_defaults\n" +
-				"    source: {}\n" +
-				"  path: .octoql/schema.graphql\n" +
-				"  sha256: " + testSHA256 + "\n",
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-		{
-			name: "null source",
-			schema: "  <<: &source_defaults\n" +
-				"    source: null\n" +
-				"  path: .octoql/schema.graphql\n" +
-				"  sha256: " + testSHA256 + "\n",
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-		{
-			name: "null url source",
-			schema: "  <<: &source_defaults\n" +
-				"    source:\n" +
-				"      url: null\n" +
-				"  path: .octoql/schema.graphql\n" +
-				"  sha256: " + testSHA256 + "\n",
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-		{
-			name: "valid remote source",
-			schema: "  <<: &source_defaults\n" +
-				"    source:\n" +
-				"      github_docs:\n" +
-				"        version: fpt\n" +
-				"        revision: " + testRevision + "\n" +
-				"  path: .octoql/schema.graphql\n" +
-				"  sha256: " + testSHA256 + "\n",
-		},
-		{
-			name: "direct source overrides merge",
-			schema: "  <<: &source_defaults\n" +
-				"    source:\n" +
-				"      github_docs:\n" +
-				"        version: fpt\n" +
-				"        revision: " + testRevision + "\n" +
-				"  source: null\n" +
-				"  path: .octoql/schema.graphql\n" +
-				"  sha256: " + testSHA256 + "\n",
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			filename := filepath.Join(t.TempDir(), DefaultFilename)
-			err := os.WriteFile(filename, []byte(configWithSchema(test.schema)), 0o600)
-			require.NoError(t, err)
-
-			loaded, err := Load(filename)
-			if test.expectedError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), test.expectedError)
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, "fpt", loaded.Schema.Source.GitHubDocs.Version)
-			assert.Equal(t, testRevision, loaded.Schema.Source.GitHubDocs.Revision)
-		})
-	}
-}
-
-func TestLoadRootMergedSchema(t *testing.T) {
-	tests := []struct {
-		name          string
-		content       string
-		expectedError string
-	}{
-		{
-			name: "empty source",
-			content: "<<: &config_defaults\n" +
-				"  schema:\n" +
-				"    path: .octoql/schema.graphql\n" +
-				"    sha256: " + testSHA256 + "\n" +
-				"    source: {}\n" +
-				"generated: internal/githubapi/generated.go\n",
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-		{
-			name: "valid remote source",
-			content: "<<: &config_defaults\n" +
-				"  schema:\n" +
-				"    path: .octoql/schema.graphql\n" +
-				"    sha256: " + testSHA256 + "\n" +
-				"    source:\n" +
-				"      github_docs:\n" +
-				"        version: fpt\n" +
-				"        revision: " + testRevision + "\n" +
-				"generated: internal/githubapi/generated.go\n",
-		},
-		{
-			name: "direct schema overrides merge",
-			content: "<<: &config_defaults\n" +
-				"  schema:\n" +
-				"    path: .octoql/schema.graphql\n" +
-				"    sha256: " + testSHA256 + "\n" +
-				"    source: {}\n" +
-				"schema:\n" +
-				"  path: .octoql/schema.graphql\n" +
-				"  sha256: " + testSHA256 + "\n" +
-				"generated: internal/githubapi/generated.go\n",
-		},
-		{
-			name: "alias schema key",
-			content: "generated: &schema_key schema\n" +
-				"*schema_key:\n" +
-				"  path: .octoql/schema.graphql\n" +
-				"  sha256: " + testSHA256 + "\n" +
-				"  source: {}\n",
-			expectedError: "schema.source must set exactly one remote source variant",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			filename := filepath.Join(t.TempDir(), DefaultFilename)
-			err := os.WriteFile(filename, []byte(configWithRoot(test.content)), 0o600)
-			require.NoError(t, err)
-
-			loaded, err := Load(filename)
-			if test.expectedError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), test.expectedError)
-				return
-			}
-
-			require.NoError(t, err)
-			if test.name == "valid remote source" {
-				assert.Equal(t, "fpt", loaded.Schema.Source.GitHubDocs.Version)
-				return
-			}
-			assert.Equal(t, Source{}, loaded.Schema.Source)
-		})
-	}
-}
-
-func TestGitHubRepositoryValidate(t *testing.T) {
-	tests := []struct {
-		name          string
-		repository    GitHubRepository
-		expectedError string
-		expectedHost  string
-	}{
-		{
-			name: "valid github repository",
-			repository: GitHubRepository{
-				Repository: "octo-org/octo-repo",
-				Revision:   testRevision,
-				Path:       "schema/github.graphql",
-			},
-			expectedHost: "github.com",
-		},
-		{
-			name: "valid enterprise repository",
-			repository: GitHubRepository{
-				Repository: "octo-org/octo-repo",
-				Revision:   testRevision,
-				Path:       "schema/github.graphql",
-				Host:       "github.example.com",
-			},
-			expectedHost: "github.example.com",
-		},
-		{
-			name: "invalid repository",
-			repository: GitHubRepository{
-				Repository: "../octo-repo",
-				Revision:   testRevision,
-				Path:       "schema.graphql",
-			},
-			expectedError: "owner/name pair",
-		},
-		{
-			name: "traversing path",
-			repository: GitHubRepository{
-				Repository: "octo-org/octo-repo",
-				Revision:   testRevision,
-				Path:       "../schema.graphql",
-			},
-			expectedError: "without traversal",
-		},
-		{
-			name: "host with scheme",
-			repository: GitHubRepository{
-				Repository: "octo-org/octo-repo",
-				Revision:   testRevision,
-				Path:       "schema.graphql",
-				Host:       "https://github.example.com",
-			},
-			expectedError: "hostname and optional port",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			repository := test.repository
-			err := repository.Validate()
-			if test.expectedError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), test.expectedError)
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, test.expectedHost, repository.Host)
-		})
-	}
-}
-
-func validConfigYAML() string {
-	return configWithSchema(
-		"  path: .octoql/schema.graphql\n" +
-			"  sha256: " + testSHA256 + "\n" +
-			"  source:\n" +
-			"    github_docs:\n" +
-			"      version: fpt\n" +
-			"      revision: " + testRevision + "\n",
+	require.NotNil(t, loaded.Schema.Source)
+	require.NotNil(t, loaded.Schema.Source.GithubDocs)
+	assert.Equal(t, "fpt", loaded.Schema.Source.GithubDocs.Version)
+	assert.Equal(t, filepath.Join(configDir, ".octoql", "schema.graphql"), loaded.SchemaPath())
+	assert.Equal(
+		t,
+		[]string{filepath.Join(configDir, "graphql", "**", "*.graphql")},
+		loaded.OperationPaths(),
+	)
+	assert.Equal(t, filepath.Join(configDir, "githubapi", "generated.go"), loaded.GeneratedPath())
+	assert.Equal(
+		t,
+		filepath.Join(configDir, "githubapitest", "generated.go"),
+		loaded.TestHandlerGeneratedPath(),
 	)
 }
 
-func configWithSchema(schema string) string {
-	return "schema:\n" + schema +
-		"operations:\n" +
-		"  - graphql/**/*.graphql\n" +
-		"generated: internal/githubapi/generated.go\n" +
-		"test_handler:\n" +
-		"  generated: internal/githubapitest/generated.go\n"
+func TestLoadUsesJSONTagsStrictly(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		assertLoaded func(*testing.T, *Config)
+		name         string
+		content      string
+		wantError    string
+	}{
+		{
+			name:    "aliases",
+			content: readTestFile(t, "yaml", "valid_aliases.yaml"),
+			assertLoaded: func(t *testing.T, loaded *Config) {
+				require.Len(t, loaded.Operations, 2)
+				assert.Equal(t, loaded.Operations[0], loaded.Operations[1])
+				require.NotNil(t, loaded.TestHandler)
+				assert.Equal(t, loaded.Generated, loaded.TestHandler.Generated)
+			},
+		},
+		{
+			name:    "merge",
+			content: readTestFile(t, "yaml", "valid_merge.yaml"),
+		},
+		{
+			name:      "duplicate key",
+			content:   readTestFile(t, "yaml", "invalid_duplicate_key.yaml"),
+			wantError: "key \"path\" already set",
+		},
+		{
+			name:      "unknown field",
+			content:   validConfigYAML() + "unknown: true\n",
+			wantError: `unknown field "unknown"`,
+		},
+		{
+			name:      "multiple documents",
+			content:   validConfigYAML() + "---\n{}\n",
+			wantError: "multiple YAML documents are not allowed",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			filename := filepath.Join(t.TempDir(), DefaultFilename)
+			err := os.WriteFile(filename, []byte(test.content), 0o600)
+			require.NoError(t, err)
+			loaded, err := Load(filename)
+			if test.wantError == "" {
+				require.NoError(t, err)
+				if test.assertLoaded != nil {
+					test.assertLoaded(t, loaded)
+				}
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.wantError)
+		})
+	}
 }
 
-func configWithRoot(root string) string {
-	return root +
+func TestLoadDoesNotValidateAgainstSchema(t *testing.T) {
+	t.Parallel()
+
+	filename := filepath.Join(t.TempDir(), DefaultFilename)
+	err := os.WriteFile(filename, []byte("{}\n"), 0o600)
+	require.NoError(t, err)
+
+	loaded, err := Load(filename)
+	require.NoError(t, err)
+	assert.Equal(t, &Config{}, loaded)
+	assert.Empty(t, loaded.TestHandlerGeneratedPath())
+}
+
+func readTestFile(t *testing.T, elements ...string) string {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(append([]string{"testdata"}, elements...)...))
+	require.NoError(t, err)
+	return string(content)
+}
+
+func validConfigYAML() string {
+	return "schema:\n" +
+		"  path: .octoql/schema.graphql\n" +
+		"  sha256: " + testSHA256 + "\n" +
+		"  source:\n" +
+		"    github_docs:\n" +
+		"      version: fpt\n" +
+		"      revision: " + testRevision + "\n" +
 		"operations:\n" +
 		"  - graphql/**/*.graphql\n" +
+		"generated: githubapi/generated.go\n" +
 		"test_handler:\n" +
-		"  generated: internal/githubapitest/generated.go\n"
+		"  generated: githubapitest/generated.go\n"
 }

@@ -137,28 +137,32 @@ func (m *Materializer) fetch(
 	source config.Source,
 	dependencies *dependencies,
 ) ([]byte, error) {
-	if source.URL != nil {
+	if source.Url != nil {
 		return fetchURL(
 			ctx,
 			dependencies.httpClient,
-			*source.URL,
+			*source.Url,
 			"",
 			false,
 			dependencies.maxResponseBytes,
 		)
 	}
 
-	repository := source.GitHubRepository
-	if source.GitHubDocs != nil {
-		repository = githubDocsRepository(*source.GitHubDocs)
+	repository := source.GithubRepository
+	if source.GithubDocs != nil {
+		repository = githubDocsRepository(*source.GithubDocs)
 	}
 	if repository == nil {
 		return nil, errors.New("remote schema source is missing")
 	}
+	host := "github.com"
+	if repository.Host != nil {
+		host = *repository.Host
+	}
 
 	token, err := discoverToken(
 		ctx,
-		repository.Host,
+		host,
 		dependencies.lookupEnvironment,
 		dependencies.commandRunner,
 	)
@@ -167,7 +171,7 @@ func (m *Materializer) fetch(
 	}
 
 	requestURL, err := githubContentsURL(
-		dependencies.githubAPIBaseURL(repository.Host),
+		dependencies.githubAPIBaseURL(host),
 		*repository,
 	)
 	if err != nil {
@@ -233,30 +237,32 @@ func fetchURL(
 	return data, nil
 }
 
-func githubDocsRepository(source config.GitHubDocs) *config.GitHubRepository {
+func githubDocsRepository(source config.GithubDocs) *config.GithubRepository {
 	filename := "schema.docs.graphql"
 	if strings.HasPrefix(source.Version, "ghes-") {
 		filename = "schema.docs-enterprise.graphql"
 	}
-	return &config.GitHubRepository{
+	return &config.GithubRepository{
 		Repository: "github/docs",
 		Revision:   source.Revision,
 		Path:       "src/graphql/data/" + source.Version + "/" + filename,
-		Host:       "github.com",
 	}
 }
 
-func githubContentsURL(baseURL string, source config.GitHubRepository) (string, error) {
+func githubContentsURL(baseURL string, source config.GithubRepository) (string, error) {
 	base, err := url.Parse(baseURL)
 	if err != nil {
 		return "", fmt.Errorf("parsing github api base url: %w", err)
 	}
 
-	repositoryParts := strings.Split(source.Repository, "/")
+	owner, name, ok := strings.Cut(source.Repository, "/")
+	if !ok || owner == "" || name == "" || strings.Contains(name, "/") {
+		return "", errors.New("github repository must be an owner/name pair")
+	}
 	pathParts := strings.Split(source.Path, "/")
 	base.Path = strings.TrimSuffix(base.Path, "/") +
-		"/repos/" + repositoryParts[0] +
-		"/" + repositoryParts[1] +
+		"/repos/" + owner +
+		"/" + name +
 		"/contents/" + strings.Join(pathParts, "/")
 	query := base.Query()
 	query.Set("ref", source.Revision)

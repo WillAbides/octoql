@@ -1,0 +1,123 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: octoqlgen configuration
+description: Configuration for generating a GitHub GraphQL client with octoqlgen.
+type: object
+x-go-type-name: Config
+additionalProperties: false
+required:
+  - schema
+  - operations
+  - generated
+properties:
+  schema:
+    $ref: '#/$defs/schema'
+  operations:
+    description: Paths or glob patterns selecting GraphQL operations.
+    type: array
+    items:
+      type: string
+    examples:
+      - graphql/**/*.graphql
+  generated:
+    description: Path for the generated GraphQL client Go file.
+    type: string
+    examples:
+      - githubapi/generated.go
+  test_handler:
+    $ref: '#/$defs/testHandler'
+$defs:
+  schema:
+    description: Local schema path and optional pinned remote source.
+    type: object
+    additionalProperties: false
+    required:
+      - path
+    properties:
+      path:
+        description: Path where the GraphQL schema is read or materialized.
+        type: string
+        examples:
+          - .octoql/schema.graphql
+      sha256:
+        description: SHA-256 digest for the schema bytes.
+        type: string
+        examples:
+          - c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
+      source:
+        $ref: '#/$defs/source'
+  source:
+    description: Remote source for the GraphQL schema.
+    type: object
+    additionalProperties: false
+    properties:
+      github_docs:
+        $ref: '#/$defs/githubDocs'
+      github_repository:
+        $ref: '#/$defs/githubRepository'
+      url:
+        description: URL for the schema bytes.
+        type: string
+        examples:
+          - https://schemas.example.com/github.graphql
+  githubDocs:
+    description: GitHub Docs GraphQL schema source.
+    type: object
+    additionalProperties: false
+    required:
+      - version
+      - revision
+    properties:
+      version:
+        description: GitHub product schema version.
+        type: string
+        examples:
+          - fpt
+          - ghec
+          - ghes-3.17
+      revision:
+        description: Git revision in github/docs.
+        type: string
+        examples:
+          - 45d83f459620340069df7c375a8867be62616d61
+  githubRepository:
+    description: Schema file in a GitHub or GitHub Enterprise repository.
+    type: object
+    additionalProperties: false
+    required:
+      - repository
+      - revision
+      - path
+    properties:
+      repository:
+        description: Repository in owner/name form.
+        type: string
+        examples:
+          - octo-org/octo-repo
+      revision:
+        description: Git revision.
+        type: string
+        examples:
+          - 45d83f459620340069df7c375a8867be62616d61
+      path:
+        description: Path to the schema in the repository.
+        type: string
+        examples:
+          - schema/github.graphql
+      host:
+        description: GitHub host and optional port.
+        type: string
+        examples:
+          - github.example.com
+          - 192.0.2.10:8443
+  testHandler:
+    description: Generated test handler configuration.
+    type: object
+    additionalProperties: false
+    required:
+      - generated
+    properties:
+      generated:
+        description: Path for the generated test handler Go file.
+        type: string
+        examples:
+          - githubapitest/generated.go

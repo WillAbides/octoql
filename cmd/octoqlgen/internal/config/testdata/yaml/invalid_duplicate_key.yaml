@@ -1,0 +1,8 @@
+schema:
+  path: .octoql/schema.graphql
+  path: duplicate.graphql
+operations:
+  - graphql/**/*.graphql
+generated: githubapi/generated.go
+test_handler:
+  generated: githubapitest/generated.go

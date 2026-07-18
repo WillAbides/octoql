@@ -39,8 +39,8 @@ func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 			return &config.Config{
 				Schema: config.Schema{
 					Path:   ".octoql/schema.graphql",
-					SHA256: cliSHA256,
-					Source: config.Source{URL: new("https://example.test/schema.graphql")},
+					Sha256: new(cliSHA256),
+					Source: new(config.Source{Url: new("https://example.test/schema.graphql")}),
 				},
 			}, nil
 		},
@@ -81,9 +81,9 @@ func TestSchemaCommandRunDirectOutput(t *testing.T) {
 	assert.Empty(t, stdout.String())
 	assert.Equal(t, "schema.graphql", outputWriter.path)
 	assert.Equal(t, []byte("exact schema bytes\n"), outputWriter.data)
-	require.NotNil(t, materializer.request.Source.GitHubDocs)
-	assert.Equal(t, "ghec", materializer.request.Source.GitHubDocs.Version)
-	assert.Equal(t, cliRevision, materializer.request.Source.GitHubDocs.Revision)
+	require.NotNil(t, materializer.request.Source.GithubDocs)
+	assert.Equal(t, "ghec", materializer.request.Source.GithubDocs.Version)
+	assert.Equal(t, cliRevision, materializer.request.Source.GithubDocs.Revision)
 }
 
 func TestSchemaCommandDirectValidation(t *testing.T) {

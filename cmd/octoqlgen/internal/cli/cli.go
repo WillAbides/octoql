@@ -42,7 +42,7 @@ type SchemaCommand struct {
 	outputWriter OutputWriter
 	stdout       io.Writer
 
-	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoql configuration file. Defaults to octoql.yaml."`
+	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoqlgen configuration file. Defaults to octoql.yaml."`
 	Output        string `short:"o" name:"output" type:"path" placeholder:"PATH" help:"Write the exact schema bytes to a file instead of stdout."`
 	GitHubVersion string `name:"github-version" placeholder:"VERSION" help:"Fetch a pinned github/docs schema version (fpt, ghec, or ghes-X.Y)."`
 	SourceURL     string `name:"source-url" placeholder:"URL" help:"Fetch a schema from an immutable URL."`
@@ -92,8 +92,8 @@ func (cmd *SchemaCommand) request() (schema.Request, error) {
 		}
 		return schema.Request{
 			Path:   loaded.SchemaPath(),
-			SHA256: loaded.Schema.SHA256,
-			Source: loaded.Schema.Source,
+			SHA256: loaded.Schema.SHA256Value(),
+			Source: loaded.Schema.SourceValue(),
 		}, nil
 	}
 
@@ -110,7 +110,7 @@ func (cmd *SchemaCommand) request() (schema.Request, error) {
 		return schema.Request{
 			SHA256: cmd.SHA256,
 			Source: config.Source{
-				GitHubDocs: &config.GitHubDocs{
+				GithubDocs: &config.GithubDocs{
 					Version:  cmd.GitHubVersion,
 					Revision: cmd.Revision,
 				},
@@ -122,7 +122,7 @@ func (cmd *SchemaCommand) request() (schema.Request, error) {
 	}
 	return schema.Request{
 		SHA256: cmd.SHA256,
-		Source: config.Source{URL: new(cmd.SourceURL)},
+		Source: config.Source{Url: new(cmd.SourceURL)},
 	}, nil
 }
 

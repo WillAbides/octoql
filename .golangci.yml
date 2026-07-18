@@ -35,6 +35,7 @@ linters:
             - github.com/alecthomas/kong
             - github.com/bmatcuk/doublestar/v4
             - github.com/google/uuid
+            - sigs.k8s.io/yaml
     errcheck:
       check-type-assertions: true
     errorlint:
