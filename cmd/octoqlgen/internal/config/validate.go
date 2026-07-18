@@ -80,7 +80,7 @@ func ValidateSource(source Source, sha256 string) error {
 	return nil
 }
 
-func (g GitHubDocs) Validate() error {
+func (g GithubDocs) Validate() error {
 	if !githubVersionPattern.MatchString(g.Version) {
 		return errors.New("version must be fpt, ghec, or ghes-X.Y")
 	}
@@ -90,7 +90,7 @@ func (g GitHubDocs) Validate() error {
 	return nil
 }
 
-func (g *GitHubRepository) Validate() error {
+func (g *GithubRepository) Validate() error {
 	parts := strings.Split(g.Repository, "/")
 	validParts := len(parts) == 2
 	if validParts {

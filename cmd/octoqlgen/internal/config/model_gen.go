@@ -2,12 +2,12 @@
 
 package config
 
-type GitHubDocs struct {
+type GithubDocs struct {
 	Revision string `json:"revision"`
 	Version  string `json:"version"`
 }
 
-type GitHubRepository struct {
+type GithubRepository struct {
 	Host       *string `json:"host"`
 	Path       string  `json:"path"`
 	Repository string  `json:"repository"`
@@ -15,8 +15,8 @@ type GitHubRepository struct {
 }
 
 type Source struct {
-	GithubDocs       *GitHubDocs       `json:"github_docs"`
-	GithubRepository *GitHubRepository `json:"github_repository"`
+	GithubDocs       *GithubDocs       `json:"github_docs"`
+	GithubRepository *GithubRepository `json:"github_repository"`
 	Url              *string           `json:"url"`
 }
 

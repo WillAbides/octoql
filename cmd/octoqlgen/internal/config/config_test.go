@@ -129,7 +129,7 @@ func TestGitHubRepositoryValidate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			repository := GitHubRepository{
+			repository := GithubRepository{
 				Repository: "octo-org/octo-repo",
 				Revision:   testRevision,
 				Path:       "schema/github.graphql",

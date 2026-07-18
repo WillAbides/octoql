@@ -233,13 +233,13 @@ func fetchURL(
 	return data, nil
 }
 
-func githubDocsRepository(source config.GitHubDocs) *config.GitHubRepository {
+func githubDocsRepository(source config.GithubDocs) *config.GithubRepository {
 	filename := "schema.docs.graphql"
 	if strings.HasPrefix(source.Version, "ghes-") {
 		filename = "schema.docs-enterprise.graphql"
 	}
 	host := "github.com"
-	return &config.GitHubRepository{
+	return &config.GithubRepository{
 		Repository: "github/docs",
 		Revision:   source.Revision,
 		Path:       "src/graphql/data/" + source.Version + "/" + filename,
@@ -247,7 +247,7 @@ func githubDocsRepository(source config.GitHubDocs) *config.GitHubRepository {
 	}
 }
 
-func githubContentsURL(baseURL string, source config.GitHubRepository) (string, error) {
+func githubContentsURL(baseURL string, source config.GithubRepository) (string, error) {
 	base, err := url.Parse(baseURL)
 	if err != nil {
 		return "", fmt.Errorf("parsing github api base url: %w", err)

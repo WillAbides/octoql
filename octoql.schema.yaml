@@ -17,7 +17,7 @@ properties:
     items:
       type: string
     examples:
-      - - graphql/**/*.graphql
+      - graphql/**/*.graphql
   generated:
     description: Path for the generated GraphQL client Go file.
     type: string
@@ -29,7 +29,6 @@ $defs:
   schema:
     description: Local schema path and optional pinned remote source.
     type: object
-    x-go-type-name: Schema
     additionalProperties: false
     required:
       - path
@@ -49,7 +48,6 @@ $defs:
   source:
     description: Remote source for the GraphQL schema.
     type: object
-    x-go-type-name: Source
     additionalProperties: false
     properties:
       github_docs:
@@ -64,7 +62,6 @@ $defs:
   githubDocs:
     description: GitHub Docs GraphQL schema source.
     type: object
-    x-go-type-name: GitHubDocs
     additionalProperties: false
     required:
       - version
@@ -85,7 +82,6 @@ $defs:
   githubRepository:
     description: Schema file in a GitHub or GitHub Enterprise repository.
     type: object
-    x-go-type-name: GitHubRepository
     additionalProperties: false
     required:
       - repository
@@ -116,7 +112,6 @@ $defs:
   testHandler:
     description: Generated test handler configuration.
     type: object
-    x-go-type-name: TestHandler
     additionalProperties: false
     required:
       - generated

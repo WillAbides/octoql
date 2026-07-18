@@ -314,7 +314,7 @@ func TestMaterializerGitHubDocsPaths(t *testing.T) {
 			data, err := materializer.Materialize(t.Context(), Request{
 				SHA256: checksum(exactSchema),
 				Source: config.Source{
-					GithubDocs: &config.GitHubDocs{
+					GithubDocs: &config.GithubDocs{
 						Version:  test.version,
 						Revision: schemaRevision,
 					},
@@ -333,7 +333,7 @@ func TestGitHubRepositoryRequestEscaping(t *testing.T) {
 
 	requestURL, err := githubContentsURL(
 		"https://github.example.com/api/v3",
-		config.GitHubRepository{
+		config.GithubRepository{
 			Repository: "octo-org/octo.repo",
 			Revision:   schemaRevision,
 			Path:       "schema dir/schema#one.graphql",
@@ -472,7 +472,7 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 			data, err := materializer.Materialize(t.Context(), Request{
 				SHA256: checksum(exactSchema),
 				Source: config.Source{
-					GithubRepository: &config.GitHubRepository{
+					GithubRepository: &config.GithubRepository{
 						Repository: "octo-org/private-repo",
 						Revision:   schemaRevision,
 						Path:       "schema.graphql",
