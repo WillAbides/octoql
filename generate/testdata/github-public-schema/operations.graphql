@@ -1,0 +1,55 @@
+query RepositorySummary($owner: String!, $name: String!, $issueCount: Int! = 3) {
+  repository(owner: $owner, name: $name) {
+    ...RepositoryDetails
+    issues(first: $issueCount, states: [OPEN], orderBy: {field: UPDATED_AT, direction: DESC}) {
+      totalCount
+      nodes {
+        number
+        title
+        url
+      }
+    }
+  }
+}
+
+fragment RepositoryDetails on Repository {
+  id
+  nameWithOwner
+  createdAt
+  url
+  defaultBranchRef {
+    name
+    target {
+      oid
+      ... on Commit {
+        committedDate
+        messageHeadline
+      }
+    }
+  }
+}
+
+query NodesByID($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    __typename
+    id
+    ... on Repository {
+      nameWithOwner
+    }
+    ... on User {
+      login
+    }
+  }
+}
+
+mutation StarRepository($repositoryID: ID!, $clientMutationID: String) {
+  addStar(input: {starrableId: $repositoryID, clientMutationId: $clientMutationID}) {
+    clientMutationId
+    starrable {
+      __typename
+      id
+      stargazerCount
+      viewerHasStarred
+    }
+  }
+}

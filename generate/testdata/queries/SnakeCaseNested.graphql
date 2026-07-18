@@ -1,8 +1,0 @@
-query SnakeCaseNested {
-  object {
-    snake_case_field {
-      id
-      name
-    }
-  }
-}

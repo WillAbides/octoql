@@ -1,6 +1,0 @@
-query SnakeCaseType {
-  snake_case_type {
-    id
-    name
-  }
-}

@@ -1,9 +1,0 @@
-{
-  "operations": [
-    {
-      "operationName": "GetPokemon",
-      "query": "\nquery GetPokemon ($where: getPokemonBoolExp!) {\n\tgetPokemon(where: $where) {\n\t\tspecies\n\t\tlevel\n\t}\n}\n",
-      "sourceLocation": "testdata/queries/Hasura.graphql"
-    }
-  ]
-}

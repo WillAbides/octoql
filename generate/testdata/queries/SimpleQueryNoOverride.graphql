@@ -1,6 +1,0 @@
-query SimpleQueryNoOverride {
-    user {
-        id
-        name
-    }
-}

@@ -1,0 +1,26 @@
+# Copyright (c) 2026 octoql contributors
+# SPDX-License-Identifier: MIT
+
+# @genqlient(for: "InputWithDefaults.optionalLabel", omitempty: true)
+# @genqlient(for: "IssueFilter.assignee", pointer: true)
+query OptionalGitHubInputs(
+  $filter: IssueFilter
+  $defaults: InputWithDefaults!
+  $optional: OmitemptyInput
+) {
+  repository(owner: "octo", name: "fixture") {
+    issues(filter: $filter) {
+      nodes {
+        id
+      }
+    }
+  }
+  default(input: $defaults)
+  omitempty(input: $optional)
+}
+
+mutation UpdateIssueWithCollidingNames($data: String!, $req: Int, $resp: Int, $client: String) {
+  closeIssue(data: $data, req: $req, resp: $resp, client: $client) {
+    id
+  }
+}

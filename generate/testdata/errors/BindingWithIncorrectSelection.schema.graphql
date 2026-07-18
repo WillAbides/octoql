@@ -1,8 +1,8 @@
 type Query {
-  pokemon: Pokemon
+  account: Account
 }
 
-type Pokemon {
-  species: String!
-  level: Int!
+type Account {
+  id: ID!
+  login: String!
 }

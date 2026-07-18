@@ -1,0 +1,107 @@
+# Copyright (c) 2026 octoql contributors
+# SPDX-License-Identifier: MIT
+
+query SearchRepositories($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {
+  search(query: $query, type: REPOSITORY, first: $first, after: $after) {
+    nodes {
+      __typename
+      ... on Repository {
+        repoName: nameWithOwner
+        owner {
+          login
+        }
+        parent {
+          nameWithOwner
+        }
+      }
+      ... on Issue {
+        issueTitle: title
+        repository {
+          nameWithOwner
+        }
+      }
+      ... on PullRequest {
+        pullRequestTitle: title
+        mergeCommit {
+          oid
+          parents {
+            oid
+          }
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+  latestRelease(publishedAfter: $publishedAfter) {
+    name
+    publishedAt
+  }
+  getJSON
+  getComplexJSON
+}
+
+query GetNode($id: ID!) {
+  node(id: $id) {
+    __typename
+    id
+    ... on User {
+      login
+    }
+    ... on Organization {
+      login
+    }
+    ... on Repository {
+      nameWithOwner
+    }
+    ... on Issue {
+      title
+    }
+    ... on PullRequest {
+      title
+    }
+  }
+}
+
+query GetActor($login: String!) {
+  actor(login: $login) {
+    ...ActorDetails
+  }
+  repositoryOwner(login: $login) {
+    ...RepositoryOwnerDetails
+  }
+}
+
+fragment ActorDetails on Actor {
+  id
+  login
+}
+
+fragment RepositoryOwnerDetails on RepositoryOwner {
+  id
+  login
+  repositories(first: 5) {
+    nodes {
+      nameWithOwner
+    }
+  }
+}
+
+query NestedNodeShapes {
+  nestedNodes {
+    __typename
+    id
+  }
+}
+
+query RecursiveRepository($input: RecursiveInput!) {
+  recur(input: $input) {
+    next {
+      next {
+        id
+      }
+    }
+  }
+}

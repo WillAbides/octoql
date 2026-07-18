@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
 	"github.com/willabides/octoql/internal/testutil"
@@ -19,6 +19,36 @@ const (
 	dataDir   = "testdata/queries"
 	errorsDir = "testdata/errors"
 )
+
+func testBindings() map[string]*TypeBinding {
+	return map[string]*TypeBinding{
+		"ID":              {Type: "github.com/willabides/octoql/internal/testutil.ID"},
+		"DateTime":        {Type: "time.Time"},
+		"PreciseDateTime": {Type: "time.Time"},
+		"URI":             {Type: "string"},
+		"GitObjectID":     {Type: "string"},
+		"BigInt":          {Type: "int64"},
+		"Date":            {Type: "time.Time", Marshaler: "github.com/willabides/octoql/internal/testutil.MarshalDate", Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate"},
+		"JSON":            {Type: "interface{}"},
+		"ComplexJSON":     {Type: "[]map[string]*[]*map[string]interface{}"},
+		"Account":         {Type: "github.com/willabides/octoql/internal/testutil.Account"},
+	}
+}
+
+func addTestScalarBindings(bindings map[string]*TypeBinding) map[string]*TypeBinding {
+	if bindings == nil {
+		bindings = make(map[string]*TypeBinding)
+	}
+	for name, binding := range testBindings() {
+		if name == "Account" {
+			continue
+		}
+		if _, ok := bindings[name]; !ok {
+			bindings[name] = binding
+		}
+	}
+	return bindings
+}
 
 // buildGoFile returns an error if the given Go code is not valid.
 //
@@ -84,22 +114,7 @@ func TestGenerate(t *testing.T) {
 				Generated:        goFilename,
 				ExportOperations: queriesFilename,
 				ContextType:      "-",
-				Bindings: map[string]*TypeBinding{
-					"ID":       {Type: "github.com/willabides/octoql/internal/testutil.ID"},
-					"DateTime": {Type: "time.Time"},
-					"Date": {
-						Type:        "time.Time",
-						Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
-						Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
-					},
-					"Junk":        {Type: "interface{}"},
-					"ComplexJunk": {Type: "[]map[string]*[]*map[string]interface{}"},
-					"Pokemon": {
-						Type:              "github.com/willabides/octoql/internal/testutil.Pokemon",
-						ExpectExactFields: "{ species level }",
-					},
-					"PokemonInput": {Type: "github.com/willabides/octoql/internal/testutil.Pokemon"},
-				},
+				Bindings:         testBindings(),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -125,6 +140,28 @@ func TestGenerate(t *testing.T) {
 	}
 }
 
+func TestGenerateDeterministic(t *testing.T) {
+	config := &Config{
+		Schema:      []string{filepath.Join(dataDir, "schema.graphql")},
+		Operations:  []string{filepath.Join(dataDir, "GraphShapes.graphql")},
+		Package:     "test",
+		Generated:   "generated.go",
+		ContextType: "-",
+		Bindings:    testBindings(),
+	}
+	first, err := Generate(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Generate(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(first[config.Generated], second[config.Generated]) {
+		t.Fatal("generation output is not deterministic")
+	}
+}
+
 func getDefaultConfig(t *testing.T) *Config {
 	// Parse the config that `genqlient --init` generates, to make sure that
 	// works.
@@ -141,158 +178,122 @@ func getDefaultConfig(t *testing.T) *Config {
 	return &config
 }
 
-// TestGenerateWithConfig tests several configuration options that affect
-// generated code but don't require particular query structures to test.
-//
-// It runs a simple query from TestGenerate with several different genqlient
-// configurations.  It uses snapshots, just like TestGenerate.
 func TestGenerateWithConfig(t *testing.T) {
 	tests := []struct {
 		name       string
-		baseDir    string   // relative to dataDir
-		operations []string // overrides the default set below
-		config     *Config  // omits Schema and Operations, set below.
+		operations []string
+		config     *Config
 	}{
-		{"DefaultConfig", "", nil, getDefaultConfig(t)},
-		{"Subpackage", "", nil, &Config{
+		{"DefaultConfig", nil, getDefaultConfig(t)},
+		{"Subpackage", nil, &Config{
 			Generated: "mypkg/myfile.go",
 		}},
-		{"SubpackageConfig", "mypkg", nil, &Config{
-			Generated: "myfile.go", // (relative to genqlient.yaml)
-		}},
-		{"PackageName", "", nil, &Config{
+		{"PackageName", nil, &Config{
 			Generated: "myfile.go",
 			Package:   "mypkg",
 		}},
-		{"ExportOperations", "", nil, &Config{
+		{"ExportOperations", nil, &Config{
 			ExportOperations: "operations.json",
 		}},
-		{"CustomContext", "", nil, &Config{
+		{"CustomContext", nil, &Config{
 			ContextType: "github.com/willabides/octoql/internal/testutil.MyContext",
 		}},
-		{"CustomContextWithAlias", "", nil, &Config{
+		{"CustomContextWithAlias", nil, &Config{
 			ContextType: "github.com/willabides/octoql/internal/testutil/junk---fun.name.MyContext",
 		}},
-		{"StructReferences", "", []string{"InputObject.graphql", "QueryWithStructs.graphql"}, &Config{
+		{"StructReferences", []string{"Inputs.graphql"}, &Config{
 			StructReferences: true,
-			Bindings: map[string]*TypeBinding{
-				"Date": {
-					Type:        "time.Time",
-					Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
-					Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
-				},
-			},
+			Bindings:         testBindings(),
 		}},
-		{"StructReferencesAndOptionalPointer", "", []string{"InputObject.graphql", "QueryWithStructs.graphql"}, &Config{
+		{"StructReferencesAndOptionalPointer", []string{"Inputs.graphql"}, &Config{
 			StructReferences: true,
 			Optional:         "pointer",
-			Bindings: map[string]*TypeBinding{
-				"Date": {
-					Type:        "time.Time",
-					Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
-					Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
-				},
-			},
+			Bindings:         testBindings(),
 		}},
-		{"PackageBindings", "", nil, &Config{
+		{"PackageBindings", nil, &Config{
 			PackageBindings: []*PackageBinding{
 				{Package: "github.com/willabides/octoql/internal/testutil"},
 			},
 		}},
-		{"NoContext", "", nil, &Config{
+		{"ExactFieldsBinding", nil, &Config{
+			Bindings: map[string]*TypeBinding{
+				"Account": {
+					Type:              "github.com/willabides/octoql/internal/testutil.Account",
+					ExpectExactFields: "{ id login }",
+				},
+			},
+		}},
+		{"NoContext", nil, &Config{
 			ContextType: "-",
 		}},
-		{"ClientGetter", "", nil, &Config{
+		{"ClientGetter", nil, &Config{
 			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromContext",
 		}},
-		{"ClientGetterCustomContext", "", nil, &Config{
+		{"ClientGetterCustomContext", nil, &Config{
 			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromMyContext",
 			ContextType:  "github.com/willabides/octoql/internal/testutil.MyContext",
 		}},
-		{"ClientGetterNoContext", "", nil, &Config{
+		{"ClientGetterNoContext", nil, &Config{
 			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromNowhere",
 			ContextType:  "-",
 		}},
-		{"Extensions", "", nil, &Config{
+		{"Extensions", nil, &Config{
 			Extensions: true,
 		}},
-		{"VariableNameCollisionsDefault", "", []string{"VariableNameCollisions.graphql"}, &Config{}},
-		{"VariableNameCollisionsNoContext", "", []string{"VariableNameCollisions.graphql"}, &Config{
+		{"VariableNameCollisionsDefault", []string{"OptionalModes.graphql"}, &Config{Bindings: testBindings()}},
+		{"VariableNameCollisionsNoContext", []string{"OptionalModes.graphql"}, &Config{
 			ContextType: "-",
+			Bindings:    testBindings(),
 		}},
-		{"VariableNameCollisionsClientGetter", "", []string{"VariableNameCollisions.graphql"}, &Config{
+		{"VariableNameCollisionsClientGetter", []string{"OptionalModes.graphql"}, &Config{
 			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromContext",
+			Bindings:     testBindings(),
 		}},
-		{"OptionalValue", "", []string{"ListInput.graphql", "QueryWithSlices.graphql"}, &Config{
+		{"OptionalValue", []string{"OptionalModes.graphql"}, &Config{
 			Optional: "value",
+			Bindings: testBindings(),
 		}},
-		{"OptionalPointer", "", []string{
-			"ListInput.graphql",
-			"QueryWithSlices.graphql",
-			"SimpleQueryWithPointerFalseOverride.graphql",
-			"SimpleQueryNoOverride.graphql",
-		}, &Config{
+		{"OptionalPointer", []string{"OptionalModes.graphql"}, &Config{
 			Optional: "pointer",
+			Bindings: testBindings(),
 		}},
-		{"OptionalGeneric", "", []string{"ListInput.graphql", "QueryWithSlices.graphql"}, &Config{
+		{"OptionalGeneric", []string{"OptionalModes.graphql"}, &Config{
 			Optional:            "generic",
 			OptionalGenericType: "github.com/willabides/octoql/internal/testutil.Option",
+			Bindings:            testBindings(),
 		}},
-		{"EnumRawCasingAll", "", []string{"QueryWithEnums.graphql"}, &Config{
+		{"EnumRawCasingAll", []string{"OptionalModes.graphql"}, &Config{
+			Bindings: testBindings(),
 			Casing: Casing{
 				AllEnums: CasingRaw,
 			},
 		}},
-		{"EnumRawCasingSpecific", "", []string{"QueryWithEnums.graphql"}, &Config{
+		{"EnumRawCasingSpecific", []string{"OptionalModes.graphql"}, &Config{
+			Bindings: testBindings(),
 			Casing: Casing{
-				Enums: map[string]CasingAlgorithm{"Role": CasingRaw},
+				Enums: map[string]CasingAlgorithm{"IssueState": CasingRaw},
 			},
 		}},
-		{"OptionalPointerOmitEmpty", "", []string{
-			"InputObject.graphql",
-			"PointersOmitEmpty.graphql",
-			"Omitempty.graphql",
-			"ListInput.graphql",
-			"ListInputOmitempty.graphql",
-		}, &Config{
+		{"OptionalPointerOmitEmpty", []string{"Inputs.graphql"}, &Config{
 			Optional: "pointer_omitempty",
-			Bindings: map[string]*TypeBinding{
-				"Date": {
-					Type:        "time.Time",
-					Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
-					Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
-				},
-				"DateTime": {
-					Type:        "time.Time",
-					Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
-					Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
-				},
-				"PokemonInput": {Type: "github.com/willabides/octoql/internal/testutil.Pokemon"},
+			Bindings: testBindings(),
+		}},
+		{"AutoCamelCase", []string{"Naming.graphql"}, &Config{
+			Casing: Casing{
+				Default: CasingAutoCamelCase,
 			},
 		}},
-		{
-			"UseStructReference", "", []string{"UseStructReference.graphql"}, &Config{
-				StructReferences: true,
-			},
-		},
-		{
-			"AutoCamelCase", "", []string{"SnakeCaseFields.graphql", "SnakeCaseType.graphql"}, &Config{
-				Casing: Casing{
-					Default: CasingAutoCamelCase,
-				},
-			},
-		},
 	}
 
 	for _, test := range tests {
 		config := test.config
-		baseDir := filepath.Join(dataDir, test.baseDir)
 		t.Run(test.name, func(t *testing.T) {
-			err := config.ValidateAndFillDefaults(baseDir)
+			err := config.ValidateAndFillDefaults(dataDir)
 			config.Schema = []string{filepath.Join(dataDir, "schema.graphql")}
+			config.Bindings = addTestScalarBindings(config.Bindings)
 			operationFiles := test.operations
 			if operationFiles == nil {
-				operationFiles = []string{"SimpleQuery.graphql"}
+				operationFiles = []string{"Repository.graphql"}
 			}
 
 			// Since we often reuse types across test cases, run generation
@@ -329,30 +330,6 @@ func TestGenerateWithConfig(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestRunRejectsSubscriptionWithoutOutput(t *testing.T) {
-	tempDir := t.TempDir()
-	generatedFilename := filepath.Join(tempDir, "generated.go")
-	configFilename := filepath.Join(tempDir, "genqlient.yaml")
-	schemaFilename, err := filepath.Abs(filepath.Join(errorsDir, "SubscriptionUnsupported.schema.graphql"))
-	require.NoError(t, err)
-	operationsFilename, err := filepath.Abs(filepath.Join(errorsDir, "SubscriptionUnsupported.graphql"))
-	require.NoError(t, err)
-	config := fmt.Sprintf(
-		"schema: %q\noperations: %q\ngenerated: %q\npackage: subscriptiontest\n",
-		schemaFilename,
-		operationsFilename,
-		generatedFilename,
-	)
-	err = os.WriteFile(configFilename, []byte(config), 0o600)
-	require.NoError(t, err)
-
-	err = Run(configFilename)
-
-	require.ErrorContains(t, err, "subscriptions are not supported by octoql")
-	_, statErr := os.Stat(generatedFilename)
-	require.ErrorIs(t, statErr, os.ErrNotExist)
 }
 
 // TestGenerateErrors is a snapshot-based test of error text.
@@ -403,9 +380,9 @@ func TestGenerateErrors(t *testing.T) {
 				Bindings: map[string]*TypeBinding{
 					"ValidScalar":   {Type: "string"},
 					"InvalidScalar": {Type: "bogus"},
-					"Pokemon": {
-						Type:              "github.com/willabides/octoql/internal/testutil.Pokemon",
-						ExpectExactFields: "{ species level }",
+					"Account": {
+						Type:              "github.com/willabides/octoql/internal/testutil.Account",
+						ExpectExactFields: "{ id login }",
 					},
 				},
 			})

@@ -10,13 +10,13 @@ import (
 
 type ID string
 
-type Pokemon struct {
-	Species string `json:"species"`
-	Level   int    `json:"level"`
+type Account struct {
+	ID    ID     `json:"id"`
+	Login string `json:"login"`
 }
 
-func (p Pokemon) Battle(q Pokemon) bool {
-	return p.Level > q.Level
+func (a Account) SameLogin(b Account) bool {
+	return a.Login == b.Login
 }
 
 type MyContext interface {

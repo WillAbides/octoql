@@ -1,0 +1,19 @@
+{
+  "operations": [
+    {
+      "operationName": "CreateGitHubRepository",
+      "query": "\nmutation CreateGitHubRepository ($input: CreateRepositoryInput!) {\n\tcreateRepository(input: $input) {\n\t\tid\n\t\tnameWithOwner\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/Inputs.graphql"
+    },
+    {
+      "operationName": "GitHubInputs",
+      "query": "\nquery GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!) {\n\trepositoryBySelector(input: $repository) {\n\t\tid\n\t\tissues(filter: $filter) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $date) {\n\t\tpublishedAt\n\t}\n\tdefault(input: $defaults)\n\tomitempty(input: $optional)\n\tuseStructReferencesInput(input: $structs)\n}\n",
+      "sourceLocation": "testdata/queries/Inputs.graphql"
+    },
+    {
+      "operationName": "UpdateIssueWithCollidingNames",
+      "query": "\nmutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $client: String) {\n\tcloseIssue(data: $data, req: $req, resp: $resp, client: $client) {\n\t\tid\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/Inputs.graphql"
+    }
+  ]
+}

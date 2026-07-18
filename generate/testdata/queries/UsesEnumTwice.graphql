@@ -1,4 +1,0 @@
-query UsesEnumTwiceQuery {
-  Me: user { roles }
-  OtherUser: user { roles }
-}

@@ -1,7 +1,0 @@
-# @genqlient(omitempty: true)
-# @genqlient(for: "OmitemptyInput.field",omitempty: false)
-query OmitemptyFalse(
-  $input: OmitemptyInput
-) {
-  omitempty(input: $input)
-}

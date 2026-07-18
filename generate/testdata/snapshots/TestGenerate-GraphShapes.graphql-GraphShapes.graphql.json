@@ -1,0 +1,29 @@
+{
+  "operations": [
+    {
+      "operationName": "GetActor",
+      "query": "\nquery GetActor ($login: String!) {\n\tactor(login: $login) {\n\t\t__typename\n\t\t... ActorDetails\n\t}\n\trepositoryOwner(login: $login) {\n\t\t__typename\n\t\t... RepositoryOwnerDetails\n\t}\n}\nfragment ActorDetails on Actor {\n\tid\n\tlogin\n}\nfragment RepositoryOwnerDetails on RepositoryOwner {\n\tid\n\tlogin\n\trepositories(first: 5) {\n\t\tnodes {\n\t\t\tnameWithOwner\n\t\t}\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/GraphShapes.graphql"
+    },
+    {
+      "operationName": "GetNode",
+      "query": "\nquery GetNode ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t\t... on Organization {\n\t\t\tlogin\n\t\t}\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t}\n\t\t... on PullRequest {\n\t\t\ttitle\n\t\t}\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/GraphShapes.graphql"
+    },
+    {
+      "operationName": "NestedNodeShapes",
+      "query": "\nquery NestedNodeShapes {\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/GraphShapes.graphql"
+    },
+    {
+      "operationName": "RecursiveRepository",
+      "query": "\nquery RecursiveRepository ($input: RecursiveInput!) {\n\trecur(input: $input) {\n\t\tnext {\n\t\t\tnext {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/GraphShapes.graphql"
+    },
+    {
+      "operationName": "SearchRepositories",
+      "query": "\nquery SearchRepositories ($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {\n\tsearch(query: $query, type: REPOSITORY, first: $first, after: $after) {\n\t\tnodes {\n\t\t\t__typename\n\t\t\t... on Repository {\n\t\t\t\trepoName: nameWithOwner\n\t\t\t\towner {\n\t\t\t\t\t__typename\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\tparent {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on Issue {\n\t\t\t\tissueTitle: title\n\t\t\t\trepository {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on PullRequest {\n\t\t\t\tpullRequestTitle: title\n\t\t\t\tmergeCommit {\n\t\t\t\t\toid\n\t\t\t\t\tparents {\n\t\t\t\t\t\toid\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tpageInfo {\n\t\t\thasNextPage\n\t\t\tendCursor\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $publishedAfter) {\n\t\tname\n\t\tpublishedAt\n\t}\n\tgetJSON\n\tgetComplexJSON\n}\n",
+      "sourceLocation": "testdata/queries/GraphShapes.graphql"
+    }
+  ]
+}

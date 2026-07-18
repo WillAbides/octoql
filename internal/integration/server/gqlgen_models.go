@@ -9,106 +9,255 @@ import (
 	"strconv"
 )
 
-type Being interface {
-	IsBeing()
+type Actor interface {
+	IsActor()
 	GetID() string
-	GetName() string
+	GetLogin() string
 }
 
-type Lucky interface {
-	IsLucky()
-	GetLuckyNumber() *int
+type Node interface {
+	IsNode()
+	GetID() string
 }
 
-type Animal struct {
-	ID      string      `json:"id"`
-	Name    string      `json:"name"`
-	Species Species     `json:"species"`
-	Owner   Being       `json:"owner,omitempty"`
-	Hair    *BeingsHair `json:"hair,omitempty"`
+type RepositoryOwner interface {
+	IsRepositoryOwner()
+	GetID() string
+	GetLogin() string
+	GetContributionCount() *int
+	GetRepositories() []*Repository
 }
 
-func (Animal) IsBeing()             {}
-func (this Animal) GetID() string   { return this.ID }
-func (this Animal) GetName() string { return this.Name }
-
-type BeingsHair struct {
-	HasHair bool `json:"hasHair"`
+type SearchResultItem interface {
+	IsSearchResultItem()
 }
 
-type Hair struct {
-	Color *string `json:"color,omitempty"`
+type Starrable interface {
+	IsStarrable()
+	GetID() string
+	GetStargazerCount() int
+	GetViewerHasStarred() bool
+}
+
+type AddCommentInput struct {
+	SubjectID string `json:"subjectId"`
+	Body      string `json:"body"`
+}
+
+type AddCommentPayload struct {
+	CommentEdge *IssueCommentEdge `json:"commentEdge,omitempty"`
+}
+
+type AddStarInput struct {
+	StarrableID string `json:"starrableId"`
+}
+
+type AddStarPayload struct {
+	Starrable Starrable `json:"starrable,omitempty"`
+}
+
+type Bot struct {
+	ID    string `json:"id"`
+	Login string `json:"login"`
+}
+
+func (Bot) IsNode()            {}
+func (this Bot) GetID() string { return this.ID }
+
+func (Bot) IsActor() {}
+
+func (this Bot) GetLogin() string { return this.Login }
+
+func (Bot) IsSearchResultItem() {}
+
+type Issue struct {
+	ID     string     `json:"id"`
+	Number int        `json:"number"`
+	Title  string     `json:"title"`
+	Author Actor      `json:"author,omitempty"`
+	State  IssueState `json:"state"`
+}
+
+func (Issue) IsNode()            {}
+func (this Issue) GetID() string { return this.ID }
+
+func (Issue) IsSearchResultItem() {}
+
+type IssueComment struct {
+	ID   string `json:"id"`
+	Body string `json:"body"`
+}
+
+func (IssueComment) IsNode()            {}
+func (this IssueComment) GetID() string { return this.ID }
+
+type IssueCommentEdge struct {
+	Node *IssueComment `json:"node,omitempty"`
 }
 
 type Mutation struct {
 }
 
-type NewUser struct {
-	Name string `json:"name"`
+type Organization struct {
+	ID                string        `json:"id"`
+	Login             string        `json:"login"`
+	Name              *string       `json:"name,omitempty"`
+	ContributionCount *int          `json:"contributionCount,omitempty"`
+	Plan              *Plan         `json:"plan,omitempty"`
+	Repositories      []*Repository `json:"repositories"`
+	TopContributor    Actor         `json:"topContributor,omitempty"`
 }
+
+func (Organization) IsNode()            {}
+func (this Organization) GetID() string { return this.ID }
+
+func (Organization) IsActor() {}
+
+func (this Organization) GetLogin() string { return this.Login }
+
+func (Organization) IsRepositoryOwner() {}
+
+func (this Organization) GetContributionCount() *int { return this.ContributionCount }
+func (this Organization) GetRepositories() []*Repository {
+	if this.Repositories == nil {
+		return nil
+	}
+	interfaceSlice := make([]*Repository, 0, len(this.Repositories))
+	for _, concrete := range this.Repositories {
+		interfaceSlice = append(interfaceSlice, concrete)
+	}
+	return interfaceSlice
+}
+
+func (Organization) IsSearchResultItem() {}
+
+type Plan struct {
+	Name PlanName `json:"name"`
+}
+
+type PullRequest struct {
+	ID     string           `json:"id"`
+	Number int              `json:"number"`
+	Title  string           `json:"title"`
+	Author Actor            `json:"author,omitempty"`
+	State  PullRequestState `json:"state"`
+}
+
+func (PullRequest) IsNode()            {}
+func (this PullRequest) GetID() string { return this.ID }
+
+func (PullRequest) IsSearchResultItem() {}
 
 type Query struct {
 }
 
-type User struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	LuckyNumber *int    `json:"luckyNumber,omitempty"`
-	Hair        *Hair   `json:"hair,omitempty"`
-	Birthdate   *string `json:"birthdate,omitempty"`
-	Friends     []*User `json:"friends"`
-	GreatScalar *string `json:"greatScalar,omitempty"`
+type RemoveStarInput struct {
+	StarrableID string `json:"starrableId"`
 }
 
-func (User) IsBeing()             {}
-func (this User) GetID() string   { return this.ID }
-func (this User) GetName() string { return this.Name }
+type RemoveStarPayload struct {
+	Starrable Starrable `json:"starrable,omitempty"`
+}
 
-func (User) IsLucky()                  {}
-func (this User) GetLuckyNumber() *int { return this.LuckyNumber }
+type Repository struct {
+	ID               string          `json:"id"`
+	Name             string          `json:"name"`
+	NameWithOwner    string          `json:"nameWithOwner"`
+	Owner            RepositoryOwner `json:"owner"`
+	StargazerCount   int             `json:"stargazerCount"`
+	ViewerHasStarred bool            `json:"viewerHasStarred"`
+}
 
-type Species string
+func (Repository) IsNode()            {}
+func (this Repository) GetID() string { return this.ID }
+
+func (Repository) IsStarrable() {}
+
+func (this Repository) GetStargazerCount() int    { return this.StargazerCount }
+func (this Repository) GetViewerHasStarred() bool { return this.ViewerHasStarred }
+
+func (Repository) IsSearchResultItem() {}
+
+type User struct {
+	ID                string        `json:"id"`
+	Login             string        `json:"login"`
+	Name              *string       `json:"name,omitempty"`
+	CreatedAt         *string       `json:"createdAt,omitempty"`
+	ContributionCount *int          `json:"contributionCount,omitempty"`
+	GreatScalar       *string       `json:"greatScalar,omitempty"`
+	Status            *UserStatus   `json:"status,omitempty"`
+	Repositories      []*Repository `json:"repositories"`
+}
+
+func (User) IsNode()            {}
+func (this User) GetID() string { return this.ID }
+
+func (User) IsActor() {}
+
+func (this User) GetLogin() string { return this.Login }
+
+func (User) IsRepositoryOwner() {}
+
+func (this User) GetContributionCount() *int { return this.ContributionCount }
+func (this User) GetRepositories() []*Repository {
+	if this.Repositories == nil {
+		return nil
+	}
+	interfaceSlice := make([]*Repository, 0, len(this.Repositories))
+	for _, concrete := range this.Repositories {
+		interfaceSlice = append(interfaceSlice, concrete)
+	}
+	return interfaceSlice
+}
+
+func (User) IsSearchResultItem() {}
+
+type UserStatus struct {
+	Emoji *string `json:"emoji,omitempty"`
+}
+
+type IssueState string
 
 const (
-	SpeciesDog        Species = "DOG"
-	SpeciesCoelacanth Species = "COELACANTH"
+	IssueStateOpen   IssueState = "OPEN"
+	IssueStateClosed IssueState = "CLOSED"
 )
 
-var AllSpecies = []Species{
-	SpeciesDog,
-	SpeciesCoelacanth,
+var AllIssueState = []IssueState{
+	IssueStateOpen,
+	IssueStateClosed,
 }
 
-func (e Species) IsValid() bool {
+func (e IssueState) IsValid() bool {
 	switch e {
-	case SpeciesDog, SpeciesCoelacanth:
+	case IssueStateOpen, IssueStateClosed:
 		return true
 	}
 	return false
 }
 
-func (e Species) String() string {
+func (e IssueState) String() string {
 	return string(e)
 }
 
-func (e *Species) UnmarshalGQL(v any) error {
+func (e *IssueState) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
 	}
 
-	*e = Species(str)
+	*e = IssueState(str)
 	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid Species", str)
+		return fmt.Errorf("%s is not a valid IssueState", str)
 	}
 	return nil
 }
 
-func (e Species) MarshalGQL(w io.Writer) {
+func (e IssueState) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
-func (e *Species) UnmarshalJSON(b []byte) error {
+func (e *IssueState) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
 	if err != nil {
 		return err
@@ -116,7 +265,176 @@ func (e *Species) UnmarshalJSON(b []byte) error {
 	return e.UnmarshalGQL(s)
 }
 
-func (e Species) MarshalJSON() ([]byte, error) {
+func (e IssueState) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type PlanName string
+
+const (
+	PlanNameFree PlanName = "FREE"
+	PlanNameTeam PlanName = "TEAM"
+)
+
+var AllPlanName = []PlanName{
+	PlanNameFree,
+	PlanNameTeam,
+}
+
+func (e PlanName) IsValid() bool {
+	switch e {
+	case PlanNameFree, PlanNameTeam:
+		return true
+	}
+	return false
+}
+
+func (e PlanName) String() string {
+	return string(e)
+}
+
+func (e *PlanName) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PlanName(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PlanName", str)
+	}
+	return nil
+}
+
+func (e PlanName) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PlanName) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PlanName) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type PullRequestState string
+
+const (
+	PullRequestStateOpen   PullRequestState = "OPEN"
+	PullRequestStateClosed PullRequestState = "CLOSED"
+	PullRequestStateMerged PullRequestState = "MERGED"
+)
+
+var AllPullRequestState = []PullRequestState{
+	PullRequestStateOpen,
+	PullRequestStateClosed,
+	PullRequestStateMerged,
+}
+
+func (e PullRequestState) IsValid() bool {
+	switch e {
+	case PullRequestStateOpen, PullRequestStateClosed, PullRequestStateMerged:
+		return true
+	}
+	return false
+}
+
+func (e PullRequestState) String() string {
+	return string(e)
+}
+
+func (e *PullRequestState) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PullRequestState(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PullRequestState", str)
+	}
+	return nil
+}
+
+func (e PullRequestState) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PullRequestState) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PullRequestState) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type SearchType string
+
+const (
+	SearchTypeRepository SearchType = "REPOSITORY"
+	SearchTypeUser       SearchType = "USER"
+	SearchTypeIssue      SearchType = "ISSUE"
+)
+
+var AllSearchType = []SearchType{
+	SearchTypeRepository,
+	SearchTypeUser,
+	SearchTypeIssue,
+}
+
+func (e SearchType) IsValid() bool {
+	switch e {
+	case SearchTypeRepository, SearchTypeUser, SearchTypeIssue:
+		return true
+	}
+	return false
+}
+
+func (e SearchType) String() string {
+	return string(e)
+}
+
+func (e *SearchType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SearchType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SearchType", str)
+	}
+	return nil
+}
+
+func (e SearchType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SearchType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SearchType) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

@@ -1,6 +1,0 @@
-query SnakeCaseFields {
-  user {
-    user_id
-    display_name
-  }
-}

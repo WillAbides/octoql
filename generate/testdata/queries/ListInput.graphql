@@ -1,5 +1,0 @@
-query ListInputQuery($names: [String]) {
-  user(query: {names: $names}) {
-    id
-  }
-}

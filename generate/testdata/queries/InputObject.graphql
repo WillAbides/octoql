@@ -1,5 +1,0 @@
-query InputObjectQuery($query: UserQueryInput) {
-  user(query: $query) {
-    id
-  }
-}

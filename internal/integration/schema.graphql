@@ -2,57 +2,155 @@ scalar Date
 scalar MyGreatScalar
 
 type Query {
-  me: User
-  user(id: ID): User
-  being(id: ID!): Being
-  beings(ids: [ID!]!): [Being]!
-  lotteryWinner(number: Int!): Lucky
-  usersBornOn(date: Date!): [User!]!
-  usersBornOnDates(dates: [Date!]!): [User!]!
-  userSearch(birthdate: Date, id: ID): [User]
+  viewer: User!
+  user(login: String): User
+  repository(owner: String!, name: String!): Repository
+  actor(id: ID!): Actor
+  actors(ids: [ID!]!): [Actor]!
+  usersCreatedOn(date: Date!): [User!]!
+  usersCreatedOnDates(dates: [Date!]!): [User!]!
+  userSearch(createdOn: Date, login: String): [User]
+  search(query: String!, type: SearchType!): [SearchResultItem!]!
   fail: Boolean
 }
 
 type Mutation {
-  createUser(input: NewUser!): User!
+  addComment(input: AddCommentInput!): AddCommentPayload!
+  addStar(input: AddStarInput!): AddStarPayload!
+  removeStar(input: RemoveStarInput!): RemoveStarPayload!
 }
 
-type User implements Being & Lucky {
+interface Node {
   id: ID!
-  name: String!
-  luckyNumber: Int
-  hair: Hair
-  birthdate: Date
-  friends: [User!]!
+}
+
+interface Actor {
+  id: ID!
+  login: String!
+}
+
+interface RepositoryOwner {
+  id: ID!
+  login: String!
+  contributionCount: Int
+  repositories: [Repository!]!
+}
+
+interface Starrable {
+  id: ID!
+  stargazerCount: Int!
+  viewerHasStarred: Boolean!
+}
+
+type User implements Node & Actor & RepositoryOwner {
+  id: ID!
+  login: String!
+  name: String
+  createdAt: Date
+  contributionCount: Int
   greatScalar: MyGreatScalar
+  status: UserStatus
+  repositories: [Repository!]!
 }
 
-input NewUser {
-    name: String!
+type UserStatus { emoji: String }   # silly nesting to confuse the name-generator
+
+type Organization implements Node & Actor & RepositoryOwner {
+  id: ID!
+  login: String!
+  name: String
+  contributionCount: Int
+  plan: Plan
+  repositories: [Repository!]!
+  topContributor: Actor
 }
 
-type Hair { color: String }   # silly name to confuse the name-generator
+type Plan { name: PlanName! }   # silly nesting to confuse the name-generator
 
-type Animal implements Being {
+enum PlanName {
+  FREE
+  TEAM
+}
+
+type Bot implements Node & Actor {
+  id: ID!
+  login: String!
+}
+
+type Repository implements Node & Starrable {
   id: ID!
   name: String!
-  species: Species!
-  owner: Being
-  hair: BeingsHair
+  nameWithOwner: String!
+  owner: RepositoryOwner!
+  stargazerCount: Int!
+  viewerHasStarred: Boolean!
 }
 
-type BeingsHair { hasHair: Boolean! }   # silly name to confuse the name-generator
-
-enum Species {
-  DOG
-  COELACANTH
-}
-
-interface Being {
+type Issue implements Node {
   id: ID!
-  name: String!
+  number: Int!
+  title: String!
+  author: Actor
+  state: IssueState!
 }
 
-interface Lucky {
-  luckyNumber: Int
+enum IssueState {
+  OPEN
+  CLOSED
+}
+
+type PullRequest implements Node {
+  id: ID!
+  number: Int!
+  title: String!
+  author: Actor
+  state: PullRequestState!
+}
+
+enum PullRequestState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+enum SearchType {
+  REPOSITORY
+  USER
+  ISSUE
+}
+
+union SearchResultItem = Repository | Issue | PullRequest | User | Organization | Bot
+
+input AddCommentInput {
+  subjectId: ID!
+  body: String!
+}
+
+type AddCommentPayload {
+  commentEdge: IssueCommentEdge
+}
+
+type IssueCommentEdge {
+  node: IssueComment
+}
+
+type IssueComment implements Node {
+  id: ID!
+  body: String!
+}
+
+input AddStarInput {
+  starrableId: ID!
+}
+
+type AddStarPayload {
+  starrable: Starrable
+}
+
+input RemoveStarInput {
+  starrableId: ID!
+}
+
+type RemoveStarPayload {
+  starrable: Starrable
 }
