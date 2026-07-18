@@ -4,7 +4,6 @@
 package octoql_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql"
 )
 
@@ -44,18 +45,10 @@ func TestDoHTTPResponses(t *testing.T) {
 			requestID:  "request-success",
 			check: func(t *testing.T, response *octoql.Response[testData], err error) {
 				t.Helper()
-				if err != nil {
-					t.Fatalf("Do() error = %v, want nil", err)
-				}
-				if response == nil {
-					t.Fatal("Do() response = nil, want non-nil")
-				}
-				if response.Data.Repository.Name != "octoql" {
-					t.Errorf("Do() data name = %q, want %q", response.Data.Repository.Name, "octoql")
-				}
-				if response.Extensions["trace"] != "abc" {
-					t.Errorf("Do() extension trace = %#v, want %q", response.Extensions["trace"], "abc")
-				}
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				assert.Equal(t, "octoql", response.Data.Repository.Name)
+				assert.Equal(t, "abc", response.Extensions["trace"])
 			},
 		},
 		{
@@ -75,34 +68,16 @@ func TestDoHTTPResponses(t *testing.T) {
 			requestID: "request-partial",
 			check: func(t *testing.T, response *octoql.Response[testData], err error) {
 				t.Helper()
-				if response == nil {
-					t.Fatal("Do() response = nil, want non-nil")
-				}
-				if response.Data.Repository.Name != "octoql" {
-					t.Errorf("Do() partial data name = %q, want %q", response.Data.Repository.Name, "octoql")
-				}
-				if response.Extensions["trace"] != "partial" {
-					t.Errorf("Do() extension trace = %#v, want %q", response.Extensions["trace"], "partial")
-				}
+				require.NotNil(t, response)
+				assert.Equal(t, "octoql", response.Data.Repository.Name)
+				assert.Equal(t, "partial", response.Extensions["trace"])
 				var graphqlErrors octoql.Errors
-				if !errors.As(err, &graphqlErrors) {
-					t.Fatalf("Do() error = %T, want octoql.Errors", err)
-				}
-				if len(graphqlErrors) != 1 {
-					t.Fatalf("len(graphqlErrors) = %d, want 1", len(graphqlErrors))
-				}
+				require.ErrorAs(t, err, &graphqlErrors)
+				require.Len(t, graphqlErrors, 1)
 				got := graphqlErrors[0]
-				if got.Type != octoql.ErrorType("FORBIDDEN") {
-					t.Errorf("error type = %q, want %q", got.Type, "FORBIDDEN")
-				}
-				wantPath := octoql.Path{"repository", "owner", 0, "login"}
-				if !pathsEqual(got.Path, wantPath) {
-					t.Errorf("error path = %#v, want %#v", got.Path, wantPath)
-				}
-				wantLocations := []octoql.Location{{Line: 2, Column: 3}}
-				if len(got.Locations) != 1 || got.Locations[0] != wantLocations[0] {
-					t.Errorf("error locations = %#v, want %#v", got.Locations, wantLocations)
-				}
+				assert.Equal(t, octoql.ErrorType("FORBIDDEN"), got.Type)
+				assert.Equal(t, octoql.Path{"repository", "owner", 0, "login"}, got.Path)
+				assert.Equal(t, []octoql.Location{{Line: 2, Column: 3}}, got.Locations)
 			},
 		},
 		{
@@ -111,23 +86,14 @@ func TestDoHTTPResponses(t *testing.T) {
 			body:       `{"errors":[{"type":"A_FUTURE_GITHUB_ERROR","message":"future failure"}]}`,
 			check: func(t *testing.T, response *octoql.Response[testData], err error) {
 				t.Helper()
-				if response == nil {
-					t.Fatal("Do() response = nil, want non-nil")
-				}
+				require.NotNil(t, response)
 				var graphqlErrors octoql.Errors
-				if !errors.As(err, &graphqlErrors) {
-					t.Fatalf("Do() error = %T, want octoql.Errors", err)
-				}
-				if graphqlErrors[0].Type != octoql.ErrorType("A_FUTURE_GITHUB_ERROR") {
-					t.Errorf("error type = %q, want unchanged unknown type", graphqlErrors[0].Type)
-				}
+				require.ErrorAs(t, err, &graphqlErrors)
+				require.Len(t, graphqlErrors, 1)
+				assert.Equal(t, octoql.ErrorType("A_FUTURE_GITHUB_ERROR"), graphqlErrors[0].Type)
 				encoded, marshalErr := json.Marshal(graphqlErrors[0])
-				if marshalErr != nil {
-					t.Fatalf("json.Marshal(error) error = %v", marshalErr)
-				}
-				if !strings.Contains(string(encoded), `"type":"A_FUTURE_GITHUB_ERROR"`) {
-					t.Errorf("marshaled error = %s, want unknown type", encoded)
-				}
+				require.NoError(t, marshalErr)
+				assert.Contains(t, string(encoded), `"type":"A_FUTURE_GITHUB_ERROR"`)
 			},
 		},
 		{
@@ -141,33 +107,20 @@ func TestDoHTTPResponses(t *testing.T) {
 			requestID: "request-rejected",
 			check: func(t *testing.T, response *octoql.Response[testData], err error) {
 				t.Helper()
-				if response == nil {
-					t.Fatal("Do() response = nil, want non-nil")
-				}
-				if response.Data.Repository.Name != "partial" {
-					t.Errorf("Do() decoded data name = %q, want %q", response.Data.Repository.Name, "partial")
-				}
+				require.NotNil(t, response)
+				assert.Equal(t, "partial", response.Data.Repository.Name)
 				httpError, ok := errors.AsType[*octoql.HTTPError](err)
-				if !ok {
-					t.Fatalf("Do() error = %T, want *octoql.HTTPError", err)
-				}
-				if httpError.HTTP.StatusCode != http.StatusBadRequest {
-					t.Errorf("HTTPError status = %d, want %d", httpError.HTTP.StatusCode, http.StatusBadRequest)
-				}
-				if string(httpError.Body) != strings.TrimSpace(`{
+				require.True(t, ok)
+				assert.Equal(t, http.StatusBadRequest, httpError.HTTP.StatusCode)
+				assert.Equal(t, strings.TrimSpace(`{
 				"data":{"repository":{"name":"partial"}},
 				"errors":[{"type":"BAD_REQUEST","message":"invalid selection"}],
 				"extensions":{"trace":"rejected"}
-			}`) {
-					t.Errorf("HTTPError body = %q, want raw payload", httpError.Body)
-				}
+			}`), string(httpError.Body))
 				graphqlErrors, found := errors.AsType[octoql.Errors](err)
-				if !found {
-					t.Fatal("errors.AsType[octoql.Errors]() = false, want true")
-				}
-				if graphqlErrors[0].Type != octoql.ErrorType("BAD_REQUEST") {
-					t.Errorf("decoded error type = %q, want %q", graphqlErrors[0].Type, "BAD_REQUEST")
-				}
+				require.True(t, found)
+				require.Len(t, graphqlErrors, 1)
+				assert.Equal(t, octoql.ErrorType("BAD_REQUEST"), graphqlErrors[0].Type)
 			},
 		},
 		{
@@ -177,23 +130,13 @@ func TestDoHTTPResponses(t *testing.T) {
 			requestID:  "request-invalid-json",
 			check: func(t *testing.T, response *octoql.Response[testData], err error) {
 				t.Helper()
-				if response == nil {
-					t.Fatal("Do() response = nil, want non-nil")
-				}
+				require.NotNil(t, response)
 				httpError, ok := errors.AsType[*octoql.HTTPError](err)
-				if !ok {
-					t.Fatalf("Do() error = %T, want *octoql.HTTPError", err)
-				}
-				if string(httpError.Body) != `{"errors":[` {
-					t.Errorf("HTTPError body = %q, want raw invalid JSON", httpError.Body)
-				}
-				if httpError.HTTP.StatusCode != http.StatusServiceUnavailable {
-					t.Errorf("HTTPError status = %d, want %d", httpError.HTTP.StatusCode, http.StatusServiceUnavailable)
-				}
+				require.True(t, ok)
+				assert.Equal(t, `{"errors":[`, string(httpError.Body))
+				assert.Equal(t, http.StatusServiceUnavailable, httpError.HTTP.StatusCode)
 				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
-				if !syntaxErrorFound {
-					t.Errorf("errors.AsType[*json.SyntaxError]() = false, want true; error = %v", err)
-				}
+				assert.True(t, syntaxErrorFound)
 			},
 		},
 		{
@@ -203,20 +146,12 @@ func TestDoHTTPResponses(t *testing.T) {
 			requestID:  "request-malformed",
 			check: func(t *testing.T, response *octoql.Response[testData], err error) {
 				t.Helper()
-				if response == nil {
-					t.Fatal("Do() response = nil, want non-nil")
-				}
-				if err == nil {
-					t.Fatal("Do() error = nil, want decode error")
-				}
+				require.NotNil(t, response)
+				require.Error(t, err)
 				var httpError *octoql.HTTPError
-				if errors.As(err, &httpError) {
-					t.Errorf("Do() error = %T, do not want HTTPError for 2xx response", err)
-				}
+				assert.False(t, errors.As(err, &httpError))
 				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
-				if !syntaxErrorFound {
-					t.Errorf("errors.AsType[*json.SyntaxError]() = false, want true; error = %v", err)
-				}
+				assert.True(t, syntaxErrorFound)
 			},
 		},
 	}
@@ -242,18 +177,10 @@ func TestDoHTTPResponses(t *testing.T) {
 			response, err := octoql.Do[testData](t.Context(), client, operation, nil)
 			test.check(t, response, err)
 
-			if response == nil {
-				return
-			}
-			if response.HTTP.StatusCode != test.statusCode {
-				t.Errorf("response status = %d, want %d", response.HTTP.StatusCode, test.statusCode)
-			}
-			if response.HTTP.RequestID != test.requestID {
-				t.Errorf("response request ID = %q, want %q", response.HTTP.RequestID, test.requestID)
-			}
-			if response.HTTP.Header.Get("X-Test") != "original" {
-				t.Errorf("response header X-Test = %q, want %q", response.HTTP.Header.Get("X-Test"), "original")
-			}
+			require.NotNil(t, response)
+			assert.Equal(t, test.statusCode, response.HTTP.StatusCode)
+			assert.Equal(t, test.requestID, response.HTTP.RequestID)
+			assert.Equal(t, "original", response.HTTP.Header.Get("X-Test"))
 		})
 	}
 }
@@ -298,41 +225,25 @@ func TestDoRequest(t *testing.T) {
 		Query: "query Repository($owner: String!) { repository(owner: $owner) { name } }",
 	}
 	_, err := octoql.Do[struct{}](t.Context(), client, operation, map[string]any{"owner": "octo"})
-	if err != nil {
-		t.Fatalf("Do() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 	withVariables := <-requests
-	if withVariables.method != http.MethodPost {
-		t.Errorf("request method = %q, want POST", withVariables.method)
-	}
-	if withVariables.url != "https://github.example/api/graphql" {
-		t.Errorf("request URL = %q, want GHES endpoint", withVariables.url)
-	}
-	if withVariables.header.Get("Content-Type") != "application/json" {
-		t.Errorf("request Content-Type = %q, want application/json", withVariables.header.Get("Content-Type"))
-	}
+	assert.Equal(t, http.MethodPost, withVariables.method)
+	assert.Equal(t, "https://github.example/api/graphql", withVariables.url)
+	assert.Equal(t, "application/json", withVariables.header.Get("Content-Type"))
 	wantBody := `{
 		"query":"query Repository($owner: String!) { repository(owner: $owner) { name } }",
 		"operationName":"Repository",
 		"variables":{"owner":"octo"}
 	}`
-	if !jsonEqual(withVariables.body, []byte(wantBody)) {
-		t.Errorf("request body = %s, want %s", withVariables.body, wantBody)
-	}
+	assert.JSONEq(t, wantBody, string(withVariables.body))
 
 	_, err = octoql.Do[struct{}](t.Context(), client, operation, nil)
-	if err != nil {
-		t.Fatalf("Do() without variables error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 	withoutVariables := <-requests
 	var requestObject map[string]json.RawMessage
 	err = json.Unmarshal(withoutVariables.body, &requestObject)
-	if err != nil {
-		t.Fatalf("json.Unmarshal(request body) error = %v", err)
-	}
-	if _, exists := requestObject["variables"]; exists {
-		t.Errorf("request body = %s, want variables omitted", withoutVariables.body)
-	}
+	require.NoError(t, err)
+	assert.NotContains(t, requestObject, "variables")
 }
 
 func TestDoFailurePhases(t *testing.T) {
@@ -401,7 +312,7 @@ func TestDoFailurePhases(t *testing.T) {
 			client: octoql.NewClient(
 				"https://api.github.com/graphql",
 				&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-					t.Fatal("transport called for unencodable variables")
+					require.FailNow(t, "transport called for unencodable variables")
 					return nil, nil
 				})},
 			),
@@ -450,21 +361,16 @@ func TestDoFailurePhases(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			response, err := octoql.Do[struct{}](test.ctx, test.client, test.operation, test.variables)
-			if err == nil {
-				t.Fatal("Do() error = nil, want non-nil")
-			}
-			if (response != nil) != test.wantResponse {
-				t.Errorf("Do() response presence = %t, want %t", response != nil, test.wantResponse)
-			}
-			if test.wantCause != nil && !errors.Is(err, test.wantCause) {
-				t.Errorf("Do() error = %v, want cause %v", err, test.wantCause)
+			require.Error(t, err)
+			assert.Equal(t, test.wantResponse, response != nil)
+			if test.wantCause != nil {
+				assert.ErrorIs(t, err, test.wantCause)
 			}
 			_, isHTTPError := errors.AsType[*octoql.HTTPError](err)
-			if isHTTPError != test.wantHTTP {
-				t.Errorf("Do() HTTPError presence = %t, want %t", isHTTPError, test.wantHTTP)
-			}
-			if response != nil && response.HTTP.RequestID == "" {
-				t.Error("Do() response request ID is empty, want metadata populated")
+			assert.Equal(t, test.wantHTTP, isHTTPError)
+			if test.wantResponse {
+				require.NotNil(t, response)
+				assert.NotEmpty(t, response.HTTP.RequestID)
 			}
 		})
 	}
@@ -493,22 +399,12 @@ func TestDoReturnsMetadataWithRedirectError(t *testing.T) {
 	client := octoql.NewClient(server.URL, httpClient)
 
 	response, err := octoql.Do[struct{}](t.Context(), client, validOperation(), nil)
-	if response == nil {
-		t.Fatal("Do() response = nil, want metadata-bearing redirect response")
-	}
-	if response.HTTP.StatusCode != http.StatusFound {
-		t.Errorf("response status = %d, want %d", response.HTTP.StatusCode, http.StatusFound)
-	}
-	if response.HTTP.RequestID != "redirect-request" {
-		t.Errorf("response request ID = %q, want %q", response.HTTP.RequestID, "redirect-request")
-	}
-	if !errors.Is(err, redirectError) {
-		t.Errorf("Do() error = %v, want redirect cause", err)
-	}
+	require.NotNil(t, response)
+	assert.Equal(t, http.StatusFound, response.HTTP.StatusCode)
+	assert.Equal(t, "redirect-request", response.HTTP.RequestID)
+	assert.ErrorIs(t, err, redirectError)
 	_, ok := errors.AsType[*octoql.HTTPError](err)
-	if !ok {
-		t.Errorf("Do() error = %T, want *octoql.HTTPError", err)
-	}
+	assert.True(t, ok)
 }
 
 func TestDoClonesResponseHeaders(t *testing.T) {
@@ -523,33 +419,19 @@ func TestDoClonesResponseHeaders(t *testing.T) {
 	)
 
 	response, err := octoql.Do[struct{}](t.Context(), client, validOperation(), nil)
-	if response == nil {
-		t.Fatal("Do() response = nil, want non-nil")
-	}
+	require.NotNil(t, response)
 	httpError, ok := errors.AsType[*octoql.HTTPError](err)
-	if !ok {
-		t.Fatalf("Do() error = %T, want *octoql.HTTPError", err)
-	}
+	require.True(t, ok)
 
 	transportHeader.Set("X-GitHub-Request-ID", "mutated-request")
 	transportHeader.Set("X-Test", "mutated-value")
-	if response.HTTP.RequestID != "original-request" {
-		t.Errorf("response request ID = %q, want original value", response.HTTP.RequestID)
-	}
-	if response.HTTP.Header.Get("X-Test") != "original-value" {
-		t.Errorf("response header = %q, want original value", response.HTTP.Header.Get("X-Test"))
-	}
-	if httpError.HTTP.RequestID != "original-request" {
-		t.Errorf("HTTPError request ID = %q, want original value", httpError.HTTP.RequestID)
-	}
-	if httpError.HTTP.Header.Get("X-Test") != "original-value" {
-		t.Errorf("HTTPError header = %q, want original value", httpError.HTTP.Header.Get("X-Test"))
-	}
+	assert.Equal(t, "original-request", response.HTTP.RequestID)
+	assert.Equal(t, "original-value", response.HTTP.Header.Get("X-Test"))
+	assert.Equal(t, "original-request", httpError.HTTP.RequestID)
+	assert.Equal(t, "original-value", httpError.HTTP.Header.Get("X-Test"))
 
 	response.HTTP.Header.Set("X-Test", "response-mutated")
-	if httpError.HTTP.Header.Get("X-Test") != "original-value" {
-		t.Errorf("HTTPError header = %q after response mutation, want independent clone", httpError.HTTP.Header.Get("X-Test"))
-	}
+	assert.Equal(t, "original-value", httpError.HTTP.Header.Get("X-Test"))
 }
 
 func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
@@ -567,24 +449,14 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 	)
 
 	response, err := octoql.Do[testData](t.Context(), client, validOperation(), nil)
-	if response == nil {
-		t.Fatal("Do() response = nil, want decoded response")
-	}
-	if response.Data.Repository.Name != "partial" {
-		t.Errorf("response data name = %q, want %q", response.Data.Repository.Name, "partial")
-	}
-	if !errors.Is(err, closeError) {
-		t.Errorf("Do() error = %v, want close cause", err)
-	}
+	require.NotNil(t, response)
+	assert.Equal(t, "partial", response.Data.Repository.Name)
+	assert.ErrorIs(t, err, closeError)
 	_, graphqlErrorsFound := errors.AsType[octoql.Errors](err)
-	if !graphqlErrorsFound {
-		t.Error("errors.AsType[octoql.Errors]() = false, want decoded errors")
-	}
+	assert.True(t, graphqlErrorsFound)
 
 	response.HTTP.Header.Set("X-Test", "writable")
-	if response.HTTP.Header.Get("X-Test") != "writable" {
-		t.Errorf("response header = %q, want writable empty clone", response.HTTP.Header.Get("X-Test"))
-	}
+	assert.Equal(t, "writable", response.HTTP.Header.Get("X-Test"))
 }
 
 func validOperation() octoql.Operation {
@@ -626,38 +498,4 @@ type closeErrorReadCloser struct {
 
 func (body *closeErrorReadCloser) Close() error {
 	return body.err
-}
-
-func pathsEqual(left, right octoql.Path) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
-}
-
-func jsonEqual(left, right []byte) bool {
-	var leftValue any
-	err := json.Unmarshal(left, &leftValue)
-	if err != nil {
-		return false
-	}
-	var rightValue any
-	err = json.Unmarshal(right, &rightValue)
-	if err != nil {
-		return false
-	}
-	leftJSON, err := json.Marshal(leftValue)
-	if err != nil {
-		return false
-	}
-	rightJSON, err := json.Marshal(rightValue)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(leftJSON, rightJSON)
 }
