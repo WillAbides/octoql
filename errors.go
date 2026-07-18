@@ -239,7 +239,7 @@ func (httpError *HTTPError) Unwrap() []error {
 }
 
 func newHTTPError(
-	metadata HTTPMetadata,
+	metadata *HTTPMetadata,
 	body []byte,
 	graphqlErrors Errors,
 	cause error,
@@ -249,6 +249,7 @@ func newHTTPError(
 			StatusCode: metadata.StatusCode,
 			Header:     cloneHeader(metadata.Header),
 			RequestID:  metadata.RequestID,
+			RateLimit:  metadata.RateLimit,
 		},
 		Body:   bytes.Clone(body),
 		Errors: slices.Clone(graphqlErrors),
