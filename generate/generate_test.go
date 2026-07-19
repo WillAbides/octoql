@@ -480,7 +480,6 @@ func matchGeneratedSnapshot(t *testing.T, filename string, content []byte) {
 		snaps.Filename(normalizeSnapshotName(t.Name())),
 		snaps.Ext(extension),
 		snaps.Raw(),
-		snaps.Update(snapshotUpdateEnabled()),
 	).MatchStandaloneSnapshot(t, string(content))
 
 	// Generated Go remains external because this compiles the snapshot file that
@@ -503,10 +502,6 @@ func standaloneSnapshotFilename(t *testing.T, extension string) string {
 		"snapshots",
 		normalizeSnapshotName(t.Name())+"_1.snap"+extension,
 	)
-}
-
-func snapshotUpdateEnabled() bool {
-	return os.Getenv("UPDATE_SNAPS") == "true"
 }
 
 func normalizeSnapshotName(name string) string {
