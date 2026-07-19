@@ -359,6 +359,48 @@ func TestGenerateSubdirectoryConfig(t *testing.T) {
 	assert.Equal(t, filepath.Join(filepath.Dir(configPath), "..", "schema.graphql"), materializer.request.Path)
 }
 
+func TestGenerateLocalHandlerSubdirectoryConfig(t *testing.T) {
+	t.Parallel()
+
+	configPath, err := filepath.Abs(
+		filepath.Join(
+			"..",
+			"..",
+			"..",
+			"..",
+			"internal",
+			"handlertest",
+			"localfixture",
+			config.DefaultFilename,
+		),
+	)
+	require.NoError(t, err)
+	configDirectory := filepath.Dir(configPath)
+	clientPath := filepath.Clean(filepath.Join(configDirectory, "..", "client", "generated.go"))
+	handlerPath := filepath.Join(configDirectory, "githubapitest", "generated.go")
+	writer := &recordingOutputWriter{}
+	command := GenerateCommand{
+		Config:       configPath,
+		context:      t.Context(),
+		loadConfig:   config.Load,
+		materializer: schemaMaterializer(),
+		generate:     generate.Generate,
+		outputWriter: writer,
+	}
+
+	err = command.Run()
+	require.NoError(t, err)
+	require.Contains(t, writer.outputs, clientPath)
+	require.Contains(t, writer.outputs, handlerPath)
+	assert.Contains(t, string(writer.outputs[clientPath]), "package githubapi")
+	assert.Contains(t, string(writer.outputs[handlerPath]), "package githubapitest")
+	assert.NotContains(
+		t,
+		string(writer.outputs[handlerPath]),
+		"github.com/willabides/octoql/internal/handlertest/client",
+	)
+}
+
 func TestGenerateCommandMissingLocalSchema(t *testing.T) {
 	t.Parallel()
 
