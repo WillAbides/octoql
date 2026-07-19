@@ -108,6 +108,7 @@ func generateConfig(source *config.Config) *generate.Config {
 		Schema:                          generate.StringList{source.SchemaPath()},
 		Operations:                      generate.StringList(source.OperationPaths()),
 		Generated:                       source.GeneratedPath(),
+		TestHandlerGenerated:            source.TestHandlerGeneratedPath(),
 		Package:                         stringValue(source.Package),
 		ExportOperations:                source.ExportOperationsPath(),
 		ContextType:                     stringValue(source.ContextType),

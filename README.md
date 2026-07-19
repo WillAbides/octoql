@@ -5,7 +5,8 @@
 # octoql: a truly type-safe GitHub v4 GraphQL client
 
 octoql is a standalone project derived from Khan/genqlient. See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution, including the
+bounded gqltesthandler input used by typed test-handler generation.
 
 ## What is octoql?
 
@@ -18,6 +19,7 @@ octoql provides:
 
 - Compile-time validation of GitHub GraphQL queries: never ship an invalid query again!
 - Type-safe response objects: octoql generates the right type for each query, so you know the response will unmarshal correctly and never need to use `interface{}`.
+- Typed test handlers: the same generation pass can produce operation-specific expectations and GitHub response controls for `httptest` servers.
 - Production-readiness: its inherited generator is used in production at Khan Academy, where it supports millions of learners and teachers around the world.
 
 ## How do I use octoql?

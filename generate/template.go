@@ -10,6 +10,14 @@ import (
 //go:embed *.tmpl
 var templates embed.FS
 
+type templateMarshaler interface {
+	Marshaler(*generator) (string, error)
+}
+
+type templateUnmarshaler interface {
+	Unmarshaler(*generator) (string, error)
+}
+
 func repeat(n int, s string) string {
 	var builder strings.Builder
 	for i := 0; i < n; i++ {
@@ -33,10 +41,12 @@ func (g *generator) render(tmplRelFilename string, w io.Writer, data interface{}
 	tmpl := g.templateCache[tmplRelFilename]
 	if tmpl == nil {
 		funcMap := template.FuncMap{
-			"ref":      g.ref,
-			"repeat":   repeat,
-			"intRange": intRange,
-			"sub":      sub,
+			"ref":         g.ref,
+			"repeat":      repeat,
+			"intRange":    intRange,
+			"sub":         sub,
+			"marshaler":   func(field templateMarshaler) (string, error) { return field.Marshaler(g) },
+			"unmarshaler": func(field templateUnmarshaler) (string, error) { return field.Unmarshaler(g) },
 		}
 		var err error
 		tmpl, err = template.New(tmplRelFilename).Funcs(funcMap).ParseFS(templates, tmplRelFilename)

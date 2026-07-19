@@ -45,6 +45,9 @@ query getUser($login: String!) {
 Set `operations` and `generated` in `octoqlgen.yaml`, then run
 `go tool octoqlgen generate`. Generation verifies or materializes the configured
 schema before producing the client and optional exported operations.
+When `test_handler.generated` is configured, the same command also produces a
+typed `http.Handler` from the already-validated operation plan. See
+[Testing generated clients with typed handlers](test_handlers.md).
 
 ## Step 5: Use your queries
 
