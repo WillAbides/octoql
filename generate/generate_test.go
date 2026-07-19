@@ -224,9 +224,6 @@ func TestGenerateWithConfig(t *testing.T) {
 			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromNowhere",
 			ContextType:  "-",
 		}},
-		{"Extensions", nil, &Config{
-			Extensions: true,
-		}},
 		{"VariableNameCollisionsDefault", []string{"OptionalModes.graphql"}, &Config{Bindings: testBindings()}},
 		{"VariableNameCollisionsNoContext", []string{"OptionalModes.graphql"}, &Config{
 			ContextType: "-",

@@ -4412,30 +4412,6 @@ func (v *removeStarResponse) GetRemoveStar() removeStarRemoveStarRemoveStarPaylo
 	return v.RemoveStar
 }
 
-// simpleQueryExtResponse is returned by simpleQueryExt on success.
-type simpleQueryExtResponse struct {
-	Viewer simpleQueryExtViewerUser `json:"viewer"`
-}
-
-// GetViewer returns simpleQueryExtResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *simpleQueryExtResponse) GetViewer() simpleQueryExtViewerUser { return v.Viewer }
-
-// simpleQueryExtViewerUser includes the requested fields of the GraphQL type User.
-type simpleQueryExtViewerUser struct {
-	Id                string `json:"id"`
-	Login             string `json:"login"`
-	ContributionCount int    `json:"contributionCount"`
-}
-
-// GetId returns simpleQueryExtViewerUser.Id, and is useful for accessing the field via an interface.
-func (v *simpleQueryExtViewerUser) GetId() string { return v.Id }
-
-// GetLogin returns simpleQueryExtViewerUser.Login, and is useful for accessing the field via an interface.
-func (v *simpleQueryExtViewerUser) GetLogin() string { return v.Login }
-
-// GetContributionCount returns simpleQueryExtViewerUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *simpleQueryExtViewerUser) GetContributionCount() int { return v.ContributionCount }
-
 // The mutation executed by addComment.
 const addComment_Operation = `
 mutation addComment ($input: AddCommentInput!) {
@@ -5066,31 +5042,5 @@ func removeStar(
 			Query: removeStar_Operation,
 		},
 		&variables_,
-	)
-}
-
-// The query executed by simpleQueryExt.
-const simpleQueryExt_Operation = `
-query simpleQueryExt {
-	viewer {
-		id
-		login
-		contributionCount
-	}
-}
-`
-
-func simpleQueryExt(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-) (*octoql.Response[simpleQueryExtResponse], error) {
-	return octoql.Do[simpleQueryExtResponse](
-		ctx_,
-		client_,
-		octoql.Operation{
-			Name:  "simpleQueryExt",
-			Query: simpleQueryExt_Operation,
-		},
-		nil,
 	)
 }

@@ -162,23 +162,6 @@ func TestVariables(t *testing.T) {
 	}
 }
 
-func TestExtensions(t *testing.T) {
-	_ = `# @genqlient
-	query simpleQueryExt { viewer { id login contributionCount } }`
-
-	ctx := context.Background()
-	server := server.RunServer()
-	defer server.Close()
-	clients := newRoundtripClients(server.URL)
-
-	for _, client := range clients {
-		response, err := simpleQueryExt(ctx, client)
-		require.NoError(t, err)
-		assert.NotNil(t, response.Extensions)
-		assert.Equal(t, response.Extensions["foobar"], "test")
-	}
-}
-
 func TestOmitempty(t *testing.T) {
 	_ = `# @genqlient(omitempty: true)
 	query queryWithOmitempty($login: String) {

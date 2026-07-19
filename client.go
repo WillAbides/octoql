@@ -35,10 +35,9 @@ type Operation struct {
 //
 //nolint:govet // Preserve the documented public API field order.
 type Response[T any] struct {
-	Data       T              `json:"data"`
-	Errors     Errors         `json:"errors,omitempty"`
-	Extensions map[string]any `json:"extensions,omitempty"`
-	HTTP       HTTPMetadata   `json:"-"`
+	Data   T            `json:"data"`
+	Errors Errors       `json:"errors,omitempty"`
+	HTTP   HTTPMetadata `json:"-"`
 }
 
 // HTTPMetadata describes the HTTP response associated with a GraphQL response.

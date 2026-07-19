@@ -33,7 +33,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 		statusCode int
 	}{
 		{
-			name:       "extensions and HTTP metadata",
+			name:       "unknown extensions and HTTP metadata",
 			statusCode: http.StatusOK,
 			header: http.Header{
 				"X-GitHub-Request-ID": {"request-123"},
@@ -48,7 +48,6 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, response)
 				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
-				assert.Equal(t, "abc", response.Extensions["trace"])
 				assert.Equal(t, http.StatusOK, response.HTTP.StatusCode)
 				assert.Equal(t, "request-123", response.HTTP.RequestID)
 				assert.Equal(t, "original", response.HTTP.Header.Get("X-Test"))

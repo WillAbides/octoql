@@ -94,10 +94,6 @@ client_getter: "github.com/you/yourpkg.GetClient"
 # Defaults to false.
 use_struct_references: boolean
 
-# Retained for configuration compatibility. Generated query and mutation
-# helpers always expose GraphQL extensions through octoql.Response.Extensions.
-use_extensions: boolean
-
 # Generate concrete Go structs only for abstract GraphQL implementations named
 # by applicable inline or named fragments. Each abstract selection also gets an
 # `OctoqlOther` catch-all containing the shared fields and `__typename`, so

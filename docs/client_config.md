@@ -103,9 +103,9 @@ responses are inspectable as `*octoql.HTTPError`, and primary or secondary
 rate-limit responses as `*octoql.RateLimitError`.
 
 Once an HTTP response is received, the returned response remains non-nil and
-contains any partial `Data`, `Errors`, `Extensions`, cloned HTTP headers,
-request ID, and rate-limit metadata. Transport or request failures before an
-HTTP response return a nil response.
+contains any partial `Data`, `Errors`, cloned HTTP headers, request ID, and
+rate-limit metadata. Transport or request failures before an HTTP response
+return a nil response.
 
 For example, you might do one of the following:
 ```go

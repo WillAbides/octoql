@@ -56,8 +56,8 @@ func TestMakeRequestHTTPError(t *testing.T) {
 		{
 			name:               "JSONErrorWithExtensions",
 			serverResponseCode: http.StatusTooManyRequests,
-			serverResponseBody: Response{
-				Errors: gqlerror.List{
+			serverResponseBody: map[string]any{
+				"errors": gqlerror.List{
 					&gqlerror.Error{
 						Message: "Rate limit exceeded",
 						Extensions: map[string]interface{}{
@@ -65,6 +65,7 @@ func TestMakeRequestHTTPError(t *testing.T) {
 						},
 					},
 				},
+				"extensions": map[string]any{"trace": "ignored"},
 			},
 			expectedError: &HTTPError{
 				Response: Response{

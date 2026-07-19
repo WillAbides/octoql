@@ -133,15 +133,6 @@ bindings:
     unmarshaler: "github.com/path/to/package.UnmarshalBigInt"
 ```
 
-## Extensions
-
-Some schemas and servers make use of GraphQL extensions. Generated query and
-mutation helpers always expose them through `response.Extensions`.
-
-The `use_extensions` configuration option remains parse-compatible with
-inherited configurations, but no longer changes generated signatures because
-extensions are always present on `octoql.Response`.
-
 ## Hasura, Dgraph, and other generated schemas
 
 Some GraphQL tools, like Hasura and Dgraph, generate large schemas automatically from non-GraphQL data (like database schemas). These schemas tend to be quite large and complex, and often run into trouble with GraphQL. See [#272](https://github.com/Khan/genqlient/issues/272) for discussion of how to use these tools with genqlient.

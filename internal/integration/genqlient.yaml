@@ -1,7 +1,6 @@
 schema: schema.graphql
 operations: "*_test.go"
 generated: generated.go
-use_extensions: true
 omit_unreferenced_implementations: false
 bindings:
   Date:

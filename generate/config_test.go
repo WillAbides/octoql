@@ -157,7 +157,6 @@ func TestValidConfigs(t *testing.T) {
     Optional:                        "",
     OptionalGenericType:             "",
     StructReferences:                false,
-    Extensions:                      false,
     OmitUnreferencedImplementations: &bool(true),
     baseDir:                         "testdata/validConfig",
     pkgPath:                         "github.com/willabides/octoql/generate/testdata/validConfig",
@@ -177,7 +176,6 @@ func TestValidConfigs(t *testing.T) {
     Optional:                        "",
     OptionalGenericType:             "",
     StructReferences:                false,
-    Extensions:                      false,
     OmitUnreferencedImplementations: &bool(true),
     baseDir:                         "testdata/validConfig",
     pkgPath:                         "github.com/willabides/octoql/generate/testdata/validConfig",
@@ -197,7 +195,6 @@ func TestValidConfigs(t *testing.T) {
     Optional:                        "",
     OptionalGenericType:             "",
     StructReferences:                false,
-    Extensions:                      false,
     OmitUnreferencedImplementations: &bool(false),
     baseDir:                         "testdata/validConfig",
     pkgPath:                         "github.com/willabides/octoql/generate/testdata/validConfig",
@@ -219,6 +216,8 @@ func TestInvalidConfigs(t *testing.T) {
 			snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid config file testdata/invalidConfig/InvalidOptional.yaml: optional must be one of: 'value' (default), 'pointer', 'pointer_omitempty' or 'generic'"))
 		case "InvalidPackage.yaml":
 			snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid config file testdata/invalidConfig/InvalidPackage.yaml: invalid package in genqlient.yaml: 'bogus-package-name' is not a valid identifier"))
+		case "RemovedExtensions.yaml":
+			snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid config file testdata/invalidConfig/RemovedExtensions.yaml: yaml: unmarshal errors:\n  line 1: field use_extensions not found in type generate.Config"))
 		default:
 			t.Fatalf("missing inline snapshot for %s", filename)
 		}

@@ -39,7 +39,7 @@ func TestDoHTTPResponses(t *testing.T) {
 		statusCode int
 	}{
 		{
-			name:       "success",
+			name:       "success with unknown extensions",
 			statusCode: http.StatusOK,
 			body:       `{"data":{"repository":{"name":"octoql"}},"extensions":{"trace":"abc"}}`,
 			requestID:  "request-success",
@@ -48,7 +48,6 @@ func TestDoHTTPResponses(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, response)
 				assert.Equal(t, "octoql", response.Data.Repository.Name)
-				assert.Equal(t, "abc", response.Extensions["trace"])
 			},
 		},
 		{
@@ -70,7 +69,6 @@ func TestDoHTTPResponses(t *testing.T) {
 				t.Helper()
 				require.NotNil(t, response)
 				assert.Equal(t, "octoql", response.Data.Repository.Name)
-				assert.Equal(t, "partial", response.Extensions["trace"])
 				var graphqlErrors octoql.Errors
 				require.ErrorAs(t, err, &graphqlErrors)
 				require.Len(t, graphqlErrors, 1)
@@ -78,6 +76,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				assert.Equal(t, octoql.ErrorType("FORBIDDEN"), got.Type)
 				assert.Equal(t, octoql.Path{"repository", "owner", 0, "login"}, got.Path)
 				assert.Equal(t, []octoql.Location{{Line: 2, Column: 3}}, got.Locations)
+				assert.Equal(t, "FORBIDDEN", got.Extensions["code"])
 			},
 		},
 		{

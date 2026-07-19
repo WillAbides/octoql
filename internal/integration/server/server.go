@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 )
@@ -265,11 +264,6 @@ func RunServer() *httptest.Server {
 	gqlgenServer := handler.New(NewExecutableSchema(Config{Resolvers: &resolver{}}))
 	gqlgenServer.AddTransport(transport.POST{})
 	gqlgenServer.AddTransport(transport.GET{})
-
-	gqlgenServer.AroundResponses(func(ctx context.Context, next graphql.ResponseHandler) *graphql.Response {
-		graphql.RegisterExtension(ctx, "foobar", "test")
-		return next(ctx)
-	})
 
 	return httptest.NewServer(gqlgenServer)
 }

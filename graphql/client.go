@@ -123,9 +123,8 @@ type Request struct {
 }
 
 type BaseResponse[T any] struct {
-	Data       T                      `json:"data"`
-	Extensions map[string]interface{} `json:"extensions,omitempty"`
-	Errors     gqlerror.List          `json:"errors,omitempty"`
+	Data   T             `json:"data"`
+	Errors gqlerror.List `json:"errors,omitempty"`
 }
 
 // Response that contains data returned by the GraphQL API.
@@ -134,9 +133,7 @@ type BaseResponse[T any] struct {
 //
 //	{"data": {...}, "errors": {...}}
 //
-// It may additionally contain a key named "extensions", that
-// might hold GraphQL protocol extensions. Extensions and Errors
-// are optional, depending on the values returned by the server.
+// Errors are optional, depending on the values returned by the server.
 type Response BaseResponse[any]
 
 func (c *client) MakeRequest(ctx context.Context, req *Request, resp *Response) error {
