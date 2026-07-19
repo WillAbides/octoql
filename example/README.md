@@ -18,3 +18,18 @@ GITHUB_TOKEN=<token> go run ./example <login>
 The example endpoint and authentication are configured in
 [`main.go`](main.go). The main [README](../README.md) documents remote schema
 materialization and the recommended gitignored `.octoql` workflow.
+
+Generated helpers return concrete operation data rather than the low-level
+generic response envelope:
+
+```go
+response, err := getViewer(ctx, client)
+if err != nil {
+	return err
+}
+fmt.Println(response.Viewer.MyName)
+```
+
+See the main README's [runtime responses and
+errors](../README.md#runtime-responses-and-errors) section for partial-data,
+`ResponseError`, and rate-limit handling.

@@ -63,7 +63,7 @@ func (rateLimitError *RateLimitError) Error() string {
 	return fmt.Sprintf("github %s rate limit exceeded: %v", rateLimitError.Kind, rateLimitError.Err)
 }
 
-// Unwrap exposes the original GraphQL or HTTP error.
+// Unwrap exposes the response failure and its GraphQL or processing causes.
 func (rateLimitError *RateLimitError) Unwrap() error {
 	if rateLimitError == nil {
 		return nil

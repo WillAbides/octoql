@@ -321,6 +321,15 @@ categories. A rate-limited response can match `*octoql.RateLimitError`,
 `*octoql.ResponseError`, and `octoql.Errors`. Use separate `errors.As` or
 `errors.AsType` checks when more than one facet matters.
 
+| Outcome | Generated response | Error facets |
+| --- | --- | --- |
+| Success | Non-nil concrete data | `nil` |
+| GraphQL errors | Non-nil decoded or partial data | `ResponseError`, `Errors` |
+| Non-2xx response | Non-nil decoded data when valid, otherwise zero data | `ResponseError`, decoded causes |
+| Read, close, protocol, or decode failure | Non-nil decoded data when safely available, otherwise zero data | `ResponseError`, underlying cause |
+| Primary or secondary rate limit | Non-nil decoded or partial data | `RateLimitError`, `ResponseError`, and possibly `Errors` |
+| Validation, encoding, or transport failure before a response | `nil` | Wrapped underlying error; no `ResponseError` |
+
 Primary and secondary GitHub limits wrap `*octoql.ResponseError` in
 `*octoql.RateLimitError`. Primary limits require
 `X-RateLimit-Remaining: 0` plus HTTP 403/429 or a GraphQL `RATE_LIMITED` error.

@@ -43,8 +43,10 @@ type Errors []*Error
 //
 //nolint:govet // Preserve the public error fields in semantic presentation order.
 type ResponseError struct {
+	// StatusCode is the HTTP response status.
 	StatusCode int
-	RequestID  string
+	// RequestID is GitHub's X-GitHub-Request-ID value, when present.
+	RequestID string
 	// RawBody contains at most the first 64 KiB of a non-successful or
 	// undecodable response. It is omitted for ordinary GraphQL errors.
 	RawBody []byte

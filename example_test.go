@@ -114,3 +114,87 @@ func ExampleRateLimitError() {
 	// true
 	// secondary
 }
+
+func ExampleResponseError() {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("X-GitHub-Request-ID", "request-example")
+		writer.WriteHeader(http.StatusForbidden)
+		_, err := io.WriteString(
+			writer,
+			`{"errors":[{"type":"FORBIDDEN","message":"request rejected"}]}`,
+		)
+		if err != nil {
+			panic(err)
+		}
+	}))
+	defer server.Close()
+
+	client := octoql.NewClient(server.URL, server.Client())
+	response, err := octoql.Do[struct{}](
+		context.Background(),
+		client,
+		octoql.Operation{
+			Name:  "Viewer",
+			Query: "query Viewer { viewer { login } }",
+		},
+		nil,
+	)
+
+	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	if !ok {
+		fmt.Println("response error not found")
+		return
+	}
+	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
+	if !ok {
+		fmt.Println("graphql errors not found")
+		return
+	}
+
+	fmt.Println(response != nil)
+	fmt.Println(responseError.StatusCode)
+	fmt.Println(responseError.RequestID)
+	fmt.Println(graphqlErrors[0].Type)
+	// Output:
+	// true
+	// 403
+	// request-example
+	// FORBIDDEN
+}
+
+func ExampleClient_RateLimit() {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("X-RateLimit-Limit", "5000")
+		writer.Header().Set("X-RateLimit-Remaining", "4999")
+		writer.Header().Set("X-RateLimit-Used", "1")
+		_, err := io.WriteString(writer, `{"data":{}}`)
+		if err != nil {
+			panic(err)
+		}
+	}))
+	defer server.Close()
+
+	client := octoql.NewClient(server.URL, server.Client())
+	_, err := octoql.Do[struct{}](
+		context.Background(),
+		client,
+		octoql.Operation{
+			Name:  "Viewer",
+			Query: "query Viewer { viewer { login } }",
+		},
+		nil,
+	)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	rateLimit, known := client.RateLimit()
+	fmt.Println(known)
+	fmt.Println(rateLimit.Limit)
+	fmt.Println(rateLimit.Remaining)
+	// Output:
+	// true
+	// 5000
+	// 4999
+}
