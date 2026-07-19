@@ -35,6 +35,7 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	defaultCasing := "auto_camel_case"
 	allEnumsCasing := "raw"
 	enumCasing := map[string]string{"IssueState": "default"}
+	localTypes := config.TestHandlerTypesLocal
 	bindings := map[string]*config.Binding{
 		"DateTime": {
 			Type:              &bindingType,
@@ -68,6 +69,7 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 		OmitUnreferencedImplementations: &omitUnreferencedImplementations,
 		TestHandler: &config.TestHandler{
 			Generated: "githubapitest/generated.go",
+			Types:     &localTypes,
 		},
 	}
 
@@ -77,6 +79,7 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	assert.Equal(t, generate.StringList{"graphql/**/*.graphql"}, actual.Operations)
 	assert.Equal(t, "githubapi/generated.go", actual.Generated)
 	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
+	assert.Equal(t, generate.TestHandlerTypesLocal, actual.TestHandlerTypes)
 	assert.Equal(t, packageName, actual.Package)
 	assert.Equal(t, exportOperations, actual.ExportOperations)
 	assert.Equal(t, contextType, actual.ContextType)
@@ -96,26 +99,6 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	assert.Equal(t, expectExactFields, actual.Bindings["DateTime"].ExpectExactFields)
 	assert.Equal(t, marshaler, actual.Bindings["DateTime"].Marshaler)
 	assert.Equal(t, unmarshaler, actual.Bindings["DateTime"].Unmarshaler)
-}
-
-func TestGenerateConfigMapsTestHandler(t *testing.T) {
-	t.Parallel()
-
-	localTypes := config.TestHandlerTypesLocal
-	source := &config.Config{
-		Schema:     config.Schema{Path: "schema.graphql"},
-		Operations: []string{"operation.graphql"},
-		Generated:  "generated.go",
-		TestHandler: &config.TestHandler{
-			Generated: "githubapitest/generated.go",
-			Types:     &localTypes,
-		},
-	}
-
-	actual := generateConfig(source)
-
-	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
-	assert.Equal(t, generate.TestHandlerTypesLocal, actual.TestHandlerTypes)
 }
 
 func TestGenerateCommandRun(t *testing.T) {
