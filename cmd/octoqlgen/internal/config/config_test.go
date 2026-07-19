@@ -17,33 +17,6 @@ const (
 	testSHA256   = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
 )
 
-func TestLoad(t *testing.T) {
-	t.Parallel()
-
-	configDir := t.TempDir()
-	filename := filepath.Join(configDir, DefaultFilename)
-	err := os.WriteFile(filename, []byte(validConfigYAML()), 0o600)
-	require.NoError(t, err)
-
-	loaded, err := Load(filename)
-	require.NoError(t, err)
-	require.NotNil(t, loaded.Schema.Source)
-	require.NotNil(t, loaded.Schema.Source.GithubDocs)
-	assert.Equal(t, "fpt", loaded.Schema.Source.GithubDocs.Version)
-	assert.Equal(t, filepath.Join(configDir, ".octoql", "schema.graphql"), loaded.SchemaPath())
-	assert.Equal(
-		t,
-		[]string{filepath.Join(configDir, "graphql", "**", "*.graphql")},
-		loaded.OperationPaths(),
-	)
-	assert.Equal(t, filepath.Join(configDir, "githubapi", "generated.go"), loaded.GeneratedPath())
-	assert.Equal(
-		t,
-		filepath.Join(configDir, "githubapitest", "generated.go"),
-		loaded.TestHandlerGeneratedPath(),
-	)
-}
-
 func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 	t.Parallel()
 
@@ -142,7 +115,10 @@ func TestLoadGeneratorOptions(t *testing.T) {
 	filename := filepath.Join(directory, DefaultFilename)
 	content := []byte(
 		"schema:\n" +
-			"  path: schema.graphql\n" +
+			"  path: .octoql/schema.graphql\n" +
+			"  source:\n" +
+			"    github_docs:\n" +
+			"      version: fpt\n" +
 			"operations:\n" +
 			"  - graphql/**/*.graphql\n" +
 			"generated: generated/client.go\n" +
@@ -177,6 +153,15 @@ func TestLoadGeneratorOptions(t *testing.T) {
 	loaded, err := Load(filename)
 	require.NoError(t, err)
 
+	assert.Equal(t, filepath.Join(directory, ".octoql", "schema.graphql"), loaded.SchemaPath())
+	require.NotNil(t, loaded.Schema.Source)
+	require.NotNil(t, loaded.Schema.Source.GithubDocs)
+	assert.Equal(t, "fpt", loaded.Schema.Source.GithubDocs.Version)
+	assert.Equal(
+		t,
+		[]string{filepath.Join(directory, "graphql", "**", "*.graphql")},
+		loaded.OperationPaths(),
+	)
 	assert.Equal(t, filepath.Join(directory, "generated", "client.go"), loaded.GeneratedPath())
 	assert.Equal(t, filepath.Join(directory, "generated", "operations.json"), loaded.ExportOperationsPath())
 	assert.Equal(t, filepath.Join(directory, "generated", "testhandler.go"), loaded.TestHandlerGeneratedPath())

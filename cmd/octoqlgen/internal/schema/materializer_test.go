@@ -121,7 +121,7 @@ func TestMaterializerURLFetch(t *testing.T) {
 	assert.Empty(t, temporaryFiles(t, destination))
 }
 
-func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
+func TestFetchURLSanitizesErrors(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -138,62 +138,82 @@ func TestFetchURLSanitizesNestedURLErrors(t *testing.T) {
 		"&spaced=%20" + spacedQuerySecret
 	requestURL := requestBaseURL + "#" + directFragmentSecret
 	nestedURL := requestBaseURL + "#" + nestedFragmentSecret
-	var receivedURL string
-	client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
-		receivedURL = request.URL.String()
-		inner := &url.Error{
-			Op:  "dial",
-			URL: nestedURL,
-			Err: errors.New("connection refused"),
-		}
-		return nil, fmt.Errorf("transport retry: %w", &url.Error{
-			Op:  "Get",
-			URL: requestURL,
-			Err: inner,
-		})
-	})
-
-	_, err := fetchURL(t.Context(), client, requestURL, "", false, 1024)
-	require.Error(t, err)
-	assert.Equal(t, requestURL, receivedURL)
-	assert.Contains(t, err.Error(), "example.test/schema.graphql")
-	assert.Contains(t, err.Error(), "connection refused")
-	assert.NotContains(t, err.Error(), userSecret)
-	assert.NotContains(t, err.Error(), closingQuerySecret)
-	assert.NotContains(t, err.Error(), quotedQuerySecret)
-	assert.NotContains(t, err.Error(), spacedQuerySecret)
-	assert.NotContains(t, err.Error(), directFragmentSecret)
-	assert.NotContains(t, err.Error(), nestedFragmentSecret)
-}
-
-func TestFetchURLSanitizesPrefixRelatedURLErrors(t *testing.T) {
-	t.Parallel()
-
-	const (
-		outerSecret = "unmistakable-outer-secret"
-		innerSecret = "unmistakable-inner-secret"
-	)
+	outerSecret := "unmistakable-outer-secret"
+	innerSecret := "unmistakable-inner-secret"
 	outerURL := "https://example.test/schema?signature=" + outerSecret
 	innerURL := outerURL + "&redirect=)" + innerSecret
-	client := httpClientFunc(func(*http.Request) (*http.Response, error) {
-		inner := &url.Error{
-			Op:  "redirect",
-			URL: innerURL,
-			Err: errors.New("redirect refused"),
-		}
-		return nil, &url.Error{
-			Op:  "Get",
-			URL: outerURL,
-			Err: inner,
-		}
-	})
+	tests := []struct {
+		transportError func() error
+		name           string
+		requestURL     string
+		want           []string
+		secrets        []string
+	}{
+		{
+			name:       "nested URLs",
+			requestURL: requestURL,
+			transportError: func() error {
+				inner := &url.Error{
+					Op:  "dial",
+					URL: nestedURL,
+					Err: errors.New("connection refused"),
+				}
+				return fmt.Errorf("transport retry: %w", &url.Error{
+					Op:  "Get",
+					URL: requestURL,
+					Err: inner,
+				})
+			},
+			want: []string{"example.test/schema.graphql", "connection refused"},
+			secrets: []string{
+				userSecret,
+				closingQuerySecret,
+				quotedQuerySecret,
+				spacedQuerySecret,
+				directFragmentSecret,
+				nestedFragmentSecret,
+			},
+		},
+		{
+			name:       "prefix-related URLs",
+			requestURL: outerURL,
+			transportError: func() error {
+				inner := &url.Error{
+					Op:  "redirect",
+					URL: innerURL,
+					Err: errors.New("redirect refused"),
+				}
+				return &url.Error{
+					Op:  "Get",
+					URL: outerURL,
+					Err: inner,
+				}
+			},
+			want:    []string{"example.test/schema", "redirect refused"},
+			secrets: []string{outerSecret, innerSecret},
+		},
+	}
 
-	_, err := fetchURL(t.Context(), client, outerURL, "", false, 1024)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "example.test/schema")
-	assert.Contains(t, err.Error(), "redirect refused")
-	assert.NotContains(t, err.Error(), outerSecret)
-	assert.NotContains(t, err.Error(), innerSecret)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var receivedURL string
+			client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
+				receivedURL = request.URL.String()
+				return nil, test.transportError()
+			})
+			_, err := fetchURL(t.Context(), client, test.requestURL, "", false, 1024)
+			require.Error(t, err)
+			assert.Equal(t, test.requestURL, receivedURL)
+			for _, value := range test.want {
+				assert.Contains(t, err.Error(), value)
+			}
+			for _, secret := range test.secrets {
+				assert.NotContains(t, err.Error(), secret)
+			}
+		})
+	}
 }
 
 func TestMaterializerDownloadFailures(t *testing.T) {

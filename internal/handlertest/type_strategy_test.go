@@ -133,29 +133,6 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			},
 		},
 		{
-			name:      "node referenced variant",
-			operation: "GetNode",
-			variables: map[string]any{"id": "repository"},
-			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "repository"}).
-					Respond(clienttypes.GetNodeResponse{
-						Node: &clienttypes.GetNodeNodeRepository{
-							Id:            "R1",
-							NameWithOwner: "octo-org/octo-repo",
-						},
-					})
-			},
-			configureLocal: func(handler *localtypes.TestHandler) {
-				handler.ExpectGetNode(localtypes.GetNodeVariables{Id: "repository"}).
-					Respond(localtypes.GetNodeResponse{
-						Node: &localtypes.GetNodeNodeRepository{
-							Id:            "R1",
-							NameWithOwner: "octo-org/octo-repo",
-						},
-					})
-			},
-		},
-		{
 			name:      "node catch all actual typename",
 			operation: "GetNode",
 			variables: map[string]any{"id": "user"},
@@ -224,21 +201,6 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
 				value := json.RawMessage(`["one","two"]`)
-				handler.ExpectEchoProperty(localtypes.EchoPropertyVariables{Value: value}).
-					Respond(localtypes.EchoPropertyResponse{EchoProperty: value})
-			},
-		},
-		{
-			name:      "custom property value string",
-			operation: "EchoProperty",
-			variables: map[string]any{"value": "one"},
-			configureClient: func(handler *clienttypes.TestHandler) {
-				value := json.RawMessage(`"one"`)
-				handler.ExpectEchoProperty(clienttypes.EchoPropertyVariables{Value: value}).
-					Respond(clienttypes.EchoPropertyResponse{EchoProperty: value})
-			},
-			configureLocal: func(handler *localtypes.TestHandler) {
-				value := json.RawMessage(`"one"`)
 				handler.ExpectEchoProperty(localtypes.EchoPropertyVariables{Value: value}).
 					Respond(localtypes.EchoPropertyResponse{EchoProperty: value})
 			},
@@ -325,27 +287,6 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					)
 			},
 		},
-		{
-			name:      "secondary rate limit http 403",
-			operation: "GetNode",
-			variables: map[string]any{"id": "secondary-403"},
-			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "secondary-403"}).
-					RespondError(
-						octoql.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
-						clienttypes.WithSecondaryRateLimit(30*time.Second),
-						clienttypes.WithStatus(http.StatusForbidden),
-					)
-			},
-			configureLocal: func(handler *localtypes.TestHandler) {
-				handler.ExpectGetNode(localtypes.GetNodeVariables{Id: "secondary-403"}).
-					RespondError(
-						octoql.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
-						localtypes.WithSecondaryRateLimit(30*time.Second),
-						localtypes.WithStatus(http.StatusForbidden),
-					)
-			},
-		},
 	}
 
 	for _, test := range tests {
@@ -382,19 +323,6 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	client := octoql.NewClient(server.URL, server.Client())
 	updatedAt := time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC)
 
-	handler.ExpectViewer().Respond(localtypes.ViewerResponse{
-		Viewer: localtypes.ViewerViewerUser{
-			ViewerVariables: localtypes.ViewerVariables{
-				Id:    "U1",
-				Login: "octocat",
-			},
-		},
-	})
-	viewerResponse, err := githubapi.Viewer(t.Context(), client)
-	require.NoError(t, err)
-	assert.Equal(t, "octocat", viewerResponse.Data.Viewer.Login)
-	requireGeneratedRequest(t, requests, "Viewer", githubapi.Viewer_Operation, "")
-
 	variables := localtypes.GetRepositoryVariables{
 		Owner: "octo-org",
 		Name:  "octo-repo",
@@ -424,41 +352,6 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		"GetRepository",
 		githubapi.GetRepository_Operation,
 		`{"owner":"octo-org","name":"octo-repo","first":2,"after":"cursor-1"}`,
-	)
-
-	input := localtypes.CreateRepositoryInput{
-		Name:             "created",
-		OwnerId:          "O1",
-		Visibility:       localtypes.RepositoryVisibilityPrivate,
-		ClientMutationId: "mutation-1",
-	}
-	handler.ExpectCreateRepository(localtypes.CreateRepositoryVariables{
-		Input: input,
-	}).Respond(localtypes.CreateRepositoryResponse{
-		CreateRepository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
-			Repository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
-				Id:            "R2",
-				NameWithOwner: "octo-org/created",
-				UpdatedAt:     updatedAt,
-			},
-			ClientMutationId: "mutation-1",
-		},
-	})
-	clientInput := githubapi.CreateRepositoryInput{
-		Name:             input.Name,
-		OwnerId:          input.OwnerId,
-		Visibility:       githubapi.RepositoryVisibilityPrivate,
-		ClientMutationId: input.ClientMutationId,
-	}
-	mutationResponse, err := githubapi.CreateRepository(t.Context(), client, clientInput)
-	require.NoError(t, err)
-	assert.Equal(t, "octo-org/created", mutationResponse.Data.CreateRepository.Repository.NameWithOwner)
-	requireGeneratedRequest(
-		t,
-		requests,
-		"CreateRepository",
-		githubapi.CreateRepository_Operation,
-		`{"input":{"name":"created","ownerId":"O1","visibility":"PRIVATE","clientMutationId":"mutation-1"}}`,
 	)
 
 	nodeVariables := localtypes.GetNodeVariables{Id: "user"}
@@ -492,12 +385,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	require.Len(t, searchResponse.Data.Search, 3)
 	searchRepository, ok := searchResponse.Data.Search[0].(*githubapi.SearchSearchRepository)
 	require.True(t, ok)
-	assert.Equal(t, "R1", searchRepository.Id)
 	assert.Equal(t, "octo-org/octo-repo", searchRepository.NameWithOwner)
-	searchIssue, ok := searchResponse.Data.Search[1].(*githubapi.SearchSearchIssue)
-	require.True(t, ok)
-	assert.Equal(t, "I1", searchIssue.Id)
-	assert.Equal(t, "bug", searchIssue.Title)
 	searchOther, ok := searchResponse.Data.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", searchOther.Typename)

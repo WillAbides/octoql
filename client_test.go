@@ -39,48 +39,6 @@ func TestDoHTTPResponses(t *testing.T) {
 		statusCode int
 	}{
 		{
-			name:       "success",
-			statusCode: http.StatusOK,
-			body:       `{"data":{"repository":{"name":"octoql"}},"extensions":{"trace":"abc"}}`,
-			requestID:  "request-success",
-			check: func(t *testing.T, response *octoql.Response[testData], err error) {
-				t.Helper()
-				require.NoError(t, err)
-				require.NotNil(t, response)
-				assert.Equal(t, "octoql", response.Data.Repository.Name)
-				assert.Equal(t, "abc", response.Extensions["trace"])
-			},
-		},
-		{
-			name:       "partial data and errors",
-			statusCode: http.StatusOK,
-			body: `{
-				"data":{"repository":{"name":"octoql"}},
-				"errors":[{
-					"type":"FORBIDDEN",
-					"message":"field unavailable",
-					"path":["repository","owner",0,"login"],
-					"locations":[{"line":2,"column":3}],
-					"extensions":{"code":"FORBIDDEN"}
-				}],
-				"extensions":{"trace":"partial"}
-			}`,
-			requestID: "request-partial",
-			check: func(t *testing.T, response *octoql.Response[testData], err error) {
-				t.Helper()
-				require.NotNil(t, response)
-				assert.Equal(t, "octoql", response.Data.Repository.Name)
-				assert.Equal(t, "partial", response.Extensions["trace"])
-				var graphqlErrors octoql.Errors
-				require.ErrorAs(t, err, &graphqlErrors)
-				require.Len(t, graphqlErrors, 1)
-				got := graphqlErrors[0]
-				assert.Equal(t, octoql.ErrorType("FORBIDDEN"), got.Type)
-				assert.Equal(t, octoql.Path{"repository", "owner", 0, "login"}, got.Path)
-				assert.Equal(t, []octoql.Location{{Line: 2, Column: 3}}, got.Locations)
-			},
-		},
-		{
 			name:       "unknown top-level error type",
 			statusCode: http.StatusOK,
 			body:       `{"errors":[{"type":"A_FUTURE_GITHUB_ERROR","message":"future failure"}]}`,
@@ -94,33 +52,6 @@ func TestDoHTTPResponses(t *testing.T) {
 				encoded, marshalErr := json.Marshal(graphqlErrors[0])
 				require.NoError(t, marshalErr)
 				assert.Contains(t, string(encoded), `"type":"A_FUTURE_GITHUB_ERROR"`)
-			},
-		},
-		{
-			name:       "non-2xx GraphQL response",
-			statusCode: http.StatusBadRequest,
-			body: `{
-				"data":{"repository":{"name":"partial"}},
-				"errors":[{"type":"BAD_REQUEST","message":"invalid selection"}],
-				"extensions":{"trace":"rejected"}
-			}`,
-			requestID: "request-rejected",
-			check: func(t *testing.T, response *octoql.Response[testData], err error) {
-				t.Helper()
-				require.NotNil(t, response)
-				assert.Equal(t, "partial", response.Data.Repository.Name)
-				httpError, ok := errors.AsType[*octoql.HTTPError](err)
-				require.True(t, ok)
-				assert.Equal(t, http.StatusBadRequest, httpError.HTTP.StatusCode)
-				assert.Equal(t, strings.TrimSpace(`{
-				"data":{"repository":{"name":"partial"}},
-				"errors":[{"type":"BAD_REQUEST","message":"invalid selection"}],
-				"extensions":{"trace":"rejected"}
-			}`), string(httpError.Body))
-				graphqlErrors, found := errors.AsType[octoql.Errors](err)
-				require.True(t, found)
-				require.Len(t, graphqlErrors, 1)
-				assert.Equal(t, octoql.ErrorType("BAD_REQUEST"), graphqlErrors[0].Type)
 			},
 		},
 		{

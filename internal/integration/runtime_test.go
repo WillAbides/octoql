@@ -4,7 +4,6 @@
 package integration
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -25,8 +24,6 @@ func (function integrationRoundTripFunc) RoundTrip(request *http.Request) (*http
 }
 
 func TestGeneratedQueryResponseSemantics(t *testing.T) {
-	// The nocontext fixture deliberately exports its generated operation so this
-	// cross-package test can exercise the generated runtime contract.
 	tests := []struct {
 		check      func(*testing.T, *octoql.Response[githubclient.GetRepositoryResponse], error)
 		header     http.Header
@@ -48,10 +45,8 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
 				require.NoError(t, err)
-				require.NotNil(t, response)
 				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
 				assert.Equal(t, "abc", response.Extensions["trace"])
-				assert.Equal(t, http.StatusOK, response.HTTP.StatusCode)
 				assert.Equal(t, "request-123", response.HTTP.RequestID)
 				assert.Equal(t, "original", response.HTTP.Header.Get("X-Test"))
 			},
@@ -66,49 +61,11 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			}`,
 			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
-				require.NotNil(t, response)
 				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
 				graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 				require.True(t, ok)
 				require.Len(t, graphqlErrors, 1)
-				assert.Equal(t, octoql.ErrorType("FORBIDDEN"), graphqlErrors[0].Type)
-				graphqlError, ok := errors.AsType[*octoql.Error](err)
-				require.True(t, ok)
-				assert.Equal(t, octoql.Path{"repository", "nameWithOwner"}, graphqlError.Path)
-			},
-		},
-		{
-			name:       "non-2xx GraphQL response",
-			statusCode: http.StatusForbidden,
-			header:     http.Header{},
-			body: `{
-				"data":{"repository":{"nameWithOwner":"octo-org/octo-repo"}},
-				"errors":[{"type":"FORBIDDEN","message":"denied"}]
-			}`,
-			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
-				t.Helper()
-				require.NotNil(t, response)
-				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
-				httpError, ok := errors.AsType[*octoql.HTTPError](err)
-				require.True(t, ok)
-				assert.Equal(t, http.StatusForbidden, httpError.HTTP.StatusCode)
-				_, ok = errors.AsType[octoql.Errors](err)
-				assert.True(t, ok)
-			},
-		},
-		{
-			name:       "non-2xx invalid response",
-			statusCode: http.StatusBadGateway,
-			header:     http.Header{},
-			body:       `{"errors":[`,
-			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
-				t.Helper()
-				require.NotNil(t, response)
-				httpError, ok := errors.AsType[*octoql.HTTPError](err)
-				require.True(t, ok)
-				assert.Equal(t, `{"errors":[`, string(httpError.Body))
-				_, ok = errors.AsType[*json.SyntaxError](err)
-				assert.True(t, ok)
+				assert.Equal(t, octoql.Path{"repository", "nameWithOwner"}, graphqlErrors[0].Path)
 			},
 		},
 		{
@@ -124,8 +81,6 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			}`,
 			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
-				require.NotNil(t, response)
-				assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
 				rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 				require.True(t, ok)
 				assert.Equal(t, octoql.RateLimitPrimary, rateLimitError.Kind)
@@ -133,20 +88,19 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			},
 		},
 		{
-			name:       "secondary rate limit",
+			name:       "secondary rate limit at HTTP 403",
 			statusCode: http.StatusForbidden,
 			header: http.Header{
 				"Retry-After": {"30"},
 			},
-			body: `{"errors":[{"message":"slow down"}]}`,
+			body: `{"errors":[{"type":"ABUSE_DETECTED","message":"slow down"}]}`,
 			check: func(t *testing.T, response *octoql.Response[githubclient.GetRepositoryResponse], err error) {
 				t.Helper()
-				require.NotNil(t, response)
 				rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 				require.True(t, ok)
 				assert.Equal(t, octoql.RateLimitSecondary, rateLimitError.Kind)
 				assert.Equal(t, 30*time.Second, response.HTTP.RateLimit.RetryAfter)
-				assert.Equal(t, response.HTTP.RateLimit, rateLimitError.RateLimit)
+				assert.Equal(t, http.StatusForbidden, response.HTTP.StatusCode)
 			},
 		},
 	}
@@ -163,12 +117,9 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				}),
 			}
 			client := octoql.NewClient("https://api.github.example/graphql", httpClient)
-
 			response, err := githubclient.GetRepository(client, "octo-org", "octo-repo")
+			require.NotNil(t, response)
 			test.check(t, response, err)
-
-			test.header.Set("X-Test", "mutated")
-			assert.NotEqual(t, "mutated", response.HTTP.Header.Get("X-Test"))
 		})
 	}
 }

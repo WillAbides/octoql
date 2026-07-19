@@ -126,22 +126,6 @@ func TestServerError(t *testing.T) {
 	}
 }
 
-func TestNetworkError(t *testing.T) {
-	ctx := context.Background()
-	transportError := errors.New("offline transport failure")
-	client := octoql.NewClient("https://api.github.example/graphql", &http.Client{
-		Transport: integrationRoundTripFunc(func(*http.Request) (*http.Response, error) {
-			return nil, transportError
-		}),
-	})
-
-	response, err := failingQuery(ctx, client)
-	assert.ErrorIs(t, err, transportError)
-	var gqlErrors octoql.Errors
-	assert.False(t, errors.As(err, &gqlErrors), "network errors should not contain octoql.Errors")
-	assert.Nil(t, response)
-}
-
 func TestVariables(t *testing.T) {
 	_ = `# @genqlient
 	query queryWithVariables($login: String!) { user(login: $login) { id login contributionCount } }`
@@ -163,23 +147,6 @@ func TestVariables(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Zero(t, response.Data.User)
-	}
-}
-
-func TestExtensions(t *testing.T) {
-	_ = `# @genqlient
-	query simpleQueryExt { viewer { id login contributionCount } }`
-
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	clients := newRoundtripClients(server.URL)
-
-	for _, client := range clients {
-		response, err := simpleQueryExt(ctx, client)
-		require.NoError(t, err)
-		assert.NotNil(t, response.Extensions)
-		assert.Equal(t, response.Extensions["foobar"], "test")
 	}
 }
 

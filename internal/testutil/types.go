@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"time"
-
-	"github.com/willabides/octoql"
 )
 
 type ID string
@@ -15,19 +13,11 @@ type Account struct {
 	Login string `json:"login"`
 }
 
-func (a Account) SameLogin(b Account) bool {
-	return a.Login == b.Login
-}
-
 type MyContext interface {
 	context.Context
 
 	MyMethod()
 }
-
-func GetClientFromNowhere() (*octoql.Client, error)                    { return nil, nil }
-func GetClientFromContext(ctx context.Context) (*octoql.Client, error) { return nil, nil }
-func GetClientFromMyContext(ctx MyContext) (*octoql.Client, error)     { return nil, nil }
 
 const dateFormat = "2006-01-02"
 
@@ -56,40 +46,11 @@ type Option[V any] struct {
 	ok    bool
 }
 
-func Some[V any](value V) Option[V] {
-	return Option[V]{value: value, ok: true}
-}
-
-func None[V any]() Option[V] {
-	return Option[V]{ok: false}
-}
-
-func (v Option[V]) Unpack() (V, bool) {
-	return v.value, v.ok
-}
-
-func (v Option[V]) Get(fallback V) V {
-	if v.ok {
-		return v.value
-	}
-
-	return fallback
-}
-
-func FromPtr[V any](ptr *V) Option[V] {
-	if ptr == nil {
-		return None[V]()
-	}
-
-	return Some(*ptr)
-}
-
 func (value Option[V]) MarshalJSON() ([]byte, error) {
 	if value.ok {
 		return json.Marshal(value.value)
-	} else {
-		return json.Marshal((*V)(nil))
 	}
+	return json.Marshal((*V)(nil))
 }
 
 func (value *Option[V]) UnmarshalJSON(data []byte) error {
