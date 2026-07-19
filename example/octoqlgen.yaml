@@ -3,6 +3,6 @@
 schema:
   path: schema.graphql
 operations:
-  - genqlient.graphql
+  - operations.graphql
 generated: generated.go
 omit_unreferenced_implementations: true

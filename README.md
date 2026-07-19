@@ -403,9 +403,10 @@ omit_unreferenced_implementations: false
 ```
 
 The opt-out removes the catch-all and may make a new server typename an
-unmarshal error. Generated JSON first-pass fences are unexported implementation
-details that preserve `encoding/json` method-promotion behavior. Do not refer to
-them from application code.
+unmarshal error. Generated types that need JSON first-pass protection embed
+`octoql.NoMarshalJSON` or `octoql.NoUnmarshalJSON` to prevent method promotion
+from changing `encoding/json` behavior. These exported names are generated-code
+contracts; application code should not embed or call them directly.
 
 ## Typed test handlers
 

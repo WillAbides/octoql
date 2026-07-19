@@ -87,15 +87,15 @@ directive genqlient(
   # octoqlgen will generate a function
   #  MyQuery(ctx context.Context, client *octoql.Client, arg string)
   #    (*octoql.Response[MyQueryResponse], error)
-  # which will pass {"arg": null} to GraphQL if arg is "", and the actual
-  # value otherwise.
+  # which will omit "arg" from the variables object if arg is "", and pass the
+  # actual value otherwise.
   #
   # Only applicable to arguments of nullable types.  Ignored for types with
   # custom marshalers (see their documentation in octoqlgen.yaml for details).
   omitempty: Boolean
 
-  # If set, this argument or field will use a pointer type in Go.  Response
-  # types always use pointers, but otherwise we typically do not.
+  # If set, this argument or field will use a pointer type in Go. Otherwise,
+  # pointer use follows the applicable optional configuration.
   #
   # This can be useful if it's a type you'll need to pass around (and want a
   # pointer to save copies) or if you wish to distinguish between the Go
@@ -260,7 +260,6 @@ directive genqlient(
   # applicable in certain locations as described above.
   | QUERY
   | MUTATION
-  | SUBSCRIPTION
   | FIELD
   | FRAGMENT_DEFINITION
   | VARIABLE_DEFINITION
