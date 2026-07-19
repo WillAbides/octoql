@@ -1,9 +1,0 @@
-Usage: octoqlgen init [flags]
-
-Create an octoqlgen configuration and materialized schema.
-
-Flags:
-  -h, --help           Show context-sensitive help.
-      --version        Show version information.
-
-      --config=PATH    Path for the new octoqlgen configuration.

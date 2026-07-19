@@ -54,7 +54,7 @@ func RunGenerateTest(t *testing.T, relConfigFilename string) {
 			if testing.Verbose() {
 				t.Errorf("got:\n%s\nwant:\n%s\n", content, expectedContent)
 			}
-			if os.Getenv("UPDATE_SNAPSHOTS") == "1" {
+			if os.Getenv("UPDATE_SNAPS") == "true" {
 				err = os.WriteFile(filename, content, 0o644)
 				if err != nil {
 					t.Errorf("unable to update generated file %s: %v", filename, err)

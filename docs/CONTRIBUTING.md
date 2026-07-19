@@ -40,7 +40,20 @@ Notes for contributors:
 - If `GITHUB_TOKEN` is available in the environment, it also checks that the example returns the expected output when run against the real API.  This is configured automatically in GitHub Actions, but you can also use a [personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with no scopes.  There's no need for this to cover anything in particular; it's just to make sure the example in fact works.
 - Tests should use `testify/assert` and `testify/require` where convenient (when making many simple assertions).
 
-If you update any code-generation logic or templates, even if no new tests are needed you'll likely need to run `UPDATE_SNAPSHOTS=1 go test ./...` to update the [cupaloy](https://github.com/bradleyjkemp/cupaloy) snapshots and the genqlient-generated files used in integration tests and documentation.
+If you update code-generation logic or templates, run
+`UPDATE_SNAPS=true go test ./generate` to update focused snapshots. Use
+`UPDATE_SNAPS=true go test ./...` when checked-in generated integration output
+also needs an update. Compact diagnostics, configuration formatting, and CLI
+usage are inline snapshots; generated Go and JSON output remains external
+because the Go artifacts are compiled from those snapshot files. To remove
+obsolete external generator snapshots, run:
+
+```sh
+rm -rf generate/testdata/snapshots
+UPDATE_SNAPS=true go test ./generate
+```
+
+Review the recreated files, then run `go test ./generate` normally.
 
 ## Finding your way around
 
