@@ -4,7 +4,6 @@
 package generate
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -24,16 +23,12 @@ import (
 )
 
 const (
-	githubPublicSchemaDir            = "testdata/github-public-schema"
-	githubPublicSchemaRevision       = "27a4008f193706042a40cbb6c71cf85633249e79"
-	githubPublicSchemaPath           = "src/graphql/data/fpt/schema.docs.graphql"
-	githubPublicSchemaSize           = int64(1520362)
-	githubPublicSchemaSHA256         = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
-	githubPublicSchemaRepository     = "https://github.com/github/docs"
-	githubPublicSchemaSourceURL      = "https://raw.githubusercontent.com/github/docs/" + githubPublicSchemaRevision + "/" + githubPublicSchemaPath
-	githubPublicSchemaConfigFile     = "octoql.yaml"
-	githubPublicSchemaMaterialized   = "schema.docs.graphql"
-	githubPublicSchemaProvenanceFile = "PROVENANCE"
+	githubPublicSchemaDir          = "testdata/github-public-schema"
+	githubPublicSchemaRevision     = "27a4008f193706042a40cbb6c71cf85633249e79"
+	githubPublicSchemaSize         = int64(1520362)
+	githubPublicSchemaSHA256       = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
+	githubPublicSchemaConfigFile   = "octoql.yaml"
+	githubPublicSchemaMaterialized = "schema.docs.graphql"
 )
 
 type publicSchemaCommand func(context.Context, string, io.Writer) error
@@ -54,8 +49,7 @@ type publicSchemaFixtureConfig struct {
 }
 
 func TestGenerateGitHubPublicSchema(t *testing.T) {
-	metadata := readGitHubPublicSchemaProvenance(t)
-	fixtureConfig := readGitHubPublicSchemaConfig(t, metadata)
+	fixtureConfig := readGitHubPublicSchemaConfig(t)
 	schemaFilename := filepath.Join(githubPublicSchemaDir, fixtureConfig.Schema.Path)
 	configFilename := filepath.Join(githubPublicSchemaDir, githubPublicSchemaConfigFile)
 	err := ensureGitHubPublicSchema(
@@ -155,58 +149,10 @@ func TestGenerateGitHubPublicSchema(t *testing.T) {
 	}
 }
 
-func readGitHubPublicSchemaProvenance(t *testing.T) map[string]string {
+func readGitHubPublicSchemaConfig(t *testing.T) publicSchemaFixtureConfig {
 	t.Helper()
 
-	file, err := os.Open(filepath.Join(githubPublicSchemaDir, githubPublicSchemaProvenanceFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-
-	metadata := make(map[string]string)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		key, value, ok := strings.Cut(scanner.Text(), "=")
-		if !ok || key == "" || value == "" {
-			t.Fatalf("invalid provenance line %q", scanner.Text())
-		}
-		if _, exists := metadata[key]; exists {
-			t.Fatalf("duplicate provenance field %q", key)
-		}
-		metadata[key] = value
-	}
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
-	}
-
-	expected := map[string]string{
-		"format_version":    "2",
-		"source_repository": githubPublicSchemaRepository,
-		"source_commit":     githubPublicSchemaRevision,
-		"source_path":       githubPublicSchemaPath,
-		"source_url":        githubPublicSchemaSourceURL,
-		"source_size_bytes": fmt.Sprintf("%d", githubPublicSchemaSize),
-		"source_sha256":     githubPublicSchemaSHA256,
-		"config":            githubPublicSchemaConfigFile,
-		"materialized_path": githubPublicSchemaMaterialized,
-		"materialization":   "on-demand via octoqlgen schema --config octoql.yaml",
-	}
-	if len(metadata) != len(expected) {
-		t.Fatalf("provenance has %d fields, want %d", len(metadata), len(expected))
-	}
-	for key, want := range expected {
-		if got := metadata[key]; got != want {
-			t.Errorf("provenance %s = %q, want %q", key, got, want)
-		}
-	}
-	return metadata
-}
-
-func readGitHubPublicSchemaConfig(t *testing.T, metadata map[string]string) publicSchemaFixtureConfig {
-	t.Helper()
-
-	content, err := os.ReadFile(filepath.Join(githubPublicSchemaDir, metadata["config"]))
+	content, err := os.ReadFile(filepath.Join(githubPublicSchemaDir, githubPublicSchemaConfigFile))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,20 +161,20 @@ func readGitHubPublicSchemaConfig(t *testing.T, metadata map[string]string) publ
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fixtureConfig.Schema.Path != metadata["materialized_path"] {
-		t.Errorf("configured schema path = %q, want %q", fixtureConfig.Schema.Path, metadata["materialized_path"])
+	if fixtureConfig.Schema.Path != githubPublicSchemaMaterialized {
+		t.Errorf("configured schema path = %q, want %q", fixtureConfig.Schema.Path, githubPublicSchemaMaterialized)
 	}
-	if fixtureConfig.Schema.SHA256 != metadata["source_sha256"] {
-		t.Errorf("configured schema SHA-256 = %q, want %q", fixtureConfig.Schema.SHA256, metadata["source_sha256"])
+	if fixtureConfig.Schema.SHA256 != githubPublicSchemaSHA256 {
+		t.Errorf("configured schema SHA-256 = %q, want %q", fixtureConfig.Schema.SHA256, githubPublicSchemaSHA256)
 	}
 	if fixtureConfig.Schema.Source.GitHubDocs.Version != "fpt" {
 		t.Errorf("configured github/docs version = %q, want %q", fixtureConfig.Schema.Source.GitHubDocs.Version, "fpt")
 	}
-	if fixtureConfig.Schema.Source.GitHubDocs.Revision != metadata["source_commit"] {
+	if fixtureConfig.Schema.Source.GitHubDocs.Revision != githubPublicSchemaRevision {
 		t.Errorf(
 			"configured github/docs revision = %q, want %q",
 			fixtureConfig.Schema.Source.GitHubDocs.Revision,
-			metadata["source_commit"],
+			githubPublicSchemaRevision,
 		)
 	}
 	if len(fixtureConfig.Operations) != 1 || fixtureConfig.Operations[0] != "operations.graphql" {
