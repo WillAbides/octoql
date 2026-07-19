@@ -1,0 +1,4 @@
+schema: schema.graphql
+operations: operation.graphql
+generated: generated.go
+context_type: "-"

@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -85,26 +87,20 @@ query Recursion ($input: RecursiveInput!) {
 `
 
 func Recursion(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	input RecursiveInput,
-) (data_ *RecursionResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "Recursion",
-		Query:  Recursion_Operation,
-		Variables: &__RecursionInput{
-			Input: input,
-		},
+) (*octoql.Response[RecursionResponse], error) {
+	variables_ := __RecursionInput{
+		Input: input,
 	}
-
-	data_ = &RecursionResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[RecursionResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "Recursion",
+			Query: Recursion_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -1436,22 +1438,16 @@ query ComplexInlineFragments {
 // versa, because gqlparser doesn't support interfaces that implement other
 // interfaces yet.
 func ComplexInlineFragments(
-	client_ graphql.Client,
-) (data_ *ComplexInlineFragmentsResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ComplexInlineFragments",
-		Query:  ComplexInlineFragments_Operation,
-	}
-
-	data_ = &ComplexInlineFragmentsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[ComplexInlineFragmentsResponse], error) {
+	return octoql.Do[ComplexInlineFragmentsResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "ComplexInlineFragments",
+			Query: ComplexInlineFragments_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

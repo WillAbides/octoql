@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 )
 
 // ListOfListsOfListsResponse is returned by ListOfListsOfLists on success.
@@ -25,22 +27,16 @@ query ListOfListsOfLists {
 `
 
 func ListOfListsOfLists(
-	client_ graphql.Client,
-) (data_ *ListOfListsOfListsResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ListOfListsOfLists",
-		Query:  ListOfListsOfLists_Operation,
-	}
-
-	data_ = &ListOfListsOfListsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[ListOfListsOfListsResponse], error) {
+	return octoql.Do[ListOfListsOfListsResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "ListOfListsOfLists",
+			Query: ListOfListsOfLists_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

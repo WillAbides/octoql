@@ -91,11 +91,11 @@ This will generate:
 ```go
 func MyQuery(
   ctx context.Context,
-  client graphql.Client,
+  client *octoql.Client,
   arg1 MyInputType,
   arg2 *string, // omitempty
   arg3 string,
-) (*MyQueryResponse, error)
+) (*octoql.Response[MyQueryResponse], error)
 
 type MyInputType struct {
   Id    *string `json:"id"`
@@ -144,8 +144,8 @@ These can be used in the ordinary Go ways: to access shared fields, use the inte
 
 ```go
 resp, err := GetBooks(...)
-fmt.Println("Favorite book:", resp.Favorite.GetTitle())
-if novel, ok := resp.Favorite.(*GetBooksFavoriteNovel); ok {
+fmt.Println("Favorite book:", resp.Data.Favorite.GetTitle())
+if novel, ok := resp.Data.Favorite.(*GetBooksFavoriteNovel); ok {
   fmt.Println("Protagonist:", novel.Protagonist)
 }
 ```
@@ -294,7 +294,7 @@ type MonopolyUser interface {
 
 func FormatUser(user MonopolyUser) { ... }
 
-FormatUser(resp.Game.Winner)
+FormatUser(resp.Data.Game.Winner)
 ```
 
 In general in such cases it's better to change the GraphQL schema to show how the types are related, and use one of the other mechanisms, but this option is useful for schemas where you can't do that, or in the meantime.
@@ -341,7 +341,12 @@ It's also possible to use the `bindings` option (see [`genqlient.yaml` documenta
 
 ### Operation names
 
-genqlient will use the exact name of your query as the generated function name. For example, if your query looks like `query myQuery { ... }`, then genqlient will generate `func myQuery(...) (*myQueryResponse, error)`. This means your queries should follow the usual Go conventions, especially starting with an uppercase letter if the query should be exported.
+genqlient will use the exact name of your query as the generated function name.
+For example, `query myQuery { ... }` generates
+`func myQuery(...) (*octoql.Response[myQueryResponse], error)`. Query data is
+available through `response.Data`. This means your queries should follow the
+usual Go conventions, especially starting with an uppercase letter if the
+query should be exported.
 
 ### Field names
 
@@ -405,4 +410,3 @@ For any GraphQL types or fields with documentation in the GraphQL schema, genqli
 # @genqlient(omitempty: true)
 query GetUser { ... }
 ```
-

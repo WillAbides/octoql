@@ -68,19 +68,19 @@ export_operations: operations.json
 # context.Context.
 context_type: context.Context
 
-# If set, a function to get a graphql.Client, perhaps from the context.
+# If set, a function to get an *octoql.Client, perhaps from the context.
 # By default, the client must be passed explicitly to each genqlient
 # generated query-helper.
 #
 # This is useful if you have a shared client, either a global, or
 # available from context, and don't want to pass it explicitly.  In this
 # case the signature of the genqlient-generated helpers will omit the
-# `graphql.Context` and they will call this function instead.
+# client argument and they will call this function instead.
 #
 # Must be the fully-qualified name of a function which accepts a context
 # (of the type configured as ContextType (above), which defaults to
 # `context.Context`, or a function of no arguments if ContextType is set
-# to the empty string) and returns (graphql.Client, error).  If the
+# to the empty string) and returns (*octoql.Client, error).  If the
 # client-getter returns an error, the helper will return the error
 # without making a query.
 client_getter: "github.com/you/yourpkg.GetClient"
@@ -94,14 +94,8 @@ client_getter: "github.com/you/yourpkg.GetClient"
 # Defaults to false.
 use_struct_references: boolean
 
-# If set, generated code will have a third return parameter of type 
-# map[string]interface{}. This will contain the optional values
-# of the Extensions field send from Servers.
-# ref.: https://spec.graphql.org/October2021/#sec-Response-Format
-#
-# This can be useful for extending the GraphQL Protocol.
-#
-# Defaults to false.
+# Retained for configuration compatibility. Generated query and mutation
+# helpers always expose GraphQL extensions through octoql.Response.Extensions.
 use_extensions: boolean
 
 # Customize how models are generated for optional fields. This can currently

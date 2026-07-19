@@ -4,9 +4,10 @@
 package test
 
 import (
+	"context"
 	"time"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 // __convertTimezoneInput is used internally by genqlient
@@ -37,28 +38,22 @@ query convertTimezone ($dt: DateTime!, $tz: String) {
 `
 
 func convertTimezone(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	dt time.Time,
 	tz string,
-) (data_ *convertTimezoneResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "convertTimezone",
-		Query:  convertTimezone_Operation,
-		Variables: &__convertTimezoneInput{
-			Dt: dt,
-			Tz: tz,
-		},
+) (*octoql.Response[convertTimezoneResponse], error) {
+	variables_ := __convertTimezoneInput{
+		Dt: dt,
+		Tz: tz,
 	}
-
-	data_ = &convertTimezoneResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[convertTimezoneResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "convertTimezone",
+			Query: convertTimezone_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

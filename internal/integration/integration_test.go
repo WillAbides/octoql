@@ -8,16 +8,13 @@ package integration
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vektah/gqlparser/v2/gqlerror"
-
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/integration/server"
 )
 
@@ -28,15 +25,15 @@ func TestSimpleQuery(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := simpleQuery(ctx, client)
+		response, err := simpleQuery(ctx, client)
 		require.NoError(t, err)
 
-		assert.Equal(t, "1", resp.Me.Id)
-		assert.Equal(t, "Yours Truly", resp.Me.Name)
-		assert.Equal(t, 17, resp.Me.LuckyNumber)
+		assert.Equal(t, "1", response.Data.Me.Id)
+		assert.Equal(t, "Yours Truly", response.Data.Me.Name)
+		assert.Equal(t, 17, response.Data.Me.LuckyNumber)
 	}
 }
 
@@ -47,248 +44,12 @@ func TestMutation(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	postClient := newRoundtripClient(t, server.URL)
-	getClient := newRoundtripGetClient(t, server.URL)
+	postClient := newRoundtripClient(server.URL)
 
-	resp, _, err := createUser(ctx, postClient, NewUser{Name: "Jack"})
+	response, err := createUser(ctx, postClient, NewUser{Name: "Jack"})
 	require.NoError(t, err)
-	assert.Equal(t, "5", resp.CreateUser.Id)
-	assert.Equal(t, "Jack", resp.CreateUser.Name)
-
-	_, _, err = createUser(ctx, getClient, NewUser{Name: "Jill"})
-	require.Errorf(t, err, "client does not support mutations")
-}
-
-type subscriptionResult struct {
-	clientUnsubscribed  bool
-	serverChannelClosed bool
-}
-
-func TestSubscription(t *testing.T) {
-	_ = `# @genqlient
-	subscription count { count }`
-
-	ctx := context.Background()
-	server := server.RunServer()
-	defer server.Close()
-
-	cases := []struct {
-		name           string
-		unsubThreshold time.Duration
-		expected       subscriptionResult
-	}{
-		{
-			name:           "server_closed_channel",
-			unsubThreshold: 5 * time.Second,
-			expected: subscriptionResult{
-				clientUnsubscribed:  false,
-				serverChannelClosed: true,
-			},
-		},
-		{
-			name:           "client_unsubscribed",
-			unsubThreshold: 300 * time.Millisecond,
-			expected: subscriptionResult{
-				clientUnsubscribed:  true,
-				serverChannelClosed: false,
-			},
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			wsClient := newRoundtripWebSocketClient(t, server.URL)
-
-			errChan, err := wsClient.Start(ctx)
-			require.NoError(t, err)
-
-			dataChan, subscriptionID, err := count(ctx, wsClient)
-			require.NoError(t, err)
-			defer func() {
-				err := wsClient.Close()
-				require.NoError(t, err)
-			}()
-
-			var (
-				counter = 0
-				start   = time.Now()
-				result  = subscriptionResult{}
-			)
-
-			for loop := true; loop; {
-				select {
-				case resp, more := <-dataChan:
-					if !more {
-						result.serverChannelClosed = true
-						loop = false
-						break
-					}
-
-					require.NotNil(t, resp.Data)
-					assert.Equal(t, counter, resp.Data.Count)
-					require.Nil(t, resp.Errors)
-
-					if time.Since(start) > tc.unsubThreshold {
-						err := wsClient.Unsubscribe(subscriptionID)
-						require.NoError(t, err)
-						result.clientUnsubscribed = true
-						loop = false
-					}
-
-					counter++
-
-				case err := <-errChan:
-					require.NoError(t, err)
-
-				case <-time.After(10 * time.Second):
-					require.NoError(t, fmt.Errorf("subscription timed out"))
-				}
-			}
-
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
-func TestSubscriptionConnectionParams(t *testing.T) {
-	_ = `# @genqlient
-	subscription countAuthorized { countAuthorized }`
-
-	authKey := server.AuthKey
-
-	ctx := context.Background()
-	server := server.RunServer()
-	defer server.Close()
-
-	cases := []struct {
-		connParams    map[string]interface{}
-		name          string
-		expectedError string
-		opts          []graphql.WebSocketOption
-	}{
-		{
-			name: "connection_params_authorized_user_gets_counter",
-			opts: []graphql.WebSocketOption{
-				graphql.WithConnectionParams(map[string]interface{}{
-					authKey: "authorized-user-token",
-				}),
-			},
-		},
-		{
-			name: "http_header_authorized_user_gets_counter",
-			opts: []graphql.WebSocketOption{
-				graphql.WithWebsocketHeader(http.Header{
-					authKey: []string{"authorized-user-token"},
-				}),
-			},
-		},
-		{
-			name:          "unauthorized_user_gets_error",
-			expectedError: "input:3:2: countAuthorized unauthorized\n",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			wsClient := newRoundtripWebSocketClient(
-				t,
-				server.URL,
-				tc.opts...,
-			)
-
-			errChan, err := wsClient.Start(ctx)
-			require.NoError(t, err)
-
-			dataChan, subscriptionID, err := countAuthorized(ctx, wsClient)
-			require.NoError(t, err)
-			defer func() {
-				err := wsClient.Close()
-				require.NoError(t, err)
-			}()
-
-			var (
-				counter = 0
-				start   = time.Now()
-			)
-
-			for loop := true; loop; {
-				select {
-				case resp, more := <-dataChan:
-					if !more {
-						loop = false
-						break
-					}
-
-					if tc.expectedError != "" {
-						require.Error(t, resp.Errors)
-						assert.Equal(t, tc.expectedError, resp.Errors.Error())
-						continue
-					}
-
-					require.NotNil(t, resp.Data)
-					assert.Equal(t, counter, resp.Data.CountAuthorized)
-					require.Nil(t, resp.Errors)
-
-					if time.Since(start) > 5*time.Second {
-						err := wsClient.Unsubscribe(subscriptionID)
-						require.NoError(t, err)
-						loop = false
-					}
-
-					counter++
-
-				case err := <-errChan:
-					require.NoError(t, err)
-
-				case <-time.After(10 * time.Second):
-					require.NoError(t, fmt.Errorf("subscription timed out"))
-				}
-			}
-		})
-	}
-}
-
-func TestSubscriptionClose(t *testing.T) {
-	_ = `# @genqlient
-	subscription countClose { countClose }`
-
-	ctx := context.Background()
-	server := server.RunServer()
-	defer server.Close()
-
-	cases := []struct {
-		name  string
-		unsub bool
-	}{
-		{
-			name:  "unsubscribed_manually",
-			unsub: true,
-		},
-		{
-			name:  "unsubscribed_automatically",
-			unsub: false,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			wsClient := newRoundtripWebSocketClient(t, server.URL)
-
-			_, err := wsClient.Start(ctx)
-			require.NoError(t, err)
-
-			_, subscriptionID, err := countClose(ctx, wsClient)
-			require.NoError(t, err)
-
-			if tc.unsub {
-				err = wsClient.Unsubscribe(subscriptionID)
-				require.NoError(t, err)
-			}
-
-			err = wsClient.Close()
-			require.NoError(t, err)
-		})
-	}
+	assert.Equal(t, "5", response.Data.CreateUser.Id)
+	assert.Equal(t, "Jack", response.Data.CreateUser.Name)
 }
 
 func TestServerError(t *testing.T) {
@@ -298,44 +59,38 @@ func TestServerError(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := failingQuery(ctx, client)
+		response, err := failingQuery(ctx, client)
 		// As long as we get some response back, we should still return a full
 		// response -- and indeed in this case it should even have another field
 		// (which didn't err) set.
 		assert.Error(t, err)
 		t.Logf("Full error: %+v", err)
-		var gqlErrors gqlerror.List
-		if !assert.True(t, errors.As(err, &gqlErrors), "Error should be of type gqlerror.List") {
+		var gqlErrors octoql.Errors
+		if !assert.True(t, errors.As(err, &gqlErrors), "error should contain octoql.Errors") {
 			t.Logf("Actual error type: %T", err)
 			t.Logf("Error message: %v", err)
 		} else {
 			assert.Len(t, gqlErrors, 1, "Expected one GraphQL error")
 			assert.Equal(t, "oh no", gqlErrors[0].Message)
 		}
-		assert.NotNil(t, resp)
-		assert.Equal(t, "1", resp.Me.Id)
+		assert.NotNil(t, response)
+		assert.Equal(t, "1", response.Data.Me.Id)
 	}
 }
 
 func TestNetworkError(t *testing.T) {
 	ctx := context.Background()
-	clients := newRoundtripClients(t, "https://nothing.invalid/graphql")
+	clients := newRoundtripClients("https://nothing.invalid/graphql")
 
 	for _, client := range clients {
-		resp, _, err := failingQuery(ctx, client)
-		// As we guarantee in the README, even on network error you always get a
-		// non-nil response; this is so you can write e.g.
-		//	resp, err := failingQuery(ctx)
-		//	return resp.Me.Id, err
-		// without a bunch of extra ceremony.
+		response, err := failingQuery(ctx, client)
 		assert.Error(t, err)
-		var gqlErrors gqlerror.List
-		assert.False(t, errors.As(err, &gqlErrors), "Error should not be of type gqlerror.List for network errors")
-		assert.NotNil(t, resp)
-		assert.Equal(t, new(failingQueryResponse), resp)
+		var gqlErrors octoql.Errors
+		assert.False(t, errors.As(err, &gqlErrors), "network errors should not contain octoql.Errors")
+		assert.Nil(t, response)
 	}
 }
 
@@ -346,28 +101,20 @@ func TestVariables(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	// This doesn't roundtrip successfully because the zero user gets marshaled
-	// as {"id": "", "name": "", ...}, not null.  There's really no way to do
-	// this right in Go (without adding `pointer: true` just for this purpose),
-	// and unmarshal(marshal(resp)) == resp should still hold, so we don't
-	// worry about it.
-	clients := []graphql.Client{
-		graphql.NewClient(server.URL, http.DefaultClient),
-		graphql.NewClientUsingGet(server.URL, http.DefaultClient),
-	}
+	clients := []*octoql.Client{octoql.NewClient(server.URL, http.DefaultClient)}
 
 	for _, client := range clients {
-		resp, _, err := queryWithVariables(ctx, client, "2")
+		response, err := queryWithVariables(ctx, client, "2")
 		require.NoError(t, err)
 
-		assert.Equal(t, "2", resp.User.Id)
-		assert.Equal(t, "Raven", resp.User.Name)
-		assert.Equal(t, -1, resp.User.LuckyNumber)
+		assert.Equal(t, "2", response.Data.User.Id)
+		assert.Equal(t, "Raven", response.Data.User.Name)
+		assert.Equal(t, -1, response.Data.User.LuckyNumber)
 
-		resp, _, err = queryWithVariables(ctx, client, "374892379482379")
+		response, err = queryWithVariables(ctx, client, "374892379482379")
 		require.NoError(t, err)
 
-		assert.Zero(t, resp.User)
+		assert.Zero(t, response.Data.User)
 	}
 }
 
@@ -378,13 +125,13 @@ func TestExtensions(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		_, extensions, err := simpleQueryExt(ctx, client)
+		response, err := simpleQueryExt(ctx, client)
 		require.NoError(t, err)
-		assert.NotNil(t, extensions)
-		assert.Equal(t, extensions["foobar"], "test")
+		assert.NotNil(t, response.Extensions)
+		assert.Equal(t, response.Extensions["foobar"], "test")
 	}
 }
 
@@ -397,23 +144,23 @@ func TestOmitempty(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithOmitempty(ctx, client, "2")
+		response, err := queryWithOmitempty(ctx, client, "2")
 		require.NoError(t, err)
 
-		assert.Equal(t, "2", resp.User.Id)
-		assert.Equal(t, "Raven", resp.User.Name)
-		assert.Equal(t, -1, resp.User.LuckyNumber)
+		assert.Equal(t, "2", response.Data.User.Id)
+		assert.Equal(t, "Raven", response.Data.User.Name)
+		assert.Equal(t, -1, response.Data.User.LuckyNumber)
 
 		// should return default user, not the user with ID ""
-		resp, _, err = queryWithOmitempty(ctx, client, "")
+		response, err = queryWithOmitempty(ctx, client, "")
 		require.NoError(t, err)
 
-		assert.Equal(t, "1", resp.User.Id)
-		assert.Equal(t, "Yours Truly", resp.User.Name)
-		assert.Equal(t, 17, resp.User.LuckyNumber)
+		assert.Equal(t, "1", response.Data.User.Id)
+		assert.Equal(t, "Yours Truly", response.Data.User.Name)
+		assert.Equal(t, 17, response.Data.User.LuckyNumber)
 	}
 }
 
@@ -426,25 +173,25 @@ func TestCustomMarshal(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithCustomMarshal(ctx, client,
+		response, err := queryWithCustomMarshal(ctx, client,
 			time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))
 		require.NoError(t, err)
 
-		assert.Len(t, resp.UsersBornOn, 1)
-		user := resp.UsersBornOn[0]
+		assert.Len(t, response.Data.UsersBornOn, 1)
+		user := response.Data.UsersBornOn[0]
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "Yours Truly", user.Name)
 		assert.Equal(t,
 			time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 			user.Birthdate)
 
-		resp, _, err = queryWithCustomMarshal(ctx, client,
+		response, err = queryWithCustomMarshal(ctx, client,
 			time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC))
 		require.NoError(t, err)
-		assert.Len(t, resp.UsersBornOn, 0)
+		assert.Len(t, response.Data.UsersBornOn, 0)
 	}
 }
 
@@ -457,25 +204,25 @@ func TestCustomMarshalSlice(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithCustomMarshalSlice(ctx, client,
+		response, err := queryWithCustomMarshalSlice(ctx, client,
 			[]time.Time{time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)})
 		require.NoError(t, err)
 
-		assert.Len(t, resp.UsersBornOnDates, 1)
-		user := resp.UsersBornOnDates[0]
+		assert.Len(t, response.Data.UsersBornOnDates, 1)
+		user := response.Data.UsersBornOnDates[0]
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "Yours Truly", user.Name)
 		assert.Equal(t,
 			time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 			user.Birthdate)
 
-		resp, _, err = queryWithCustomMarshalSlice(ctx, client,
+		response, err = queryWithCustomMarshalSlice(ctx, client,
 			[]time.Time{time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)})
 		require.NoError(t, err)
-		assert.Len(t, resp.UsersBornOnDates, 0)
+		assert.Len(t, response.Data.UsersBornOnDates, 0)
 	}
 }
 
@@ -493,15 +240,15 @@ func TestCustomMarshalOptional(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
 		date := time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)
-		resp, _, err := queryWithCustomMarshalOptional(ctx, client, &date, nil)
+		response, err := queryWithCustomMarshalOptional(ctx, client, &date, nil)
 		require.NoError(t, err)
 
-		assert.Len(t, resp.UserSearch, 1)
-		user := resp.UserSearch[0]
+		assert.Len(t, response.Data.UserSearch, 1)
+		user := response.Data.UserSearch[0]
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "Yours Truly", user.Name)
 		assert.Equal(t,
@@ -509,10 +256,10 @@ func TestCustomMarshalOptional(t *testing.T) {
 			user.Birthdate)
 
 		id := "2"
-		resp, _, err = queryWithCustomMarshalOptional(ctx, client, nil, &id)
+		response, err = queryWithCustomMarshalOptional(ctx, client, nil, &id)
 		require.NoError(t, err)
-		assert.Len(t, resp.UserSearch, 1)
-		user = resp.UserSearch[0]
+		assert.Len(t, response.Data.UserSearch, 1)
+		user = response.Data.UserSearch[0]
 		assert.Equal(t, "2", user.Id)
 		assert.Equal(t, "Raven", user.Name)
 		assert.Zero(t, user.Birthdate)
@@ -529,59 +276,59 @@ func TestInterfaceNoFragments(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithInterfaceNoFragments(ctx, client, "1")
+		response, err := queryWithInterfaceNoFragments(ctx, client, "1")
 		require.NoError(t, err)
 
 		// We should get the following response:
 		//	me: User{Id: 1, Name: "Yours Truly"},
 		//	being: User{Id: 1, Name: "Yours Truly"},
 
-		assert.Equal(t, "1", resp.Me.Id)
-		assert.Equal(t, "Yours Truly", resp.Me.Name)
+		assert.Equal(t, "1", response.Data.Me.Id)
+		assert.Equal(t, "Yours Truly", response.Data.Me.Name)
 
 		// Check fields both via interface and via type-assertion:
-		assert.Equal(t, "User", resp.Being.GetTypename())
-		assert.Equal(t, "1", resp.Being.GetId())
-		assert.Equal(t, "Yours Truly", resp.Being.GetName())
+		assert.Equal(t, "User", response.Data.Being.GetTypename())
+		assert.Equal(t, "1", response.Data.Being.GetId())
+		assert.Equal(t, "Yours Truly", response.Data.Being.GetName())
 
-		user, ok := resp.Being.(*queryWithInterfaceNoFragmentsBeingUser)
-		require.Truef(t, ok, "got %T, not User", resp.Being)
+		user, ok := response.Data.Being.(*queryWithInterfaceNoFragmentsBeingUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Being)
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "Yours Truly", user.Name)
 
-		resp, _, err = queryWithInterfaceNoFragments(ctx, client, "3")
+		response, err = queryWithInterfaceNoFragments(ctx, client, "3")
 		require.NoError(t, err)
 
 		// We should get the following response:
 		//	me: User{Id: 1, Name: "Yours Truly"},
 		//	being: Animal{Id: 3, Name: "Fido"},
 
-		assert.Equal(t, "1", resp.Me.Id)
-		assert.Equal(t, "Yours Truly", resp.Me.Name)
+		assert.Equal(t, "1", response.Data.Me.Id)
+		assert.Equal(t, "Yours Truly", response.Data.Me.Name)
 
-		assert.Equal(t, "Animal", resp.Being.GetTypename())
-		assert.Equal(t, "3", resp.Being.GetId())
-		assert.Equal(t, "Fido", resp.Being.GetName())
+		assert.Equal(t, "Animal", response.Data.Being.GetTypename())
+		assert.Equal(t, "3", response.Data.Being.GetId())
+		assert.Equal(t, "Fido", response.Data.Being.GetName())
 
-		animal, ok := resp.Being.(*queryWithInterfaceNoFragmentsBeingAnimal)
-		require.Truef(t, ok, "got %T, not Animal", resp.Being)
+		animal, ok := response.Data.Being.(*queryWithInterfaceNoFragmentsBeingAnimal)
+		require.Truef(t, ok, "got %T, not Animal", response.Data.Being)
 		assert.Equal(t, "3", animal.Id)
 		assert.Equal(t, "Fido", animal.Name)
 
-		resp, _, err = queryWithInterfaceNoFragments(ctx, client, "4757233945723")
+		response, err = queryWithInterfaceNoFragments(ctx, client, "4757233945723")
 		require.NoError(t, err)
 
 		// We should get the following response:
 		//	me: User{Id: 1, Name: "Yours Truly"},
 		//	being: null
 
-		assert.Equal(t, "1", resp.Me.Id)
-		assert.Equal(t, "Yours Truly", resp.Me.Name)
+		assert.Equal(t, "1", response.Data.Me.Id)
+		assert.Equal(t, "Yours Truly", response.Data.Me.Name)
 
-		assert.Nil(t, resp.Being)
+		assert.Nil(t, response.Data.Being)
 	}
 }
 
@@ -594,14 +341,14 @@ func TestInterfaceListField(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithInterfaceListField(ctx, client,
+		response, err := queryWithInterfaceListField(ctx, client,
 			[]string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, resp.Beings, 3)
+		require.Len(t, response.Data.Beings, 3)
 
 		// We should get the following three beings:
 		//	User{Id: 1, Name: "Yours Truly"},
@@ -609,25 +356,25 @@ func TestInterfaceListField(t *testing.T) {
 		//	null
 
 		// Check fields both via interface and via type-assertion:
-		assert.Equal(t, "User", resp.Beings[0].GetTypename())
-		assert.Equal(t, "1", resp.Beings[0].GetId())
-		assert.Equal(t, "Yours Truly", resp.Beings[0].GetName())
+		assert.Equal(t, "User", response.Data.Beings[0].GetTypename())
+		assert.Equal(t, "1", response.Data.Beings[0].GetId())
+		assert.Equal(t, "Yours Truly", response.Data.Beings[0].GetName())
 
-		user, ok := resp.Beings[0].(*queryWithInterfaceListFieldBeingsUser)
-		require.Truef(t, ok, "got %T, not User", resp.Beings[0])
+		user, ok := response.Data.Beings[0].(*queryWithInterfaceListFieldBeingsUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Beings[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "Yours Truly", user.Name)
 
-		assert.Equal(t, "Animal", resp.Beings[1].GetTypename())
-		assert.Equal(t, "3", resp.Beings[1].GetId())
-		assert.Equal(t, "Fido", resp.Beings[1].GetName())
+		assert.Equal(t, "Animal", response.Data.Beings[1].GetTypename())
+		assert.Equal(t, "3", response.Data.Beings[1].GetId())
+		assert.Equal(t, "Fido", response.Data.Beings[1].GetName())
 
-		animal, ok := resp.Beings[1].(*queryWithInterfaceListFieldBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", resp.Beings[1])
+		animal, ok := response.Data.Beings[1].(*queryWithInterfaceListFieldBeingsAnimal)
+		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
 		assert.Equal(t, "3", animal.Id)
 		assert.Equal(t, "Fido", animal.Name)
 
-		assert.Nil(t, resp.Beings[2])
+		assert.Nil(t, response.Data.Beings[2])
 	}
 }
 
@@ -643,35 +390,35 @@ func TestInterfaceListPointerField(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithInterfaceListPointerField(ctx, client,
+		response, err := queryWithInterfaceListPointerField(ctx, client,
 			[]string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, resp.Beings, 3)
+		require.Len(t, response.Data.Beings, 3)
 
 		// Check fields both via interface and via type-assertion:
-		assert.Equal(t, "User", (*resp.Beings[0]).GetTypename())
-		assert.Equal(t, "1", (*resp.Beings[0]).GetId())
-		assert.Equal(t, "Yours Truly", (*resp.Beings[0]).GetName())
+		assert.Equal(t, "User", (*response.Data.Beings[0]).GetTypename())
+		assert.Equal(t, "1", (*response.Data.Beings[0]).GetId())
+		assert.Equal(t, "Yours Truly", (*response.Data.Beings[0]).GetName())
 
-		user, ok := (*resp.Beings[0]).(*queryWithInterfaceListPointerFieldBeingsUser)
-		require.Truef(t, ok, "got %T, not User", *resp.Beings[0])
+		user, ok := (*response.Data.Beings[0]).(*queryWithInterfaceListPointerFieldBeingsUser)
+		require.Truef(t, ok, "got %T, not User", *response.Data.Beings[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "Yours Truly", user.Name)
 
-		assert.Equal(t, "Animal", (*resp.Beings[1]).GetTypename())
-		assert.Equal(t, "3", (*resp.Beings[1]).GetId())
-		assert.Equal(t, "Fido", (*resp.Beings[1]).GetName())
+		assert.Equal(t, "Animal", (*response.Data.Beings[1]).GetTypename())
+		assert.Equal(t, "3", (*response.Data.Beings[1]).GetId())
+		assert.Equal(t, "Fido", (*response.Data.Beings[1]).GetName())
 
-		animal, ok := (*resp.Beings[1]).(*queryWithInterfaceListPointerFieldBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", resp.Beings[1])
+		animal, ok := (*response.Data.Beings[1]).(*queryWithInterfaceListPointerFieldBeingsAnimal)
+		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
 		assert.Equal(t, "3", animal.Id)
 		assert.Equal(t, "Fido", animal.Name)
 
-		assert.Nil(t, resp.Beings[2])
+		assert.Nil(t, response.Data.Beings[2])
 	}
 }
 
@@ -699,13 +446,13 @@ func TestFragments(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithFragments(ctx, client, []string{"1", "3", "12847394823"})
+		response, err := queryWithFragments(ctx, client, []string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, resp.Beings, 3)
+		require.Len(t, response.Data.Beings, 3)
 
 		// We should get the following three beings:
 		//	User{Id: 1, Name: "Yours Truly"},
@@ -714,13 +461,13 @@ func TestFragments(t *testing.T) {
 
 		// Check fields both via interface and via type-assertion when possible
 		// User has, in total, the fields: __typename id name luckyNumber.
-		assert.Equal(t, "User", resp.Beings[0].GetTypename())
-		assert.Equal(t, "1", resp.Beings[0].GetId())
-		assert.Equal(t, "Yours Truly", resp.Beings[0].GetName())
+		assert.Equal(t, "User", response.Data.Beings[0].GetTypename())
+		assert.Equal(t, "1", response.Data.Beings[0].GetId())
+		assert.Equal(t, "Yours Truly", response.Data.Beings[0].GetName())
 		// (hair and luckyNumber we need to cast for)
 
-		user, ok := resp.Beings[0].(*queryWithFragmentsBeingsUser)
-		require.Truef(t, ok, "got %T, not User", resp.Beings[0])
+		user, ok := response.Data.Beings[0].(*queryWithFragmentsBeingsUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Beings[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "Yours Truly", user.Name)
 		assert.Equal(t, "Black", user.Hair.Color)
@@ -735,12 +482,12 @@ func TestFragments(t *testing.T) {
 		//		name
 		//		... on User { luckyNumber }
 		//	}
-		assert.Equal(t, "Animal", resp.Beings[1].GetTypename())
-		assert.Equal(t, "3", resp.Beings[1].GetId())
+		assert.Equal(t, "Animal", response.Data.Beings[1].GetTypename())
+		assert.Equal(t, "3", response.Data.Beings[1].GetId())
 		// (hair, species, and owner.* we have to cast for)
 
-		animal, ok := resp.Beings[1].(*queryWithFragmentsBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", resp.Beings[1])
+		animal, ok := response.Data.Beings[1].(*queryWithFragmentsBeingsAnimal)
+		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
 		assert.Equal(t, "3", animal.Id)
 		assert.Equal(t, SpeciesDog, animal.Species)
 		assert.True(t, animal.Hair.HasHair)
@@ -755,7 +502,7 @@ func TestFragments(t *testing.T) {
 		assert.Equal(t, "Yours Truly", owner.Name)
 		assert.Equal(t, 17, owner.LuckyNumber)
 
-		assert.Nil(t, resp.Beings[2])
+		assert.Nil(t, response.Data.Beings[2])
 	}
 }
 
@@ -794,13 +541,13 @@ func TestNamedFragments(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithNamedFragments(ctx, client, []string{"1", "3", "12847394823"})
+		response, err := queryWithNamedFragments(ctx, client, []string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, resp.Beings, 3)
+		require.Len(t, response.Data.Beings, 3)
 
 		// We should get the following three beings:
 		//	User{Id: 1, Name: "Yours Truly"},
@@ -809,12 +556,12 @@ func TestNamedFragments(t *testing.T) {
 
 		// Check fields both via interface and via type-assertion when possible
 		// User has, in total, the fields: __typename id luckyNumber.
-		assert.Equal(t, "User", resp.Beings[0].GetTypename())
-		assert.Equal(t, "1", resp.Beings[0].GetId())
+		assert.Equal(t, "User", response.Data.Beings[0].GetTypename())
+		assert.Equal(t, "1", response.Data.Beings[0].GetId())
 		// (luckyNumber, hair we need to cast for)
 
-		user, ok := resp.Beings[0].(*queryWithNamedFragmentsBeingsUser)
-		require.Truef(t, ok, "got %T, not User", resp.Beings[0])
+		user, ok := response.Data.Beings[0].(*queryWithNamedFragmentsBeingsUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Beings[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "1", user.UserFields.Id)
 		assert.Equal(t, "1", user.UserFields.MoreUserFields.Id)
@@ -830,12 +577,12 @@ func TestNamedFragments(t *testing.T) {
 		//	id
 		//	hair { hasHair }
 		//	owner { id luckyNumber }
-		assert.Equal(t, "Animal", resp.Beings[1].GetTypename())
-		assert.Equal(t, "3", resp.Beings[1].GetId())
+		assert.Equal(t, "Animal", response.Data.Beings[1].GetTypename())
+		assert.Equal(t, "3", response.Data.Beings[1].GetId())
 		// (hair.* and owner.* we have to cast for)
 
-		animal, ok := resp.Beings[1].(*queryWithNamedFragmentsBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", resp.Beings[1])
+		animal, ok := response.Data.Beings[1].(*queryWithNamedFragmentsBeingsAnimal)
+		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
 		// Check that we filled in *both* ID fields:
 		assert.Equal(t, "3", animal.Id)
 		assert.Equal(t, "3", animal.AnimalFields.Id)
@@ -861,7 +608,7 @@ func TestNamedFragments(t *testing.T) {
 		require.Truef(t, ok, "got %T, not Lucky", animal.Owner)
 		assert.Equal(t, 17, luckyOwner.GetLuckyNumber())
 
-		assert.Nil(t, resp.Beings[2])
+		assert.Nil(t, response.Data.Beings[2])
 	}
 }
 
@@ -925,13 +672,13 @@ func TestFlatten(t *testing.T) {
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
-	clients := newRoundtripClients(t, server.URL)
+	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		resp, _, err := queryWithFlatten(ctx, client, []string{"1", "3", "12847394823"})
+		response, err := queryWithFlatten(ctx, client, []string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, resp.Beings, 3)
+		require.Len(t, response.Data.Beings, 3)
 
 		// We should get the following three beings:
 		//	User{Id: 1, Name: "Yours Truly"},
@@ -940,12 +687,12 @@ func TestFlatten(t *testing.T) {
 
 		// Check fields both via interface and via type-assertion when possible
 		// User has, in total, the fields: __typename id luckyNumber.
-		assert.Equal(t, "User", resp.Beings[0].GetTypename())
-		assert.Equal(t, "1", resp.Beings[0].GetId())
+		assert.Equal(t, "User", response.Data.Beings[0].GetTypename())
+		assert.Equal(t, "1", response.Data.Beings[0].GetId())
 		// (luckyNumber we need to cast for)
 
-		user, ok := resp.Beings[0].(*QueryFragmentBeingsUser)
-		require.Truef(t, ok, "got %T, not User", resp.Beings[0])
+		user, ok := response.Data.Beings[0].(*QueryFragmentBeingsUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Beings[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, 17, user.InnerLuckyFieldsUser.LuckyNumber)
 
@@ -953,12 +700,12 @@ func TestFlatten(t *testing.T) {
 		//	__typename
 		//	id
 		//	owner { id name ... on User { friends { id name } } }
-		assert.Equal(t, "Animal", resp.Beings[1].GetTypename())
-		assert.Equal(t, "3", resp.Beings[1].GetId())
+		assert.Equal(t, "Animal", response.Data.Beings[1].GetTypename())
+		assert.Equal(t, "3", response.Data.Beings[1].GetId())
 		// (owner.* we have to cast for)
 
-		animal, ok := resp.Beings[1].(*QueryFragmentBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", resp.Beings[1])
+		animal, ok := response.Data.Beings[1].(*QueryFragmentBeingsAnimal)
+		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
 		assert.Equal(t, "3", animal.Id)
 		// on AnimalFields:
 		assert.Equal(t, "1", animal.Owner.GetId())
@@ -973,7 +720,7 @@ func TestFlatten(t *testing.T) {
 		assert.Equal(t, "2", owner.Friends[0].Id)
 		assert.Equal(t, "Raven", owner.Friends[0].Name)
 
-		assert.Nil(t, resp.Beings[2])
+		assert.Nil(t, response.Data.Beings[2])
 	}
 }
 

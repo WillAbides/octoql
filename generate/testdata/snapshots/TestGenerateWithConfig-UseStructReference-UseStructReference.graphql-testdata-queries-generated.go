@@ -6,7 +6,7 @@ package queries
 import (
 	"context"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 type StructInput struct {
@@ -67,26 +67,20 @@ query UseStructReference ($input: UseStructReferencesInput!) {
 // https://github.com/Khan/genqlient/issues/342
 func UseStructReference(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	input *UseStructReferencesInput,
-) (data_ *UseStructReferenceResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UseStructReference",
-		Query:  UseStructReference_Operation,
-		Variables: &__UseStructReferenceInput{
-			Input: input,
-		},
+) (*octoql.Response[UseStructReferenceResponse], error) {
+	variables_ := __UseStructReferenceInput{
+		Input: input,
 	}
-
-	data_ = &UseStructReferenceResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[UseStructReferenceResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "UseStructReference",
+			Query: UseStructReference_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

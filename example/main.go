@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 type authedTransport struct {
@@ -40,25 +40,36 @@ func main() {
 			wrapped: http.DefaultTransport,
 		},
 	}
-	graphqlClient := graphql.NewClient("https://api.github.com/graphql", &httpClient)
+	graphqlClient := octoql.NewClient("https://api.github.com/graphql", &httpClient)
 
 	switch len(os.Args) {
 	case 1:
-		var viewerResp *getViewerResponse
+		var viewerResp *octoql.Response[getViewerResponse]
 		viewerResp, err = getViewer(context.Background(), graphqlClient)
 		if err != nil {
 			return
 		}
-		fmt.Println("you are", viewerResp.Viewer.MyName, "created on", viewerResp.Viewer.CreatedAt.Format("2006-01-02"))
+		fmt.Println(
+			"you are",
+			viewerResp.Data.Viewer.MyName,
+			"created on",
+			viewerResp.Data.Viewer.CreatedAt.Format("2006-01-02"),
+		)
 
 	case 2:
 		username := os.Args[1]
-		var userResp *getUserResponse
+		var userResp *octoql.Response[getUserResponse]
 		userResp, err = getUser(context.Background(), graphqlClient, username)
 		if err != nil {
 			return
 		}
-		fmt.Println(username, "is", userResp.User.TheirName, "created on", userResp.User.CreatedAt.Format("2006-01-02"))
+		fmt.Println(
+			username,
+			"is",
+			userResp.Data.User.TheirName,
+			"created on",
+			userResp.Data.User.CreatedAt.Format("2006-01-02"),
+		)
 
 	default:
 		err = fmt.Errorf("usage: %v [username]", os.Args[0])

@@ -6,7 +6,7 @@ package queries
 import (
 	"context"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 // ListInputOmitemptyQueryResponse is returned by ListInputOmitemptyQuery on success.
@@ -54,26 +54,20 @@ query ListInputOmitemptyQuery ($names: [String!]) {
 
 func ListInputOmitemptyQuery(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	names []string,
-) (data_ *ListInputOmitemptyQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ListInputOmitemptyQuery",
-		Query:  ListInputOmitemptyQuery_Operation,
-		Variables: &__ListInputOmitemptyQueryInput{
-			Names: names,
-		},
+) (*octoql.Response[ListInputOmitemptyQueryResponse], error) {
+	variables_ := __ListInputOmitemptyQueryInput{
+		Names: names,
 	}
-
-	data_ = &ListInputOmitemptyQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[ListInputOmitemptyQueryResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "ListInputOmitemptyQuery",
+			Query: ListInputOmitemptyQuery_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

@@ -4,10 +4,12 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -344,28 +346,22 @@ query MultipleDirectives ($query: UserQueryInput, $queries: [UserQueryInput]) {
 `
 
 func MultipleDirectives(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	query MyInput,
 	queries []*UserQueryInput,
-) (data_ *MyMultipleDirectivesResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "MultipleDirectives",
-		Query:  MultipleDirectives_Operation,
-		Variables: &__MultipleDirectivesInput{
-			Query:   query,
-			Queries: queries,
-		},
+) (*octoql.Response[MyMultipleDirectivesResponse], error) {
+	variables_ := __MultipleDirectivesInput{
+		Query:   query,
+		Queries: queries,
 	}
-
-	data_ = &MyMultipleDirectivesResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[MyMultipleDirectivesResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "MultipleDirectives",
+			Query: MultipleDirectives_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

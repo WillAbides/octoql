@@ -37,17 +37,22 @@ func makeIdentifier(candidateIdentifier string) string {
 	return "alias"
 }
 
-func (g *generator) addImportFor(pkgPath string) (alias string) {
-	pkgName := makeIdentifier(pkgPath[strings.LastIndex(pkgPath, "/")+1:])
-	alias = pkgName
+func allocateIdentifier(base string, used map[string]bool) string {
+	identifier := base
 	suffix := 2
-	for g.usedAliases[alias] {
-		alias = pkgName + strconv.Itoa(suffix)
+	for used[identifier] {
+		identifier = base + strconv.Itoa(suffix)
 		suffix++
 	}
+	used[identifier] = true
+	return identifier
+}
+
+func (g *generator) addImportFor(pkgPath string) (alias string) {
+	pkgName := makeIdentifier(pkgPath[strings.LastIndex(pkgPath, "/")+1:])
+	alias = allocateIdentifier(pkgName, g.usedAliases)
 
 	g.imports[pkgPath] = alias
-	g.usedAliases[alias] = true
 	return alias
 }
 

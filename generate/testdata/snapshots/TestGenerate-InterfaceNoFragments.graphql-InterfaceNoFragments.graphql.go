@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -653,22 +655,16 @@ query InterfaceNoFragmentsQuery {
 `
 
 func InterfaceNoFragmentsQuery(
-	client_ graphql.Client,
-) (data_ *InterfaceNoFragmentsQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "InterfaceNoFragmentsQuery",
-		Query:  InterfaceNoFragmentsQuery_Operation,
-	}
-
-	data_ = &InterfaceNoFragmentsQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[InterfaceNoFragmentsQueryResponse], error) {
+	return octoql.Do[InterfaceNoFragmentsQueryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "InterfaceNoFragmentsQuery",
+			Query: InterfaceNoFragmentsQuery_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

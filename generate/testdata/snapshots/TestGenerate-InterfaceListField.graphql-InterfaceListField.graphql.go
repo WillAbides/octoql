@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -546,22 +548,16 @@ query InterfaceListField {
 `
 
 func InterfaceListField(
-	client_ graphql.Client,
-) (data_ *InterfaceListFieldResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "InterfaceListField",
-		Query:  InterfaceListField_Operation,
-	}
-
-	data_ = &InterfaceListFieldResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[InterfaceListFieldResponse], error) {
+	return octoql.Do[InterfaceListFieldResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "InterfaceListField",
+			Query: InterfaceListField_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

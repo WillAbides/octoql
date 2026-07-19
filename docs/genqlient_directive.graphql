@@ -85,7 +85,8 @@ directive genqlient(
   #  # @genqlient(omitempty: true)
   #  query MyQuery($arg: String) { ... }
   # genqlient will generate a function
-  #  MyQuery(ctx context.Context, client graphql.Client, arg string) ...
+  #  MyQuery(ctx context.Context, client *octoql.Client, arg string)
+  #    (*octoql.Response[MyQueryResponse], error)
   # which will pass {"arg": null} to GraphQL if arg is "", and the actual
   # value otherwise.
   #

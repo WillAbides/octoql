@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 )
 
 // QueryWithSlicesResponse is returned by QueryWithSlices on success.
@@ -55,22 +57,16 @@ query QueryWithSlices {
 `
 
 func QueryWithSlices(
-	client_ graphql.Client,
-) (data_ *QueryWithSlicesResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "QueryWithSlices",
-		Query:  QueryWithSlices_Operation,
-	}
-
-	data_ = &QueryWithSlicesResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[QueryWithSlicesResponse], error) {
+	return octoql.Do[QueryWithSlicesResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "QueryWithSlices",
+			Query: QueryWithSlices_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

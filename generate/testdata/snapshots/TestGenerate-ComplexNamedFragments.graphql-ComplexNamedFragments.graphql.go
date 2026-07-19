@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -2601,23 +2603,17 @@ fragment MoreVideoFields on Video {
 `
 
 func ComplexNamedFragments(
-	client_ graphql.Client,
-) (data_ *ComplexNamedFragmentsResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ComplexNamedFragments",
-		Query:  ComplexNamedFragments_Operation,
-	}
-
-	data_ = &ComplexNamedFragmentsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[ComplexNamedFragmentsResponse], error) {
+	return octoql.Do[ComplexNamedFragmentsResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "ComplexNamedFragments",
+			Query: ComplexNamedFragments_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 
 // The query executed by ComplexNamedFragmentsWithInlineUnion.
@@ -2653,22 +2649,16 @@ fragment SimpleLeafContent on LeafContent {
 `
 
 func ComplexNamedFragmentsWithInlineUnion(
-	client_ graphql.Client,
-) (data_ *ComplexNamedFragmentsWithInlineUnionResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ComplexNamedFragmentsWithInlineUnion",
-		Query:  ComplexNamedFragmentsWithInlineUnion_Operation,
-	}
-
-	data_ = &ComplexNamedFragmentsWithInlineUnionResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[ComplexNamedFragmentsWithInlineUnionResponse], error) {
+	return octoql.Do[ComplexNamedFragmentsWithInlineUnionResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "ComplexNamedFragmentsWithInlineUnion",
+			Query: ComplexNamedFragmentsWithInlineUnion_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

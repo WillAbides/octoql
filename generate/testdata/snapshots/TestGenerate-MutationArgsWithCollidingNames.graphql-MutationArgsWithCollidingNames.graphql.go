@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -62,32 +64,26 @@ mutation MutationArgsWithCollidingNames ($data: String!, $req: Int, $resp: Int, 
 `
 
 func MutationArgsWithCollidingNames(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	data string,
 	req int,
 	resp int,
 	client string,
-) (data_ *MutationArgsWithCollidingNamesResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "MutationArgsWithCollidingNames",
-		Query:  MutationArgsWithCollidingNames_Operation,
-		Variables: &__MutationArgsWithCollidingNamesInput{
-			Data:   data,
-			Req:    req,
-			Resp:   resp,
-			Client: client,
-		},
+) (*octoql.Response[MutationArgsWithCollidingNamesResponse], error) {
+	variables_ := __MutationArgsWithCollidingNamesInput{
+		Data:   data,
+		Req:    req,
+		Resp:   resp,
+		Client: client,
 	}
-
-	data_ = &MutationArgsWithCollidingNamesResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[MutationArgsWithCollidingNamesResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "MutationArgsWithCollidingNames",
+			Query: MutationArgsWithCollidingNames_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

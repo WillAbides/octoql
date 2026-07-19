@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -49,22 +51,16 @@ query SimpleQueryNoOverride {
 `
 
 func SimpleQueryNoOverride(
-	client_ graphql.Client,
-) (data_ *SimpleQueryNoOverrideResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SimpleQueryNoOverride",
-		Query:  SimpleQueryNoOverride_Operation,
-	}
-
-	data_ = &SimpleQueryNoOverrideResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[SimpleQueryNoOverrideResponse], error) {
+	return octoql.Do[SimpleQueryNoOverrideResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SimpleQueryNoOverride",
+			Query: SimpleQueryNoOverride_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

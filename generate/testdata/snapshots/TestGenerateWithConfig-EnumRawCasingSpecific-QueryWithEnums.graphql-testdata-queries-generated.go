@@ -6,7 +6,7 @@ package queries
 import (
 	"context"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 // QueryWithEnumsOtherUser includes the requested fields of the GraphQL type User.
@@ -84,22 +84,16 @@ query QueryWithEnums {
 
 func QueryWithEnums(
 	ctx_ context.Context,
-	client_ graphql.Client,
-) (data_ *QueryWithEnumsResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "QueryWithEnums",
-		Query:  QueryWithEnums_Operation,
-	}
-
-	data_ = &QueryWithEnumsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[QueryWithEnumsResponse], error) {
+	return octoql.Do[QueryWithEnumsResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "QueryWithEnums",
+			Query: QueryWithEnums_Operation,
+		},
+		nil,
 	)
-
-	return data_, err_
 }
 

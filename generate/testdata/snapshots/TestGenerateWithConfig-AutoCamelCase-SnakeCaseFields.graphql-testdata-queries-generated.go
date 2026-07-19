@@ -6,7 +6,7 @@ package queries
 import (
 	"context"
 
-	"github.com/willabides/octoql/graphql"
+	"github.com/willabides/octoql"
 )
 
 // SnakeCaseFieldsResponse is returned by SnakeCaseFields on success.
@@ -48,22 +48,16 @@ query SnakeCaseFields {
 
 func SnakeCaseFields(
 	ctx_ context.Context,
-	client_ graphql.Client,
-) (data_ *SnakeCaseFieldsResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SnakeCaseFields",
-		Query:  SnakeCaseFields_Operation,
-	}
-
-	data_ = &SnakeCaseFieldsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[SnakeCaseFieldsResponse], error) {
+	return octoql.Do[SnakeCaseFieldsResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "SnakeCaseFields",
+			Query: SnakeCaseFields_Operation,
+		},
+		nil,
 	)
-
-	return data_, err_
 }
 

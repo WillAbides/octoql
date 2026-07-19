@@ -1,30 +1,30 @@
 # Configuring and using the genqlient client
 
-This document describes common patterns for using the genqlient client at runtime. For full client reference documentation, see the [godoc].
+This document describes common patterns for using generated clients at runtime. For full client reference documentation, see the [godoc].
 
-[godoc]: https://pkg.go.dev/github.com/willabides/octoql/graphql
+[godoc]: https://pkg.go.dev/github.com/willabides/octoql
 
 ## Creating a client
 
-For most users, just call [`graphql.NewClient`][godoc#NewClient] to get a `graphql.Client`, which you can then pass to genqlient's generated functions. For example, `graphql.NewClient("https://your.api.example/path", http.DefaultClient)` will call an API at the given URL in a fashion compatible with most GraphQL servers.
+Call [`octoql.NewClient`][godoc#NewClient] to get an `*octoql.Client`, which you can then pass to generated query and mutation functions.
 
 For example (see the [getting started docs](INTRODUCTION.md) for the full setup):
 
 ```go
 ctx := context.Background()
-client := graphql.NewClient("https://api.github.com/graphql", http.DefaultClient)
+client := octoql.NewClient("https://api.github.com/graphql", http.DefaultClient)
 resp, err := getUser(ctx, client, "benjaminjkraft")
-fmt.Println(resp.User.Name, err)
+fmt.Println(resp.Data.User.Name, err)
 ```
 
 You can pass the client around however you like to inject dependencies, such as via a global variable, context value, or [fancy typed context][kacontext].
 
-[godoc#NewClient]: https://pkg.go.dev/github.com/willabides/octoql/graphql#NewClient
+[godoc#NewClient]: https://pkg.go.dev/github.com/willabides/octoql#NewClient
 [kacontext]: https://blog.khanacademy.org/statically-typed-context-in-go/
 
 ### Authentication and other headers
 
-To use an API requiring authentication, you can customize the HTTP client passed to [`graphql.NewClient`][godoc#NewClient] to add whatever headers you need. The usual way to do this is to wrap the client's `Transport`:
+To use an API requiring authentication, customize the HTTP client passed to [`octoql.NewClient`][godoc#NewClient]. The usual way to do this is to wrap the client's `Transport`:
 
 ```go
 type authedTransport struct {
@@ -38,7 +38,7 @@ func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func MakeQuery(...) {
-  client := graphql.NewClient("https://api.github.com/graphql",
+  client := octoql.NewClient("https://api.github.com/graphql",
     &http.Client{Transport: &authedTransport{wrapped: http.DefaultTransport}})
 
   resp, err := MyQuery(ctx, client, ...)
@@ -47,40 +47,15 @@ func MakeQuery(...) {
 
 The same method works for passing other HTTP headers, like [`traceparent`](https://www.w3.org/TR/trace-context/). To set a request-dependent header, the `RoundTrip` method has access to the full request, including the context from `req.Context()`. For more on wrapping HTTP clients, see [this post](https://dev.to/stevenacoffman/tripperwares-http-client-middleware-chaining-roundtrippers-3o00).
 
-### GET requests
-
-To use GET instead of POST requests, use [`graphql.NewClientUsingGet`][godoc#NewClientUsingGet) to create a client that puts the request in GET query parameters, compatible with many GraphQL servers. For example:
-```go
-ctx := context.Background()
-client := graphql.NewClientUsingGet("https://api.github.com/graphql", http.DefaultClient)
-resp, err := getUser(ctx, client, "benjaminjkraft")
-fmt.Println(resp.User.Name, err)
-```
-
-The request will be sent via an HTTP GET request, with the query, operation name and variables encoded in the URL, like so:
-```
-https://api.github.com/graphql?operationName%3DgetUser%26query%3D%0Aquery%20getUser(%24login%3A%20String!)%20%7B%0A%20%20user(login%3A%20%24login)%20%7B%0A%20%20%20%20name%0A%20%20%7D%0A%7D%0A%26variables%3D%7B%22login%22%3A%22benjaminjkraft%22%7D
-```
-
-This is useful for caching requests in a CDN or browser cache. It's not recommended for requests containing sensitive data. This client does not support mutations, and will return an error if used for a mutation.
-
-[godoc#NewClientUsingGet]: https://pkg.go.dev/github.com/willabides/octoql/graphql#NewClientUsingGet
-
-### Custom clients
-
-The genqlient client is an interface; you may define your own implementation. This could wrap the ordinary client to handle GraphQL extensions or set query-specific headers; or start from scratch to use a custom transport. For details, see the [documentation][godoc#Client].
-
-[godoc#Client]: https://pkg.go.dev/github.com/willabides/octoql/graphql#Client
-
 ## Testing
 
 ### Testing code that uses genqlient
 
 Testing code that uses genqlient typically involves passing in a special HTTP client that does what you want, similar to authentication.  For example, you might write a client whose `RoundTrip` returns a fixed response, constructed with [`httptest`].  Or, you can use `httptest` to start up a temporary server, and point genqlient at that.  Many third-party packages provide support for this sort of thing; genqlient should work with any HTTP-level mocking that can expose a regular `http.Client`.
 
-For an example, genqlient's own integration tests use both approaches:
+For an example, octoql's own integration tests use both approaches:
 - we [set up a simple GraphQL server](../internal/integration/server/server.go) using [`gqlgen`][gqlgen] and [`httptest`][httptest], and run requests against that
-- we also [wrap the HTTP client](../internal/integration/roundtrip.go) to do extra assertions about each request and response (to check the marshaling and unmarshaling logic).
+- we also [wrap the HTTP client](../internal/integration/runtime_test.go) to exercise HTTP metadata and typed error behavior.
 
 [gqlgen]: https://gqlgen.com/
 [httptest]: https://pkg.go.dev/net/http/httptest
@@ -91,7 +66,10 @@ If you want, you can use genqlient to test your GraphQL APIs; as with mocking yo
 
 ## Response objects
 
-Each genqlient-generated helper function returns a struct whose type corresponds to the query result. For example, given a simple query:
+Each generated query or mutation helper returns an `*octoql.Response[T]`, where `T` is the generated operation response type. For example, given a simple query:
+
+octoql does not support GraphQL subscriptions. octoqlgen rejects subscription
+operations during generation.
 
 ```graphql
 query getUser($login: String!) {
@@ -104,7 +82,7 @@ query getUser($login: String!) {
 genqlient will generate something like the following:
 
 ```go
-func getUser(...) (*getUserResponse, error) { ... }
+func getUser(...) (*octoql.Response[getUserResponse], error) { ... }
 
 type getUserResponse struct {
 	User getUserUser
@@ -119,33 +97,30 @@ For more on accessing response objects for interfaces and fragments, see the [op
 
 ### Handling errors
 
-In addition to the response-struct, each genqlient-generated helper function returns an error. The error may be [`As`-able][As] to one of the following:
+Generated helpers return the root runtime error unchanged. GraphQL errors are
+inspectable as `octoql.Errors` and individual `*octoql.Error` values. Non-2xx
+responses are inspectable as `*octoql.HTTPError`, and primary or secondary
+rate-limit responses as `*octoql.RateLimitError`.
 
-- [`gqlerror.List`][gqlerror], if the request returns a valid GraphQL response containing errors; in this case the struct may be partly-populated 
-- [`graphql.HTTPError`][HTTPError], if there was a valid but non-200 HTTP response
-- another error (e.g. a [`*url.Error`][urlError])
-
-In case of a GraphQL error, the response-struct may be partly-populated (if one field failed but another was computed successfully). In other cases it will be blank, but it will always be initialized (never nil), even on error.
-
-[As]: https://pkg.go.dev/errors#As
-[gqlerror]: https://pkg.go.dev/github.com/vektah/gqlparser/v2/gqlerror#List
-[HTTPError]: https://pkg.go.dev/github.com/willabides/octoql/graphql#HTTPError
-[urlError]: https://pkg.go.dev/net/url#Error
+Once an HTTP response is received, the returned response remains non-nil and
+contains any partial `Data`, `Errors`, `Extensions`, cloned HTTP headers,
+request ID, and rate-limit metadata. Transport or request failures before an
+HTTP response return a nil response.
 
 For example, you might do one of the following:
 ```go
 // return both error and field:
 resp, err := getUser(...)
-return resp.User.Name, err
+return resp.Data.User.Name, err
 
 // handle different errors differently:
 resp, err := getUser(...)
-var errList gqlerror.List
+var errList octoql.Errors
 if errors.As(err, &errList) {
   for _, err := range errList {
     fmt.Printf("%v at %v\n", err.Message, err.Path)
   }
-  fmt.Printf("partial response: %v\n", resp)
+  fmt.Printf("partial response: %v\n", resp.Data)
 } else if err != nil {
   fmt.Printf("http/network error: %v\n", err)
 } else {
@@ -160,9 +135,8 @@ All genqlient-generated types support both JSON-marshaling and unmarshaling, whi
 ```go
 resp, err := MyQuery(...)
 // not guaranteed to match what the server sent (but close):
-b, err := json.Marshal(resp)
+b, err := json.Marshal(resp.Data)
 // guaranteed to match resp:
 var respAgain MyQueryResponse
-err := json.Unmarshal(b, &resp)
+err := json.Unmarshal(b, &respAgain)
 ```
-

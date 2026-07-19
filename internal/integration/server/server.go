@@ -3,10 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -157,95 +155,23 @@ func (m mutationResolver) CreateUser(ctx context.Context, input NewUser) (*User,
 	return &newUser, nil
 }
 
-func (s *subscriptionResolver) Count(ctx context.Context) (<-chan int, error) {
-	respChan := make(chan int, 1)
-	go func(respChan chan int) {
-		defer close(respChan)
-		counter := 0
-		for {
-			if counter == 10 {
-				return
-			}
-			respChan <- counter
-			counter++
-			time.Sleep(100 * time.Millisecond)
-		}
-	}(respChan)
-	return respChan, nil
-}
-
-func (s *subscriptionResolver) CountAuthorized(ctx context.Context) (<-chan int, error) {
-	if getAuthToken(ctx) != "authorized-user-token" {
-		return nil, fmt.Errorf("unauthorized")
-	}
-
-	return s.Count(ctx)
-}
-
-func (s *subscriptionResolver) CountClose(ctx context.Context) (<-chan int, error) {
-	return s.Count(ctx)
-}
-
-const AuthKey = "authToken"
-
-type (
-	authTokenCtxKey struct{}
-)
-
-func withAuthToken(ctx context.Context, token string) context.Context {
-	return context.WithValue(ctx, authTokenCtxKey{}, token)
-}
-
-func getAuthToken(ctx context.Context) string {
-	if tkn, ok := ctx.Value(authTokenCtxKey{}).(string); ok {
-		return tkn
-	}
-	return ""
-}
-
-func authHeaderMiddleware(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		token := r.Header.Get(AuthKey)
-		if token != "" {
-			ctx = withAuthToken(ctx, token)
-		}
-
-		r = r.WithContext(ctx)
-		handler.ServeHTTP(w, r)
-	})
-}
-
 func RunServer() *httptest.Server {
 	gqlgenServer := handler.New(NewExecutableSchema(Config{Resolvers: &resolver{}}))
 	gqlgenServer.AddTransport(transport.POST{})
 	gqlgenServer.AddTransport(transport.GET{})
-
-	gqlgenServer.AddTransport(transport.Websocket{
-		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			if authToken, ok := initPayload[AuthKey].(string); ok && authToken != "" {
-				ctx = withAuthToken(ctx, authToken)
-			}
-			return ctx, &initPayload, nil
-		},
-	})
 
 	gqlgenServer.AroundResponses(func(ctx context.Context, next graphql.ResponseHandler) *graphql.Response {
 		graphql.RegisterExtension(ctx, "foobar", "test")
 		return next(ctx)
 	})
 
-	server := authHeaderMiddleware(gqlgenServer)
-
-	return httptest.NewServer(server)
+	return httptest.NewServer(gqlgenServer)
 }
 
 type (
-	resolver             struct{}
-	queryResolver        struct{}
-	mutationResolver     struct{}
-	subscriptionResolver struct{}
+	resolver         struct{}
+	queryResolver    struct{}
+	mutationResolver struct{}
 )
 
 func (r *resolver) Mutation() MutationResolver {
@@ -253,9 +179,5 @@ func (r *resolver) Mutation() MutationResolver {
 }
 
 func (r *resolver) Query() QueryResolver { return &queryResolver{} }
-
-func (r *resolver) Subscription() SubscriptionResolver {
-	return &subscriptionResolver{}
-}
 
 //go:generate go run github.com/99designs/gqlgen@v0.17.94

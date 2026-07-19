@@ -79,8 +79,6 @@ func (g *generator) baseTypeForOperation(operation ast.Operation) (*ast.Definiti
 		return g.schema.Query, nil
 	case ast.Mutation:
 		return g.schema.Mutation, nil
-	case ast.Subscription:
-		return g.schema.Subscription, nil
 	default:
 		return nil, errorf(nil, "unexpected operation: %v", operation)
 	}

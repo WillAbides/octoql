@@ -6,10 +6,10 @@ package integration
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -1311,30 +1311,6 @@ type __queryWithVariablesInput struct {
 
 // GetId returns __queryWithVariablesInput.Id, and is useful for accessing the field via an interface.
 func (v *__queryWithVariablesInput) GetId() string { return v.Id }
-
-// countAuthorizedResponse is returned by countAuthorized on success.
-type countAuthorizedResponse struct {
-	CountAuthorized int `json:"countAuthorized"`
-}
-
-// GetCountAuthorized returns countAuthorizedResponse.CountAuthorized, and is useful for accessing the field via an interface.
-func (v *countAuthorizedResponse) GetCountAuthorized() int { return v.CountAuthorized }
-
-// countCloseResponse is returned by countClose on success.
-type countCloseResponse struct {
-	CountClose int `json:"countClose"`
-}
-
-// GetCountClose returns countCloseResponse.CountClose, and is useful for accessing the field via an interface.
-func (v *countCloseResponse) GetCountClose() int { return v.CountClose }
-
-// countResponse is returned by count on success.
-type countResponse struct {
-	Count int `json:"count"`
-}
-
-// GetCount returns countResponse.Count, and is useful for accessing the field via an interface.
-func (v *countResponse) GetCount() int { return v.Count }
 
 // createUserCreateUser includes the requested fields of the GraphQL type User.
 type createUserCreateUser struct {
@@ -3113,150 +3089,6 @@ type simpleQueryResponse struct {
 // GetMe returns simpleQueryResponse.Me, and is useful for accessing the field via an interface.
 func (v *simpleQueryResponse) GetMe() simpleQueryMeUser { return v.Me }
 
-// The subscription executed by count.
-const count_Operation = `
-subscription count {
-	count
-}
-`
-
-// To unsubscribe, use [graphql.WebSocketClient.Unsubscribe]
-func count(
-	ctx_ context.Context,
-	client_ graphql.WebSocketClient,
-) (dataChan_ chan countWsResponse, subscriptionID_ string, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "count",
-		Query:  count_Operation,
-	}
-
-	dataChan_ = make(chan countWsResponse)
-	subscriptionID_, err_ = client_.Subscribe(req_, dataChan_, countForwardData)
-
-	return dataChan_, subscriptionID_, err_
-}
-
-type countWsResponse graphql.BaseResponse[*countResponse]
-
-func countForwardData(interfaceChan interface{}, jsonRawMsg json.RawMessage) error {
-	var gqlResp graphql.Response
-	var wsResp countWsResponse
-	err := json.Unmarshal(jsonRawMsg, &gqlResp)
-	if err != nil {
-		return err
-	}
-	if len(gqlResp.Errors) == 0 {
-		err = json.Unmarshal(jsonRawMsg, &wsResp)
-		if err != nil {
-			return err
-		}
-	} else {
-		wsResp.Errors = gqlResp.Errors
-	}
-	dataChan_, ok := interfaceChan.(chan countWsResponse)
-	if !ok {
-		return errors.New("failed to cast interface into 'chan countWsResponse'")
-	}
-	dataChan_ <- wsResp
-	return nil
-}
-
-// The subscription executed by countAuthorized.
-const countAuthorized_Operation = `
-subscription countAuthorized {
-	countAuthorized
-}
-`
-
-// To unsubscribe, use [graphql.WebSocketClient.Unsubscribe]
-func countAuthorized(
-	ctx_ context.Context,
-	client_ graphql.WebSocketClient,
-) (dataChan_ chan countAuthorizedWsResponse, subscriptionID_ string, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "countAuthorized",
-		Query:  countAuthorized_Operation,
-	}
-
-	dataChan_ = make(chan countAuthorizedWsResponse)
-	subscriptionID_, err_ = client_.Subscribe(req_, dataChan_, countAuthorizedForwardData)
-
-	return dataChan_, subscriptionID_, err_
-}
-
-type countAuthorizedWsResponse graphql.BaseResponse[*countAuthorizedResponse]
-
-func countAuthorizedForwardData(interfaceChan interface{}, jsonRawMsg json.RawMessage) error {
-	var gqlResp graphql.Response
-	var wsResp countAuthorizedWsResponse
-	err := json.Unmarshal(jsonRawMsg, &gqlResp)
-	if err != nil {
-		return err
-	}
-	if len(gqlResp.Errors) == 0 {
-		err = json.Unmarshal(jsonRawMsg, &wsResp)
-		if err != nil {
-			return err
-		}
-	} else {
-		wsResp.Errors = gqlResp.Errors
-	}
-	dataChan_, ok := interfaceChan.(chan countAuthorizedWsResponse)
-	if !ok {
-		return errors.New("failed to cast interface into 'chan countAuthorizedWsResponse'")
-	}
-	dataChan_ <- wsResp
-	return nil
-}
-
-// The subscription executed by countClose.
-const countClose_Operation = `
-subscription countClose {
-	countClose
-}
-`
-
-// To unsubscribe, use [graphql.WebSocketClient.Unsubscribe]
-func countClose(
-	ctx_ context.Context,
-	client_ graphql.WebSocketClient,
-) (dataChan_ chan countCloseWsResponse, subscriptionID_ string, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "countClose",
-		Query:  countClose_Operation,
-	}
-
-	dataChan_ = make(chan countCloseWsResponse)
-	subscriptionID_, err_ = client_.Subscribe(req_, dataChan_, countCloseForwardData)
-
-	return dataChan_, subscriptionID_, err_
-}
-
-type countCloseWsResponse graphql.BaseResponse[*countCloseResponse]
-
-func countCloseForwardData(interfaceChan interface{}, jsonRawMsg json.RawMessage) error {
-	var gqlResp graphql.Response
-	var wsResp countCloseWsResponse
-	err := json.Unmarshal(jsonRawMsg, &gqlResp)
-	if err != nil {
-		return err
-	}
-	if len(gqlResp.Errors) == 0 {
-		err = json.Unmarshal(jsonRawMsg, &wsResp)
-		if err != nil {
-			return err
-		}
-	} else {
-		wsResp.Errors = gqlResp.Errors
-	}
-	dataChan_, ok := interfaceChan.(chan countCloseWsResponse)
-	if !ok {
-		return errors.New("failed to cast interface into 'chan countCloseWsResponse'")
-	}
-	dataChan_ <- wsResp
-	return nil
-}
-
 // The mutation executed by createUser.
 const createUser_Operation = `
 mutation createUser ($user: NewUser!) {
@@ -3269,27 +3101,21 @@ mutation createUser ($user: NewUser!) {
 
 func createUser(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	user NewUser,
-) (data_ *createUserResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "createUser",
-		Query:  createUser_Operation,
-		Variables: &__createUserInput{
-			User: user,
-		},
+) (*octoql.Response[createUserResponse], error) {
+	variables_ := __createUserInput{
+		User: user,
 	}
-
-	data_ = &createUserResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[createUserResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "createUser",
+			Query: createUser_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by failingQuery.
@@ -3304,23 +3130,17 @@ query failingQuery {
 
 func failingQuery(
 	ctx_ context.Context,
-	client_ graphql.Client,
-) (data_ *failingQueryResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "failingQuery",
-		Query:  failingQuery_Operation,
-	}
-
-	data_ = &failingQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[failingQueryResponse], error) {
+	return octoql.Do[failingQueryResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "failingQuery",
+			Query: failingQuery_Operation,
+		},
+		nil,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithCustomMarshal.
@@ -3336,27 +3156,21 @@ query queryWithCustomMarshal ($date: Date!) {
 
 func queryWithCustomMarshal(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	date time.Time,
-) (data_ *queryWithCustomMarshalResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithCustomMarshal",
-		Query:  queryWithCustomMarshal_Operation,
-		Variables: &__queryWithCustomMarshalInput{
-			Date: date,
-		},
+) (*octoql.Response[queryWithCustomMarshalResponse], error) {
+	variables_ := __queryWithCustomMarshalInput{
+		Date: date,
 	}
-
-	data_ = &queryWithCustomMarshalResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithCustomMarshalResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithCustomMarshal",
+			Query: queryWithCustomMarshal_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithCustomMarshalOptional.
@@ -3372,29 +3186,23 @@ query queryWithCustomMarshalOptional ($date: Date, $id: ID) {
 
 func queryWithCustomMarshalOptional(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	date *time.Time,
 	id *string,
-) (data_ *queryWithCustomMarshalOptionalResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithCustomMarshalOptional",
-		Query:  queryWithCustomMarshalOptional_Operation,
-		Variables: &__queryWithCustomMarshalOptionalInput{
-			Date: date,
-			Id:   id,
-		},
+) (*octoql.Response[queryWithCustomMarshalOptionalResponse], error) {
+	variables_ := __queryWithCustomMarshalOptionalInput{
+		Date: date,
+		Id:   id,
 	}
-
-	data_ = &queryWithCustomMarshalOptionalResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithCustomMarshalOptionalResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithCustomMarshalOptional",
+			Query: queryWithCustomMarshalOptional_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithCustomMarshalSlice.
@@ -3410,27 +3218,21 @@ query queryWithCustomMarshalSlice ($dates: [Date!]!) {
 
 func queryWithCustomMarshalSlice(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	dates []time.Time,
-) (data_ *queryWithCustomMarshalSliceResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithCustomMarshalSlice",
-		Query:  queryWithCustomMarshalSlice_Operation,
-		Variables: &__queryWithCustomMarshalSliceInput{
-			Dates: dates,
-		},
+) (*octoql.Response[queryWithCustomMarshalSliceResponse], error) {
+	variables_ := __queryWithCustomMarshalSliceInput{
+		Dates: dates,
 	}
-
-	data_ = &queryWithCustomMarshalSliceResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithCustomMarshalSliceResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithCustomMarshalSlice",
+			Query: queryWithCustomMarshalSlice_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithFlatten.
@@ -3480,27 +3282,21 @@ fragment FriendsFields on User {
 
 func queryWithFlatten(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	ids []string,
-) (data_ *QueryFragment, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithFlatten",
-		Query:  queryWithFlatten_Operation,
-		Variables: &__queryWithFlattenInput{
-			Ids: ids,
-		},
+) (*octoql.Response[QueryFragment], error) {
+	variables_ := __queryWithFlattenInput{
+		Ids: ids,
 	}
-
-	data_ = &QueryFragment{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[QueryFragment](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithFlatten",
+			Query: queryWithFlatten_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithFragments.
@@ -3544,27 +3340,21 @@ query queryWithFragments ($ids: [ID!]!) {
 
 func queryWithFragments(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	ids []string,
-) (data_ *queryWithFragmentsResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithFragments",
-		Query:  queryWithFragments_Operation,
-		Variables: &__queryWithFragmentsInput{
-			Ids: ids,
-		},
+) (*octoql.Response[queryWithFragmentsResponse], error) {
+	variables_ := __queryWithFragmentsInput{
+		Ids: ids,
 	}
-
-	data_ = &queryWithFragmentsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithFragmentsResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithFragments",
+			Query: queryWithFragments_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithInterfaceListField.
@@ -3580,27 +3370,21 @@ query queryWithInterfaceListField ($ids: [ID!]!) {
 
 func queryWithInterfaceListField(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	ids []string,
-) (data_ *queryWithInterfaceListFieldResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithInterfaceListField",
-		Query:  queryWithInterfaceListField_Operation,
-		Variables: &__queryWithInterfaceListFieldInput{
-			Ids: ids,
-		},
+) (*octoql.Response[queryWithInterfaceListFieldResponse], error) {
+	variables_ := __queryWithInterfaceListFieldInput{
+		Ids: ids,
 	}
-
-	data_ = &queryWithInterfaceListFieldResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithInterfaceListFieldResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithInterfaceListField",
+			Query: queryWithInterfaceListField_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithInterfaceListPointerField.
@@ -3616,27 +3400,21 @@ query queryWithInterfaceListPointerField ($ids: [ID!]!) {
 
 func queryWithInterfaceListPointerField(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	ids []string,
-) (data_ *queryWithInterfaceListPointerFieldResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithInterfaceListPointerField",
-		Query:  queryWithInterfaceListPointerField_Operation,
-		Variables: &__queryWithInterfaceListPointerFieldInput{
-			Ids: ids,
-		},
+) (*octoql.Response[queryWithInterfaceListPointerFieldResponse], error) {
+	variables_ := __queryWithInterfaceListPointerFieldInput{
+		Ids: ids,
 	}
-
-	data_ = &queryWithInterfaceListPointerFieldResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithInterfaceListPointerFieldResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithInterfaceListPointerField",
+			Query: queryWithInterfaceListPointerField_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithInterfaceNoFragments.
@@ -3656,27 +3434,21 @@ query queryWithInterfaceNoFragments ($id: ID!) {
 
 func queryWithInterfaceNoFragments(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	id string,
-) (data_ *queryWithInterfaceNoFragmentsResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithInterfaceNoFragments",
-		Query:  queryWithInterfaceNoFragments_Operation,
-		Variables: &__queryWithInterfaceNoFragmentsInput{
-			Id: id,
-		},
+) (*octoql.Response[queryWithInterfaceNoFragmentsResponse], error) {
+	variables_ := __queryWithInterfaceNoFragmentsInput{
+		Id: id,
 	}
-
-	data_ = &queryWithInterfaceNoFragmentsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithInterfaceNoFragmentsResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithInterfaceNoFragments",
+			Query: queryWithInterfaceNoFragments_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithNamedFragments.
@@ -3720,27 +3492,21 @@ fragment MoreUserFields on User {
 
 func queryWithNamedFragments(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	ids []string,
-) (data_ *queryWithNamedFragmentsResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithNamedFragments",
-		Query:  queryWithNamedFragments_Operation,
-		Variables: &__queryWithNamedFragmentsInput{
-			Ids: ids,
-		},
+) (*octoql.Response[queryWithNamedFragmentsResponse], error) {
+	variables_ := __queryWithNamedFragmentsInput{
+		Ids: ids,
 	}
-
-	data_ = &queryWithNamedFragmentsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithNamedFragmentsResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithNamedFragments",
+			Query: queryWithNamedFragments_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithOmitempty.
@@ -3756,27 +3522,21 @@ query queryWithOmitempty ($id: ID) {
 
 func queryWithOmitempty(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	id string,
-) (data_ *queryWithOmitemptyResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithOmitempty",
-		Query:  queryWithOmitempty_Operation,
-		Variables: &__queryWithOmitemptyInput{
-			Id: id,
-		},
+) (*octoql.Response[queryWithOmitemptyResponse], error) {
+	variables_ := __queryWithOmitemptyInput{
+		Id: id,
 	}
-
-	data_ = &queryWithOmitemptyResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithOmitemptyResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithOmitempty",
+			Query: queryWithOmitempty_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by queryWithVariables.
@@ -3792,27 +3552,21 @@ query queryWithVariables ($id: ID!) {
 
 func queryWithVariables(
 	ctx_ context.Context,
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	id string,
-) (data_ *queryWithVariablesResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "queryWithVariables",
-		Query:  queryWithVariables_Operation,
-		Variables: &__queryWithVariablesInput{
-			Id: id,
-		},
+) (*octoql.Response[queryWithVariablesResponse], error) {
+	variables_ := __queryWithVariablesInput{
+		Id: id,
 	}
-
-	data_ = &queryWithVariablesResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	return octoql.Do[queryWithVariablesResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "queryWithVariables",
+			Query: queryWithVariables_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by simpleQuery.
@@ -3829,23 +3583,17 @@ query simpleQuery {
 
 func simpleQuery(
 	ctx_ context.Context,
-	client_ graphql.Client,
-) (data_ *simpleQueryResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "simpleQuery",
-		Query:  simpleQuery_Operation,
-	}
-
-	data_ = &simpleQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[simpleQueryResponse], error) {
+	return octoql.Do[simpleQueryResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "simpleQuery",
+			Query: simpleQuery_Operation,
+		},
+		nil,
 	)
-
-	return data_, resp_.Extensions, err_
 }
 
 // The query executed by simpleQueryExt.
@@ -3861,21 +3609,15 @@ query simpleQueryExt {
 
 func simpleQueryExt(
 	ctx_ context.Context,
-	client_ graphql.Client,
-) (data_ *simpleQueryExtResponse, ext_ map[string]interface{}, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "simpleQueryExt",
-		Query:  simpleQueryExt_Operation,
-	}
-
-	data_ = &simpleQueryExtResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[simpleQueryExtResponse], error) {
+	return octoql.Do[simpleQueryExtResponse](
 		ctx_,
-		req_,
-		resp_,
+		client_,
+		octoql.Operation{
+			Name:  "simpleQueryExt",
+			Query: simpleQueryExt_Operation,
+		},
+		nil,
 	)
-
-	return data_, resp_.Extensions, err_
 }

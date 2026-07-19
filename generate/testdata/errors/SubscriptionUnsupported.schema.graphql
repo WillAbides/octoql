@@ -1,0 +1,16 @@
+schema {
+  query: Query
+  subscription: Subscription
+}
+
+type Query {
+  repository(owner: String!, name: String!): Repository
+}
+
+type Subscription {
+  repositoryUpdated(owner: String!, name: String!): Repository!
+}
+
+type Repository {
+  nameWithOwner: String!
+}

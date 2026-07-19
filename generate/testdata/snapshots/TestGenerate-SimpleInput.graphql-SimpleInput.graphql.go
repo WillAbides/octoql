@@ -4,7 +4,9 @@
 package test
 
 import (
-	"github.com/willabides/octoql/graphql"
+	"context"
+
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -52,26 +54,20 @@ query SimpleInputQuery ($name: String!) {
 `
 
 func SimpleInputQuery(
-	client_ graphql.Client,
+	client_ *octoql.Client,
 	name string,
-) (data_ *SimpleInputQueryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "SimpleInputQuery",
-		Query:  SimpleInputQuery_Operation,
-		Variables: &__SimpleInputQueryInput{
-			Name: name,
-		},
+) (*octoql.Response[SimpleInputQueryResponse], error) {
+	variables_ := __SimpleInputQueryInput{
+		Name: name,
 	}
-
-	data_ = &SimpleInputQueryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		nil,
-		req_,
-		resp_,
+	return octoql.Do[SimpleInputQueryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SimpleInputQuery",
+			Query: SimpleInputQuery_Operation,
+		},
+		&variables_,
 	)
-
-	return data_, err_
 }
 

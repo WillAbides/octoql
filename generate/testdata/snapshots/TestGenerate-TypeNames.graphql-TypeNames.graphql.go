@@ -4,9 +4,11 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
@@ -285,22 +287,16 @@ query TypeNames {
 `
 
 func TypeNames(
-	client_ graphql.Client,
-) (data_ *Resp, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "TypeNames",
-		Query:  TypeNames_Operation,
-	}
-
-	data_ = &Resp{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
+	client_ *octoql.Client,
+) (*octoql.Response[Resp], error) {
+	return octoql.Do[Resp](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "TypeNames",
+			Query: TypeNames_Operation,
+		},
 		nil,
-		req_,
-		resp_,
 	)
-
-	return data_, err_
 }
 

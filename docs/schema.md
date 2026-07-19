@@ -120,10 +120,12 @@ bindings:
 
 ## Extensions
 
-Some schemas/servers make use of GraphQL extensions, for example to add rate-limit information to responses. There are two ways to handle these in genqlient:
+Some schemas and servers make use of GraphQL extensions. Generated query and
+mutation helpers always expose them through `response.Extensions`.
 
-1. If you want to handle extensions in a general way for all queries (for example, to automatically retry after the rate-limit resets, you can do this in your [`graphql.Client` implementation](client_config.md#custom-clients).
-2. To return response extensions directly in the generated helper functions (so that callers can decide what to do), set `use_extensions: true` in your [`genqlient.yaml`](genqlient.yaml).
+The `use_extensions` configuration option remains parse-compatible with
+inherited configurations, but no longer changes generated signatures because
+extensions are always present on `octoql.Response`.
 
 ## Hasura, Dgraph, and other generated schemas
 
