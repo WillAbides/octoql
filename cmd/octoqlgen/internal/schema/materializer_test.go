@@ -561,14 +561,14 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 func TestMaterializerAtomicWriteFailures(t *testing.T) {
 	tests := []struct {
 		name          string
-		wrap          func(TempFile) TempFile
+		wrap          func(tempFile) tempFile
 		expectedError string
 	}{
 		{
 			name: "interrupted write",
-			wrap: func(file TempFile) TempFile {
+			wrap: func(file tempFile) tempFile {
 				return &failingTempFile{
-					TempFile: file,
+					tempFile: file,
 					writeErr: errors.New("write interrupted"),
 				}
 			},
@@ -576,9 +576,9 @@ func TestMaterializerAtomicWriteFailures(t *testing.T) {
 		},
 		{
 			name: "failed sync",
-			wrap: func(file TempFile) TempFile {
+			wrap: func(file tempFile) tempFile {
 				return &failingTempFile{
-					TempFile: file,
+					tempFile: file,
 					syncErr:  errors.New("sync failed"),
 				}
 			},
@@ -724,7 +724,7 @@ func environmentLookup(environment map[string]string) func(string) (string, bool
 	}
 }
 
-func testGitHubMaterializer(client HTTPClient) *Materializer {
+func testGitHubMaterializer(client httpDoer) *Materializer {
 	materializer := NewMaterializer()
 	materializer.HTTPClient = client
 	materializer.CommandRunner = &stubCommandRunner{
@@ -784,10 +784,10 @@ func (f *readErrorFileSystem) ReadFile(string) ([]byte, error) {
 
 type wrappingFileSystem struct {
 	osFileSystem
-	wrap func(TempFile) TempFile
+	wrap func(tempFile) tempFile
 }
 
-func (f *wrappingFileSystem) CreateTemp(dir, pattern string) (TempFile, error) {
+func (f *wrappingFileSystem) CreateTemp(dir, pattern string) (tempFile, error) {
 	file, err := f.osFileSystem.CreateTemp(dir, pattern)
 	if err != nil {
 		return nil, err
@@ -796,7 +796,7 @@ func (f *wrappingFileSystem) CreateTemp(dir, pattern string) (TempFile, error) {
 }
 
 type failingTempFile struct {
-	TempFile
+	tempFile
 	writeErr error
 	syncErr  error
 }
@@ -805,12 +805,12 @@ func (f *failingTempFile) Write(data []byte) (int, error) {
 	if f.writeErr != nil {
 		return 0, f.writeErr
 	}
-	return f.TempFile.Write(data)
+	return f.tempFile.Write(data)
 }
 
 func (f *failingTempFile) Sync() error {
 	if f.syncErr != nil {
 		return f.syncErr
 	}
-	return f.TempFile.Sync()
+	return f.tempFile.Sync()
 }

@@ -139,7 +139,7 @@ func TestGenerateCommandRun(t *testing.T) {
 	writer := &recordingOutputWriter{outputs: map[string][]byte{}, writes: map[string]int{}}
 	didMaterialize := false
 	generateCalls := 0
-	command := GenerateCommand{
+	command := generateCommand{
 		Config:  "custom-octoqlgen.yaml",
 		context: t.Context(),
 		loadConfig: func(filename string) (*config.Config, error) {
@@ -211,7 +211,7 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 		outputs: map[string][]byte{},
 		writes:  map[string]int{},
 	}
-	command := GenerateCommand{
+	command := generateCommand{
 		Config:  "octoqlgen.yaml",
 		context: t.Context(),
 		loadConfig: func(string) (*config.Config, error) {
@@ -285,7 +285,7 @@ func TestGenerateCommandMaterializesConfiguredSources(t *testing.T) {
 			directory := t.TempDir()
 			packageName := "client"
 			materializer := &stubMaterializer{}
-			command := GenerateCommand{
+			command := generateCommand{
 				context: t.Context(),
 				loadConfig: func(string) (*config.Config, error) {
 					return &config.Config{
@@ -332,7 +332,7 @@ func TestGenerateSubdirectoryConfig(t *testing.T) {
 	)
 	require.NoError(t, err)
 	materializer := &stubMaterializer{}
-	command := GenerateCommand{
+	command := generateCommand{
 		Config:       configPath,
 		context:      t.Context(),
 		loadConfig:   config.Load,
@@ -379,7 +379,7 @@ func TestGenerateLocalHandlerSubdirectoryConfig(t *testing.T) {
 	clientPath := filepath.Clean(filepath.Join(configDirectory, "..", "client", "generated.go"))
 	handlerPath := filepath.Join(configDirectory, "githubapitest", "generated.go")
 	writer := &recordingOutputWriter{}
-	command := GenerateCommand{
+	command := generateCommand{
 		Config:       configPath,
 		context:      t.Context(),
 		loadConfig:   config.Load,
@@ -406,7 +406,7 @@ func TestGenerateCommandMissingLocalSchema(t *testing.T) {
 
 	tempDir := t.TempDir()
 	packageName := "client"
-	command := GenerateCommand{
+	command := generateCommand{
 		Config:  filepath.Join(tempDir, "octoqlgen.yaml"),
 		context: t.Context(),
 		loadConfig: func(string) (*config.Config, error) {
@@ -487,7 +487,7 @@ func TestMinimalInitConfigGenerates(t *testing.T) {
 
 	directory := t.TempDir()
 	configPath := filepath.Join(directory, config.DefaultFilename)
-	initCommand := InitCommand{
+	initCommand := initCommand{
 		ConfigPath: configPath,
 		stdout:     io.Discard,
 	}
@@ -523,7 +523,7 @@ func TestMinimalInitConfigGenerates(t *testing.T) {
 	assert.Contains(t, string(generated), "func Viewer(")
 }
 
-func schemaMaterializer() Materializer {
+func schemaMaterializer() materializer {
 	return schema.NewMaterializer()
 }
 

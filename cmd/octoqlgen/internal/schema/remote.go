@@ -151,7 +151,7 @@ func (m *Materializer) latestRevision(
 }
 
 type httpClientTransport struct {
-	client HTTPClient
+	client httpDoer
 }
 
 func (transport httpClientTransport) RoundTrip(request *http.Request) (*http.Response, error) {

@@ -31,7 +31,7 @@ func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 
 	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
 	var stdout bytes.Buffer
-	command := SchemaMaterializeCommand{
+	command := schemaMaterializeCommand{
 		Config:  "custom.yaml",
 		context: t.Context(),
 		loadConfig: func(filename string) (*config.Config, error) {
@@ -62,7 +62,7 @@ func TestSchemaCommandRunDirectOutput(t *testing.T) {
 	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
 	outputWriter := &stubOutputWriter{}
 	var stdout bytes.Buffer
-	command := SchemaMaterializeCommand{
+	command := schemaMaterializeCommand{
 		Output:        "schema.graphql",
 		GitHubVersion: "ghec",
 		Revision:      cliRevision,
@@ -89,12 +89,12 @@ func TestSchemaCommandRunDirectOutput(t *testing.T) {
 func TestSchemaCommandDirectValidation(t *testing.T) {
 	tests := []struct {
 		name          string
-		command       SchemaMaterializeCommand
+		command       schemaMaterializeCommand
 		expectedError string
 	}{
 		{
 			name: "multiple direct sources",
-			command: SchemaMaterializeCommand{
+			command: schemaMaterializeCommand{
 				GitHubVersion: "fpt",
 				SourceURL:     "https://example.test/schema.graphql",
 			},
@@ -102,14 +102,14 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "missing checksum",
-			command: SchemaMaterializeCommand{
+			command: schemaMaterializeCommand{
 				SourceURL: "https://example.test/schema.graphql",
 			},
 			expectedError: "--sha256 is required",
 		},
 		{
 			name: "missing github revision",
-			command: SchemaMaterializeCommand{
+			command: schemaMaterializeCommand{
 				GitHubVersion: "fpt",
 				SHA256:        cliSHA256,
 			},
@@ -117,7 +117,7 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "url with revision",
-			command: SchemaMaterializeCommand{
+			command: schemaMaterializeCommand{
 				SourceURL: "https://example.test/schema.graphql",
 				Revision:  cliRevision,
 				SHA256:    cliSHA256,
@@ -126,14 +126,14 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		},
 		{
 			name: "checksum without direct source",
-			command: SchemaMaterializeCommand{
+			command: schemaMaterializeCommand{
 				SHA256: cliSHA256,
 			},
 			expectedError: "--revision and --sha256 require",
 		},
 		{
 			name: "config with direct source",
-			command: SchemaMaterializeCommand{
+			command: schemaMaterializeCommand{
 				Config:    "octoqlgen.yaml",
 				SourceURL: "https://example.test/schema.graphql",
 				SHA256:    cliSHA256,
@@ -165,7 +165,7 @@ func TestSchemaCommandMaterializeFailureDoesNotWriteOutput(t *testing.T) {
 
 	expectedErr := errors.New("materialize failed")
 	outputWriter := &stubOutputWriter{}
-	command := SchemaMaterializeCommand{
+	command := schemaMaterializeCommand{
 		Output:    "schema.graphql",
 		SourceURL: "https://example.test/schema.graphql",
 		SHA256:    cliSHA256,
@@ -231,7 +231,7 @@ func TestInitCommandRun(t *testing.T) {
 
 	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
 	var stdout bytes.Buffer
-	command := InitCommand{
+	command := initCommand{
 		ConfigPath: configPath,
 		stdout:     &stdout,
 	}
@@ -261,7 +261,7 @@ func TestInitCommandPreservesExistingGitignore(t *testing.T) {
 	require.NoError(t, err)
 	err = os.WriteFile(gitignorePath, []byte("keep\n"), 0o600)
 	require.NoError(t, err)
-	command := InitCommand{
+	command := initCommand{
 		ConfigPath: filepath.Join(directory, "nested", "octoqlgen.yaml"),
 		stdout:     io.Discard,
 	}
@@ -279,7 +279,7 @@ func TestInitCommandRefusesExistingConfig(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
 	err := os.WriteFile(configPath, []byte("existing\n"), 0o600)
 	require.NoError(t, err)
-	command := InitCommand{
+	command := initCommand{
 		ConfigPath: configPath,
 		stdout:     io.Discard,
 	}
@@ -295,7 +295,7 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
 	err := os.WriteFile(configPath, []byte("schema:\n  path: schema.graphql\n"), 0o600)
 	require.NoError(t, err)
-	command := SchemaUpdateCommand{
+	command := schemaUpdateCommand{
 		Config:     configPath,
 		context:    t.Context(),
 		loadConfig: config.Load,

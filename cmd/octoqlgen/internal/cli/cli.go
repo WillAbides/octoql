@@ -22,22 +22,22 @@ import (
 )
 
 type commandTree struct {
-	Generate GenerateCommand  `cmd:"" help:"Generate GraphQL client code."`
-	Init     InitCommand      `cmd:"" help:"Create an octoqlgen configuration and materialized schema."`
-	Schema   SchemaCommand    `cmd:"" help:"Materialize or verify a pinned GraphQL schema."`
+	Generate generateCommand  `cmd:"" help:"Generate GraphQL client code."`
+	Init     initCommand      `cmd:"" help:"Create an octoqlgen configuration and materialized schema."`
+	Schema   schemaCommand    `cmd:"" help:"Materialize or verify a pinned GraphQL schema."`
 	Version  kong.VersionFlag `name:"version" help:"Show version information."`
 }
 
-type SchemaCommand struct {
-	Materialize SchemaMaterializeCommand `cmd:"" default:"1" help:"Materialize or verify a pinned GraphQL schema."`
-	Update      SchemaUpdateCommand      `cmd:"" help:"Update a configured remote schema pin."`
+type schemaCommand struct {
+	Materialize schemaMaterializeCommand `cmd:"" default:"1" help:"Materialize or verify a pinned GraphQL schema."`
+	Update      schemaUpdateCommand      `cmd:"" help:"Update a configured remote schema pin."`
 }
 
-type SchemaMaterializeCommand struct {
+type schemaMaterializeCommand struct {
 	context      context.Context
 	loadConfig   func(string) (*config.Config, error)
-	materializer Materializer
-	outputWriter OutputWriter
+	materializer materializer
+	outputWriter outputWriter
 	stdout       io.Writer
 
 	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoqlgen configuration file. Defaults to octoqlgen.yaml."`
@@ -48,17 +48,17 @@ type SchemaMaterializeCommand struct {
 	SHA256        string `name:"sha256" placeholder:"HEX" help:"Expected SHA-256 for a direct remote source."`
 }
 
-type RemoteResolver interface {
+type remoteResolver interface {
 	Resolve(context.Context, config.Source) (schema.RemoteResult, error)
 }
 
-type InitCommand struct {
+type initCommand struct {
 	stdout io.Writer
 
 	ConfigPath string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path for the new octoqlgen configuration."`
 }
 
-func (cmd *InitCommand) Run() error {
+func (cmd *initCommand) Run() error {
 	_, err := os.Lstat(cmd.ConfigPath)
 	if err == nil || !errors.Is(err, os.ErrNotExist) {
 		if err != nil {
@@ -181,17 +181,17 @@ func createFileNoReplace(destination string, data []byte) (err error) {
 	return nil
 }
 
-type SchemaUpdateCommand struct {
+type schemaUpdateCommand struct {
 	context      context.Context
 	loadConfig   func(string) (*config.Config, error)
-	resolver     RemoteResolver
-	outputWriter OutputWriter
+	resolver     remoteResolver
+	outputWriter outputWriter
 	stdout       io.Writer
 
 	Config string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
 }
 
-func (cmd *SchemaUpdateCommand) Run() error {
+func (cmd *schemaUpdateCommand) Run() error {
 	userConfigPath, err := filepath.Abs(cmd.Config)
 	if err != nil {
 		return fmt.Errorf("resolving config path: %w", err)
@@ -353,7 +353,7 @@ func sameFileSnapshot(left, right fileSnapshot) bool {
 	return left.exists == right.exists && left.mode == right.mode && bytes.Equal(left.data, right.data)
 }
 
-func restoreSnapshot(writer OutputWriter, path string, snapshot fileSnapshot) error {
+func restoreSnapshot(writer outputWriter, path string, snapshot fileSnapshot) error {
 	if !snapshot.exists {
 		err := os.Remove(path)
 		if errors.Is(err, os.ErrNotExist) {
@@ -389,7 +389,7 @@ func displayRevision(revision string) string {
 	return revision
 }
 
-func (cmd *SchemaMaterializeCommand) Run() error {
+func (cmd *schemaMaterializeCommand) Run() error {
 	request, err := cmd.request()
 	if err != nil {
 		return err
@@ -414,7 +414,7 @@ func (cmd *SchemaMaterializeCommand) Run() error {
 	return nil
 }
 
-func (cmd *SchemaMaterializeCommand) request() (schema.Request, error) {
+func (cmd *schemaMaterializeCommand) request() (schema.Request, error) {
 	hasGitHubVersion := cmd.GitHubVersion != ""
 	hasSourceURL := cmd.SourceURL != ""
 	if hasGitHubVersion && hasSourceURL {
@@ -465,11 +465,11 @@ func (cmd *SchemaMaterializeCommand) request() (schema.Request, error) {
 	}, nil
 }
 
-type Materializer interface {
+type materializer interface {
 	Materialize(context.Context, schema.Request) ([]byte, error)
 }
 
-type OutputWriter interface {
+type outputWriter interface {
 	Write(string, []byte) error
 }
 
@@ -479,9 +479,9 @@ type Dependencies struct {
 	Stderr         io.Writer
 	Generate       func(*generate.Config) (map[string][]byte, error)
 	LoadConfig     func(string) (*config.Config, error)
-	Materializer   Materializer
-	RemoteResolver RemoteResolver
-	OutputWriter   OutputWriter
+	Materializer   materializer
+	RemoteResolver remoteResolver
+	OutputWriter   outputWriter
 }
 
 func Run(args []string, version string, dependencies *Dependencies) error {
@@ -523,25 +523,25 @@ func normalizeArgs(args []string) []string {
 
 func newCommandTree(dependencies *Dependencies) *commandTree {
 	return &commandTree{
-		Generate: GenerateCommand{
+		Generate: generateCommand{
 			context:      dependencies.Context,
 			loadConfig:   dependencies.LoadConfig,
 			materializer: dependencies.Materializer,
 			generate:     dependencies.Generate,
 			outputWriter: dependencies.OutputWriter,
 		},
-		Init: InitCommand{
+		Init: initCommand{
 			stdout: dependencies.Stdout,
 		},
-		Schema: SchemaCommand{
-			Materialize: SchemaMaterializeCommand{
+		Schema: schemaCommand{
+			Materialize: schemaMaterializeCommand{
 				context:      dependencies.Context,
 				loadConfig:   dependencies.LoadConfig,
 				materializer: dependencies.Materializer,
 				outputWriter: dependencies.OutputWriter,
 				stdout:       dependencies.Stdout,
 			},
-			Update: SchemaUpdateCommand{
+			Update: schemaUpdateCommand{
 				context:      dependencies.Context,
 				loadConfig:   dependencies.LoadConfig,
 				resolver:     dependencies.RemoteResolver,
@@ -582,7 +582,7 @@ func (d *Dependencies) setDefaults() {
 		d.Materializer = schema.NewMaterializer()
 	}
 	if d.RemoteResolver == nil {
-		resolver, ok := d.Materializer.(RemoteResolver)
+		resolver, ok := d.Materializer.(remoteResolver)
 		if !ok {
 			d.RemoteResolver = schema.NewMaterializer()
 		} else {
