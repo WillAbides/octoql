@@ -172,6 +172,44 @@ func TestDoRejectsExtensionsOnlyResponse(t *testing.T) {
 	assert.Equal(t, body, string(responseError.RawBody))
 }
 
+func TestDoRejectsEmptyErrorOnlyResponse(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "empty errors",
+			body: `{"errors":[]}`,
+		},
+		{
+			name: "null errors",
+			body: `{"errors":null}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := responseAPIClient(
+				http.StatusOK,
+				http.Header{},
+				test.body,
+			)
+
+			response, err := octoql.Do[responseData](
+				t.Context(),
+				client,
+				validOperation(),
+				nil,
+			)
+
+			require.NotNil(t, response)
+			responseError, ok := errors.AsType[*octoql.ResponseError](err)
+			require.True(t, ok)
+			assert.Equal(t, test.body, string(responseError.RawBody))
+		})
+	}
+}
+
 func TestClientRateLimitSnapshot(t *testing.T) {
 	headers := []http.Header{
 		{

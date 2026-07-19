@@ -301,16 +301,17 @@ func decodeResponse[T any](
 	}
 
 	hasData := envelope.Data != nil
-	hasErrors := envelope.Errors != nil
+	hasErrorsField := envelope.Errors != nil
 
 	var graphqlErrors Errors
 	var errorsErr error
-	if hasErrors {
+	if hasErrorsField {
 		errorsErr = json.Unmarshal(envelope.Errors, &graphqlErrors)
 		if errorsErr != nil {
 			errorsErr = fmt.Errorf("decode graphql response errors: %w", errorsErr)
 		}
 	}
+	hasErrors := len(graphqlErrors) > 0
 
 	var dataErr error
 	if hasData {

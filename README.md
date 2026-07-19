@@ -313,7 +313,8 @@ Every failure after receiving an HTTP response includes
 decode failures. It carries the status and `X-GitHub-Request-ID`. `RawBody`
 contains at most 64 KiB for non-2xx or undecodable responses;
 `RawBodyTruncated` reports truncation. Raw response bodies may contain sensitive
-data and should not be logged indiscriminately.
+data and should not be logged indiscriminately. This bounds retained diagnostic
+data, not total response decoding; octoql reads the complete GraphQL body.
 
 Error types are independent facets of one chain, not mutually exclusive
 categories. A rate-limited response can match `*octoql.RateLimitError`,
