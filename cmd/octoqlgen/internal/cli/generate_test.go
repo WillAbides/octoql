@@ -101,18 +101,21 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 func TestGenerateConfigMapsTestHandler(t *testing.T) {
 	t.Parallel()
 
+	localTypes := config.TestHandlerTypesLocal
 	source := &config.Config{
 		Schema:     config.Schema{Path: "schema.graphql"},
 		Operations: []string{"operation.graphql"},
 		Generated:  "generated.go",
 		TestHandler: &config.TestHandler{
 			Generated: "githubapitest/generated.go",
+			Types:     &localTypes,
 		},
 	}
 
 	actual := generateConfig(source)
 
 	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
+	assert.Equal(t, generate.TestHandlerTypesLocal, actual.TestHandlerTypes)
 }
 
 func TestGenerateCommandRun(t *testing.T) {
@@ -354,6 +357,48 @@ func TestGenerateSubdirectoryConfig(t *testing.T) {
 	err = command.Run()
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(filepath.Dir(configPath), "..", "schema.graphql"), materializer.request.Path)
+}
+
+func TestGenerateLocalHandlerSubdirectoryConfig(t *testing.T) {
+	t.Parallel()
+
+	configPath, err := filepath.Abs(
+		filepath.Join(
+			"..",
+			"..",
+			"..",
+			"..",
+			"internal",
+			"handlertest",
+			"localfixture",
+			config.DefaultFilename,
+		),
+	)
+	require.NoError(t, err)
+	configDirectory := filepath.Dir(configPath)
+	clientPath := filepath.Clean(filepath.Join(configDirectory, "..", "client", "generated.go"))
+	handlerPath := filepath.Join(configDirectory, "githubapitest", "generated.go")
+	writer := &recordingOutputWriter{}
+	command := GenerateCommand{
+		Config:       configPath,
+		context:      t.Context(),
+		loadConfig:   config.Load,
+		materializer: schemaMaterializer(),
+		generate:     generate.Generate,
+		outputWriter: writer,
+	}
+
+	err = command.Run()
+	require.NoError(t, err)
+	require.Contains(t, writer.outputs, clientPath)
+	require.Contains(t, writer.outputs, handlerPath)
+	assert.Contains(t, string(writer.outputs[clientPath]), "package githubapi")
+	assert.Contains(t, string(writer.outputs[handlerPath]), "package githubapitest")
+	assert.NotContains(
+		t,
+		string(writer.outputs[handlerPath]),
+		"github.com/willabides/octoql/internal/handlertest/client",
+	)
 }
 
 func TestGenerateCommandMissingLocalSchema(t *testing.T) {

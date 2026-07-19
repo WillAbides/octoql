@@ -254,7 +254,11 @@ func (g *generator) convertType(
 		goRef, err := g.ref(localBinding)
 		// TODO(benkraft): Add syntax to specify a custom (un)marshaler, if
 		// it proves useful.
-		return &goOpaqueType{GoRef: goRef, GraphQLName: typ.Name()}, err
+		return &goOpaqueType{
+			GoRef:          goRef,
+			QualifiedGoRef: localBinding,
+			GraphQLName:    typ.Name(),
+		}, err
 	}
 
 	if typ.Elem != nil {
@@ -315,8 +319,9 @@ func (g *generator) convertType(
 		}
 
 		goTyp = &goGenericType{
-			GoGenericRef: genericRef,
-			Elem:         goTyp,
+			GoGenericRef:          genericRef,
+			QualifiedGoGenericRef: g.Config.OptionalGenericType,
+			Elem:                  goTyp,
 		}
 	}
 
@@ -366,10 +371,11 @@ func (g *generator) convertDefinition(
 		}
 		goRef, err := g.ref(globalBinding.Type)
 		return &goOpaqueType{
-			GoRef:       goRef,
-			GraphQLName: def.Name,
-			Marshaler:   globalBinding.Marshaler,
-			Unmarshaler: globalBinding.Unmarshaler,
+			GoRef:          goRef,
+			QualifiedGoRef: globalBinding.Type,
+			GraphQLName:    def.Name,
+			Marshaler:      globalBinding.Marshaler,
+			Unmarshaler:    globalBinding.Unmarshaler,
 		}, err
 	}
 	goBuiltinName, ok := defaultScalarType(def.Name)
@@ -378,7 +384,11 @@ func (g *generator) convertDefinition(
 		if err != nil {
 			return nil, err
 		}
-		return &goOpaqueType{GoRef: goRef, GraphQLName: def.Name}, nil
+		return &goOpaqueType{
+			GoRef:          goRef,
+			QualifiedGoRef: goBuiltinName,
+			GraphQLName:    def.Name,
+		}, nil
 	}
 
 	// Determine the name to use for this type.

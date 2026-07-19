@@ -46,6 +46,8 @@ type generator struct {
 	// ast.FragmentSpread.Definition, but for some reason it doesn't seem to be
 	// set consistently, even post-validation.
 	fragments map[string]*ast.FragmentDefinition
+
+	forbiddenImportPath string
 }
 
 // JSON tags in operation are for ExportOperations (see Config for details).
@@ -150,23 +152,50 @@ func cloneOperations(operations []*operation, config *Config) []*operation {
 	return cloned
 }
 
-func (plan *generationPlan) newRenderer(config *Config, includePlanImports bool) *generator {
+func (plan *generationPlan) newRenderer(
+	config *Config,
+	includePlanImports bool,
+	forbiddenImportPath string,
+) (*generator, error) {
 	renderConfig := cloneConfig(config)
+	typeMap, clonedTypes, err := cloneTypeMap(plan.typeMap)
+	if err != nil {
+		return nil, err
+	}
 	renderer := &generator{
 		Config:               &renderConfig,
 		Operations:           cloneOperations(plan.operations, &renderConfig),
-		typeMap:              plan.typeMap,
+		typeMap:              typeMap,
 		imports:              map[string]string{},
 		usedAliases:          map[string]bool{},
 		templateCache:        map[string]*template.Template{},
 		operationIdentifiers: map[*ast.OperationDefinition]operationIdentifiers{},
 		fragments:            map[string]*ast.FragmentDefinition{},
+		forbiddenImportPath:  forbiddenImportPath,
 	}
 	if includePlanImports {
 		renderer.imports = maps.Clone(plan.imports)
 		renderer.usedAliases = maps.Clone(plan.usedAliases)
 	}
-	return renderer
+	for _, operation := range renderer.Operations {
+		if operation.Input == nil {
+			continue
+		}
+		clonedInput, ok := clonedTypes[operation.Input].(*goStructType)
+		if !ok {
+			return nil, errorf(
+				nil,
+				"internal error: cloned operation input was %T",
+				clonedTypes[operation.Input],
+			)
+		}
+		operation.Input = clonedInput
+	}
+	err = resolveRendererReferences(renderer)
+	if err != nil {
+		return nil, err
+	}
+	return renderer, nil
 }
 
 func newGenerator(
@@ -240,6 +269,15 @@ func (g *generator) WriteTypes(w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func renderTypeDefinitions(g *generator) ([]byte, error) {
+	var buffer bytes.Buffer
+	err := g.WriteTypes(&buffer)
+	if err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
 }
 
 // usedFragmentNames returns the named-fragments used by (i.e. spread into)
@@ -489,13 +527,20 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 }
 
 func renderClient(plan *generationPlan) ([]byte, error) {
-	g := plan.newRenderer(&plan.config, true)
+	g, err := plan.newRenderer(&plan.config, true, "")
+	if err != nil {
+		return nil, err
+	}
 	return renderClientGenerator(g)
 }
 
 func renderClientGenerator(g *generator) ([]byte, error) {
+	typeDefinitions, err := renderTypeDefinitions(g)
+	if err != nil {
+		return nil, err
+	}
 	var bodyBuf bytes.Buffer
-	err := g.WriteTypes(&bodyBuf)
+	_, err = bodyBuf.Write(typeDefinitions)
 	if err != nil {
 		return nil, err
 	}

@@ -20,6 +20,11 @@ import (
 
 const DefaultFilename = "octoqlgen.yaml"
 
+const (
+	TestHandlerTypesClient = "client"
+	TestHandlerTypesLocal  = "local"
+)
+
 func Load(filename string) (*Config, error) {
 	if filename == "" {
 		filename = DefaultFilename
@@ -80,6 +85,17 @@ func decodeConfig(content []byte) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if loaded.TestHandler != nil && loaded.TestHandler.Types != nil {
+		switch *loaded.TestHandler.Types {
+		case TestHandlerTypesClient, TestHandlerTypesLocal:
+		default:
+			return nil, fmt.Errorf(
+				"test_handler.types must be one of %q or %q",
+				TestHandlerTypesClient,
+				TestHandlerTypesLocal,
+			)
+		}
+	}
 	return loaded, nil
 }
 
@@ -136,6 +152,13 @@ func (c *Config) TestHandlerGeneratedPath() string {
 		return ""
 	}
 	return filepath.Clean(c.TestHandler.Generated)
+}
+
+func (c *Config) TestHandlerTypesValue() string {
+	if c.TestHandler == nil || c.TestHandler.Types == nil {
+		return TestHandlerTypesClient
+	}
+	return *c.TestHandler.Types
 }
 
 func resolvePath(baseDir, path string) string {

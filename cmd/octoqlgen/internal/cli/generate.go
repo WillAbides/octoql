@@ -109,6 +109,7 @@ func generateConfig(source *config.Config) *generate.Config {
 		Operations:                      generate.StringList(source.OperationPaths()),
 		Generated:                       source.GeneratedPath(),
 		TestHandlerGenerated:            source.TestHandlerGeneratedPath(),
+		TestHandlerTypes:                generate.TestHandlerTypeStrategy(source.TestHandlerTypesValue()),
 		Package:                         stringValue(source.Package),
 		ExportOperations:                source.ExportOperationsPath(),
 		ContextType:                     stringValue(source.ContextType),

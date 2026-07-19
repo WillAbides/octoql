@@ -16,6 +16,8 @@
 
 ## Development
 
+- Write tests first using a red/green strategy where possible. It's also useful
+  to commit the failing test first.
 - Use Kong declarative structs and `Run` methods for CLI commands. Keep parsing,
   dependency construction, and command execution separately testable.
 - Use gopls first for Go symbols, references, package APIs, renames, and
@@ -23,6 +25,8 @@
   introducing parallel abstractions.
 - Assign variables, including errors, before conditionals rather than using
   initializer clauses in `if` statements.
+- Avoid `else` in handwritten Go. Prefer early exits, `switch`, or
+  default-then-override. Generated Go and templates are exempt.
 - Test helpers that take `*testing.T` use `t.Context()` internally. Use
   `t.Helper()` only for assertion helpers.
 - Use `testify/require` for test prerequisites and `testify/assert` for
@@ -34,10 +38,15 @@
   parsed and converted operation plan as client generation. Do not add a second
   config load, schema parse, operation parser, abstract-type analysis, or
   subscription path.
-- Generated test handlers live in a separate inferred package, import the
-  generated client package, and alias its converted types so scalar bindings,
-  aliases, fragments, abstract variants, `OctoqlOther`, and marshaling behavior
-  cannot drift.
+- Generated test handlers use `test_handler.types: client` by default to import
+  and alias generated client types. `types: local` emits distinct operation
+  types in the handler package without importing the client package.
+- Both test-handler type strategies render from the same immutable generation
+  plan and shared type renderer. Do not add a second config load, schema parse,
+  operation parser, type conversion, or abstract-type analysis.
+- Preserve destination-neutral binding and marshal-helper references in the
+  shared plan, then resolve imports per renderer. Local handlers reject
+  reachable references owned by the generated client package.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve

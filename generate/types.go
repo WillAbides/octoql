@@ -63,6 +63,7 @@ type (
 	// represent a GraphQL scalar.  (See Config.Bindings for more context.)
 	goOpaqueType struct {
 		GoRef                  string
+		QualifiedGoRef         string
 		GraphQLName            string
 		Marshaler, Unmarshaler string
 	}
@@ -84,8 +85,9 @@ type (
 	// goGenericType represent the Go type GoGenericRef[Elem], used when requested by the
 	// user to box nullable data without using pointers or sentinel values
 	goGenericType struct {
-		GoGenericRef string
-		Elem         goType
+		GoGenericRef          string
+		QualifiedGoGenericRef string
+		Elem                  goType
 	}
 )
 

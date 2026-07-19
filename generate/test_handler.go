@@ -22,17 +22,21 @@ type testHandlerOperation struct {
 	VariablesName       string
 	VariablesType       string
 	ClientVariablesName string
+	LocalVariablesName  string
 	ResponseName        string
 	ClientResponseName  string
 	HasVariables        bool
 }
 
 type testHandlerTemplateData struct {
-	Generator     *generator
-	Package       string
-	ClientPackage string
-	Types         []testHandlerType
-	Operations    []testHandlerOperation
+	Generator            *generator
+	Package              string
+	ClientPackage        string
+	LocalTypes           bool
+	LocalTypeDefinitions string
+	LocalAliases         []testHandlerType
+	Types                []testHandlerType
+	Operations           []testHandlerOperation
 }
 
 var testHandlerReservedNames = []string{
@@ -191,41 +195,74 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 	config.Package = config.testHandlerPackage
 	config.pkgPath = config.testHandlerPkgPath
 
-	handlerGenerator := plan.newRenderer(&config, false)
+	localTypes := config.TestHandlerTypes == TestHandlerTypesLocal
+	forbiddenImportPath := ""
+	if localTypes {
+		forbiddenImportPath = plan.config.pkgPath
+	}
+	handlerGenerator, err := plan.newRenderer(
+		&config,
+		false,
+		forbiddenImportPath,
+	)
+	if err != nil {
+		return nil, testHandlerTemplateData{}, err
+	}
 	data := testHandlerTemplateData{
 		Generator:  handlerGenerator,
 		Package:    config.Package,
+		LocalTypes: localTypes,
+		LocalAliases: make(
+			[]testHandlerType,
+			0,
+			len(plan.operations),
+		),
 		Types:      make([]testHandlerType, 0, len(plan.typeMap)),
 		Operations: make([]testHandlerOperation, 0, len(plan.operations)),
 	}
 
-	typeNames := make([]string, 0, len(plan.typeMap))
-	for name := range plan.typeMap {
-		if token.IsExported(name) {
-			typeNames = append(typeNames, name)
+	switch {
+	case localTypes:
+		typeDefinitions, err := renderTypeDefinitions(handlerGenerator)
+		if err != nil {
+			return nil, testHandlerTemplateData{}, err
 		}
-	}
-	sort.Strings(typeNames)
-	for _, name := range typeNames {
-		handlerType := testHandlerType{Name: name, ClientName: name}
-		enumType, ok := plan.typeMap[name].(*goEnumType)
-		if ok {
-			handlerType.EnumValues = enumType.Values
-			for _, enumValue := range enumType.Values {
-				handlerGenerator.usedAliases[enumValue.GoName] = true
+		data.LocalTypeDefinitions = string(typeDefinitions)
+	default:
+		typeNames := make([]string, 0, len(plan.typeMap))
+		for name := range plan.typeMap {
+			if token.IsExported(name) {
+				typeNames = append(typeNames, name)
 			}
 		}
-		data.Types = append(data.Types, handlerType)
-		handlerGenerator.usedAliases[name] = true
+		sort.Strings(typeNames)
+		for _, name := range typeNames {
+			handlerType := testHandlerType{Name: name, ClientName: name}
+			enumType, ok := plan.typeMap[name].(*goEnumType)
+			if ok {
+				handlerType.EnumValues = enumType.Values
+				for _, enumValue := range enumType.Values {
+					handlerGenerator.usedAliases[enumValue.GoName] = true
+				}
+			}
+			data.Types = append(data.Types, handlerType)
+			handlerGenerator.usedAliases[name] = true
+		}
 	}
 
 	for index, operation := range plan.operations {
 		responseName := operation.Name + "Response"
-		if responseName != operation.ResponseName && !containsTestHandlerType(data.Types, responseName) {
-			data.Types = append(data.Types, testHandlerType{
+		if responseName != operation.ResponseName {
+			responseAlias := testHandlerType{
 				Name:       responseName,
 				ClientName: operation.ResponseName,
-			})
+			}
+			switch {
+			case localTypes:
+				data.LocalAliases = append(data.LocalAliases, responseAlias)
+			case !containsTestHandlerType(data.Types, responseName):
+				data.Types = append(data.Types, responseAlias)
+			}
 			handlerGenerator.usedAliases[responseName] = true
 		}
 		handlerOperation := testHandlerOperation{
@@ -234,12 +271,14 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 			VariablesName:       operation.Name + "Variables",
 			VariablesType:       "struct{}",
 			ClientVariablesName: operation.Name + "Variables",
+			LocalVariablesName:  "",
 			ResponseName:        responseName,
 			ClientResponseName:  operation.ResponseName,
 			HasVariables:        operation.Input != nil,
 		}
 		if handlerOperation.HasVariables {
 			handlerOperation.VariablesType = handlerOperation.VariablesName
+			handlerOperation.LocalVariablesName = operation.Input.GoName
 		}
 		data.Operations = append(data.Operations, handlerOperation)
 		if handlerOperation.HasVariables {
@@ -258,9 +297,11 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 		handlerGenerator.usedAliases[name] = true
 	}
 
-	clientPackage := allocateIdentifier(plan.config.Package, handlerGenerator.usedAliases)
-	handlerGenerator.imports[plan.config.pkgPath] = clientPackage
-	data.ClientPackage = clientPackage
+	if !localTypes {
+		clientPackage := allocateIdentifier(plan.config.Package, handlerGenerator.usedAliases)
+		handlerGenerator.imports[plan.config.pkgPath] = clientPackage
+		data.ClientPackage = clientPackage
+	}
 
 	for _, reference := range []string{
 		"bytes.NewReader",
