@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"go/format"
 	"io"
+	"maps"
 	"sort"
 	"strings"
 	"text/template"
@@ -84,6 +85,88 @@ type operationIdentifiers struct {
 
 type exportedOperations struct {
 	Operations []*operation `json:"operations"`
+}
+
+type generationPlan struct {
+	config      Config
+	operations  []*operation
+	typeMap     map[string]goType
+	imports     map[string]string
+	usedAliases map[string]bool
+}
+
+type planBuilder func(*Config) (*generationPlan, error)
+
+type outputRenderer func(*generationPlan) ([]byte, error)
+
+func freezeGenerationPlan(g *generator) *generationPlan {
+	config := cloneConfig(g.Config)
+	return &generationPlan{
+		config:      config,
+		operations:  cloneOperations(g.Operations, nil),
+		typeMap:     maps.Clone(g.typeMap),
+		imports:     maps.Clone(g.imports),
+		usedAliases: maps.Clone(g.usedAliases),
+	}
+}
+
+func cloneConfig(config *Config) Config {
+	cloned := *config
+	cloned.Schema = append(StringList{}, config.Schema...)
+	cloned.Operations = append(StringList{}, config.Operations...)
+	cloned.Bindings = make(map[string]*TypeBinding, len(config.Bindings))
+	for name, binding := range config.Bindings {
+		if binding == nil {
+			cloned.Bindings[name] = nil
+			continue
+		}
+		bindingCopy := *binding
+		cloned.Bindings[name] = &bindingCopy
+	}
+	cloned.PackageBindings = make([]*PackageBinding, 0, len(config.PackageBindings))
+	for _, binding := range config.PackageBindings {
+		if binding == nil {
+			cloned.PackageBindings = append(cloned.PackageBindings, nil)
+			continue
+		}
+		bindingCopy := *binding
+		cloned.PackageBindings = append(cloned.PackageBindings, &bindingCopy)
+	}
+	cloned.Casing.Enums = maps.Clone(config.Casing.Enums)
+	if config.OmitUnreferencedImplementations != nil {
+		omit := *config.OmitUnreferencedImplementations
+		cloned.OmitUnreferencedImplementations = &omit
+	}
+	return cloned
+}
+
+func cloneOperations(operations []*operation, config *Config) []*operation {
+	cloned := make([]*operation, 0, len(operations))
+	for _, source := range operations {
+		operationCopy := *source
+		operationCopy.Config = config
+		cloned = append(cloned, &operationCopy)
+	}
+	return cloned
+}
+
+func (plan *generationPlan) newRenderer(config *Config, includePlanImports bool) *generator {
+	renderConfig := cloneConfig(config)
+	renderer := &generator{
+		Config:               &renderConfig,
+		Operations:           cloneOperations(plan.operations, &renderConfig),
+		typeMap:              plan.typeMap,
+		imports:              map[string]string{},
+		usedAliases:          map[string]bool{},
+		templateCache:        map[string]*template.Template{},
+		operationIdentifiers: map[*ast.OperationDefinition]operationIdentifiers{},
+		fragments:            map[string]*ast.FragmentDefinition{},
+	}
+	if includePlanImports {
+		renderer.imports = maps.Clone(plan.imports)
+		renderer.usedAliases = maps.Clone(plan.usedAliases)
+	}
+	return renderer
 }
 
 func newGenerator(
@@ -357,12 +440,7 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 	return nil
 }
 
-// Generate is the main programmatic entrypoint to octoqlgen, and generates and
-// returns Go source code based on the given configuration.
-//
-// See [Config] for more on creating a configuration.  The return value is a
-// map from filename to the generated file-content (e.g. Go source).  Callers
-func Generate(config *Config) (map[string][]byte, error) {
+func buildGenerationPlan(config *Config) (*generationPlan, error) {
 	// Step 1: Read in the schema and operations from the files defined by the
 	// config (and validate the operations against the schema).  This is all
 	// defined in parse.go.
@@ -398,20 +476,29 @@ func Generate(config *Config) (map[string][]byte, error) {
 		}
 	}
 
-	// Step 3: Glue it all together!
-	//
-	// First, write the types (from g.typeMap) and operations to a temporary
-	// buffer, since they affect what imports we'll put in the header.
-	var bodyBuf bytes.Buffer
-	err = g.WriteTypes(&bodyBuf)
-	if err != nil {
-		return nil, err
-	}
-
-	// Sort operations to guarantee a stable order
 	sort.Slice(g.Operations, func(i, j int) bool {
 		return g.Operations[i].Name < g.Operations[j].Name
 	})
+
+	plan := freezeGenerationPlan(g)
+	err = validateTestHandlerNames(plan)
+	if err != nil {
+		return nil, err
+	}
+	return plan, nil
+}
+
+func renderClient(plan *generationPlan) ([]byte, error) {
+	g := plan.newRenderer(&plan.config, true)
+	return renderClientGenerator(g)
+}
+
+func renderClientGenerator(g *generator) ([]byte, error) {
+	var bodyBuf bytes.Buffer
+	err := g.WriteTypes(&bodyBuf)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, operation := range g.Operations {
 		err = g.render("operation.go.tmpl", &bodyBuf, operation)
@@ -451,26 +538,77 @@ func Generate(config *Config) (map[string][]byte, error) {
 	if err != nil {
 		return nil, goSourceError("gofmt", unformatted, err)
 	}
-	importsed, err := imports.Process(config.Generated, formatted, nil)
+	importsed, err := imports.Process(g.Config.Generated, formatted, nil)
 	if err != nil {
 		return nil, goSourceError("goimports", formatted, err)
 	}
 
-	retval := map[string][]byte{
-		config.Generated: importsed,
+	return importsed, nil
+}
+
+func renderExportedOperations(plan *generationPlan) ([]byte, error) {
+	content, err := json.MarshalIndent(
+		exportedOperations{Operations: plan.operations},
+		"",
+		"  ",
+	)
+	if err != nil {
+		return nil, errorf(nil, "unable to export queries: %v", err)
+	}
+	return content, nil
+}
+
+func generateWith(
+	config *Config,
+	buildPlan planBuilder,
+	clientRenderer outputRenderer,
+	handlerRenderer outputRenderer,
+) (map[string][]byte, error) {
+	plan, err := buildPlan(config)
+	if err != nil {
+		return nil, err
 	}
 
+	client, err := clientRenderer(plan)
+	if err != nil {
+		return nil, err
+	}
+
+	outputs := map[string][]byte{
+		config.Generated: client,
+	}
 	if config.ExportOperations != "" {
 		// We use MarshalIndent so that the file is human-readable and
 		// slightly more likely to be git-mergeable (if you check it in).  In
 		// general it's never going to be used anywhere where space is an
 		// issue -- it doesn't go in your binary or anything.
-		retval[config.ExportOperations], err = json.MarshalIndent(
-			exportedOperations{Operations: g.Operations}, "", "  ")
+		outputs[config.ExportOperations], err = renderExportedOperations(plan)
 		if err != nil {
-			return nil, errorf(nil, "unable to export queries: %v", err)
+			return nil, err
 		}
 	}
 
-	return retval, nil
+	if config.TestHandlerGenerated != "" {
+		outputs[config.TestHandlerGenerated], err = handlerRenderer(plan)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return outputs, nil
+}
+
+// Generate is the main programmatic entrypoint to octoqlgen, and generates and
+// returns Go source code based on the given configuration.
+//
+// See [Config] for more on creating a configuration. The return value is a map
+// from filename to generated file content. Schema and operation parsing occur
+// once, and every configured output is rendered before the map is returned.
+func Generate(config *Config) (map[string][]byte, error) {
+	return generateWith(
+		config,
+		buildGenerationPlan,
+		renderClient,
+		renderTestHandler,
+	)
 }

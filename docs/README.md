@@ -12,6 +12,7 @@ Welcome to the octoql documentation. If you see something unclear, file an
 - [Runnable usage example](../example)
 - [Handling your GraphQL schema](schema.md)
 - [Client configuration and usage](client_config.md)
+- [Testing generated clients with typed handlers](test_handlers.md)
 - [Writing your GraphQL operations](operations.md)
 - [Migrating inherited generator configuration](migration.md)
 

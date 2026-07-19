@@ -25,9 +25,19 @@
   initializer clauses in `if` statements.
 - Test helpers that take `*testing.T` use `t.Context()` internally. Use
   `t.Helper()` only for assertion helpers.
+- Use `testify/require` for test prerequisites and `testify/assert` for
+  non-fatal checks whenever they make tests clearer.
 - The runtime config model is generated from `octoqlgen.schema.yaml` with the
   repository-pinned `script/jsonschematogo`; do not add handwritten user config
   structs.
+- Typed test-handler generation is an optional renderer over the same immutable
+  parsed and converted operation plan as client generation. Do not add a second
+  config load, schema parse, operation parser, abstract-type analysis, or
+  subscription path.
+- Generated test handlers live in a separate inferred package, import the
+  generated client package, and alias its converted types so scalar bindings,
+  aliases, fragments, abstract variants, `OctoqlOther`, and marshaling behavior
+  cannot drift.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve
@@ -55,6 +65,13 @@
   normally and confirm it leaves the worktree clean.
 - Normalize nondeterministic values at the source so snapshots remain stable;
   do not hide nondeterminism with snapshot ordering or cleanup machinery.
+- Test-handler generator coverage compiles checked-in generated fixtures and
+  exercises expectation counts, defaults, cleanup verification, response
+  controls, abstract types, and concurrent requests under `go test -race`.
+- Treat `WillAbides/gqltesthandler` commit
+  `0badc27d4cac3d21bc7e0ccad7842bad47763438` as bounded implementation input
+  only. Keep its attribution in `THIRD_PARTY_NOTICES.md`; do not add its CLI,
+  config, parser, or module dependency.
 
 ## Tooling and release safety
 

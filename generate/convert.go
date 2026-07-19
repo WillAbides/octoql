@@ -131,7 +131,6 @@ func (g *generator) convertOperation(
 		},
 		Fields:    fields,
 		Selection: operation.SelectionSet,
-		Generator: g,
 	}
 
 	return g.addType(goType, goType.GoName, operation.Position)
@@ -224,7 +223,6 @@ func (g *generator) convertArguments(
 			// fake name, used by addType
 			GraphQLName: name,
 		},
-		Generator: g,
 	}
 	goTypAgain, err := g.addType(goTyp, goTyp.GoName, operation.Position)
 	if err != nil {
@@ -458,7 +456,6 @@ func (g *generator) convertDefinition(
 			Fields:          fields,
 			Selection:       selectionSet,
 			descriptionInfo: desc,
-			Generator:       g,
 		}
 		return g.addType(goType, goType.GoName, pos)
 
@@ -468,7 +465,6 @@ func (g *generator) convertDefinition(
 			Fields:          make([]*goStructField, len(def.Fields)),
 			descriptionInfo: desc,
 			IsInput:         true,
-			Generator:       g,
 		}
 		// To handle recursive types, we need to add the type to the type-map
 		// *before* converting its fields.
@@ -788,7 +784,6 @@ func (g *generator) attachCatchAllImplementation(
 				abstractType.GoName,
 			),
 		},
-		Generator: g,
 	}
 	_, err := g.addType(catchAll, catchAll.GoName, pos)
 	if err != nil {
@@ -1088,7 +1083,6 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			Fields:          fields,
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
-			Generator:       g,
 		}
 		g.typeMap[fragment.Name] = goType
 		return goType, nil
@@ -1120,7 +1114,6 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 				Fields:          implFields,
 				Selection:       fragment.SelectionSet,
 				descriptionInfo: implDesc,
-				Generator:       g,
 			}
 			goType.Implementations = append(goType.Implementations, implTyp)
 			g.typeMap[implTyp.GoName] = implTyp
