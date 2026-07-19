@@ -13,11 +13,12 @@ omit_unreferenced_implementations: false
 ```
 
 GitHub public-schema scalars also have built-in mappings. `DateTime`,
-`PreciseDateTime`, and `GitTimestamp` use `time.Time`. `Base64String`, `BigInt`,
-`CustomPropertyValue`, `Date`, `GitObjectID`, `GitRefname`, `GitSSHRemote`,
-`HTML`, `URI`, and `X509Certificate` use `string`. Existing explicit `bindings`
-continue to win, so compatible inherited configuration does not need to change.
-Unknown custom scalars still require a binding.
+`PreciseDateTime`, and `GitTimestamp` use `time.Time`. `CustomPropertyValue`
+uses `encoding/json.RawMessage` because GitHub may return either a string or an
+array of strings. `Base64String`, `BigInt`, `Date`, `GitObjectID`, `GitRefname`,
+`GitSSHRemote`, `HTML`, `URI`, and `X509Certificate` use `string`. Existing
+explicit `bindings` continue to win, so compatible inherited configuration does
+not need to change. Unknown custom scalars still require a binding.
 
 These defaults apply to ordinary SDL supplied through `schema`. They do not
 fetch schemas or imply separate support for internal or enterprise GitHub

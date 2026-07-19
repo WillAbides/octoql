@@ -79,6 +79,10 @@ func (v *ActorDetailsOctoqlOther) GetLogin() string { return v.Login }
 // GetActorActor includes the requested fields of the GraphQL interface Actor.
 //
 // GetActorActor is implemented by the following types:
+// GetActorActorBot
+// GetActorActorEnterpriseUserAccount
+// GetActorActorOrganization
+// GetActorActorUser
 // GetActorActorOctoqlOther
 type GetActorActor interface {
 	implementsGraphQLInterfaceGetActorActor()
@@ -87,7 +91,11 @@ type GetActorActor interface {
 	ActorDetails
 }
 
-func (v *GetActorActorOctoqlOther) implementsGraphQLInterfaceGetActorActor() {}
+func (v *GetActorActorBot) implementsGraphQLInterfaceGetActorActor()                   {}
+func (v *GetActorActorEnterpriseUserAccount) implementsGraphQLInterfaceGetActorActor() {}
+func (v *GetActorActorOrganization) implementsGraphQLInterfaceGetActorActor()          {}
+func (v *GetActorActorUser) implementsGraphQLInterfaceGetActorActor()                  {}
+func (v *GetActorActorOctoqlOther) implementsGraphQLInterfaceGetActorActor()           {}
 
 func __unmarshalGetActorActor(b []byte, v *GetActorActor) error {
 	if string(b) == "null" {
@@ -103,6 +111,18 @@ func __unmarshalGetActorActor(b []byte, v *GetActorActor) error {
 	}
 
 	switch tn.TypeName {
+	case "Bot":
+		*v = new(GetActorActorBot)
+		return json.Unmarshal(b, *v)
+	case "EnterpriseUserAccount":
+		*v = new(GetActorActorEnterpriseUserAccount)
+		return json.Unmarshal(b, *v)
+	case "Organization":
+		*v = new(GetActorActorOrganization)
+		return json.Unmarshal(b, *v)
+	case "User":
+		*v = new(GetActorActorUser)
+		return json.Unmarshal(b, *v)
 	case "":
 		return fmt.Errorf(
 			"response was missing Actor.__typename")
@@ -114,7 +134,56 @@ func __unmarshalGetActorActor(b []byte, v *GetActorActor) error {
 
 func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
 
+	var typename string
 	switch v := (*v).(type) {
+	case *GetActorActorBot:
+		typename = "Bot"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetActorActorBot
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *GetActorActorEnterpriseUserAccount:
+		typename = "EnterpriseUserAccount"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetActorActorEnterpriseUserAccount
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *GetActorActorOrganization:
+		typename = "Organization"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetActorActorOrganization
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *GetActorActorUser:
+		typename = "User"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetActorActorUser
+		}{typename, premarshaled}
+		return json.Marshal(result)
 	case *GetActorActorOctoqlOther:
 		premarshaled, err := v.__premarshalJSON()
 		if err != nil {
@@ -127,6 +196,138 @@ func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		return nil, fmt.Errorf(
 			`unexpected concrete type for GetActorActor: "%T"`, v)
 	}
+}
+
+// GetActorActorBot includes the requested fields of the GraphQL type Bot.
+type GetActorActorBot struct {
+	Typename                string `json:"__typename"`
+	ActorDetailsOctoqlOther `json:"-"`
+}
+
+// GetTypename returns GetActorActorBot.Typename, and is useful for accessing the field via an interface.
+func (v *GetActorActorBot) GetTypename() string { return v.Typename }
+
+// GetId returns GetActorActorBot.Id, and is useful for accessing the field via an interface.
+func (v *GetActorActorBot) GetId() testutil.ID { return v.ActorDetailsOctoqlOther.Id }
+
+// GetLogin returns GetActorActorBot.Login, and is useful for accessing the field via an interface.
+func (v *GetActorActorBot) GetLogin() string { return v.ActorDetailsOctoqlOther.Login }
+
+func (v *GetActorActorBot) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetActorActorBot
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetActorActorBot = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ActorDetailsOctoqlOther)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetActorActorBot struct {
+	Typename string `json:"__typename"`
+
+	Id testutil.ID `json:"id"`
+
+	Login string `json:"login"`
+}
+
+func (v *GetActorActorBot) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetActorActorBot) __premarshalJSON() (*__premarshalGetActorActorBot, error) {
+	var retval __premarshalGetActorActorBot
+
+	retval.Typename = v.Typename
+	retval.Id = v.ActorDetailsOctoqlOther.Id
+	retval.Login = v.ActorDetailsOctoqlOther.Login
+	return &retval, nil
+}
+
+// GetActorActorEnterpriseUserAccount includes the requested fields of the GraphQL type EnterpriseUserAccount.
+type GetActorActorEnterpriseUserAccount struct {
+	Typename                string `json:"__typename"`
+	ActorDetailsOctoqlOther `json:"-"`
+}
+
+// GetTypename returns GetActorActorEnterpriseUserAccount.Typename, and is useful for accessing the field via an interface.
+func (v *GetActorActorEnterpriseUserAccount) GetTypename() string { return v.Typename }
+
+// GetId returns GetActorActorEnterpriseUserAccount.Id, and is useful for accessing the field via an interface.
+func (v *GetActorActorEnterpriseUserAccount) GetId() testutil.ID { return v.ActorDetailsOctoqlOther.Id }
+
+// GetLogin returns GetActorActorEnterpriseUserAccount.Login, and is useful for accessing the field via an interface.
+func (v *GetActorActorEnterpriseUserAccount) GetLogin() string {
+	return v.ActorDetailsOctoqlOther.Login
+}
+
+func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetActorActorEnterpriseUserAccount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetActorActorEnterpriseUserAccount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ActorDetailsOctoqlOther)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetActorActorEnterpriseUserAccount struct {
+	Typename string `json:"__typename"`
+
+	Id testutil.ID `json:"id"`
+
+	Login string `json:"login"`
+}
+
+func (v *GetActorActorEnterpriseUserAccount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetActorActorEnterpriseUserAccount) __premarshalJSON() (*__premarshalGetActorActorEnterpriseUserAccount, error) {
+	var retval __premarshalGetActorActorEnterpriseUserAccount
+
+	retval.Typename = v.Typename
+	retval.Id = v.ActorDetailsOctoqlOther.Id
+	retval.Login = v.ActorDetailsOctoqlOther.Login
+	return &retval, nil
 }
 
 // GetActorActorOctoqlOther represents GetActorActor implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
@@ -194,9 +395,142 @@ func (v *GetActorActorOctoqlOther) __premarshalJSON() (*__premarshalGetActorActo
 	return &retval, nil
 }
 
+// GetActorActorOrganization includes the requested fields of the GraphQL type Organization.
+type GetActorActorOrganization struct {
+	Typename                string `json:"__typename"`
+	ActorDetailsOctoqlOther `json:"-"`
+}
+
+// GetTypename returns GetActorActorOrganization.Typename, and is useful for accessing the field via an interface.
+func (v *GetActorActorOrganization) GetTypename() string { return v.Typename }
+
+// GetId returns GetActorActorOrganization.Id, and is useful for accessing the field via an interface.
+func (v *GetActorActorOrganization) GetId() testutil.ID { return v.ActorDetailsOctoqlOther.Id }
+
+// GetLogin returns GetActorActorOrganization.Login, and is useful for accessing the field via an interface.
+func (v *GetActorActorOrganization) GetLogin() string { return v.ActorDetailsOctoqlOther.Login }
+
+func (v *GetActorActorOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetActorActorOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetActorActorOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ActorDetailsOctoqlOther)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetActorActorOrganization struct {
+	Typename string `json:"__typename"`
+
+	Id testutil.ID `json:"id"`
+
+	Login string `json:"login"`
+}
+
+func (v *GetActorActorOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetActorActorOrganization) __premarshalJSON() (*__premarshalGetActorActorOrganization, error) {
+	var retval __premarshalGetActorActorOrganization
+
+	retval.Typename = v.Typename
+	retval.Id = v.ActorDetailsOctoqlOther.Id
+	retval.Login = v.ActorDetailsOctoqlOther.Login
+	return &retval, nil
+}
+
+// GetActorActorUser includes the requested fields of the GraphQL type User.
+type GetActorActorUser struct {
+	Typename                string `json:"__typename"`
+	ActorDetailsOctoqlOther `json:"-"`
+}
+
+// GetTypename returns GetActorActorUser.Typename, and is useful for accessing the field via an interface.
+func (v *GetActorActorUser) GetTypename() string { return v.Typename }
+
+// GetId returns GetActorActorUser.Id, and is useful for accessing the field via an interface.
+func (v *GetActorActorUser) GetId() testutil.ID { return v.ActorDetailsOctoqlOther.Id }
+
+// GetLogin returns GetActorActorUser.Login, and is useful for accessing the field via an interface.
+func (v *GetActorActorUser) GetLogin() string { return v.ActorDetailsOctoqlOther.Login }
+
+func (v *GetActorActorUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetActorActorUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetActorActorUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ActorDetailsOctoqlOther)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetActorActorUser struct {
+	Typename string `json:"__typename"`
+
+	Id testutil.ID `json:"id"`
+
+	Login string `json:"login"`
+}
+
+func (v *GetActorActorUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetActorActorUser) __premarshalJSON() (*__premarshalGetActorActorUser, error) {
+	var retval __premarshalGetActorActorUser
+
+	retval.Typename = v.Typename
+	retval.Id = v.ActorDetailsOctoqlOther.Id
+	retval.Login = v.ActorDetailsOctoqlOther.Login
+	return &retval, nil
+}
+
 // GetActorRepositoryOwner includes the requested fields of the GraphQL interface RepositoryOwner.
 //
 // GetActorRepositoryOwner is implemented by the following types:
+// GetActorRepositoryOwnerEnterpriseUserAccount
+// GetActorRepositoryOwnerOrganization
+// GetActorRepositoryOwnerUser
 // GetActorRepositoryOwnerOctoqlOther
 type GetActorRepositoryOwner interface {
 	implementsGraphQLInterfaceGetActorRepositoryOwner()
@@ -205,7 +539,11 @@ type GetActorRepositoryOwner interface {
 	RepositoryOwnerDetails
 }
 
-func (v *GetActorRepositoryOwnerOctoqlOther) implementsGraphQLInterfaceGetActorRepositoryOwner() {}
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) implementsGraphQLInterfaceGetActorRepositoryOwner() {
+}
+func (v *GetActorRepositoryOwnerOrganization) implementsGraphQLInterfaceGetActorRepositoryOwner() {}
+func (v *GetActorRepositoryOwnerUser) implementsGraphQLInterfaceGetActorRepositoryOwner()         {}
+func (v *GetActorRepositoryOwnerOctoqlOther) implementsGraphQLInterfaceGetActorRepositoryOwner()  {}
 
 func __unmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwner) error {
 	if string(b) == "null" {
@@ -221,6 +559,15 @@ func __unmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwner) er
 	}
 
 	switch tn.TypeName {
+	case "EnterpriseUserAccount":
+		*v = new(GetActorRepositoryOwnerEnterpriseUserAccount)
+		return json.Unmarshal(b, *v)
+	case "Organization":
+		*v = new(GetActorRepositoryOwnerOrganization)
+		return json.Unmarshal(b, *v)
+	case "User":
+		*v = new(GetActorRepositoryOwnerUser)
+		return json.Unmarshal(b, *v)
 	case "":
 		return fmt.Errorf(
 			"response was missing RepositoryOwner.__typename")
@@ -232,7 +579,44 @@ func __unmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwner) er
 
 func __marshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error) {
 
+	var typename string
 	switch v := (*v).(type) {
+	case *GetActorRepositoryOwnerEnterpriseUserAccount:
+		typename = "EnterpriseUserAccount"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetActorRepositoryOwnerEnterpriseUserAccount
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *GetActorRepositoryOwnerOrganization:
+		typename = "Organization"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetActorRepositoryOwnerOrganization
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *GetActorRepositoryOwnerUser:
+		typename = "User"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetActorRepositoryOwnerUser
+		}{typename, premarshaled}
+		return json.Marshal(result)
 	case *GetActorRepositoryOwnerOctoqlOther:
 		premarshaled, err := v.__premarshalJSON()
 		if err != nil {
@@ -245,6 +629,83 @@ func __marshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error
 		return nil, fmt.Errorf(
 			`unexpected concrete type for GetActorRepositoryOwner: "%T"`, v)
 	}
+}
+
+// GetActorRepositoryOwnerEnterpriseUserAccount includes the requested fields of the GraphQL type EnterpriseUserAccount.
+type GetActorRepositoryOwnerEnterpriseUserAccount struct {
+	Typename                          string `json:"__typename"`
+	RepositoryOwnerDetailsOctoqlOther `json:"-"`
+}
+
+// GetTypename returns GetActorRepositoryOwnerEnterpriseUserAccount.Typename, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) GetTypename() string { return v.Typename }
+
+// GetId returns GetActorRepositoryOwnerEnterpriseUserAccount.Id, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) GetId() testutil.ID {
+	return v.RepositoryOwnerDetailsOctoqlOther.Id
+}
+
+// GetLogin returns GetActorRepositoryOwnerEnterpriseUserAccount.Login, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) GetLogin() string {
+	return v.RepositoryOwnerDetailsOctoqlOther.Login
+}
+
+// GetRepositories returns GetActorRepositoryOwnerEnterpriseUserAccount.Repositories, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) GetRepositories() RepositoryOwnerDetailsRepositoriesRepositoryConnection {
+	return v.RepositoryOwnerDetailsOctoqlOther.Repositories
+}
+
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetActorRepositoryOwnerEnterpriseUserAccount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetActorRepositoryOwnerEnterpriseUserAccount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RepositoryOwnerDetailsOctoqlOther)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetActorRepositoryOwnerEnterpriseUserAccount struct {
+	Typename string `json:"__typename"`
+
+	Id testutil.ID `json:"id"`
+
+	Login string `json:"login"`
+
+	Repositories RepositoryOwnerDetailsRepositoriesRepositoryConnection `json:"repositories"`
+}
+
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) __premarshalJSON() (*__premarshalGetActorRepositoryOwnerEnterpriseUserAccount, error) {
+	var retval __premarshalGetActorRepositoryOwnerEnterpriseUserAccount
+
+	retval.Typename = v.Typename
+	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
+	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
+	retval.Repositories = v.RepositoryOwnerDetailsOctoqlOther.Repositories
+	return &retval, nil
 }
 
 // GetActorRepositoryOwnerOctoqlOther represents GetActorRepositoryOwner implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
@@ -316,6 +777,160 @@ func (v *GetActorRepositoryOwnerOctoqlOther) MarshalJSON() ([]byte, error) {
 
 func (v *GetActorRepositoryOwnerOctoqlOther) __premarshalJSON() (*__premarshalGetActorRepositoryOwnerOctoqlOther, error) {
 	var retval __premarshalGetActorRepositoryOwnerOctoqlOther
+
+	retval.Typename = v.Typename
+	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
+	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
+	retval.Repositories = v.RepositoryOwnerDetailsOctoqlOther.Repositories
+	return &retval, nil
+}
+
+// GetActorRepositoryOwnerOrganization includes the requested fields of the GraphQL type Organization.
+type GetActorRepositoryOwnerOrganization struct {
+	Typename                          string `json:"__typename"`
+	RepositoryOwnerDetailsOctoqlOther `json:"-"`
+}
+
+// GetTypename returns GetActorRepositoryOwnerOrganization.Typename, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerOrganization) GetTypename() string { return v.Typename }
+
+// GetId returns GetActorRepositoryOwnerOrganization.Id, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerOrganization) GetId() testutil.ID {
+	return v.RepositoryOwnerDetailsOctoqlOther.Id
+}
+
+// GetLogin returns GetActorRepositoryOwnerOrganization.Login, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerOrganization) GetLogin() string {
+	return v.RepositoryOwnerDetailsOctoqlOther.Login
+}
+
+// GetRepositories returns GetActorRepositoryOwnerOrganization.Repositories, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerOrganization) GetRepositories() RepositoryOwnerDetailsRepositoriesRepositoryConnection {
+	return v.RepositoryOwnerDetailsOctoqlOther.Repositories
+}
+
+func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetActorRepositoryOwnerOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetActorRepositoryOwnerOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RepositoryOwnerDetailsOctoqlOther)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetActorRepositoryOwnerOrganization struct {
+	Typename string `json:"__typename"`
+
+	Id testutil.ID `json:"id"`
+
+	Login string `json:"login"`
+
+	Repositories RepositoryOwnerDetailsRepositoriesRepositoryConnection `json:"repositories"`
+}
+
+func (v *GetActorRepositoryOwnerOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetActorRepositoryOwnerOrganization) __premarshalJSON() (*__premarshalGetActorRepositoryOwnerOrganization, error) {
+	var retval __premarshalGetActorRepositoryOwnerOrganization
+
+	retval.Typename = v.Typename
+	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
+	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
+	retval.Repositories = v.RepositoryOwnerDetailsOctoqlOther.Repositories
+	return &retval, nil
+}
+
+// GetActorRepositoryOwnerUser includes the requested fields of the GraphQL type User.
+type GetActorRepositoryOwnerUser struct {
+	Typename                          string `json:"__typename"`
+	RepositoryOwnerDetailsOctoqlOther `json:"-"`
+}
+
+// GetTypename returns GetActorRepositoryOwnerUser.Typename, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerUser) GetTypename() string { return v.Typename }
+
+// GetId returns GetActorRepositoryOwnerUser.Id, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerUser) GetId() testutil.ID {
+	return v.RepositoryOwnerDetailsOctoqlOther.Id
+}
+
+// GetLogin returns GetActorRepositoryOwnerUser.Login, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerUser) GetLogin() string {
+	return v.RepositoryOwnerDetailsOctoqlOther.Login
+}
+
+// GetRepositories returns GetActorRepositoryOwnerUser.Repositories, and is useful for accessing the field via an interface.
+func (v *GetActorRepositoryOwnerUser) GetRepositories() RepositoryOwnerDetailsRepositoriesRepositoryConnection {
+	return v.RepositoryOwnerDetailsOctoqlOther.Repositories
+}
+
+func (v *GetActorRepositoryOwnerUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetActorRepositoryOwnerUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetActorRepositoryOwnerUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RepositoryOwnerDetailsOctoqlOther)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetActorRepositoryOwnerUser struct {
+	Typename string `json:"__typename"`
+
+	Id testutil.ID `json:"id"`
+
+	Login string `json:"login"`
+
+	Repositories RepositoryOwnerDetailsRepositoriesRepositoryConnection `json:"repositories"`
+}
+
+func (v *GetActorRepositoryOwnerUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetActorRepositoryOwnerUser) __premarshalJSON() (*__premarshalGetActorRepositoryOwnerUser, error) {
+	var retval __premarshalGetActorRepositoryOwnerUser
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id

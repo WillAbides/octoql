@@ -21,6 +21,19 @@ fragment ConcreteUserFields on User {
   }
 }
 
+fragment NamedActorOnNode on Actor {
+  login
+  ... on User {
+    name
+  }
+}
+
+fragment NamedSearchItemOnNode on SearchResultItem {
+  ... on Issue {
+    title
+  }
+}
+
 query GitHubAbstractSelections($id: ID!, $login: String!, $query: String!) {
   node(id: $id) {
     id
@@ -65,6 +78,24 @@ query GitHubAbstractSelections($id: ID!, $login: String!, $query: String!) {
   secondNode: node(id: $id) {
     id
   }
+  inlineActorNode: node(id: $id) {
+    ... on Actor {
+      login
+    }
+  }
+  namedActorNode: node(id: $id) {
+    ...NamedActorOnNode
+  }
+  nestedActorNode: node(id: $id) {
+    ... on Actor {
+      ... on RepositoryOwner {
+        login
+      }
+    }
+  }
+  unionNode: node(id: $id) {
+    ...NamedSearchItemOnNode
+  }
 }
 
 query AllActorImplementations($login: String!) {
@@ -95,5 +126,10 @@ query RuntimeAbstracts($id: ID!) {
   nestedNodes {
     id
     url
+  }
+  actorNode: node(id: $id) {
+    ... on Actor {
+      login
+    }
   }
 }

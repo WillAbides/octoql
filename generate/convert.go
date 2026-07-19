@@ -149,7 +149,7 @@ var builtinTypes = map[string]string{
 var githubScalarTypes = map[string]string{
 	"Base64String":        "string",
 	"BigInt":              "string",
-	"CustomPropertyValue": "string",
+	"CustomPropertyValue": "encoding/json.RawMessage",
 	"Date":                "string",
 	"DateTime":            "time.Time",
 	"GitObjectID":         "string",
@@ -641,12 +641,25 @@ func (g *generator) filterReferencedImplementations(
 		return implementations
 	}
 
+	applicable := make(map[string]bool, len(implementations))
+	for _, implementation := range implementations {
+		applicable[implementation.Name] = true
+	}
+
+	type selectionContext struct {
+		selectionSet ast.SelectionSet
+		applicable   map[string]bool
+	}
+
 	referenced := map[string]bool{}
-	queue := []ast.SelectionSet{selectionSet}
+	queue := []selectionContext{{
+		selectionSet: selectionSet,
+		applicable:   applicable,
+	}}
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
-		for _, selection := range current {
+		for _, selection := range current.selectionSet {
 			var typeCondition string
 			var fragmentSelectionSet ast.SelectionSet
 			switch selection := selection.(type) {
@@ -663,17 +676,76 @@ func (g *generator) filterReferencedImplementations(
 				continue
 			}
 
-			definition := g.schema.Types[typeCondition]
-			if definition != nil && definition.Kind == ast.Object {
-				referenced[typeCondition] = true
+			if typeCondition == "" {
+				if selectionSetHasDirectFields(fragmentSelectionSet) {
+					for concreteType := range current.applicable {
+						referenced[concreteType] = true
+					}
+				}
+				queue = append(queue, selectionContext{
+					selectionSet: fragmentSelectionSet,
+					applicable:   current.applicable,
+				})
+				continue
 			}
-			queue = append(queue, fragmentSelectionSet)
+
+			definition := g.schema.Types[typeCondition]
+			conditionTypes := g.possibleObjectTypes(definition)
+			fragmentApplicable := map[string]bool{}
+			for concreteType := range conditionTypes {
+				if current.applicable[concreteType] {
+					fragmentApplicable[concreteType] = true
+				}
+			}
+			if len(fragmentApplicable) == 0 {
+				continue
+			}
+			referencesApplicableTypes := definition.Kind == ast.Object ||
+				selectionSetHasDirectFields(fragmentSelectionSet)
+			if referencesApplicableTypes {
+				for concreteType := range fragmentApplicable {
+					referenced[concreteType] = true
+				}
+			}
+			queue = append(queue, selectionContext{
+				selectionSet: fragmentSelectionSet,
+				applicable:   fragmentApplicable,
+			})
 		}
 	}
 
 	return slices.DeleteFunc(slices.Clone(implementations), func(implementation *ast.Definition) bool {
 		return !referenced[implementation.Name]
 	})
+}
+
+func selectionSetHasDirectFields(selectionSet ast.SelectionSet) bool {
+	for _, selection := range selectionSet {
+		field, ok := selection.(*ast.Field)
+		if ok && field.Name != "__typename" {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generator) possibleObjectTypes(definition *ast.Definition) map[string]bool {
+	if definition == nil {
+		return map[string]bool{}
+	}
+	if definition.Kind == ast.Object {
+		return map[string]bool{definition.Name: true}
+	}
+	if definition.Kind != ast.Interface && definition.Kind != ast.Union {
+		return map[string]bool{}
+	}
+
+	possibleTypes := g.schema.GetPossibleTypes(definition)
+	result := make(map[string]bool, len(possibleTypes))
+	for _, possibleType := range possibleTypes {
+		result[possibleType.Name] = true
+	}
+	return result
 }
 
 func (g *generator) attachCatchAllImplementation(

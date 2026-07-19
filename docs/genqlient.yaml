@@ -144,9 +144,10 @@ optional_generic_type: github.com/organisation/repository/example.Type
 # builtin scalars are mapped to the obvious Go types (String and ID to
 # string, Int to int, Float to float64, and Boolean to bool). octoql also maps
 # GitHub's DateTime, PreciseDateTime, and GitTimestamp scalars to time.Time.
-# Base64String, BigInt, CustomPropertyValue, Date, GitObjectID, GitRefname,
-# GitSSHRemote, HTML, URI, and X509Certificate map to string. This setting will
-# extend or override all those mappings. (See also
+# CustomPropertyValue maps to encoding/json.RawMessage because GitHub may return
+# either a string or an array of strings. Base64String, BigInt, Date,
+# GitObjectID, GitRefname, GitSSHRemote, HTML, URI, and X509Certificate map to
+# string. This setting will extend or override all those mappings. (See also
 # @genqlient(typename: ...), which can be used to map builtin scalars
 # to a nonstandard type that genqlient defines for you.)
 #

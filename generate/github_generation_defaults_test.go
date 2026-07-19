@@ -22,7 +22,7 @@ func TestGitHubScalarDefaults(t *testing.T) {
 	expected := map[string]string{
 		"Base64String":        "string",
 		"BigInt":              "string",
-		"CustomPropertyValue": "string",
+		"CustomPropertyValue": "encoding/json.RawMessage",
 		"Date":                "string",
 		"DateTime":            "time.Time",
 		"GitObjectID":         "string",
@@ -40,9 +40,16 @@ func TestGitHubScalarDefaults(t *testing.T) {
 	for graphQLName, goType := range expected {
 		t.Run(graphQLName, func(t *testing.T) {
 			source := generateScalarOperation(t, graphQLName, nil)
-			assert.Contains(t, source, "Value "+goType)
+			fieldType := goType
+			if goType == "encoding/json.RawMessage" {
+				fieldType = "json.RawMessage"
+			}
+			assert.Contains(t, source, "Value "+fieldType)
 			if goType == "time.Time" {
 				assert.Contains(t, source, `"time"`)
+			}
+			if goType == "encoding/json.RawMessage" {
+				assert.Contains(t, source, `"encoding/json"`)
 			}
 		})
 	}
@@ -71,6 +78,12 @@ func TestGitHubScalarOverrides(t *testing.T) {
 			wantField:  "Value url.URL",
 			wantImport: `"net/url"`,
 		},
+		{
+			name:      "opaque JSON scalar",
+			scalar:    "CustomPropertyValue",
+			binding:   &TypeBinding{Type: "string"},
+			wantField: "Value string",
+		},
 	}
 
 	for _, test := range tests {
@@ -86,6 +99,40 @@ func TestGitHubScalarOverrides(t *testing.T) {
 			require.NoError(t, buildGoFile("github_scalar_override", []byte(source)))
 		})
 	}
+}
+
+func TestCustomPropertyValueUnmarshal(t *testing.T) {
+	source := generateScalarOperation(t, "CustomPropertyValue", nil)
+	testSource := []byte(`package scalar
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestCustomPropertyValue(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{name: "string", body: ` + "`" + `{"value":"enabled"}` + "`" + `, want: ` + "`" + `"enabled"` + "`" + `},
+		{name: "string array", body: ` + "`" + `{"value":["red","blue"]}` + "`" + `, want: ` + "`" + `["red","blue"]` + "`" + `},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var response ScalarValueResponse
+			if err := json.Unmarshal([]byte(test.body), &response); err != nil {
+				t.Fatal(err)
+			}
+			if string(response.Value) != test.want {
+				t.Fatalf("value = %s, want %s", response.Value, test.want)
+			}
+		})
+	}
+}
+`)
+	runGeneratedPackageTests(t, []byte(source), testSource)
 }
 
 func TestOmitUnreferencedImplementations(t *testing.T) {
@@ -133,6 +180,23 @@ func TestOmitUnreferencedImplementations(t *testing.T) {
 	} {
 		assert.Contains(t, defaultSource, referenced)
 	}
+	for _, referenced := range []string{
+		"type GitHubAbstractSelectionsInlineActorNodeUser struct",
+		"type GitHubAbstractSelectionsInlineActorNodeOrganization struct",
+		"type GitHubAbstractSelectionsInlineActorNodeBot struct",
+		"type GitHubAbstractSelectionsInlineActorNodeEnterpriseUserAccount struct",
+		"type GitHubAbstractSelectionsNamedActorNodeUser struct",
+		"type GitHubAbstractSelectionsNamedActorNodeOrganization struct",
+		"type GitHubAbstractSelectionsNestedActorNodeUser struct",
+		"type GitHubAbstractSelectionsNestedActorNodeOrganization struct",
+		"type GitHubAbstractSelectionsNestedActorNodeEnterpriseUserAccount struct",
+		"type GitHubAbstractSelectionsUnionNodeIssue struct",
+	} {
+		assert.Containsf(t, defaultSource, referenced, "missing %s", referenced)
+	}
+	assert.NotContains(t, defaultSource, "type GitHubAbstractSelectionsInlineActorNodeRepository struct")
+	assert.NotContains(t, defaultSource, "type GitHubAbstractSelectionsNestedActorNodeBot struct")
+	assert.NotContains(t, defaultSource, "type GitHubAbstractSelectionsUnionNodeRepository struct")
 
 	catchAllPattern := regexp.MustCompile(`type (\w+OctoqlOther) struct`)
 	matches := catchAllPattern.FindAllStringSubmatch(defaultSource, -1)
@@ -162,7 +226,7 @@ func TestRuntimeAbstracts(t *testing.T) {
 	}{
 		{
 			name: "referenced implementation",
-			body: ` + "`" + `{"node":{"__typename":"Repository","id":"R1","url":"https://example.test/r","nameWithOwner":"octo/repo"},"nestedNodes":[]}` + "`" + `,
+			body: ` + "`" + `{"node":{"__typename":"Repository","id":"R1","url":"https://example.test/r","nameWithOwner":"octo/repo"},"nestedNodes":[],"actorNode":{"__typename":"Organization","login":"octo-org"}}` + "`" + `,
 			check: func(t *testing.T, response RuntimeAbstractsResponse) {
 				repository, ok := response.Node.(*RuntimeAbstractsNodeRepository)
 				if !ok {
@@ -170,6 +234,13 @@ func TestRuntimeAbstracts(t *testing.T) {
 				}
 				if repository.NameWithOwner != "octo/repo" {
 					t.Fatalf("nameWithOwner = %q", repository.NameWithOwner)
+				}
+				organization, ok := response.ActorNode.(*RuntimeAbstractsActorNodeOrganization)
+				if !ok {
+					t.Fatalf("actor node has type %T", response.ActorNode)
+				}
+				if organization.Login != "octo-org" {
+					t.Fatalf("login = %q", organization.Login)
 				}
 			},
 		},

@@ -59,7 +59,8 @@ schema:
 | GraphQL type | Go type |
 |--------------|---------|
 | `DateTime`, `PreciseDateTime`, `GitTimestamp` | `time.Time` |
-| `Base64String`, `BigInt`, `CustomPropertyValue`, `Date` | `string` |
+| `CustomPropertyValue` | `encoding/json.RawMessage` |
+| `Base64String`, `BigInt`, `Date` | `string` |
 | `GitObjectID`, `GitRefname`, `GitSSHRemote` | `string` |
 | `HTML`, `URI`, `X509Certificate` | `string` |
 
