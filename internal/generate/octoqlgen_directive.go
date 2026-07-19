@@ -8,9 +8,9 @@ import (
 	"github.com/vektah/gqlparser/v2/parser"
 )
 
-// Represents the genqlient directive, described in detail in
-// docs/genqlient_directive.graphql.
-type genqlientDirective struct {
+// Represents the octoqlgen comment directive, described in detail in
+// docs/octoqlgen_directive.graphql.
+type octoqlgenDirective struct {
 	pos       *ast.Position
 	Omitempty *bool
 	Pointer   *bool
@@ -22,21 +22,21 @@ type genqlientDirective struct {
 	// FieldDirectives contains the directives to be
 	// applied to specific fields via the "for" option.
 	// Map from type-name -> field-name -> directive.
-	FieldDirectives map[string]map[string]*genqlientDirective
+	FieldDirectives map[string]map[string]*octoqlgenDirective
 }
 
-func newGenqlientDirective(pos *ast.Position) *genqlientDirective {
-	return &genqlientDirective{
+func newOctoqlgenDirective(pos *ast.Position) *octoqlgenDirective {
+	return &octoqlgenDirective{
 		pos:             pos,
-		FieldDirectives: make(map[string]map[string]*genqlientDirective),
+		FieldDirectives: make(map[string]map[string]*octoqlgenDirective),
 	}
 }
 
-func (dir *genqlientDirective) GetOmitempty() bool   { return dir.Omitempty != nil && *dir.Omitempty }
-func (dir *genqlientDirective) GetPointer() bool     { return dir.Pointer != nil && *dir.Pointer }
-func (dir *genqlientDirective) PointerIsFalse() bool { return dir.Pointer != nil && !*dir.Pointer }
-func (dir *genqlientDirective) GetStruct() bool      { return dir.Struct != nil && *dir.Struct }
-func (dir *genqlientDirective) GetFlatten() bool     { return dir.Flatten != nil && *dir.Flatten }
+func (dir *octoqlgenDirective) GetOmitempty() bool   { return dir.Omitempty != nil && *dir.Omitempty }
+func (dir *octoqlgenDirective) GetPointer() bool     { return dir.Pointer != nil && *dir.Pointer }
+func (dir *octoqlgenDirective) PointerIsFalse() bool { return dir.Pointer != nil && !*dir.Pointer }
+func (dir *octoqlgenDirective) GetStruct() bool      { return dir.Struct != nil && *dir.Struct }
+func (dir *octoqlgenDirective) GetFlatten() bool     { return dir.Flatten != nil && *dir.Flatten }
 
 func setBool(optionName string, dst **bool, v *ast.Value, pos *ast.Position) error {
 	if *dst != nil {
@@ -68,22 +68,22 @@ func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) 
 	return errorf(pos, "expected string, got non-string value %T(%v)", ei, ei)
 }
 
-// add adds to this genqlientDirective struct the settings from then given
+// add adds to this octoqlgenDirective struct the settings from the given
 // GraphQL directive.
 //
-// If there are multiple genqlient directives are applied to the same node,
+// If multiple octoqlgen directives are applied to the same node,
 // e.g.
 //
-//	# @genqlient(...)
-//	# @genqlient(...)
+//	# @octoqlgen(...)
+//	# @octoqlgen(...)
 //
 // add will be called several times.  In this case, conflicts between the
 // options are an error.
-func (dir *genqlientDirective) add(graphQLDirective *ast.Directive, pos *ast.Position) error {
-	if graphQLDirective.Name != "genqlient" {
+func (dir *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Position) error {
+	if graphQLDirective.Name != "octoqlgen" {
 		// Actually we just won't get here; we only get here if the line starts
-		// with "# @genqlient", unless there's some sort of bug.
-		return errorf(pos, "the only valid comment-directive is @genqlient, got %v", graphQLDirective.Name)
+		// with "# @octoqlgen", unless there's some sort of bug.
+		return errorf(pos, "the only valid comment-directive is @octoqlgen, got %v", graphQLDirective.Name)
 	}
 
 	// First, see if this directive has a "for" option;
@@ -94,7 +94,7 @@ func (dir *genqlientDirective) add(graphQLDirective *ast.Directive, pos *ast.Pos
 	for _, arg := range graphQLDirective.Arguments {
 		if arg.Name == "for" {
 			if forField != "" {
-				return errorf(pos, `@genqlient directive had "for:" twice`)
+				return errorf(pos, `@octoqlgen directive had "for:" twice`)
 			}
 			err = setString("for", &forField, arg.Value, pos)
 			if err != nil {
@@ -109,9 +109,9 @@ func (dir *genqlientDirective) add(graphQLDirective *ast.Directive, pos *ast.Pos
 		}
 		typeName, fieldName := forParts[0], forParts[1]
 
-		fieldDir := newGenqlientDirective(pos)
+		fieldDir := newOctoqlgenDirective(pos)
 		if dir.FieldDirectives[typeName] == nil {
-			dir.FieldDirectives[typeName] = make(map[string]*genqlientDirective)
+			dir.FieldDirectives[typeName] = make(map[string]*octoqlgenDirective)
 		}
 		dir.FieldDirectives[typeName][fieldName] = fieldDir
 
@@ -140,7 +140,7 @@ func (dir *genqlientDirective) add(graphQLDirective *ast.Directive, pos *ast.Pos
 		case "for":
 			// handled above
 		default:
-			return errorf(pos, "unknown argument %v for @genqlient", arg.Name)
+			return errorf(pos, "unknown argument %v for @octoqlgen", arg.Name)
 		}
 		if err != nil {
 			return err
@@ -150,7 +150,7 @@ func (dir *genqlientDirective) add(graphQLDirective *ast.Directive, pos *ast.Pos
 	return nil
 }
 
-func (dir *genqlientDirective) validate(node interface{}, schema *ast.Schema) error {
+func (dir *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) error {
 	// TODO(benkraft): This function has a lot of duplicated checks, figure out
 	// how to organize them better to avoid the duplication.
 	for typeName, byField := range dir.FieldDirectives {
@@ -258,7 +258,7 @@ func (dir *genqlientDirective) validate(node interface{}, schema *ast.Schema) er
 
 		return nil
 	default:
-		return errorf(dir.pos, "invalid @genqlient directive location: %T", node)
+		return errorf(dir.pos, "invalid @octoqlgen directive location: %T", node)
 	}
 }
 
@@ -377,14 +377,14 @@ func fillDefaultString(target *string, defaults ...string) {
 //
 // parent is as described in parsePrecedingComment.  operationDirective is the
 // directive applied to this operation or fragment.
-func (dir *genqlientDirective) mergeOperationDirective(
+func (dir *octoqlgenDirective) mergeOperationDirective(
 	node interface{},
 	parentIfInputField *ast.Definition,
-	operationDirective *genqlientDirective,
+	operationDirective *octoqlgenDirective,
 ) {
-	// We'll set forField to the `@genqlient(for: "<this field>", ...)`
+	// We'll set forField to the `@octoqlgen(for: "<this field>", ...)`
 	// directive from our operation/fragment, if any.
-	var forField *genqlientDirective
+	var forField *octoqlgenDirective
 	switch field := node.(type) {
 	case *ast.Field: // query field
 		typeName := field.ObjectDefinition.Name
@@ -394,7 +394,7 @@ func (dir *genqlientDirective) mergeOperationDirective(
 	}
 	// Just to simplify nil-checking in the code below:
 	if forField == nil {
-		forField = newGenqlientDirective(nil)
+		forField = newOctoqlgenDirective(nil)
 	}
 
 	// Now fill defaults; in general local directive wins over the "for" field
@@ -412,7 +412,7 @@ func (dir *genqlientDirective) mergeOperationDirective(
 }
 
 // parsePrecedingComment looks at the comment right before this node, and
-// returns the genqlient directive applied to it (or an empty one if there is
+// returns the octoqlgen directive applied to it (or an empty one if there is
 // none), the remaining human-readable comment (or "" if there is none), and an
 // error if the directive is invalid.
 //
@@ -427,12 +427,12 @@ func (g *generator) parsePrecedingComment(
 	node interface{},
 	parentIfInputField *ast.Definition,
 	pos *ast.Position,
-	queryOptions *genqlientDirective,
-) (comment string, directive *genqlientDirective, err error) {
-	directive = newGenqlientDirective(pos)
+	queryOptions *octoqlgenDirective,
+) (comment string, directive *octoqlgenDirective, err error) {
+	directive = newOctoqlgenDirective(pos)
 	hasDirective := false
 
-	// For directives on genqlient-generated nodes, we don't actually need to
+	// For directives on octoqlgen-generated nodes, we don't actually need to
 	// parse anything.  (But we do need to merge below.)
 	var commentLines []string
 	if pos != nil && pos.Src != nil {
@@ -440,7 +440,7 @@ func (g *generator) parsePrecedingComment(
 		for i := pos.Line - 1; i > 0; i-- {
 			line := strings.TrimSpace(sourceLines[i-1])
 			trimmed := strings.TrimSpace(strings.TrimPrefix(line, "#"))
-			if strings.HasPrefix(line, "# @genqlient") {
+			if strings.HasPrefix(line, "# @octoqlgen") {
 				hasDirective = true
 				var graphQLDirective *ast.Directive
 				graphQLDirective, err = parseDirective(trimmed, pos)
@@ -490,7 +490,7 @@ func parseDirective(line string, pos *ast.Position) (*ast.Directive, error) {
 	fakeQuery := fmt.Sprintf("query %v { field }", line)
 	doc, err := parser.ParseQuery(&ast.Source{Input: fakeQuery})
 	if err != nil {
-		return nil, errorf(pos, "invalid genqlient directive: %v", err)
+		return nil, errorf(pos, "invalid octoqlgen directive: %v", err)
 	}
 	return doc.Operations[0].Directives[0], nil
 }

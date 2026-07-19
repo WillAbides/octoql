@@ -39,7 +39,7 @@ schema:
 #
 # These may be .graphql files, containing the queries in SDL format, or
 # Go files, in which case any string-literal starting with (optional
-# whitespace and) the string "# @genqlient" will be extracted as a query.
+# whitespace and) the string "# @octoqlgen" will be extracted as a query.
 #
 # Operations are always written as a list, even when only one path is needed.
 operations:
@@ -177,7 +177,7 @@ optional_generic_type: github.com/organisation/repository/example.Type
 # either a string or an array of strings. Base64String, BigInt, Date,
 # GitObjectID, GitRefname, GitSSHRemote, HTML, URI, and X509Certificate map to
 # string. This setting will extend or override all those mappings. (See also
-# @genqlient(typename: ...), which can be used to map builtin scalars
+# @octoqlgen(typename: ...), which can be used to map builtin scalars
 # to a nonstandard type that octoqlgen defines for you.)
 #
 # octoqlgen does not validate these types in any way; they must define
@@ -190,8 +190,8 @@ optional_generic_type: github.com/organisation/repository/example.Type
 # Note: if binding to types in the same package as the generated code, make
 # sure you don't bind to generated types! Otherwise, things get very circular.
 #
-# To get equivalent behavior in just one query, use @genqlient(bind: ...);
-# see genqlient_directive.graphql for more details.
+# To get equivalent behavior in just one query, use @octoqlgen(bind: ...);
+# see octoqlgen_directive.graphql for more details.
 bindings:
   # To bind a scalar:
   DateTime:

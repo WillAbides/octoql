@@ -1,10 +1,10 @@
 package errors
 
-_ = `# @genqlient
+_ = `# @octoqlgen
 query ConflictingTypeNames {
-  # @genqlient(typename: "T")
+  # @octoqlgen(typename: "T")
   f { g }
-  # @genqlient(typename: "T")
+  # @octoqlgen(typename: "T")
   otherF: f { g h }
 }
 `

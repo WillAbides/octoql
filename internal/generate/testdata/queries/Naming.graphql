@@ -1,20 +1,20 @@
 # Copyright (c) 2026 octoql contributors
 # SPDX-License-Identifier: MIT
 
-# @genqlient(typename: "GitHubNamingResponse")
+# @octoqlgen(typename: "GitHubNamingResponse")
 query GitHubNaming {
   account {
-    # @genqlient(bind: "string")
+    # @octoqlgen(bind: "string")
     id
-    # @genqlient(bind: "-")
+    # @octoqlgen(bind: "-")
     login
   }
   first: repository(owner: "octo", name: "one") {
-    # @genqlient(typename: "FirstRepository")
+    # @octoqlgen(typename: "FirstRepository")
     nameWithOwner
   }
   second: repository(owner: "octo", name: "two") {
-    # @genqlient(typename: "SecondRepository")
+    # @octoqlgen(typename: "SecondRepository")
     nameWithOwner
   }
   snake_case_type {

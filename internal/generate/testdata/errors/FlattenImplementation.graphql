@@ -1,6 +1,6 @@
 fragment F on T { f }
 query FlattenImplementation {
-  # @genqlient(flatten: true)
+  # @octoqlgen(flatten: true)
   i {
     ...F
   }

@@ -561,7 +561,7 @@ func (v *UseStructReferencesInput) GetList() []*StructInput { return v.List }
 // GetNullableList returns UseStructReferencesInput.NullableList, and is useful for accessing the field via an interface.
 func (v *UseStructReferencesInput) GetNullableList() []*StructInput { return v.NullableList }
 
-// __CreateGitHubRepositoryInput is used internally by genqlient
+// __CreateGitHubRepositoryInput is used internally by octoqlgen
 type __CreateGitHubRepositoryInput struct {
 	Input *CreateRepositoryInput `json:"input,omitempty"`
 }
@@ -569,7 +569,7 @@ type __CreateGitHubRepositoryInput struct {
 // GetInput returns __CreateGitHubRepositoryInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateGitHubRepositoryInput) GetInput() *CreateRepositoryInput { return v.Input }
 
-// __GitHubInputsInput is used internally by genqlient
+// __GitHubInputsInput is used internally by octoqlgen
 type __GitHubInputsInput struct {
 	Repository             *RepositorySelector       `json:"repository,omitempty"`
 	Filter                 *IssueFilter              `json:"filter,omitempty"`
@@ -819,7 +819,7 @@ func (v *__GitHubInputsInput) __premarshalJSON() (*__premarshal__GitHubInputsInp
 	return &retval, nil
 }
 
-// __UpdateIssueWithCollidingNamesInput is used internally by genqlient
+// __UpdateIssueWithCollidingNamesInput is used internally by octoqlgen
 type __UpdateIssueWithCollidingNamesInput struct {
 	Data   string  `json:"data"`
 	Req    *int    `json:"req"`

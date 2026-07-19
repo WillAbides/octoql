@@ -1,7 +1,7 @@
 {{/* We generate MarshalJSON for much the same reasons as UnmarshalJSON -- see
-     unmarshal.go.tmpl for details.  (Note we generate both even if genqlient
+     unmarshal.go.tmpl for details.  (Note we generate both even if octoqlgen
      itself needs only UnmarshalJSON, for the benefit of callers who want to,
-     for example, put genqlient responses in a cache.)  But our implementation
+     for example, put octoqlgen responses in a cache.)  But our implementation
      for marshaling is quite different.
 
      Specifically, the treatment of field-visibility with embedded fields must

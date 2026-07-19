@@ -1,7 +1,7 @@
 package parsing
 
 const _ = `
-	# @genqlient
+	# @octoqlgen
 	fragment UnusedFragment on MyType {
 		myFragmentField
 	}

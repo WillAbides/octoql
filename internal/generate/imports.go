@@ -119,7 +119,7 @@ func (g *generator) ref(fullyQualifiedName string) (qualifiedName string, err er
 	if !ok {
 		if g.importsLocked {
 			return "", errorf(nil,
-				`genqlient internal error: imports locked but package "%v" has not been imported`, pkgPath)
+				`octoqlgen internal error: imports locked but package "%v" has not been imported`, pkgPath)
 		}
 		alias = g.addImportFor(pkgPath)
 	}

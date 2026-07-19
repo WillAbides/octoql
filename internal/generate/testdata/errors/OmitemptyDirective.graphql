@@ -1,5 +1,5 @@
 # One of the input filed is non-nullable -> cannot omit it
-# @genqlient(omitempty: true)
+# @octoqlgen(omitempty: true)
 query OmitemptyDirective (
   $input: OmitemptyInput
 ) {

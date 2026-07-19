@@ -9,7 +9,7 @@ import (
 	"github.com/willabides/octoql"
 )
 
-// __getUserInput is used internally by genqlient
+// __getUserInput is used internally by octoqlgen
 type __getUserInput struct {
 	Login string `json:"Login"`
 }

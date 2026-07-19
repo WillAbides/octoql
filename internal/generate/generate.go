@@ -1,6 +1,6 @@
 package generate
 
-// This file implements the main entrypoint and framework for the genqlient
+// This file implements the main entrypoint and framework for the octoqlgen
 // code-generation process.  See comments in Generate for the high-level
 // overview.
 
@@ -312,7 +312,7 @@ func (g *generator) usedFragments(op *ast.OperationDefinition) ast.FragmentDefin
 	return retval
 }
 
-// Preprocess each query to make any changes that genqlient needs.
+// Preprocess each query to make any changes that octoqlgen needs.
 //
 // At present, the only change is that we add __typename, if not already
 // requested, to each field of interface type, so we can use the right types
@@ -330,7 +330,7 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 	// object-typed scope will *not* have access to `__typename`, but they
 	// indeed don't need it, since we do know the type in that context.
 	// TODO(benkraft): We should omit __typename if you asked for
-	// `# @genqlient(struct: true)`.
+	// `# @octoqlgen(struct: true)`.
 	observers.OnField(func(_ *validator.Walker, field *ast.Field) {
 		// We are interested in a field from the query like
 		//	field { subField ... }
@@ -369,7 +369,7 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 					//	__typename: String
 					// TODO(benkraft): This should in principle be
 					//	__typename: String!
-					// But genqlient doesn't care, so we just match gqlparser.
+					// But octoqlgen doesn't care, so we just match gqlparser.
 					Definition: &ast.FieldDefinition{
 						Name: "__typename",
 						Type: ast.NamedType("String", nil /* pos */),
@@ -386,7 +386,7 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 
 // validateOperation checks for a few classes of operations that gqlparser
 // considers valid but we don't allow, and returns an error if this operation
-// is invalid for genqlient's purposes.
+// is invalid for octoqlgen's purposes.
 func (g *generator) validateOperation(op *ast.OperationDefinition) error {
 	if op.Operation == ast.Subscription {
 		return errorf(op.Position, "subscriptions are not supported by octoql")
@@ -407,7 +407,7 @@ func (g *generator) validateOperation(op *ast.OperationDefinition) error {
 }
 
 // addOperation adds to g.Operations the information needed to generate a
-// genqlient entrypoint function for the given operation.  It also adds to
+// octoqlgen entrypoint function for the given operation. It also adds to
 // g.typeMap any types referenced by the operation, except for types belonging
 // to named fragments, which are added separately by Generate via
 // convertFragment.

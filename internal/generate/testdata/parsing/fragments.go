@@ -1,7 +1,7 @@
 package parsing
 
 const MyFragment = `
-	# @genqlient
+	# @octoqlgen
 	fragment MyFragment on MyType {
 		myFragmentField
 		...NestedFragment
@@ -9,14 +9,14 @@ const MyFragment = `
 `
 
 var _ = `
-	# @genqlient
+	# @octoqlgen
 	fragment NestedFragment on MyType {
 		myOtherFragmentField
 	}
 `
 
 const MyQuery = `
-	# @genqlient
+	# @octoqlgen
 	query MyQuery {
 		myField
 		myOtherField {
@@ -29,7 +29,7 @@ func query(s string) {}
 
 func MyMutation() {
 	query(`
-		# @genqlient
+		# @octoqlgen
 		mutation MyMutation {
 			myField
 			myOtherField {

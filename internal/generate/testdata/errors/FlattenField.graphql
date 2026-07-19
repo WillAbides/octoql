@@ -1,5 +1,5 @@
 query FlattenField {
-  # @genqlient(flatten: true)
+  # @octoqlgen(flatten: true)
   t {
     f
   }

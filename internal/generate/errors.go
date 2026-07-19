@@ -28,7 +28,7 @@ func (pos *errorPos) String() string {
 	}
 }
 
-type genqlientError struct {
+type octoqlgenError struct {
 	pos     *errorPos
 	msg     string
 	wrapped error
@@ -47,7 +47,7 @@ func splitFilename(filename string) (name string, lineOffset int) {
 	return split[0], offset - 1
 }
 
-func (err *genqlientError) Error() string {
+func (err *octoqlgenError) Error() string {
 	if err.pos != nil {
 		return err.pos.String() + ": " + err.msg
 	} else {
@@ -55,7 +55,7 @@ func (err *genqlientError) Error() string {
 	}
 }
 
-func (err *genqlientError) Unwrap() error {
+func (err *octoqlgenError) Unwrap() error {
 	return err.wrapped
 }
 
@@ -78,8 +78,8 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 		}
 	}
 
-	var wrappedGenqlient *genqlientError
-	isGenqlient := errors.As(wrapped, &wrappedGenqlient)
+	var wrappedOctoqlgen *octoqlgenError
+	isOctoqlgen := errors.As(wrapped, &wrappedOctoqlgen)
 	var wrappedGraphQL *gqlerror.Error
 	isGraphQL := errors.As(wrapped, &wrappedGraphQL)
 	if !isGraphQL {
@@ -98,8 +98,8 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 			line:     pos.Line,
 			col:      pos.Column,
 		}
-	} else if isGenqlient {
-		errPos = wrappedGenqlient.pos
+	} else if isOctoqlgen {
+		errPos = wrappedOctoqlgen.pos
 	} else if isGraphQL {
 		filename, _ := wrappedGraphQL.Extensions["file"].(string)
 		if filename != "" {
@@ -117,8 +117,8 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 
 	if wrapped != nil {
 		errText := wrapped.Error()
-		if isGenqlient {
-			errText = wrappedGenqlient.msg
+		if isOctoqlgen {
+			errText = wrappedOctoqlgen.msg
 		} else if isGraphQL {
 			errText = wrappedGraphQL.Message
 		}
@@ -127,7 +127,7 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 
 	msg = fmt.Sprintf(msg, args...)
 
-	return &genqlientError{
+	return &octoqlgenError{
 		msg:     msg,
 		pos:     errPos,
 		wrapped: wrapped,
@@ -137,7 +137,7 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 // goSourceError processes the error(s) returned by go tooling (gofmt, etc.)
 // into a nice error message.
 //
-// In practice, such errors are genqlient internal errors, but it's still
+// In practice, such errors are octoqlgen internal errors, but it's still
 // useful to format them nicely for debugging.
 func goSourceError(
 	failedOperation string, // e.g. "gofmt", for the error message
@@ -176,6 +176,6 @@ func goSourceError(
 	}
 
 	return errorf(nil,
-		"genqlient internal error: failed to %s code:\n\t%s---source code---\n%s",
+		"octoqlgen internal error: failed to %s code:\n\t%s---source code---\n%s",
 		failedOperation, strings.Join(errTexts, "\n\t"), bytes.Join(lines, nil))
 }

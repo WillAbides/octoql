@@ -1,6 +1,6 @@
 package generate
 
-// This file implements the core type-generation logic of genqlient, whereby we
+// This file implements the core type-generation logic of octoqlgen, whereby we
 // traverse an operation-definition (and the schema against which it will be
 // executed), and convert that into Go types.  It returns data structures
 // representing the types to be generated; these are defined, and converted
@@ -37,7 +37,7 @@ func (g *generator) getType(
 	if typ.GraphQLTypeName() != graphQLName {
 		return typ, errorf(
 			pos, "conflicting definition for %s; this can indicate either "+
-				"a genqlient internal error, a conflict between user-specified "+
+				"an octoqlgen internal error, a conflict between user-specified "+
 				"type-names, or some very tricksy GraphQL field/type names: "+
 				"expected GraphQL type %s, got %s",
 			goName, typ.GraphQLTypeName(), graphQLName)
@@ -47,7 +47,7 @@ func (g *generator) getType(
 	if err := selectionsMatch(pos, selectionSet, expectedSelectionSet); err != nil {
 		return typ, errorf(
 			pos, "conflicting definition for %s; this can indicate either "+
-				"a genqlient internal error, a conflict between user-specified "+
+				"an octoqlgen internal error, a conflict between user-specified "+
 				"type-names, or some very tricksy GraphQL field/type names: %v",
 			goName, err)
 	}
@@ -89,7 +89,7 @@ func (g *generator) baseTypeForOperation(operation ast.Operation) (*ast.Definiti
 // result will be unmarshaled.
 func (g *generator) convertOperation(
 	operation *ast.OperationDefinition,
-	queryOptions *genqlientDirective,
+	queryOptions *octoqlgenDirective,
 ) (goType, error) {
 	name := operation.Name + "Response"
 	namePrefix := newPrefixList(operation.Name)
@@ -177,7 +177,7 @@ func defaultScalarType(graphQLName string) (string, bool) {
 // unmarshaler; and it's used as a container
 func (g *generator) convertArguments(
 	operation *ast.OperationDefinition,
-	queryOptions *genqlientDirective,
+	queryOptions *octoqlgenDirective,
 ) (*goStructType, error) {
 	if len(operation.VariableDefinitions) == 0 {
 		return nil, nil
@@ -219,7 +219,7 @@ func (g *generator) convertArguments(
 		Selection: nil,
 		IsInput:   true,
 		descriptionInfo: descriptionInfo{
-			CommentOverride: fmt.Sprintf("%s is used internally by genqlient", name),
+			CommentOverride: fmt.Sprintf("%s is used internally by octoqlgen", name),
 			// fake name, used by addType
 			GraphQLName: name,
 		},
@@ -244,7 +244,7 @@ func (g *generator) convertType(
 	namePrefix *prefixList,
 	typ *ast.Type,
 	selectionSet ast.SelectionSet,
-	options, queryOptions *genqlientDirective,
+	options, queryOptions *octoqlgenDirective,
 ) (goType, error) {
 	// We check for local bindings here, so that you can bind, say, a
 	// `[String!]` to a struct instead of a slice.  Global bindings can only
@@ -347,7 +347,7 @@ func (g *generator) convertDefinition(
 	def *ast.Definition,
 	pos *ast.Position,
 	selectionSet ast.SelectionSet,
-	options, queryOptions *genqlientDirective,
+	options, queryOptions *octoqlgenDirective,
 ) (goType, error) {
 	// Check if we should use an existing type.  (This is usually true for
 	// GraphQL scalars, but we allow you to bind non-scalar types too, if you
@@ -826,7 +826,7 @@ func (g *generator) convertSelectionSet(
 	namePrefix *prefixList,
 	selectionSet ast.SelectionSet,
 	containingTypedef *ast.Definition,
-	queryOptions *genqlientDirective,
+	queryOptions *octoqlgenDirective,
 ) ([]*goStructField, error) {
 	fields := make([]*goStructField, 0, len(selectionSet))
 	for _, selection := range selectionSet {
@@ -911,7 +911,7 @@ func (g *generator) convertSelectionSet(
 				// TODO(benkraft): Keep track of the position of each
 				// selection, so we can put this error on the right line.
 				return nil, errorf(nil,
-					"genqlient doesn't allow duplicate fields with different selections "+
+					"octoqlgen doesn't allow duplicate fields with different selections "+
 						"(see https://github.com/Khan/genqlient/issues/64); "+
 						"duplicate field: %s.%s", containingTypedef.Name, field.JSONName)
 			default:
@@ -984,7 +984,7 @@ func (g *generator) convertInlineFragment(
 	namePrefix *prefixList,
 	fragment *ast.InlineFragment,
 	containingTypedef *ast.Definition,
-	queryOptions *genqlientDirective,
+	queryOptions *octoqlgenDirective,
 ) ([]*goStructField, error) {
 	// You might think fragmentTypedef is just fragment.ObjectDefinition, but
 	// actually that's the type into which the fragment is spread.
@@ -1045,7 +1045,7 @@ func (g *generator) convertFragmentSpread(
 		}
 	}
 
-	// TODO(benkraft): Set directive here if we ever allow @genqlient
+	// TODO(benkraft): Set directive here if we ever allow @octoqlgen
 	// directives on fragment-spreads.
 	return &goStructField{GoName: "" /* i.e. embedded */, GoType: typ}, nil
 }
@@ -1148,7 +1148,7 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 func (g *generator) convertField(
 	namePrefix *prefixList,
 	field *ast.Field,
-	fieldOptions, queryOptions *genqlientDirective,
+	fieldOptions, queryOptions *octoqlgenDirective,
 ) (*goStructField, error) {
 	if field.Definition == nil {
 		// Unclear why gqlparser hasn't already rejected this,

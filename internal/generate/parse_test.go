@@ -70,6 +70,16 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseRejectsLegacyDirective(t *testing.T) {
+	queries, err := getQueriesFromGo(
+		"package legacy\n\nconst query = `# @"+"genqlient\nquery Legacy { field }\n`",
+		".",
+		"legacy.go",
+	)
+	assert.NoError(t, err)
+	assert.Empty(t, queries)
+}
+
 func removeComments(gotWithComments string) string {
 	var gots []string
 	for _, s := range strings.Split(gotWithComments, "\n") {

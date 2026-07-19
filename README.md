@@ -111,10 +111,10 @@ so use an uppercase name when the helper must be exported. octoql does not
 support GraphQL subscriptions, and `octoqlgen` rejects subscription operations.
 
 `operations` may also select Go files. A string literal beginning with
-`# @genqlient` is parsed as an operation:
+`# @octoqlgen` is parsed as an operation:
 
 ```go
-const getViewerQuery = `# @genqlient
+const getViewerQuery = `# @octoqlgen
 query GetViewer {
   viewer {
     login
@@ -123,9 +123,11 @@ query GetViewer {
 `
 ```
 
-Use the inherited `@genqlient` comment directive for per-operation options such
+Use the `@octoqlgen` comment quasi-directive for per-operation options such
 as `pointer`, `omitempty`, `flatten`, `bind`, and `typename`. See the
-[directive reference](docs/genqlient_directive.graphql).
+[directive reference](docs/octoqlgen_directive.graphql). It is written in a
+comment because server-defined GraphQL directives cannot configure the client
+generator.
 
 ## Schema sources and updates
 
@@ -539,7 +541,7 @@ for commands and repository conventions.
 
 - [Root runtime API](https://pkg.go.dev/github.com/willabides/octoql)
 - [Annotated `octoqlgen.yaml` reference](docs/octoqlgen.yaml)
-- [`@genqlient` directive reference](docs/genqlient_directive.graphql)
+- [`@octoqlgen` directive reference](docs/octoqlgen_directive.graphql)
 - [Runnable example](example)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](docs/SECURITY.md)
