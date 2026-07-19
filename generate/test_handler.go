@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strconv"
 
-	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 )
 
@@ -184,72 +183,7 @@ func validateTestHandlerNames(plan *generationPlan) error {
 		}
 	}
 
-	dependsOnHandler, err := clientDependsOnTestHandler(plan)
-	if err != nil {
-		return err
-	}
-	if dependsOnHandler {
-		return errorf(
-			nil,
-			"generated client imports test handler package %q, creating an import cycle",
-			plan.config.testHandlerPkgPath,
-		)
-	}
-
 	return nil
-}
-
-func clientDependsOnTestHandler(plan *generationPlan) (bool, error) {
-	dependencies, err := clientDependencyPaths(plan)
-	if err != nil {
-		return false, err
-	}
-	handlerPackagePath := plan.config.testHandlerPkgPath
-	if dependencies[handlerPackagePath] {
-		return true, nil
-	}
-
-	roots := make([]string, 0, len(dependencies))
-	for packagePath := range dependencies {
-		roots = append(roots, packagePath)
-	}
-	sort.Strings(roots)
-	loaded, err := packages.Load(&packages.Config{
-		Mode: packages.NeedName | packages.NeedImports | packages.NeedDeps,
-	}, roots...)
-	if err != nil {
-		return false, errorf(nil, "loading generated client dependency graph: %v", err)
-	}
-
-	seen := map[*packages.Package]bool{}
-	queue := append([]*packages.Package{}, loaded...)
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-		if seen[current] {
-			continue
-		}
-		seen[current] = true
-		if current.PkgPath == handlerPackagePath {
-			return true, nil
-		}
-		for _, imported := range current.Imports {
-			queue = append(queue, imported)
-		}
-	}
-	return false, nil
-}
-
-func clientDependencyPaths(plan *generationPlan) (map[string]bool, error) {
-	imports, err := clientRenderImports(plan)
-	if err != nil {
-		return nil, err
-	}
-	dependencies := make(map[string]bool, len(imports))
-	for packagePath := range imports {
-		dependencies[packagePath] = true
-	}
-	return dependencies, nil
 }
 
 func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTemplateData, error) {

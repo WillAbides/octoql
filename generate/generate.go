@@ -546,15 +546,6 @@ func renderClientGenerator(g *generator) ([]byte, error) {
 	return importsed, nil
 }
 
-func clientRenderImports(plan *generationPlan) (map[string]string, error) {
-	g := plan.newRenderer(&plan.config, true)
-	_, err := renderClientGenerator(g)
-	if err != nil {
-		return nil, err
-	}
-	return maps.Clone(g.imports), nil
-}
-
 func renderExportedOperations(plan *generationPlan) ([]byte, error) {
 	content, err := json.MarshalIndent(
 		exportedOperations{Operations: plan.operations},
