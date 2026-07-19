@@ -1,0 +1,34 @@
+{
+  "operations": [
+    {
+      "operationName": "AddComment",
+      "query": "\nmutation AddComment ($input: AddCommentInput!) {\n\taddComment(input: $input) {\n\t\tsubject {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\tclientMutationId\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/Repository.graphql"
+    },
+    {
+      "operationName": "AddStar",
+      "query": "\nmutation AddStar ($input: AddStarInput!) {\n\taddStar(input: $input) {\n\t\tstarrable {\n\t\t\t__typename\n\t\t\tid\n\t\t\tviewerHasStarred\n\t\t}\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/Repository.graphql"
+    },
+    {
+      "operationName": "GetRepository",
+      "query": "\nquery GetRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tid\n\t\tnameWithOwner\n\t\tvisibility\n\t\turl\n\t\tdatabaseId\n\t\tcreatedAt\n\t\tpushedAt\n\t\towner {\n\t\t\t__typename\n\t\t\t... ActorFields\n\t\t}\n\t}\n}\nfragment ActorFields on Actor {\n\tid\n\tlogin\n}\n",
+      "sourceLocation": "testdata/queries/Repository.graphql"
+    },
+    {
+      "operationName": "ListPullRequests",
+      "query": "\nquery ListPullRequests ($owner: String!, $name: String!, $includeClosed: Boolean! = false, $first: Int = 10, $after: String) {\n\trepository(owner: $owner, name: $name) {\n\t\topen: pullRequests(states: [OPEN], first: $first, after: $after) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t}\n\t\t\tpageInfo {\n\t\t\t\thasNextPage\n\t\t\t\tendCursor\n\t\t\t}\n\t\t}\n\t\tclosed: pullRequests(states: [CLOSED], first: $first, after: $after) @include(if: $includeClosed) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t}\n\t\t}\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/Repository.graphql"
+    },
+    {
+      "operationName": "ListRepositoryIssues",
+      "query": "\nquery ListRepositoryIssues ($owner: String!, $name: String!, $first: Int = 20, $after: String) {\n\trepository(owner: $owner, name: $name) {\n\t\tissues(states: [OPEN], first: $first, after: $after) {\n\t\t\tedges {\n\t\t\t\tcursor\n\t\t\t\tnode {\n\t\t\t\t\t... IssueFields\n\t\t\t\t}\n\t\t\t}\n\t\t\tpageInfo {\n\t\t\t\thasNextPage\n\t\t\t\tendCursor\n\t\t\t}\n\t\t}\n\t}\n}\nfragment IssueFields on Issue {\n\tid\n\ttitle\n\tstate\n\tassignees {\n\t\t__typename\n\t\t... ActorFields\n\t}\n}\nfragment ActorFields on Actor {\n\tid\n\tlogin\n}\n",
+      "sourceLocation": "testdata/queries/Repository.graphql"
+    },
+    {
+      "operationName": "RemoveStar",
+      "query": "\nmutation RemoveStar ($input: RemoveStarInput!) {\n\tremoveStar(input: $input) {\n\t\tstarrable {\n\t\t\t__typename\n\t\t\tid\n\t\t\tviewerHasStarred\n\t\t}\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/Repository.graphql"
+    }
+  ]
+}

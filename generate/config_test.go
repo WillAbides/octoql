@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gkampitakis/go-snaps/snaps"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql/internal/testutil"
 )
 
 const (
@@ -141,7 +141,67 @@ func TestValidConfigs(t *testing.T) {
 	testAllSnapshots(t, validConfigDir, func(t *testing.T, filename string) {
 		config, err := ReadAndValidateConfig(filename)
 		require.NoError(t, err)
-		testutil.Cupaloy.SnapshotT(t, config)
+		switch filepath.Base(filename) {
+		case "Empty.yml":
+			snaps.MatchInlineSnapshot(t, config, snaps.Inline(`&generate.Config{
+    Schema:              nil,
+    Operations:          nil,
+    Generated:           "testdata/validConfig/generated.go",
+    Package:             "validConfig",
+    ExportOperations:    "",
+    ContextType:         "context.Context",
+    ClientGetter:        "",
+    Bindings:            {},
+    PackageBindings:     nil,
+    Casing:              generate.Casing{},
+    Optional:            "",
+    OptionalGenericType: "",
+    StructReferences:    false,
+    Extensions:          false,
+    baseDir:             "testdata/validConfig",
+    pkgPath:             "github.com/willabides/octoql/generate/testdata/validConfig",
+}`))
+		case "Lists.yaml":
+			snaps.MatchInlineSnapshot(t, config, snaps.Inline(`&generate.Config{
+    Schema:              {"testdata/validConfig/first_schema.graphql", "testdata/validConfig/second_schema.graphql"},
+    Operations:          {"testdata/validConfig/first_operations.graphql", "testdata/validConfig/second_operations.graphql"},
+    Generated:           "testdata/validConfig/generated.go",
+    Package:             "validConfig",
+    ExportOperations:    "",
+    ContextType:         "context.Context",
+    ClientGetter:        "",
+    Bindings:            {},
+    PackageBindings:     nil,
+    Casing:              generate.Casing{},
+    Optional:            "",
+    OptionalGenericType: "",
+    StructReferences:    false,
+    Extensions:          false,
+    baseDir:             "testdata/validConfig",
+    pkgPath:             "github.com/willabides/octoql/generate/testdata/validConfig",
+}`))
+		case "Strings.yaml":
+			snaps.MatchInlineSnapshot(t, config, snaps.Inline(`&generate.Config{
+    Schema:              {"testdata/validConfig/schema.graphql"},
+    Operations:          {"testdata/validConfig/operations.graphql"},
+    Generated:           "testdata/validConfig/generated.go",
+    Package:             "validConfig",
+    ExportOperations:    "",
+    ContextType:         "context.Context",
+    ClientGetter:        "",
+    Bindings:            {},
+    PackageBindings:     nil,
+    Casing:              generate.Casing{},
+    Optional:            "",
+    OptionalGenericType: "",
+    StructReferences:    false,
+    Extensions:          false,
+    baseDir:             "testdata/validConfig",
+    pkgPath:             "github.com/willabides/octoql/generate/testdata/validConfig",
+}`))
+		default:
+			t.Fatalf("missing inline snapshot for %s", filename)
+		}
 	})
 }
 
@@ -149,6 +209,15 @@ func TestInvalidConfigs(t *testing.T) {
 	testAllSnapshots(t, invalidConfigDir, func(t *testing.T, filename string) {
 		_, err := ReadAndValidateConfig(filename)
 		require.Error(t, err)
-		testutil.Cupaloy.SnapshotT(t, err.Error())
+		switch filepath.Base(filename) {
+		case "InvalidCasing.yaml":
+			snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid config file testdata/invalidConfig/InvalidCasing.yaml: unknown casing algorithm: bogus"))
+		case "InvalidOptional.yaml":
+			snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid config file testdata/invalidConfig/InvalidOptional.yaml: optional must be one of: 'value' (default), 'pointer', 'pointer_omitempty' or 'generic'"))
+		case "InvalidPackage.yaml":
+			snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid config file testdata/invalidConfig/InvalidPackage.yaml: invalid package in genqlient.yaml: 'bogus-package-name' is not a valid identifier"))
+		default:
+			t.Fatalf("missing inline snapshot for %s", filename)
+		}
 	})
 }

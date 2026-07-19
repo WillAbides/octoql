@@ -1,1 +1,0 @@
-testdata/errors/InvalidSchemaWithoutBuiltins.schema.graphql:3: invalid schema: Undefined type Bogus.

@@ -18,7 +18,7 @@
 - Preserve generated-file notices. Generated Go output must identify
   `octoqlgen` and include `SPDX-License-Identifier: MIT`.
 - Update generator snapshots when generation behavior or templates change:
-  `UPDATE_SNAPSHOTS=1 go test ./generate`.
+  `UPDATE_SNAPS=true go test ./generate`.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
 - Use `script/generate --check` to verify generated output. Do not run broad

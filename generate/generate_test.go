@@ -10,9 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gkampitakis/go-snaps/snaps"
 	"gopkg.in/yaml.v2"
-
-	"github.com/willabides/octoql/internal/testutil"
 )
 
 const (
@@ -85,13 +84,12 @@ func buildGoFile(namePrefix string, content []byte) error {
 // This file just has the test runner; the actual data is all in
 // testdata/queries.  Specifically, the schema used for all the queries is in
 // schema.graphql; the queries themselves are in TestName.graphql.  The test
-// asserts that running genqlient on that query produces the generated code in
-// the snapshot-file TestName.graphql.go.
+// asserts that running octoqlgen on that query produces the generated code in
+// an external snapshot.
 //
 // To update the snapshots (if the code-generator has changed), run the test
-// with `UPDATE_SNAPSHOTS=1`; it will fail the tests and print any diffs, but
-// update the snapshots.  Make sure to check that the output is sensible; the
-// snapshots don't even get compiled!
+// with `UPDATE_SNAPS=true`. Generated Go snapshots are compiled, so the test
+// verifies the snapshot rather than only the in-memory generated output.
 func TestGenerate(t *testing.T) {
 	files, err := os.ReadDir(dataDir)
 	if err != nil {
@@ -122,20 +120,9 @@ func TestGenerate(t *testing.T) {
 
 			for filename, content := range generated {
 				t.Run(filename, func(t *testing.T) {
-					testutil.Cupaloy.SnapshotT(t, string(content))
+					matchGeneratedSnapshot(t, filename, content)
 				})
 			}
-
-			t.Run("Build", func(t *testing.T) {
-				if testing.Short() {
-					t.Skip("skipping build due to -short")
-				}
-
-				err := buildGoFile(sourceFilename, generated[goFilename])
-				if err != nil {
-					t.Error(err)
-				}
-			})
 		})
 	}
 }
@@ -313,21 +300,9 @@ func TestGenerateWithConfig(t *testing.T) {
 
 					for filename, content := range generated {
 						t.Run(filename, func(t *testing.T) {
-							testutil.Cupaloy.SnapshotT(t, string(content))
+							matchGeneratedSnapshot(t, filename, content)
 						})
 					}
-
-					t.Run("Build", func(t *testing.T) {
-						if testing.Short() {
-							t.Skip("skipping build due to -short")
-						}
-
-						err := buildGoFile(operationFile,
-							generated[config.Generated])
-						if err != nil {
-							t.Error(err)
-						}
-					})
 				})
 			}
 		})
@@ -363,10 +338,7 @@ func TestGenerateWithSubdirectoryConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testutil.Cupaloy.SnapshotT(t, string(generated[config.Generated]))
-	if err := buildGoFile("subpackage-config", generated[config.Generated]); err != nil {
-		t.Error(err)
-	}
+	matchGeneratedSnapshot(t, config.Generated, generated[config.Generated])
 }
 
 // TestGenerateErrors is a snapshot-based test of error text.
@@ -427,7 +399,120 @@ func TestGenerateErrors(t *testing.T) {
 				t.Fatal("expected an error")
 			}
 
-			testutil.Cupaloy.SnapshotT(t, err.Error())
+			switch sourceFilename {
+			case "BindingWithIncorrectSelection.go":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid selection for type-binding Account: testdata/errors/BindingWithIncorrectSelection.schema.graphql:2: expected 2 fields, got 1"))
+			case "BindingWithIncorrectSelection.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid selection for type-binding Account: testdata/errors/BindingWithIncorrectSelection.graphql:2: expected field 1 to be login, got id"))
+			case "ConflictingDirectiveArguments.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingDirectiveArguments.graphql:2: conflicting values for pointer"))
+			case "ConflictingDirectives.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingDirectives.graphql:3: conflicting values for pointer"))
+			case "ConflictingEnumValues.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingEnumValues.schema.graphql:4: enum values FIRST_VALUE and first_value have conflicting Go name AnnoyingEnumFirstValue; add 'all_enums: raw' or 'enums: AnnoyingEnum: raw' to 'casing' in genqlient.yaml to fix"))
+			case "ConflictingSelections.go":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingSelections.go:4: operations must have operation-names"))
+			case "ConflictingSelections.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingSelections.graphql:1: operations must have operation-names"))
+			case "ConflictingTypeNameAndForFieldBind.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndForFieldBind.graphql:5: typename and bind may not be used together"))
+			case "ConflictingTypeNameAndGlobalBind.graphql":
+				// go-snaps v0.5.23 cannot rewrite raw snapshots containing backticks.
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndGlobalBind.graphql:4: typename option conflicts with global binding for ValidScalar; use `bind: \"-\"` to override it"))
+			case "ConflictingTypeNameAndLocalBind.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndLocalBind.graphql:4: typename and bind may not be used together"))
+			case "ConflictingTypeNames.go":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid Go file testdata/errors/ConflictingTypeNames.go: testdata/errors/ConflictingTypeNames.go:3:1: expected declaration, found _"))
+			case "ConflictingTypeNames.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.schema.graphql:2: conflicting definition for T; this can indicate either a genqlient internal error, a conflict between user-specified type-names, or some very tricksy GraphQL field/type names: expected 2 fields, got 1"))
+			case "DefaultInputsNoOmitPointer.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointer.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
+			case "DefaultInputsNoOmitPointerForDirective.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:5: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
+			case "FlattenField.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenField.graphql:3: flatten is not yet supported for fields (only fragment spreads)"))
+			case "FlattenImplementation.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenImplementation.graphql:4: flatten is not allowed for fields with fragment-spreads unless the field-type implements the fragment-type; field-type I does not implement fragment-type T"))
+			case "InvalidQuery.go":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/InvalidQuery.go:4: query-spec does not match schema: Cannot query field "g" on type "Query". Did you mean "f"?`))
+			case "InvalidQuery.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/InvalidQuery.graphql:1: query-spec does not match schema: Cannot query field "g" on type "Query". Did you mean "f"?`))
+			case "InvalidScalar.go":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`invalid type-name "bogus" (unknown type-name "bogus"); expected a builtin, path/to/package.Name, interface{}, or a slice, map, or pointer of those`))
+			case "InvalidScalar.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`invalid type-name "bogus" (unknown type-name "bogus"); expected a builtin, path/to/package.Name, interface{}, or a slice, map, or pointer of those`))
+			case "InvalidSchemaSyntax.go":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaSyntax.schema.graphql:4: invalid schema: Expected :, found }"))
+			case "InvalidSchemaSyntax.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaSyntax.schema.graphql:4: invalid schema: Expected :, found }"))
+			case "InvalidSchemaWithBuiltins.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaWithBuiltins.schema.graphql:3: invalid schema: Undefined type Bogus."))
+			case "InvalidSchemaWithoutBuiltins.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaWithoutBuiltins.schema.graphql:3: invalid schema: Undefined type Bogus."))
+			case "KeywordArgumentName.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordArgumentName.graphql:1: variable name must not be a go keyword"))
+			case "KeywordOperationName.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordOperationName.graphql:1: operation name must not be a go keyword"))
+			case "KeywordTypeName.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordTypeName.schema.graphql:1: typename option must not be a go keyword"))
+			case "NoMutationType.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoMutationType.graphql:1: query-spec does not match schema: Schema does not support operation type "mutation"`))
+			case "NoQuery.go":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("no queries found, looked in: testdata/errors/NoQuery.go (configure this in genqlient.yaml)"))
+			case "NoQuery.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("no queries found, looked in: testdata/errors/NoQuery.graphql (configure this in genqlient.yaml)"))
+			case "NoQueryType.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoQueryType.graphql:1: query-spec does not match schema: Schema does not support operation type "query"`))
+			case "OmitemptyDirective.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyDirective.graphql:4: omitempty may only be used on optional arguments: OmitemptyInput.field"))
+			case "OmitemptyForDirective.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyForDirective.graphql:4: omitempty may only be used on optional arguments: OmitemptyInput.field"))
+			case "StructOptionOnObject.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionOnObject.graphql:3: struct is only applicable to interface-typed fields"))
+			case "StructOptionWithFragments.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionWithFragments.graphql:3: struct is not allowed for types with fragments"))
+			case "UnknownScalar.go":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownScalar.schema.graphql:3: unknown scalar UnknownScalar: please add it to "bindings" in genqlient.yaml
+Example: https://github.com/willabides/octoql/blob/main/example/genqlient.yaml#L12`))
+			case "UnknownScalar.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownScalar.schema.graphql:3: unknown scalar UnknownScalar: please add it to "bindings" in genqlient.yaml
+Example: https://github.com/willabides/octoql/blob/main/example/genqlient.yaml#L12`))
+			default:
+				t.Fatalf("missing inline snapshot for %s", sourceFilename)
+			}
 		})
 	}
+}
+
+func matchGeneratedSnapshot(t *testing.T, filename string, content []byte) {
+	t.Helper()
+
+	extension := filepath.Ext(filename)
+	snaps.WithConfig(
+		snaps.Dir("testdata/snapshots"),
+		snaps.Filename(strings.ReplaceAll(t.Name(), "/", "_")),
+		snaps.Ext(extension),
+		snaps.Raw(),
+	).MatchStandaloneSnapshot(t, string(content))
+
+	// Generated Go remains external because this compiles the snapshot file that
+	// was compared above. JSON output stays alongside the generated Go artifact.
+	if extension != ".go" || testing.Short() {
+		return
+	}
+	snapshot, err := os.ReadFile(standaloneSnapshotFilename(t, extension))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := buildGoFile(strings.ReplaceAll(t.Name(), "/", "_"), snapshot); err != nil {
+		t.Error(err)
+	}
+}
+
+func standaloneSnapshotFilename(t *testing.T, extension string) string {
+	return filepath.Join(
+		"testdata",
+		"snapshots",
+		strings.ReplaceAll(t.Name(), "/", "_")+"_1.snap"+extension,
+	)
 }

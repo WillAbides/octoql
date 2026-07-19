@@ -14,11 +14,11 @@ import (
 	"testing"
 
 	"github.com/alecthomas/kong"
+	"github.com/gkampitakis/go-snaps/snaps"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/internal/testutil"
 )
 
 const (
@@ -349,8 +349,6 @@ func TestHelpSnapshots(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			var stdout bytes.Buffer
 			var stderr bytes.Buffer
 			dependencies := &Dependencies{
@@ -373,7 +371,68 @@ func TestHelpSnapshots(t *testing.T) {
 				_, _ = parser.Parse(test.args)
 			})
 			output := strings.TrimRight(stdout.String()+stderr.String(), "\n")
-			testutil.Cupaloy.SnapshotT(t, output)
+			switch test.name {
+			case "root":
+				snaps.MatchInlineSnapshot(t, output, snaps.Inline(`Usage: octoqlgen <command> [flags]
+
+Generate GraphQL client code for a given schema and queries.
+
+Flags:
+  -h, --help       Show context-sensitive help.
+      --version    Show version information.
+
+Commands:
+  generate [<config-filename>] [flags]
+    Generate GraphQL client code.
+
+  init [flags]
+    Create an octoqlgen configuration and materialized schema.
+
+  schema materialize [flags]
+    Materialize or verify a pinned GraphQL schema.
+
+  schema update [flags]
+    Update a configured remote schema pin.
+
+Run "octoqlgen <command> --help" for more information on a command.`))
+			case "init":
+				snaps.MatchInlineSnapshot(t, output, snaps.Inline(`Usage: octoqlgen init [flags]
+
+Create an octoqlgen configuration and materialized schema.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --version        Show version information.
+
+      --config=PATH    Path for the new octoqlgen configuration.`))
+			case "schema":
+				snaps.MatchInlineSnapshot(t, output, snaps.Inline(`Usage: octoqlgen schema <command> [flags]
+
+Materialize or verify a pinned GraphQL schema.
+
+Flags:
+  -h, --help       Show context-sensitive help.
+      --version    Show version information.
+
+Commands:
+  schema materialize [flags]
+    Materialize or verify a pinned GraphQL schema.
+
+  schema update [flags]
+    Update a configured remote schema pin.`))
+			case "schema-update":
+				snaps.MatchInlineSnapshot(t, output, snaps.Inline(`Usage: octoqlgen schema update [flags]
+
+Update a configured remote schema pin.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --version        Show version information.
+
+      --config=PATH    Path to an octoqlgen configuration file.`))
+			default:
+				t.Fatalf("missing inline snapshot for %s", test.name)
+			}
 		})
 	}
 }
