@@ -122,7 +122,7 @@ type Request struct {
 	OpName string `json:"operationName"`
 }
 
-type BaseResponse[T any] struct {
+type baseResponse[T any] struct {
 	Data       T                      `json:"data"`
 	Extensions map[string]interface{} `json:"extensions,omitempty"`
 	Errors     gqlerror.List          `json:"errors,omitempty"`
@@ -137,7 +137,7 @@ type BaseResponse[T any] struct {
 // It may additionally contain a key named "extensions", that
 // might hold GraphQL protocol extensions. Extensions and Errors
 // are optional, depending on the values returned by the server.
-type Response BaseResponse[any]
+type Response baseResponse[any]
 
 func (c *client) MakeRequest(ctx context.Context, req *Request, resp *Response) error {
 	var httpReq *http.Request

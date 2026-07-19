@@ -41,7 +41,7 @@ func TestClientGetterWithCustomContext(t *testing.T) {
 		Context: t.Context(),
 		client:  octoql.NewClient(server.URL, server.Client()),
 	}
-	response, err := GetRepository(ctx, "octo-org", "octo-repo")
+	response, err := getRepository(ctx, "octo-org", "octo-repo")
 
 	require.NoError(t, err)
 	assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)

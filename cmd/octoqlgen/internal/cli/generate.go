@@ -13,17 +13,17 @@ import (
 	"github.com/willabides/octoql/generate"
 )
 
-type GenerateCommand struct {
+type generateCommand struct {
 	context      context.Context
 	loadConfig   func(string) (*config.Config, error)
-	materializer Materializer
+	materializer materializer
 	generate     func(*generate.Config) (map[string][]byte, error)
-	outputWriter OutputWriter
+	outputWriter outputWriter
 
 	Config string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path to an octoqlgen configuration file.'"`
 }
 
-func (cmd *GenerateCommand) Run() error {
+func (cmd *generateCommand) Run() error {
 	loaded, err := cmd.loadConfig(cmd.Config)
 	if err != nil {
 		return err

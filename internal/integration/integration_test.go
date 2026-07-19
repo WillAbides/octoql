@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/generate"
-	"github.com/willabides/octoql/internal/integration/server"
+	gqlserver "github.com/willabides/octoql/internal/integration/server"
 )
 
 func TestGetRepository(t *testing.T) {
@@ -31,7 +31,7 @@ func TestGetRepository(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -54,11 +54,14 @@ func TestMutation(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	postClient := newRoundtripClient(server.URL)
 
-	response, err := addComment(ctx, postClient, AddCommentInput{SubjectId: "20", Body: "Thanks for reporting!"})
+	response, err := addComment(ctx, postClient, gqlserver.AddCommentInput{
+		SubjectID: "20",
+		Body:      "Thanks for reporting!",
+	})
 	require.NoError(t, err)
 	require.NotNil(t, response.Data.AddComment.CommentEdge)
 	require.NotNil(t, response.Data.AddComment.CommentEdge.Node)
@@ -75,18 +78,18 @@ func TestStarMutations(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	postClient := newRoundtripClient(server.URL)
 
-	starResponse, err := addStar(ctx, postClient, AddStarInput{StarrableId: "10"})
+	starResponse, err := addStar(ctx, postClient, gqlserver.AddStarInput{StarrableID: "10"})
 	require.NoError(t, err)
 	require.NotNil(t, starResponse.Data.AddStar.Starrable)
 	assert.Equal(t, "10", starResponse.Data.AddStar.Starrable.GetId())
 	assert.True(t, starResponse.Data.AddStar.Starrable.GetViewerHasStarred())
 	assert.Equal(t, 43, starResponse.Data.AddStar.Starrable.GetStargazerCount())
 
-	unstarResponse, err := removeStar(ctx, postClient, RemoveStarInput{StarrableId: "10"})
+	unstarResponse, err := removeStar(ctx, postClient, gqlserver.RemoveStarInput{StarrableID: "10"})
 	require.NoError(t, err)
 	require.NotNil(t, unstarResponse.Data.RemoveStar.Starrable)
 	assert.Equal(t, "10", unstarResponse.Data.RemoveStar.Starrable.GetId())
@@ -99,7 +102,7 @@ func TestServerError(t *testing.T) {
 	query failingQuery { fail viewer { id } }`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -144,7 +147,7 @@ func TestVariables(t *testing.T) {
 	query queryWithVariables($login: String!) { user(login: $login) { id login contributionCount } }`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := []*octoql.Client{octoql.NewClient(server.URL, http.DefaultClient)}
 
@@ -168,7 +171,7 @@ func TestExtensions(t *testing.T) {
 	query simpleQueryExt { viewer { id login contributionCount } }`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -187,7 +190,7 @@ func TestOmitempty(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -216,7 +219,7 @@ func TestCustomMarshal(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -247,7 +250,7 @@ func TestCustomMarshalSlice(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -283,7 +286,7 @@ func TestCustomMarshalOptional(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -319,7 +322,7 @@ func TestInterfaceNoFragments(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -384,7 +387,7 @@ func TestInterfaceListField(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -433,7 +436,7 @@ func TestInterfaceListPointerField(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -488,7 +491,7 @@ func TestFragments(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -534,7 +537,7 @@ func TestFragments(t *testing.T) {
 		org, ok := response.Data.Actors[1].(*queryWithFragmentsActorsOrganization)
 		require.Truef(t, ok, "got %T, not Organization", response.Data.Actors[1])
 		assert.Equal(t, "3", org.Id)
-		assert.Equal(t, PlanNameTeam, org.Plan.Name)
+		assert.Equal(t, gqlserver.PlanNameTeam, org.Plan.Name)
 
 		assert.Equal(t, "1", org.TopContributor.GetId())
 		assert.Equal(t, "octocat", org.TopContributor.GetLogin())
@@ -552,38 +555,38 @@ func TestFragments(t *testing.T) {
 
 func TestNamedFragments(t *testing.T) {
 	_ = `# @genqlient
-	fragment OrganizationFields on Organization {
+	fragment organizationFields on Organization {
 		id
 		plan { name }
-		topContributor { id ...UserFields ...RepositoryOwnerFields }
+		topContributor { id ...userFields ...repositoryOwnerFields }
 	}
 
-	fragment MoreUserFields on User {
+	fragment moreUserFields on User {
 		id
 		status { emoji }
 	}
 
-	fragment RepositoryOwnerFields on RepositoryOwner {
-		...MoreUserFields
+	fragment repositoryOwnerFields on RepositoryOwner {
+		...moreUserFields
 		contributionCount
 	}
 	
-	fragment UserFields on User {
+	fragment userFields on User {
 		id
-		...RepositoryOwnerFields
-		...MoreUserFields
+		...repositoryOwnerFields
+		...moreUserFields
 	}
 
 	query queryWithNamedFragments($ids: [ID!]!) {
 		actors(ids: $ids) {
 			__typename id
-			...OrganizationFields
-			...UserFields
+			...organizationFields
+			...userFields
 		}
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -607,14 +610,14 @@ func TestNamedFragments(t *testing.T) {
 		user, ok := response.Data.Actors[0].(*queryWithNamedFragmentsActorsUser)
 		require.Truef(t, ok, "got %T, not User", response.Data.Actors[0])
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, "1", user.UserFields.Id)
-		assert.Equal(t, "1", user.UserFields.MoreUserFields.Id)
-		assert.Equal(t, "1", user.UserFields.RepositoryOwnerFieldsUser.MoreUserFields.Id)
+		assert.Equal(t, "1", user.userFields.Id)
+		assert.Equal(t, "1", user.userFields.moreUserFields.Id)
+		assert.Equal(t, "1", user.userFields.repositoryOwnerFieldsUser.moreUserFields.Id)
 		// on UserFields, but we should be able to access directly via embedding:
 		assert.Equal(t, 17, user.ContributionCount)
 		assert.Equal(t, ":octocat:", user.Status.Emoji)
-		assert.Equal(t, ":octocat:", user.UserFields.MoreUserFields.Status.Emoji)
-		assert.Equal(t, ":octocat:", user.UserFields.RepositoryOwnerFieldsUser.MoreUserFields.Status.Emoji)
+		assert.Equal(t, ":octocat:", user.userFields.moreUserFields.Status.Emoji)
+		assert.Equal(t, ":octocat:", user.userFields.repositoryOwnerFieldsUser.moreUserFields.Status.Emoji)
 
 		// Organization has, in total, the fields:
 		//	__typename
@@ -629,26 +632,26 @@ func TestNamedFragments(t *testing.T) {
 		require.Truef(t, ok, "got %T, not Organization", response.Data.Actors[1])
 		// Check that we filled in *both* ID fields:
 		assert.Equal(t, "3", org.Id)
-		assert.Equal(t, "3", org.OrganizationFields.Id)
+		assert.Equal(t, "3", org.organizationFields.Id)
 		// on OrganizationFields:
-		assert.Equal(t, PlanNameTeam, org.Plan.Name)
+		assert.Equal(t, gqlserver.PlanNameTeam, org.Plan.Name)
 		assert.Equal(t, "1", org.TopContributor.GetId())
 		// (contributionCount we have to cast for, again)
 
-		topContributor, ok := org.TopContributor.(*OrganizationFieldsTopContributorUser)
+		topContributor, ok := org.TopContributor.(*organizationFieldsTopContributorUser)
 		require.Truef(t, ok, "got %T, not User", org.TopContributor)
 		// Check that we filled in *both* ID fields:
 		assert.Equal(t, "1", topContributor.Id)
-		assert.Equal(t, "1", topContributor.UserFields.Id)
-		assert.Equal(t, "1", topContributor.UserFields.MoreUserFields.Id)
-		assert.Equal(t, "1", topContributor.UserFields.RepositoryOwnerFieldsUser.MoreUserFields.Id)
+		assert.Equal(t, "1", topContributor.userFields.Id)
+		assert.Equal(t, "1", topContributor.userFields.moreUserFields.Id)
+		assert.Equal(t, "1", topContributor.userFields.repositoryOwnerFieldsUser.moreUserFields.Id)
 		// on UserFields:
 		assert.Equal(t, 17, topContributor.ContributionCount)
-		assert.Equal(t, ":octocat:", topContributor.UserFields.MoreUserFields.Status.Emoji)
-		assert.Equal(t, ":octocat:", topContributor.UserFields.RepositoryOwnerFieldsUser.MoreUserFields.Status.Emoji)
+		assert.Equal(t, ":octocat:", topContributor.userFields.moreUserFields.Status.Emoji)
+		assert.Equal(t, ":octocat:", topContributor.userFields.repositoryOwnerFieldsUser.moreUserFields.Status.Emoji)
 
 		// RepositoryOwner-based fields we can also get by casting to the fragment-interface.
-		repoOwnerTopContributor, ok := org.TopContributor.(RepositoryOwnerFields)
+		repoOwnerTopContributor, ok := org.TopContributor.(repositoryOwnerFields)
 		require.Truef(t, ok, "got %T, not RepositoryOwner", org.TopContributor)
 		assert.Equal(t, 17, repoOwnerTopContributor.GetContributionCount())
 
@@ -659,48 +662,48 @@ func TestNamedFragments(t *testing.T) {
 func TestFlatten(t *testing.T) {
 	_ = `# @genqlient
 	# @genqlient(flatten: true)
-	fragment ActorFields on Actor {
-		...InnerActorFields
+	fragment actorFields on Actor {
+		...innerActorFields
 	}
 
-	fragment InnerActorFields on Actor {
+	fragment innerActorFields on Actor {
 		id
 		login
 		... on User {
 			# @genqlient(flatten: true)
 			repositories {
-				...RepositoriesFields
+				...repositoriesFields
 			}
 		}
 	}
 
-	fragment RepositoriesFields on Repository {
+	fragment repositoriesFields on Repository {
 		id
 		name
 	}
 
 	# @genqlient(flatten: true)
-	fragment FlattenedUserFields on User {
-		...FlattenedRepositoryOwnerFields
+	fragment flattenedUserFields on User {
+		...flattenedRepositoryOwnerFields
 	}
 
 	# @genqlient(flatten: true)
-	fragment FlattenedRepositoryOwnerFields on RepositoryOwner {
-		...InnerRepositoryOwnerFields
+	fragment flattenedRepositoryOwnerFields on RepositoryOwner {
+		...innerRepositoryOwnerFields
 	}
 
-	fragment InnerRepositoryOwnerFields on RepositoryOwner {
+	fragment innerRepositoryOwnerFields on RepositoryOwner {
 		contributionCount
 	}
 	
-	fragment QueryFragment on Query {
+	fragment queryFragment on Query {
 		actors(ids: $ids) {
 			__typename id
-			...FlattenedUserFields
+			...flattenedUserFields
 			... on Organization {
 				# @genqlient(flatten: true)
 				topContributor {
-					...ActorFields
+					...actorFields
 				}
 			}
 		}
@@ -710,11 +713,11 @@ func TestFlatten(t *testing.T) {
 	query queryWithFlatten(
 		$ids: [ID!]!,
 	) {
-		...QueryFragment
+		...queryFragment
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
@@ -735,10 +738,10 @@ func TestFlatten(t *testing.T) {
 		assert.Equal(t, "1", response.Data.Actors[0].GetId())
 		// (contributionCount we need to cast for)
 
-		user, ok := response.Data.Actors[0].(*QueryFragmentActorsUser)
+		user, ok := response.Data.Actors[0].(*queryFragmentActorsUser)
 		require.Truef(t, ok, "got %T, not User", response.Data.Actors[0])
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, 17, user.InnerRepositoryOwnerFieldsUser.ContributionCount)
+		assert.Equal(t, 17, user.innerRepositoryOwnerFieldsUser.ContributionCount)
 
 		// Organization has, in total, the fields:
 		//	__typename
@@ -748,7 +751,7 @@ func TestFlatten(t *testing.T) {
 		assert.Equal(t, "3", response.Data.Actors[1].GetId())
 		// (topContributor.* we have to cast for)
 
-		org, ok := response.Data.Actors[1].(*QueryFragmentActorsOrganization)
+		org, ok := response.Data.Actors[1].(*queryFragmentActorsOrganization)
 		require.Truef(t, ok, "got %T, not Organization", response.Data.Actors[1])
 		assert.Equal(t, "3", org.Id)
 		// on ActorFields:
@@ -756,7 +759,7 @@ func TestFlatten(t *testing.T) {
 		assert.Equal(t, "octocat", org.TopContributor.GetLogin())
 		// (repositories.* we have to cast for, again)
 
-		topContributor, ok := org.TopContributor.(*InnerActorFieldsUser)
+		topContributor, ok := org.TopContributor.(*innerActorFieldsUser)
 		require.Truef(t, ok, "got %T, not User", org.TopContributor)
 		assert.Equal(t, "1", topContributor.Id)
 		assert.Equal(t, "octocat", topContributor.Login)
@@ -782,12 +785,12 @@ func TestSearch(t *testing.T) {
 	}`
 
 	ctx := context.Background()
-	server := server.RunServer()
+	server := gqlserver.RunServer()
 	defer server.Close()
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithSearch(ctx, client, "octo", SearchTypeRepository)
+		response, err := queryWithSearch(ctx, client, "octo", gqlserver.SearchTypeRepository)
 		require.NoError(t, err)
 		require.Len(t, response.Data.Search, 1)
 
@@ -796,21 +799,21 @@ func TestSearch(t *testing.T) {
 		assert.Equal(t, "octo-repo", repo.Name)
 		assert.Equal(t, 42, repo.StargazerCount)
 
-		response, err = queryWithSearch(ctx, client, "bug", SearchTypeIssue)
+		response, err = queryWithSearch(ctx, client, "bug", gqlserver.SearchTypeIssue)
 		require.NoError(t, err)
 		require.Len(t, response.Data.Search, 2)
 
 		issue, ok := response.Data.Search[0].(*queryWithSearchSearchIssue)
 		require.Truef(t, ok, "got %T, not Issue", response.Data.Search[0])
 		assert.Equal(t, "Bug report", issue.Title)
-		assert.Equal(t, IssueStateOpen, issue.IssueState)
+		assert.Equal(t, gqlserver.IssueStateOpen, issue.IssueState)
 
 		pr, ok := response.Data.Search[1].(*queryWithSearchSearchPullRequest)
 		require.Truef(t, ok, "got %T, not PullRequest", response.Data.Search[1])
 		assert.Equal(t, "Fix bug", pr.Title)
-		assert.Equal(t, PullRequestStateMerged, pr.PullRequestState)
+		assert.Equal(t, gqlserver.PullRequestStateMerged, pr.PullRequestState)
 
-		response, err = queryWithSearch(ctx, client, "dependabot", SearchTypeUser)
+		response, err = queryWithSearch(ctx, client, "dependabot", gqlserver.SearchTypeUser)
 		require.NoError(t, err)
 		require.Len(t, response.Data.Search, 1)
 
@@ -822,19 +825,37 @@ func TestSearch(t *testing.T) {
 
 func TestGeneratedCode(t *testing.T) {
 	omit := false
-	RunGenerateTest(t, &generate.Config{
+	runGenerateTest(t, &generate.Config{
 		Schema:                          generate.StringList{"internal/integration/schema.graphql"},
 		Operations:                      generate.StringList{"internal/integration/*_test.go"},
 		Generated:                       "internal/integration/generated.go",
 		OmitUnreferencedImplementations: &omit,
 		Bindings: map[string]*generate.TypeBinding{
+			"AddCommentInput": {
+				Type: "github.com/willabides/octoql/internal/integration/server.AddCommentInput",
+			},
+			"AddStarInput": {
+				Type: "github.com/willabides/octoql/internal/integration/server.AddStarInput",
+			},
 			"Date": {
 				Type:        "time.Time",
 				Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
 				Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
 			},
-			"MyGreatScalar": {
-				Type: "github.com/willabides/octoql/internal/integration.MyGreatScalar",
+			"IssueState": {
+				Type: "github.com/willabides/octoql/internal/integration/server.IssueState",
+			},
+			"PlanName": {
+				Type: "github.com/willabides/octoql/internal/integration/server.PlanName",
+			},
+			"PullRequestState": {
+				Type: "github.com/willabides/octoql/internal/integration/server.PullRequestState",
+			},
+			"RemoveStarInput": {
+				Type: "github.com/willabides/octoql/internal/integration/server.RemoveStarInput",
+			},
+			"SearchType": {
+				Type: "github.com/willabides/octoql/internal/integration/server.SearchType",
 			},
 		},
 	})

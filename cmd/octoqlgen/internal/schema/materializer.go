@@ -33,10 +33,10 @@ type Request struct {
 }
 
 type Materializer struct {
-	HTTPClient        HTTPClient
-	CommandRunner     CommandRunner
+	HTTPClient        httpDoer
+	CommandRunner     commandRunner
 	LookupEnvironment func(string) (string, bool)
-	FileSystem        FileSystem
+	FileSystem        fileSystem
 	GitHubAPIBaseURL  func(string) string
 	MaxResponseBytes  int64
 	Timeout           time.Duration
@@ -124,10 +124,10 @@ func (m *Materializer) Materialize(ctx context.Context, request Request) ([]byte
 }
 
 type dependencies struct {
-	httpClient        HTTPClient
-	commandRunner     CommandRunner
+	httpClient        httpDoer
+	commandRunner     commandRunner
 	lookupEnvironment func(string) (string, bool)
-	fileSystem        FileSystem
+	fileSystem        fileSystem
 	githubAPIBaseURL  func(string) string
 	maxResponseBytes  int64
 	timeout           time.Duration
@@ -148,9 +148,9 @@ func (m *Materializer) dependencies() dependencies {
 	if lookupEnvironment == nil {
 		lookupEnvironment = defaults.LookupEnvironment
 	}
-	fileSystem := m.FileSystem
-	if fileSystem == nil {
-		fileSystem = defaults.FileSystem
+	fsys := m.FileSystem
+	if fsys == nil {
+		fsys = defaults.FileSystem
 	}
 	githubAPIBaseURL := m.GitHubAPIBaseURL
 	if githubAPIBaseURL == nil {
@@ -169,7 +169,7 @@ func (m *Materializer) dependencies() dependencies {
 		httpClient:        httpClient,
 		commandRunner:     commandRunner,
 		lookupEnvironment: lookupEnvironment,
-		fileSystem:        fileSystem,
+		fileSystem:        fsys,
 		githubAPIBaseURL:  githubAPIBaseURL,
 		maxResponseBytes:  maxResponseBytes,
 		timeout:           timeout,
@@ -217,15 +217,15 @@ func sourceVariantCount(source config.Source) int {
 	return count
 }
 
-type FileSystem interface {
+type fileSystem interface {
 	ReadFile(string) ([]byte, error)
 	MkdirAll(string, fs.FileMode) error
-	CreateTemp(string, string) (TempFile, error)
+	CreateTemp(string, string) (tempFile, error)
 	Link(string, string) error
 	Remove(string) error
 }
 
-type TempFile interface {
+type tempFile interface {
 	io.Writer
 	Name() string
 	Sync() error
@@ -242,7 +242,7 @@ func (osFileSystem) MkdirAll(path string, perm fs.FileMode) error {
 	return os.MkdirAll(path, perm)
 }
 
-func (osFileSystem) CreateTemp(dir, pattern string) (TempFile, error) {
+func (osFileSystem) CreateTemp(dir, pattern string) (tempFile, error) {
 	return os.CreateTemp(dir, pattern)
 }
 
@@ -254,7 +254,7 @@ func (osFileSystem) Remove(name string) error {
 	return os.Remove(name)
 }
 
-func publish(fileSystem FileSystem, destination string, data []byte, expectedSHA256 string) (err error) {
+func publish(fileSystem fileSystem, destination string, data []byte, expectedSHA256 string) (err error) {
 	directory := filepath.Dir(destination)
 	err = fileSystem.MkdirAll(directory, 0o755)
 	if err != nil {

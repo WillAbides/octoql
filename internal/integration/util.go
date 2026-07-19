@@ -11,8 +11,9 @@ import (
 	"github.com/willabides/octoql/generate"
 )
 
-// RepoRoot returns the root of the genqlient repository,
-func RepoRoot(t *testing.T) string {
+func repoRoot(t *testing.T) string {
+	t.Helper()
+
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("runtime.Caller non-ok")
@@ -25,13 +26,10 @@ func RepoRoot(t *testing.T) string {
 	return root
 }
 
-// RunGenerateTest checks that running octoqlgen with the given programmatic
-// configuration would not produce any changes to the checked-in files.
-//
-// Note these are also checked, along with gqlgen codegen in a separate check
-// in CI. But this is more convenient locally.
-func RunGenerateTest(t *testing.T, config *generate.Config) {
-	err := config.ValidateAndFillDefaults(RepoRoot(t))
+func runGenerateTest(t *testing.T, config *generate.Config) {
+	t.Helper()
+
+	err := config.ValidateAndFillDefaults(repoRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +61,3 @@ func RunGenerateTest(t *testing.T, config *generate.Config) {
 		}
 	}
 }
-
-// Used for an octoqlgen binding.
-//
-// This is here rather than in testutil to test the case where the generated
-// code and the bound type are in the same package.
-type MyGreatScalar string
