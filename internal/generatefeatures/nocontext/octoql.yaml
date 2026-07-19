@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../../../octoqlgen.schema.yaml
+
+schema:
+  path: schema.graphql
+operations:
+  - operation.graphql
+generated: generated.go
+context_type: "-"

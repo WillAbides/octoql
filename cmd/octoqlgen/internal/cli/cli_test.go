@@ -226,22 +226,6 @@ func TestAtomicOutputWriter(t *testing.T) {
 	assert.Empty(t, tempFiles)
 }
 
-func TestGenerateCommandRun(t *testing.T) {
-	t.Parallel()
-
-	var filename string
-	command := GenerateCommand{
-		ConfigFilename: "genqlient.yaml",
-		run: func(value string) error {
-			filename = value
-			return nil
-		},
-	}
-	err := command.Run()
-	require.NoError(t, err)
-	assert.Equal(t, "genqlient.yaml", filename)
-}
-
 func TestInitCommandRun(t *testing.T) {
 	t.Parallel()
 
@@ -342,6 +326,7 @@ func TestHelpSnapshots(t *testing.T) {
 		args []string
 	}{
 		{name: "root", args: []string{"--help"}},
+		{name: "generate", args: []string{"generate", "--help"}},
 		{name: "init", args: []string{"init", "--help"}},
 		{name: "schema", args: []string{"schema", "--help"}},
 		{name: "schema-update", args: []string{"schema", "update", "--help"}},
@@ -382,7 +367,7 @@ Flags:
       --version    Show version information.
 
 Commands:
-  generate [<config-filename>] [flags]
+  generate [flags]
     Generate GraphQL client code.
 
   init [flags]
@@ -395,6 +380,16 @@ Commands:
     Update a configured remote schema pin.
 
 Run "octoqlgen <command> --help" for more information on a command.`))
+			case "generate":
+				snaps.MatchInlineSnapshot(t, output, snaps.Inline(`Usage: octoqlgen generate [flags]
+
+Generate GraphQL client code.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --version        Show version information.
+
+      --config=PATH    Path to an octoqlgen configuration file.`))
 			case "init":
 				snaps.MatchInlineSnapshot(t, output, snaps.Inline(`Usage: octoqlgen init [flags]
 

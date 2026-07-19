@@ -18,13 +18,10 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-
-	"gopkg.in/yaml.v2"
 )
 
 const (
 	githubPublicSchemaDir          = "testdata/github-public-schema"
-	githubPublicSchemaRevision     = "27a4008f193706042a40cbb6c71cf85633249e79"
 	githubPublicSchemaSize         = int64(1520362)
 	githubPublicSchemaSHA256       = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
 	githubPublicSchemaConfigFile   = "octoql.yaml"
@@ -33,24 +30,8 @@ const (
 
 type publicSchemaCommand func(context.Context, string, io.Writer) error
 
-type publicSchemaFixtureConfig struct {
-	Schema struct {
-		Path   string `yaml:"path"`
-		SHA256 string `yaml:"sha256"`
-		Source struct {
-			GitHubDocs struct {
-				Version  string `yaml:"version"`
-				Revision string `yaml:"revision"`
-			} `yaml:"github_docs"`
-		} `yaml:"source"`
-	} `yaml:"schema"`
-	Operations []string `yaml:"operations"`
-	Generated  string   `yaml:"generated"`
-}
-
 func TestGenerateGitHubPublicSchema(t *testing.T) {
-	fixtureConfig := readGitHubPublicSchemaConfig(t)
-	schemaFilename := filepath.Join(githubPublicSchemaDir, fixtureConfig.Schema.Path)
+	schemaFilename := filepath.Join(githubPublicSchemaDir, githubPublicSchemaMaterialized)
 	configFilename := filepath.Join(githubPublicSchemaDir, githubPublicSchemaConfigFile)
 	err := ensureGitHubPublicSchema(
 		t.Context(),
@@ -147,43 +128,6 @@ func TestGenerateGitHubPublicSchema(t *testing.T) {
 			t.Errorf("generated output unexpectedly matches %q", pattern)
 		}
 	}
-}
-
-func readGitHubPublicSchemaConfig(t *testing.T) publicSchemaFixtureConfig {
-	t.Helper()
-
-	content, err := os.ReadFile(filepath.Join(githubPublicSchemaDir, githubPublicSchemaConfigFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fixtureConfig publicSchemaFixtureConfig
-	err = yaml.UnmarshalStrict(content, &fixtureConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fixtureConfig.Schema.Path != githubPublicSchemaMaterialized {
-		t.Errorf("configured schema path = %q, want %q", fixtureConfig.Schema.Path, githubPublicSchemaMaterialized)
-	}
-	if fixtureConfig.Schema.SHA256 != githubPublicSchemaSHA256 {
-		t.Errorf("configured schema SHA-256 = %q, want %q", fixtureConfig.Schema.SHA256, githubPublicSchemaSHA256)
-	}
-	if fixtureConfig.Schema.Source.GitHubDocs.Version != "fpt" {
-		t.Errorf("configured github/docs version = %q, want %q", fixtureConfig.Schema.Source.GitHubDocs.Version, "fpt")
-	}
-	if fixtureConfig.Schema.Source.GitHubDocs.Revision != githubPublicSchemaRevision {
-		t.Errorf(
-			"configured github/docs revision = %q, want %q",
-			fixtureConfig.Schema.Source.GitHubDocs.Revision,
-			githubPublicSchemaRevision,
-		)
-	}
-	if len(fixtureConfig.Operations) != 1 || fixtureConfig.Operations[0] != "operations.graphql" {
-		t.Errorf("configured operations = %q, want [operations.graphql]", fixtureConfig.Operations)
-	}
-	if fixtureConfig.Generated != "generated.go" {
-		t.Errorf("configured generated path = %q, want %q", fixtureConfig.Generated, "generated.go")
-	}
-	return fixtureConfig
 }
 
 func ensureGitHubPublicSchema(

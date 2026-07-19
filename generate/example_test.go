@@ -6,11 +6,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/willabides/octoql/generate"
 	"github.com/willabides/octoql/internal/integration"
 )
 
 func TestGenerateExample(t *testing.T) {
-	integration.RunGenerateTest(t, "example/genqlient.yaml")
+	integration.RunGenerateTest(t, &generate.Config{
+		Schema:     generate.StringList{"example/schema.graphql"},
+		Operations: generate.StringList{"example/genqlient.graphql"},
+		Generated:  "example/generated.go",
+	})
 }
 
 func TestRunExample(t *testing.T) {

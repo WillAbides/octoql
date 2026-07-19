@@ -1,47 +1,294 @@
 # yaml-language-server: $schema=../octoqlgen.schema.yaml
-# octoql.yaml is octoqlgen's configuration file.
+# octoql.yaml is octoqlgen's only user-facing configuration file.
 #
-# `octoqlgen schema` reads octoql.yaml by default. Pass `--config PATH` to use
-# a different file. Paths and operation globs are resolved relative to this
-# file without changing the values stored here.
+# Run `go tool octoqlgen init` to create a minimal local configuration. Edit
+# schema.source and its pin when using a remote schema, then run
+# `go tool octoqlgen schema materialize` followed by
+# `go tool octoqlgen generate`. Pass `--config PATH` to either command when the
+# file is not named octoql.yaml. init never fetches a schema.
 #
-# The schema directive above provides editor guidance for the intended
-# structure. Remote sources require a canonical lowercase SHA-256 when
-# materialized. GitHub sources also require a full commit revision.
+# Every path and glob below is resolved relative to this file.
+
+# The local GraphQL schema in SDL format. Materialization verifies an existing
+# file or fetches a missing file from the pinned source.
 schema:
   path: .octoql/schema.graphql
+  # Remote sources require the exact SHA-256 of the schema bytes.
   sha256: c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
   source:
     # Supported versions are fpt, ghec, and ghes-X.Y.
     github_docs:
       version: fpt
       revision: 45d83f459620340069df7c375a8867be62616d61
-
-    # Use github_repository instead of github_docs for a pinned file in a
-    # GitHub or GitHub Enterprise repository. host defaults to github.com.
+    # Use exactly one source variant. A repository source may set host for
+    # GitHub Enterprise.
     #
     # github_repository:
     #   repository: owner/repository
     #   revision: 45d83f459620340069df7c375a8867be62616d61
     #   path: path/to/schema.graphql
     #   host: github.example.com
-
-    # Use url instead of a GitHub source for an exact URL. Reproducible
-    # rematerialization requires an immutable URL. The SHA-256 protects the
-    # bytes, but a mutable URL may stop serving those bytes later.
     #
     # url: https://example.com/schema.graphql
-
+#
 # Omit schema.source for a local-only schema. schema.sha256 is optional for a
-# local schema and is verified when present.
-operations:
-  - graphql/**/*.graphql
-generated: internal/githubapi/generated.go
-# test_handler is optional.
-test_handler:
-  generated: internal/githubapitest/generated.go
+# local-only schema and is verified when present.
 
-# GitHub repository authentication is discovered in this order: GH_TOKEN,
-# GITHUB_TOKEN, `gh auth token --hostname HOST`, then anonymous access. A token
-# that the server rejects is reported as an error and is never retried
-# anonymously.
+# Filename(s) or globs with the operations for which to generate code, relative
+# to octoql.yaml.
+#
+# These may be .graphql files, containing the queries in SDL format, or
+# Go files, in which case any string-literal starting with (optional
+# whitespace and) the string "# @genqlient" will be extracted as a query.
+#
+# Operations are always written as a list, even when only one path is needed.
+operations:
+- genqlient.graphql
+- "pkg/*.go"
+
+# The filename to which to write the generated code, relative to octoql.yaml.
+generated: generated/genqlient.go
+
+# test_handler is reserved for future typed test-handler generation. It is
+# parsed and path-resolved today but does not change client generation.
+# test_handler:
+#   generated: generated/testhandler.go
+
+# The package name for the output code; defaults to the package-name
+# corresponding to the setting of `generated`, above.
+#
+# This is rarely needed: only if you want the package-name to differ from the
+# suffix of the package-path, and there are no other Go files in the package
+# already.
+package: mygenerated
+
+# If set, a file at this path (relative to octoql.yaml) will be generated
+# containing the exact operations that genqlient will send to the server.
+#
+# This is useful for systems which require queries to be explicitly
+# safelisted (e.g. [1]), especially for cases like queries involving fragments
+# where it may not exactly match the input queries, or for other static
+# analysis.  The JSON is an object of the form
+#  {"operations": [{
+#      "operationName": "operationname",
+#      "query": "query operationName { ... }",
+#      "sourceLocation": "myqueriesfile.graphql",
+#  }]}
+# Keys may be added in the future.
+#
+# By default, no such file is written.
+#
+# [1] https://www.apollographql.com/docs/studio/operation-registry/
+export_operations: operations.json
+
+# Set to the fully-qualified name of a Go type which generated helpers
+# should accept and use as the context.Context for HTTP requests.
+#
+# Defaults to context.Context; set to "-" to omit context entirely (i.e.
+# use context.Background()).  Must be a type which implements
+# context.Context.
+context_type: context.Context
+
+# If set, a function to get an *octoql.Client, perhaps from the context.
+# By default, the client must be passed explicitly to each octoqlgen
+# generated query-helper.
+#
+# This is useful if you have a shared client, either a global, or
+# available from context, and don't want to pass it explicitly.  In this
+# case the signature of the generated helpers will omit the
+# client argument and they will call this function instead.
+#
+# Must be the fully-qualified name of a function which accepts a context
+# (of the type configured as ContextType (above), which defaults to
+# `context.Context`, or a function of no arguments if ContextType is set
+# to the empty string) and returns (*octoql.Client, error).  If the
+# client-getter returns an error, the helper will return the error
+# without making a query.
+client_getter: "github.com/you/yourpkg.GetClient"
+
+# If set, fields with a struct type will default to having
+# the "pointer: true, omitempty: true" flag.
+#
+# This can be useful for struct schema where it would be burdensome
+# to manually set the flags on a large number of fields.
+#
+# Defaults to false.
+use_struct_references: true
+
+# Generate concrete Go structs only for abstract GraphQL implementations named
+# by applicable inline or named fragments. Each abstract selection also gets an
+# `OctoqlOther` catch-all containing the shared fields and `__typename`, so
+# responses remain usable when GitHub returns another current or future
+# implementation. Defaults to true.
+#
+# Set this to false when migrating code that relies on a generated Go struct for
+# every implementation allowed by the schema.
+omit_unreferenced_implementations: true
+
+# Customize how models are generated for optional fields. This can currently
+# be set to one of the following values:
+# - value (default): optional fields are generated as values, the same as
+#   non-optional fields. E.g. fields with GraphQL types `String` or `String!`
+#   will both map to the Go type `string`. When values are absent in
+#   responses the zero value will be used.
+# - pointer: optional fields are generated as pointers. E.g. fields with
+#   GraphQL type `String` will map to the Go type `*string`. When values are
+#   absent in responses `nil` will be used. Optional list fields do not use
+#   pointers-to-slices, so the GraphQL type `[String]` will map to the Go
+#   type `[]*string`, not `*[]*string`; GraphQL null and empty list simply
+#   map to Go nil- and empty-slice.
+# - pointer_omitempty: optional fields are generated as pointers, as described above.
+#   Additionally, the fields are annotated with omitempty. Fields that are not defined,
+#   will not be exposed.
+# - generic: optional fields are generated as type parameters to a generic type
+#   specified by `optional_generic_type`. E.g. fields with GraphQL type `String`
+#   will map to the Go type `generic.Type[string]`. This is useful if you have a
+#   type that mimics the behavior of Option<A> or Maybe<A> in other languages like
+#   Rust, Java, or Haskell.
+optional: value
+
+# Only used when `optional: generic` is set. `example.Type` must be a fully qualified
+# generic type with only one generic parameter e.g. atomic.Value[string].
+# It must also implement the `encoding/json.Marshaler` and `encoding/json.Unmarshaler`
+# interface if you want it to serialize / deserialize properly.
+optional_generic_type: github.com/organisation/repository/example.Type
+
+# A map from GraphQL type name to Go fully-qualified type name to override
+# the Go type octoqlgen will use for this GraphQL type.
+#
+# This is primarily used for custom scalars, or to map builtin scalars
+# to a nonstandard type that is defined elsewhere.  By default,
+# builtin scalars are mapped to the obvious Go types (String and ID to
+# string, Int to int, Float to float64, and Boolean to bool). octoql also maps
+# GitHub's DateTime, PreciseDateTime, and GitTimestamp scalars to time.Time.
+# CustomPropertyValue maps to encoding/json.RawMessage because GitHub may return
+# either a string or an array of strings. Base64String, BigInt, Date,
+# GitObjectID, GitRefname, GitSSHRemote, HTML, URI, and X509Certificate map to
+# string. This setting will extend or override all those mappings. (See also
+# @genqlient(typename: ...), which can be used to map builtin scalars
+# to a nonstandard type that octoqlgen defines for you.)
+#
+# octoqlgen does not validate these types in any way; they must define
+# whatever logic is needed (MarshalJSON/UnmarshalJSON or JSON tags) to
+# convert to/from JSON.  For this reason, it's not recommended to use this
+# setting to map object, interface, or union types, because nothing
+# guarantees that the fields requested in the query match those present in
+# the Go type.
+#
+# Note: if binding to types in the same package as the generated code, make
+# sure you don't bind to generated types! Otherwise, things get very circular.
+#
+# To get equivalent behavior in just one query, use @genqlient(bind: ...);
+# see genqlient_directive.graphql for more details.
+bindings:
+  # To bind a scalar:
+  DateTime:
+    # The fully-qualified name of the Go type to which to bind.  For example:
+    #  time.Time
+    #  map[string]interface{}
+    #  github.com/you/yourpkg/subpkg.MyType
+    # Specifically, this can be any of the following expressions:
+    # - any named type (qualified by the full package path)
+    # - any predeclared basic type (string, int, etc.)
+    # - interface{}
+    # - for any allowed type T, *T, []T, [N]T, and map[string]T
+    # but can't be, for example:
+    # - an inline (unnamed) struct or interface type
+    # - a map whose key-type is not string
+    # - a nonstandard way of spelling those, (interface {/* hi */},
+    #   map[  string      ]T)
+    type: time.Time
+    # Optionally, the fully-qualified name of the function to use when
+    # marshaling this type.
+    #
+    # This is useful when you want to bind to a standard type, but use
+    # nonstandard marshaling, for example when making requests to a server
+    # that's not compatible with Go's default time format. It is only used for
+    # types passed as arguments, i.e. input types, scalars, and enums.
+    #
+    # The function should have a signature similar to json.Marshal, i.e., it
+    # will be passed one argument which will be a pointer to a value of the
+    # given type, and must return two values: the JSON as a `[]byte`, and an
+    # error. For example, you might specify
+    #  unmarshaler: github.com/you/yourpkg.MarshalMyType
+    # and that function is defined as e.g.:
+    #  func MarshalMyType(v *MyType) ([]byte, error)
+    #
+    # Note that the `omitempty` option is ignored for types with custom
+    # marshalers; the custom marshaler can of course choose to map any value it
+    # wishes to `"null"` which in GraphQL has the same effect.
+    #
+    # The default is to use ordinary JSON-marshaling.
+    marshaler: github.com/you/yourpkg.MarshalDateTime
+    # Optionally, the fully-qualified name of the function to use when
+    # unmarshaling this type.
+    #
+    # This is similar to marshaler, above, but for unmarshaling.  The specified
+    # function should have a signature similar to json.Unmarshal, i.e., it will
+    # be passed two arguments, a []byte of JSON to unmarshal and a pointer to a
+    # value of the given type, and must return an error.  For example, you
+    # might specify
+    #  unmarshaler: github.com/you/yourpkg.UnmarshalMyType
+    # and that function is defined as e.g.:
+    #  func UnmarshalMyType(b []byte, v *MyType) error
+    #
+    # The default is to use ordinary JSON-unmarshaling.
+    unmarshaler: github.com/you/yourpkg.UnmarshalDateTime
+
+  # To bind an object type:
+  MyType:
+    type: github.com/you/yourpkg.GoType
+    # If set, a GraphQL selection which must exactly match the fields
+    # requested whenever this type is used.  Only applies if the GraphQL type
+    # is a composite output type (object, interface, or union).
+    #
+    # This is useful if Type is a struct whose UnmarshalJSON or other methods
+    # expect that you requested certain fields.  For example, given the below
+    # config, octoqlgen will reject if you make a query
+    #    { fieldOfMytype { id title } }
+    # The fields must match exactly, including the ordering: "{ name id }"
+    # will be rejected.  But the arguments and directives, if any, need not
+    # match.
+    #
+    # TODO(benkraft): Also add ExpectIncludesFields and ExpectSubsetOfFields,
+    # or something, if you want to say, for example, that you have to request
+    # certain fields but others are optional.
+    expect_exact_fields: "{ id name }"
+    # unmarshaler and marshaler are also valid here, see above for details.
+
+# A list of packages for which octoqlgen should automatically generate
+# bindings.  This is equivalent to adding an entry
+#   TypeName:
+#       type: github.com/you/yourpkg/models.TypeName
+# to the bindings map, above, for each exported type in the package.  Multiple
+# packages may be specified, and later ones take precedence over earlier ones.
+# Explicit entries in bindings take precedence over all package bindings.
+#
+# Note: make sure this isn't the package with your generated code, or things
+# will get circular very fast.
+package_bindings:
+- package: github.com/you/yourpkg/models
+
+
+# By default octoqlgen tries to convert GraphQL type names to Go style
+# automatically. Sometimes it doesn't do a great job; this suite of options
+# lets you configure its algorithm as makes sense for your schema.
+#
+# Options below support the following values:
+# - default: use octoqlgen's default algorithm, which tries to convert GraphQL
+#   names to exported Go names. This is usually best for GraphQL schemas using
+#   idiomatic GraphQL types.
+# - raw: map the GraphQL type exactly; don't try to convert it to Go style.
+#   This is usually best for schemas with casing conflicts, e.g. enums with
+#   values which differ only in casing.
+# - auto_camel_case: automatically convert snake_case to camelCase names before
+#   standard processing. This applies to field names, type names and enum values.
+casing:
+  # The default casing algorithm to use for all GraphQL names (fields, types, etc.).
+  default: auto_camel_case
+  # Use the given casing-style (see above) for all GraphQL enum values.
+  all_enums: raw
+  # Use the given casing-style (see above) for the enum values in the given
+  # GraphQL types (takes precedence over all_enum_values).
+  enums:
+    MyEnum: raw

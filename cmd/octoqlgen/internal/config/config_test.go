@@ -78,6 +78,31 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 			wantError: `unknown field "unknown"`,
 		},
 		{
+			name:      "removed extensions",
+			content:   validConfigYAML() + "use_extensions: true\n",
+			wantError: `unknown field "use_extensions"`,
+		},
+		{
+			name:      "subscription setting",
+			content:   validConfigYAML() + "subscriptions: true\n",
+			wantError: `unknown field "subscriptions"`,
+		},
+		{
+			name: "unknown binding field",
+			content: validConfigYAML() +
+				"bindings:\n" +
+				"  DateTime:\n" +
+				"    unknown: true\n",
+			wantError: `unknown field "unknown"`,
+		},
+		{
+			name: "unknown casing field",
+			content: validConfigYAML() +
+				"casing:\n" +
+				"  unknown: raw\n",
+			wantError: `unknown field "unknown"`,
+		},
+		{
 			name:      "multiple documents",
 			content:   validConfigYAML() + "---\n{}\n",
 			wantError: "multiple YAML documents are not allowed",
@@ -103,6 +128,75 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 			assert.Contains(t, err.Error(), test.wantError)
 		})
 	}
+}
+
+func TestLoadGeneratorOptions(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	filename := filepath.Join(directory, DefaultFilename)
+	content := []byte(
+		"schema:\n" +
+			"  path: schema.graphql\n" +
+			"operations:\n" +
+			"  - graphql/**/*.graphql\n" +
+			"generated: generated/client.go\n" +
+			"package: githubapi\n" +
+			"export_operations: generated/operations.json\n" +
+			"context_type: github.com/example/context.Type\n" +
+			"client_getter: github.com/example/client.Get\n" +
+			"bindings:\n" +
+			"  DateTime:\n" +
+			"    type: github.com/example/scalar.DateTime\n" +
+			"    expect_exact_fields: \"{ id }\"\n" +
+			"    marshaler: github.com/example/scalar.Marshal\n" +
+			"    unmarshaler: github.com/example/scalar.Unmarshal\n" +
+			"package_bindings:\n" +
+			"  - package: github.com/example/models\n" +
+			"casing:\n" +
+			"  default: auto_camel_case\n" +
+			"  all_enums: raw\n" +
+			"  enums:\n" +
+			"    IssueState: default\n" +
+			"optional: generic\n" +
+			"optional_generic_type: github.com/example/optional.Value\n" +
+			"use_struct_references: true\n" +
+			"omit_unreferenced_implementations: false\n" +
+			"test_handler:\n" +
+			"  generated: generated/testhandler.go\n",
+	)
+	err := os.WriteFile(filename, content, 0o600)
+	require.NoError(t, err)
+
+	loaded, err := Load(filename)
+	require.NoError(t, err)
+
+	assert.Equal(t, filepath.Join(directory, "generated", "client.go"), loaded.GeneratedPath())
+	assert.Equal(t, filepath.Join(directory, "generated", "operations.json"), loaded.ExportOperationsPath())
+	assert.Equal(t, filepath.Join(directory, "generated", "testhandler.go"), loaded.TestHandlerGeneratedPath())
+	require.NotNil(t, loaded.Package)
+	assert.Equal(t, "githubapi", *loaded.Package)
+	require.NotNil(t, loaded.Bindings)
+	require.Contains(t, *loaded.Bindings, "DateTime")
+	require.NotNil(t, (*loaded.Bindings)["DateTime"].Type)
+	assert.Equal(t, "github.com/example/scalar.DateTime", *(*loaded.Bindings)["DateTime"].Type)
+	require.Len(t, loaded.PackageBindings, 1)
+	assert.Equal(t, "github.com/example/models", loaded.PackageBindings[0].Package)
+	require.NotNil(t, loaded.Casing)
+	require.NotNil(t, loaded.Casing.Enums)
+	assert.Equal(t, "default", (*loaded.Casing.Enums)["IssueState"])
+	require.NotNil(t, loaded.UseStructReferences)
+	assert.True(t, *loaded.UseStructReferences)
+	require.NotNil(t, loaded.OmitUnreferencedImplementations)
+	assert.False(t, *loaded.OmitUnreferencedImplementations)
+}
+
+func TestDocumentationConfigParses(t *testing.T) {
+	t.Parallel()
+
+	filename := filepath.Join("..", "..", "..", "..", "docs", DefaultFilename)
+	_, err := Load(filename)
+	require.NoError(t, err)
 }
 
 func TestLoadDoesNotValidateAgainstSchema(t *testing.T) {

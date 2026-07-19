@@ -91,7 +91,7 @@ directive genqlient(
   # value otherwise.
   #
   # Only applicable to arguments of nullable types.  Ignored for types with
-  # custom marshalers (see their documentation in genqlient.yaml for details).
+  # custom marshalers (see their documentation in octoql.yaml for details).
   omitempty: Boolean
 
   # If set, this argument or field will use a pointer type in Go.  Response
@@ -190,7 +190,7 @@ directive genqlient(
   # If you want genqlient to create the type definition, use "typename"
   # instead.
   #
-  # See bindings in genqlient.yaml for more details; this is effectively to a
+  # See bindings in octoql.yaml for more details; this is effectively to a
   # local version of that global setting and should be used with similar care.
   # If set to "-", overrides any such global setting and uses a
   # genqlient-generated type.

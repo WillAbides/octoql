@@ -1,6 +1,9 @@
 # Frequently Asked Questions
 
-This document describes common questions about genqlient, and provides an index to how to represent common query structures.  For a full list of configuration options, see [genqlient.yaml](genqlient.yaml) and [genqlient_directive.graphql](genqlient_directive.graphql).
+This document describes common questions about the inherited generator behavior
+and provides an index to common query structures. For configuration options, see
+[octoql.yaml](octoql.yaml) and
+[genqlient_directive.graphql](genqlient_directive.graphql).
 
 ## Configuring genqlient
 

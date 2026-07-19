@@ -1,6 +1,0 @@
-# Copyright (c) 2026 octoql contributors
-# SPDX-License-Identifier: MIT
-
-schema: ../schema.graphql
-operations: ../Repository.graphql
-generated: generated.go

@@ -1,5 +1,9 @@
-schema: schema.graphql
-operations: operation.graphql
+# yaml-language-server: $schema=../../../octoqlgen.schema.yaml
+
+schema:
+  path: schema.graphql
+operations:
+  - operation.graphql
 generated: generated.go
 context_type: github.com/willabides/octoql/internal/generatefeatures/clientgetter.Context
 client_getter: github.com/willabides/octoql/internal/generatefeatures/clientgetter.GetClient

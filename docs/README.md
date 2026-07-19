@@ -1,6 +1,7 @@
-# genqlient documentation
+# octoql documentation
 
-Welcome to the genqlient documentation! This documentation is made possible by viewers like you; if you see something unclear, file an [issue] or make a [pull request] to improve it!
+Welcome to the octoql documentation. If you see something unclear, file an
+[issue] or make a [pull request] to improve it.
 
 [issue]: https://github.com/willabides/octoql/issues/new/choose
 [pull request]: https://github.com/willabides/octoql/compare
@@ -18,7 +19,7 @@ Welcome to the genqlient documentation! This documentation is made possible by v
 
 - [Go package reference](https://pkg.go.dev/github.com/willabides/octoql)
 - [octoqlgen configuration schema](../octoqlgen.schema.yaml)
-- [`genqlient.yaml` configuration reference](genqlient.yaml)
+- [`octoql.yaml` configuration reference](octoql.yaml)
 - [`@genqlient` directive reference](genqlient_directive.graphql)
 - [changelog](CHANGELOG.md)
 

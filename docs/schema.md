@@ -1,45 +1,23 @@
-# Configuring genqlient to use your GraphQL schema
+# Configuring octoqlgen to use your GraphQL schema
 
-This document describes common configuration options to get genqlient to work well with your GraphQL schema. For a complete list of options, see the [`genqlient.yaml` reference](genqlient.yaml).
+This document describes schema configuration for octoqlgen. For the complete
+configuration, see the [`octoql.yaml` reference](octoql.yaml).
 
-## Fetching your schema
+## Schema materialization
 
-At present, genqlient expects your schema to exist on-disk. To fetch the schema from the server using introspection, you can use a tool such as [gqlfetch] and then let `genqlient` continue from there. Similarly, for [federated] servers you might fetch the supergraph (federated) schema from a registry, or construct it locally from the subgraph schemas.
+`schema.path` is the only schema file used during generation. For local-only
+schemas, omit `schema.source` and place SDL at that path. For remote schemas,
+configure exactly one pinned `github_docs`, `github_repository`, or `url` source
+and the expected `schema.sha256`.
 
-[gqlfetch]: https://github.com/suessflorian/gqlfetch
-[federated]: https://www.apollographql.com/docs/federation/
+Run `go tool octoqlgen schema materialize` to verify an existing file or fetch a
+missing remote file. `go tool octoqlgen generate` performs the same verification
+and materialization before generation, so it never generates against unverified
+bytes. Schema update behavior remains explicit through
+`go tool octoqlgen schema update`.
 
-If desired, you can wrap this process up in a tool that you call via `go generate`, for example:
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"os"
-
-	"github.com/willabides/octoql/generate"
-	"github.com/suessflorian/gqlfetch"
-)
-
-func main() {
-	schema, err := gqlfetch.BuildClientSchema(context.Background(), "http://localhost:8080/query")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	if err = os.WriteFile("schema.graphql", []byte(schema), 0644); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	generate.Main()
-}
-```
-
-This can now be invoked upon `go generate` via `//go:generate yourpkg/generate`.
+All schema and output paths are relative to `octoql.yaml`. Materialization never
+rewrites the configuration.
 
 ## Scalars
 
@@ -65,7 +43,7 @@ schema:
 | `HTML`, `URI`, `X509Certificate` | `string` |
 
 For other custom scalars, or to override any standard or GitHub mapping, use
-the `bindings` option in [`genqlient.yaml`](genqlient.yaml). Explicit bindings
+the `bindings` option in [`octoql.yaml`](octoql.yaml). Explicit bindings
 always take precedence.
 
 [spec#scalar]: https://spec.graphql.org/draft/#sec-Scalars
@@ -73,7 +51,7 @@ always take precedence.
 ### Custom scalars
 
 Schemas can define custom scalars beyond the GitHub defaults. Tell octoqlgen
-what Go types to use for those through `bindings` in `genqlient.yaml`, for
+what Go types to use for those through `bindings` in `octoql.yaml`, for
 example:
 
 ```yaml
@@ -92,7 +70,9 @@ bindings:
     unmarshaler: "github.com/your/package.UnmarshalDateTime"
 ```
 
-See genqlient's integration tests for a full example: [types](../internal/testutil/types.go), [config](../internal/integration/genqlient.yaml).
+See octoql's integration tests for a full example:
+[types](../internal/testutil/types.go) and
+[config](../internal/integration/octoql.yaml).
 
 To leave a custom scalar as raw JSON, map it to `encoding/json.RawMessage`:
 
@@ -113,7 +93,7 @@ The GraphQL spec officially defines the `Int` type to be a [signed 32-bit intege
 
 By default, genqlient maps GraphQL `Int`s to Go's `int`, meaning that on 64-bit systems there's no client-side restriction. This is convenient for most use cases, but means the client won't prevent you from passing a 64-bit integer to a server that will reject or truncate it.
 
-If you prefer to limit integers to `int32`, you can set a binding in your `genqlient.yaml`:
+If you prefer to limit integers to `int32`, set a binding in `octoql.yaml`:
 
 ```yaml
 bindings:
@@ -136,11 +116,11 @@ bindings:
 ## Extensions
 
 Some schemas and servers make use of GraphQL extensions. Generated query and
-mutation helpers always expose them through `response.Extensions`.
+mutation helpers always expose top-level values through `response.Extensions`.
+Each GraphQL error retains its own values through `error.Extensions`.
 
-The `use_extensions` configuration option remains parse-compatible with
-inherited configurations, but no longer changes generated signatures because
-extensions are always present on `octoql.Response`.
+The legacy `use_extensions` option was a no-op and is not accepted in
+`octoql.yaml`. Remove it when migrating configuration.
 
 ## Hasura, Dgraph, and other generated schemas
 

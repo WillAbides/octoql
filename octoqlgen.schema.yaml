@@ -23,9 +23,90 @@ properties:
     type: string
     examples:
       - githubapi/generated.go
+  package:
+    description: Go package name override for the generated client.
+    type: string
+  export_operations:
+    description: Optional path for the generated JSON operation manifest.
+    type: string
+  context_type:
+    description: Fully qualified generated helper context type, or "-" to omit context arguments.
+    type: string
+  client_getter:
+    description: Fully qualified function used by generated helpers to obtain a client.
+    type: string
+  bindings:
+    description: GraphQL type bindings keyed by GraphQL type name.
+    type: object
+    x-go-type: map[string]*Binding
+    additionalProperties:
+      $ref: '#/$defs/binding'
+  package_bindings:
+    description: Go packages whose exported types are added as GraphQL type bindings.
+    type: array
+    items:
+      $ref: '#/$defs/packageBinding'
+  casing:
+    $ref: '#/$defs/casing'
+  optional:
+    description: Representation used for optional GraphQL fields.
+    type: string
+  optional_generic_type:
+    description: Fully qualified single-parameter generic type used when optional is generic.
+    type: string
+  use_struct_references:
+    description: Whether generated struct fields default to pointers with omitempty.
+    type: boolean
+  omit_unreferenced_implementations:
+    description: Whether abstract selections omit implementations not referenced by fragments. Defaults to true.
+    type: boolean
   test_handler:
     $ref: '#/$defs/testHandler'
 $defs:
+  binding:
+    description: Go binding for a GraphQL type.
+    type: object
+    additionalProperties: false
+    properties:
+      type:
+        description: Fully qualified Go type.
+        type: string
+      expect_exact_fields:
+        description: GraphQL selection that must exactly match uses of this binding.
+        type: string
+      marshaler:
+        description: Fully qualified custom marshaler function.
+        type: string
+      unmarshaler:
+        description: Fully qualified custom unmarshaler function.
+        type: string
+  packageBinding:
+    description: Go package whose exported types become GraphQL bindings.
+    type: object
+    additionalProperties: false
+    required:
+      - package
+    properties:
+      package:
+        description: Fully qualified Go package import path.
+        type: string
+  casing:
+    description: GraphQL-to-Go name casing configuration.
+    type: object
+    additionalProperties: false
+    properties:
+      default:
+        description: Default casing algorithm.
+        type: string
+      all_enums:
+        description: Casing algorithm for enums without a specific override.
+        type: string
+      enums:
+        description: Casing algorithm overrides keyed by GraphQL enum name.
+        type: object
+        x-go-type: map[string]string
+        additionalProperties:
+          type: string
   schema:
     description: Local schema path and optional pinned remote source.
     type: object

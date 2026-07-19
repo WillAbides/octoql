@@ -9,7 +9,7 @@ import (
 	"github.com/willabides/octoql"
 )
 
-// Check that context_type from genqlient.yaml implements context.Context.
+// Check that context_type from octoql.yaml implements context.Context.
 var _ context.Context = (Context)(nil)
 
 // GetRepositoryRepository includes the requested fields of the GraphQL type Repository.

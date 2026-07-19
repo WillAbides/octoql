@@ -4,11 +4,32 @@ This document describes how to set up octoql and use it for simple queries. See
 also the full worked [example](../example), the [FAQ](faq.md), and the rest of
 the [documentation](./).
 
-## Step 1: Download your schema
+## Step 1: Initialize octoql.yaml
 
-You want the schema in GraphQL [Schema Definition Language (SDL)](https://graphql.org/learn/schema/#type-language) format.  For example, to query the GitHub API, you could download the schema from [their documentation](https://docs.github.com/en/graphql/overview/public-schema).  Put this in `schema.graphql`.
+Run:
 
-## Step 2: Write your queries
+```sh
+go tool octoqlgen init
+```
+
+This creates a minimal `octoql.yaml` and `.octoql/.gitignore`. It does not fetch
+a schema.
+
+## Step 2: Configure and materialize your schema
+
+For a local schema, put SDL at the configured `schema.path`. For a pinned remote
+schema, add one `schema.source` variant and its SHA-256 as shown in the
+[`octoql.yaml` reference](octoql.yaml), then run:
+
+```sh
+go tool octoqlgen schema materialize
+```
+
+Materialization verifies an existing local file or fetches a missing remote
+file, validates its checksum and SDL, and writes only the configured schema
+path. It never rewrites `octoql.yaml`.
+
+## Step 3: Write your queries
 
 Next, write your GraphQL query or mutation. This is often easiest to do in an interactive explorer like [GraphiQL](https://github.com/graphql/graphiql/tree/main/packages/graphiql#readme). Put it in `genqlient.graphql`:
 ```graphql
@@ -19,13 +40,13 @@ query getUser($login: String!) {
 }
 ```
 
-## Step 3: Run octoqlgen
+## Step 4: Run octoqlgen
 
-Create a `genqlient.yaml` configuration file, then run
-`go run github.com/willabides/octoql/cmd/octoqlgen generate`. This produces a
-file `generated.go` with your queries.
+Set `operations` and `generated` in `octoql.yaml`, then run
+`go tool octoqlgen generate`. Generation verifies or materializes the configured
+schema before producing the client and optional exported operations.
 
-## Step 4: Use your queries
+## Step 5: Use your queries
 
 Finally, write your code!  The generated code will expose a function with the same name as your query, here
 ```go
@@ -51,12 +72,12 @@ fmt.Println(resp.Data.User.Name, err)
 
 Now run your code!
 
-## Step 5: Repeat
+## Step 6: Repeat
 
 Over time, as you add or change queries, run
-`go run github.com/willabides/octoql/cmd/octoqlgen generate` to regenerate
+`go tool octoqlgen generate` to regenerate
 `generated.go`. Or add
-`//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate` to
+`//go:generate go tool octoqlgen generate` to
 your source, then run [`go generate`](https://go.dev/blog/generate). If you're
 using an editor or IDE plugin backed by
 [gopls](https://github.com/golang/tools/blob/master/gopls/README.md), keep
@@ -74,6 +95,8 @@ _ = `# @genqlient
 
 resp, err := getUser(...)
 ```
-(You don't need to do anything with the constant, just keep it somewhere in the source as documentation and for the next time you run genqlient.)  In this case you'll need to update `genqlient.yaml` to tell it to look at your Go code.
+(You don't need to do anything with the constant, just keep it somewhere in the
+source as documentation and for the next generation run.) In this case, update
+`operations` in `octoql.yaml` to include your Go source.
 
 All the filenames above, and many other aspects of genqlient, are configurable; see the [full documentation](.) for usage guides, reference information, and documentation on how to contribute to genqlient.

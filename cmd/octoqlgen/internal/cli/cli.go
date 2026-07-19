@@ -28,16 +28,6 @@ type commandTree struct {
 	Version  kong.VersionFlag `name:"version" help:"Show version information."`
 }
 
-type GenerateCommand struct {
-	run func(string) error
-
-	ConfigFilename string `arg:"" optional:"" placeholder:"CONFIG" help:"Path to a genqlient configuration file. Defaults to genqlient.yaml in the current or a parent directory."`
-}
-
-func (cmd GenerateCommand) Run() error {
-	return cmd.run(cmd.ConfigFilename)
-}
-
 type SchemaCommand struct {
 	Materialize SchemaMaterializeCommand `cmd:"" default:"1" help:"Materialize or verify a pinned GraphQL schema."`
 	Update      SchemaUpdateCommand      `cmd:"" help:"Update a configured remote schema pin."`
@@ -487,7 +477,7 @@ type Dependencies struct {
 	Context        context.Context
 	Stdout         io.Writer
 	Stderr         io.Writer
-	Generate       func(string) error
+	Generate       func(*generate.Config) (map[string][]byte, error)
 	LoadConfig     func(string) (*config.Config, error)
 	Materializer   Materializer
 	RemoteResolver RemoteResolver
@@ -534,7 +524,11 @@ func normalizeArgs(args []string) []string {
 func newCommandTree(dependencies *Dependencies) *commandTree {
 	return &commandTree{
 		Generate: GenerateCommand{
-			run: dependencies.Generate,
+			context:      dependencies.Context,
+			loadConfig:   dependencies.LoadConfig,
+			materializer: dependencies.Materializer,
+			generate:     dependencies.Generate,
+			outputWriter: dependencies.OutputWriter,
 		},
 		Init: InitCommand{
 			stdout: dependencies.Stdout,
@@ -579,7 +573,7 @@ func (d *Dependencies) setDefaults() {
 		d.Stderr = io.Discard
 	}
 	if d.Generate == nil {
-		d.Generate = generate.Run
+		d.Generate = generate.Generate
 	}
 	if d.LoadConfig == nil {
 		d.LoadConfig = config.Load

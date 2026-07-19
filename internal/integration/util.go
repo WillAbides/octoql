@@ -25,15 +25,13 @@ func RepoRoot(t *testing.T) string {
 	return root
 }
 
-// RunGenerateTest checks that running genqlient with the given
-// repo-root-relative config file would not produce any changes to the
-// checked-in files.
+// RunGenerateTest checks that running octoqlgen with the given programmatic
+// configuration would not produce any changes to the checked-in files.
 //
 // Note these are also checked, along with gqlgen codegen in a separate check
 // in CI. But this is more convenient locally.
-func RunGenerateTest(t *testing.T, relConfigFilename string) {
-	configFilename := filepath.Join(RepoRoot(t), relConfigFilename)
-	config, err := generate.ReadAndValidateConfig(configFilename)
+func RunGenerateTest(t *testing.T, config *generate.Config) {
+	err := config.ValidateAndFillDefaults(RepoRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +64,7 @@ func RunGenerateTest(t *testing.T, relConfigFilename string) {
 	}
 }
 
-// Used for a binding in genqlient.yaml.
+// Used for an octoqlgen binding.
 //
 // This is here rather than in testutil to test the case where the generated
 // code and the bound type are in the same package.

@@ -15,7 +15,7 @@ import (
 	junkfunname "github.com/willabides/octoql/internal/testutil/junk---fun.name"
 )
 
-// Check that context_type from genqlient.yaml implements context.Context.
+// Check that context_type from octoql.yaml implements context.Context.
 var _ context.Context = (junkfunname.MyContext)(nil)
 
 // ActorFields includes the GraphQL fields of Actor requested by the fragment ActorFields.
