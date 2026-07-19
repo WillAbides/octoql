@@ -274,8 +274,8 @@ func TestGenerateTestHandlerOmittedTypesEqualsClient(t *testing.T) {
 			ContextType:          "-",
 			Bindings:             testBindings(),
 		}
-		err := config.ValidateAndFillDefaults("")
-		require.NoError(t, err)
+		validateErr := config.ValidateAndFillDefaults("")
+		require.NoError(t, validateErr)
 		return config
 	}
 

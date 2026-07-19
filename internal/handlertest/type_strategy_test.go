@@ -19,11 +19,11 @@ import (
 )
 
 type wireParityCase struct {
-	name            string
-	operation       string
-	variables       any
 	configureClient func(*clienttypes.TestHandler)
 	configureLocal  func(*localtypes.TestHandler)
+	variables       any
+	name            string
+	operation       string
 }
 
 func TestHandlerTypeStrategiesWireParity(t *testing.T) {
