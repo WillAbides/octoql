@@ -35,13 +35,13 @@ Go style should generally follow the conventions of [Effective Go](https://golan
 To run tests and lint, use `script/test` and `script/lint`. (GitHub Actions also runs them.)
 
 Notes for contributors:
-- Most of the tests are snapshot-based; see `generate/generate_test.go`.  All new code-generation logic should be snapshot-tested.  Some code additionally has standalone unit tests, when convenient.
+- Most of the tests are snapshot-based; see `internal/generate/generate_test.go`.  All new code-generation logic should be snapshot-tested.  Some code additionally has standalone unit tests, when convenient.
 - Integration tests run against a gqlgen server in `internal/integration/integration_test.go`, and should cover everything that snapshot tests can't, including the GraphQL client code and JSON marshaling.
 - If `GITHUB_TOKEN` is available in the environment, it also checks that the example returns the expected output when run against the real API.  This is configured automatically in GitHub Actions, but you can also use a [personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with no scopes.  There's no need for this to cover anything in particular; it's just to make sure the example in fact works.
 - Tests should use `testify/assert` and `testify/require` where convenient (when making many simple assertions).
 
 If you update code-generation logic or templates, run
-`UPDATE_SNAPS=true go test ./generate` to update focused snapshots. Use
+`UPDATE_SNAPS=true go test ./internal/generate` to update focused snapshots. Use
 `UPDATE_SNAPS=true go test ./...` when checked-in generated integration output
 also needs an update. Compact diagnostics, configuration formatting, and CLI
 usage are inline snapshots; generated Go and JSON output remains external
@@ -49,15 +49,18 @@ because the Go artifacts are compiled from those snapshot files. To remove
 obsolete external generator snapshots, run:
 
 ```sh
-rm -rf generate/testdata/snapshots
-UPDATE_SNAPS=true go test ./generate
+rm -rf internal/generate/testdata/snapshots
+UPDATE_SNAPS=true go test ./internal/generate
 ```
 
-Review the recreated files, then run `go test ./generate` normally.
+Review the recreated files, then run `go test ./internal/generate` normally.
 
 ## Finding your way around
 
-If you're new to genqlient, start out by reading the source of `generate.Generate`, whose comments describe most of the high-level operation of genqlient.  In general, the code is documented inline, often with an introductory comment at the top of the file.  See the [design note](design.md) for documentation of major design decisions, which is a good way to get a sense of why genqlient is structured the way it is.
+The generator implementation is in `internal/generate` and is invoked through
+`cmd/octoqlgen`. In general, the code is documented inline, often with an
+introductory comment at the top of the file. See the [design note](design.md)
+for documentation of major design decisions.
 
 ## Making a release
 

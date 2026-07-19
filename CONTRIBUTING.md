@@ -7,7 +7,7 @@ approach can be discussed before implementation.
 
 Use `script/fmt`, `script/test`, `script/lint`, and `script/generate --check`
 to work with the repository. Generator changes should update the existing
-snapshot tests as needed. Use `UPDATE_SNAPS=true go test ./generate` for
+snapshot tests as needed. Use `UPDATE_SNAPS=true go test ./internal/generate` for
 generator snapshots, or `UPDATE_SNAPS=true go test ./...` when checked-in
 generated integration output also changes. CLI usage, configuration formatting,
 and diagnostics use inline snapshots. Generated Go and JSON output stays in
@@ -15,11 +15,11 @@ external snapshots because the Go artifacts are compiled from those files.
 To remove obsolete external generator snapshots, run:
 
 ```sh
-rm -rf generate/testdata/snapshots
-UPDATE_SNAPS=true go test ./generate
+rm -rf internal/generate/testdata/snapshots
+UPDATE_SNAPS=true go test ./internal/generate
 ```
 
-Review the recreated files, then run `go test ./generate` normally.
+Review the recreated files, then run `go test ./internal/generate` normally.
 
 ## Scripts
 

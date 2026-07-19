@@ -32,45 +32,6 @@ func newGenqlientDirective(pos *ast.Position) *genqlientDirective {
 	}
 }
 
-// Helper for String, returns the directive but without the @genqlient().
-func (dir *genqlientDirective) argsString() string {
-	var parts []string
-	if dir.Omitempty != nil {
-		parts = append(parts, fmt.Sprintf("omitempty: %v", *dir.Omitempty))
-	}
-	if dir.Pointer != nil {
-		parts = append(parts, fmt.Sprintf("pointer: %v", *dir.Pointer))
-	}
-	if dir.Struct != nil {
-		parts = append(parts, fmt.Sprintf("struct: %v", *dir.Struct))
-	}
-	if dir.Flatten != nil {
-		parts = append(parts, fmt.Sprintf("flatten: %v", *dir.Flatten))
-	}
-	if dir.Bind != "" {
-		parts = append(parts, fmt.Sprintf("bind: %v", dir.Bind))
-	}
-	if dir.TypeName != "" {
-		parts = append(parts, fmt.Sprintf("typename: %v", dir.TypeName))
-	}
-	if dir.Alias != "" {
-		parts = append(parts, fmt.Sprintf("alias: %v", dir.Alias))
-	}
-	return strings.Join(parts, ", ")
-}
-
-// String is useful for debugging.
-func (dir *genqlientDirective) String() string {
-	lines := []string{fmt.Sprintf("@genqlient(%s)", dir.argsString())}
-	for typeName, dirs := range dir.FieldDirectives {
-		for fieldName, fieldDir := range dirs {
-			lines = append(lines, fmt.Sprintf("@genqlient(for: %s.%s, %s)",
-				typeName, fieldName, fieldDir.argsString()))
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
 func (dir *genqlientDirective) GetOmitempty() bool   { return dir.Omitempty != nil && *dir.Omitempty }
 func (dir *genqlientDirective) GetPointer() bool     { return dir.Pointer != nil && *dir.Pointer }
 func (dir *genqlientDirective) PointerIsFalse() bool { return dir.Pointer != nil && !*dir.Pointer }
