@@ -76,6 +76,7 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	assert.Equal(t, generate.StringList{"schema.graphql"}, actual.Schema)
 	assert.Equal(t, generate.StringList{"graphql/**/*.graphql"}, actual.Operations)
 	assert.Equal(t, "githubapi/generated.go", actual.Generated)
+	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
 	assert.Equal(t, packageName, actual.Package)
 	assert.Equal(t, exportOperations, actual.ExportOperations)
 	assert.Equal(t, contextType, actual.ContextType)
@@ -97,18 +98,21 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	assert.Equal(t, unmarshaler, actual.Bindings["DateTime"].Unmarshaler)
 }
 
-func TestGenerateConfigIgnoresTestHandler(t *testing.T) {
+func TestGenerateConfigMapsTestHandler(t *testing.T) {
 	t.Parallel()
 
-	withoutHandler := &config.Config{
+	source := &config.Config{
 		Schema:     config.Schema{Path: "schema.graphql"},
 		Operations: []string{"operation.graphql"},
 		Generated:  "generated.go",
+		TestHandler: &config.TestHandler{
+			Generated: "githubapitest/generated.go",
+		},
 	}
-	withHandler := *withoutHandler
-	withHandler.TestHandler = &config.TestHandler{Generated: "testhandler.go"}
 
-	assert.Equal(t, generateConfig(withoutHandler), generateConfig(&withHandler))
+	actual := generateConfig(source)
+
+	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
 }
 
 func TestGenerateCommandRun(t *testing.T) {
@@ -127,6 +131,7 @@ func TestGenerateCommandRun(t *testing.T) {
 		Package:          &packageName,
 		ExportOperations: &exportOperations,
 	}
+
 	materializer := &stubMaterializer{data: []byte("type Query { viewer: String }\n")}
 	writer := &recordingOutputWriter{outputs: map[string][]byte{}, writes: map[string]int{}}
 	didMaterialize := false
@@ -159,6 +164,68 @@ func TestGenerateCommandRun(t *testing.T) {
 	assert.Equal(t, 1, writer.writes[exportPath])
 	assert.Equal(t, []byte("generated"), writer.outputs[generatedPath])
 	assert.Equal(t, []byte("operations"), writer.outputs[exportPath])
+}
+
+func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	repositoryRoot, err := filepath.Abs(filepath.Join("..", "..", "..", ".."))
+	require.NoError(t, err)
+	tempRoot := filepath.Join(repositoryRoot, "generate", "testdata", "tmp")
+	require.NoError(t, os.MkdirAll(tempRoot, 0o755))
+	tempDir, err := os.MkdirTemp(tempRoot, "cli-renderer-error-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
+
+	packageName := "client"
+	loaded := &config.Config{
+		Schema: config.Schema{
+			Path: filepath.Join(
+				repositoryRoot,
+				"generate",
+				"testdata",
+				"queries",
+				"schema.graphql",
+			),
+		},
+		Operations: []string{filepath.Join(
+			repositoryRoot,
+			"generate",
+			"testdata",
+			"queries",
+			"Repository.graphql",
+		)},
+		Generated: filepath.Join(tempDir, "client", "generated.go"),
+		Package:   &packageName,
+		TestHandler: &config.TestHandler{
+			Generated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+		},
+	}
+	renderErr := errors.New("handler renderer failed")
+	writer := &recordingOutputWriter{
+		outputs: map[string][]byte{},
+		writes:  map[string]int{},
+	}
+	command := GenerateCommand{
+		Config:  "octoqlgen.yaml",
+		context: t.Context(),
+		loadConfig: func(string) (*config.Config, error) {
+			return loaded, nil
+		},
+		materializer: &stubMaterializer{},
+		generate: func(*generate.Config) (map[string][]byte, error) {
+			return nil, renderErr
+		},
+		outputWriter: writer,
+	}
+
+	err = command.Run()
+
+	require.ErrorIs(t, err, renderErr)
+	assert.Empty(t, writer.writes)
+	assert.Empty(t, writer.outputs)
 }
 
 func TestGenerateCommandMaterializesConfiguredSources(t *testing.T) {

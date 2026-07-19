@@ -69,7 +69,7 @@ func (v *{{.GoName}}) __premarshalJSON() (*__premarshal{{.GoName}}, error) {
         if src != nil {
         {{end -}}
         var err error
-        *dst, err = {{$field.Marshaler $.Generator}}(
+        *dst, err = {{marshaler $field}}(
             {{/* src is the struct-field (or field-element, etc.).
                  We want to pass a pointer to the type you specified, so if
                  there's a pointer on the field that's exactly what we want,

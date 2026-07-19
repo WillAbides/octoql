@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"go/token"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -24,6 +26,7 @@ type Config struct {
 	Schema                          StringList
 	Operations                      StringList
 	Generated                       string
+	TestHandlerGenerated            string
 	Package                         string
 	ExportOperations                string
 	ContextType                     string
@@ -41,6 +44,9 @@ type Config struct {
 	baseDir string
 	// The package-path into which we are generating.
 	pkgPath string
+	// The package name and path for the generated test handler.
+	testHandlerPackage string
+	testHandlerPkgPath string
 }
 
 // A TypeBinding represents a Go type to which octoqlgen binds a GraphQL type.
@@ -146,8 +152,16 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName}, dir)
 	if err != nil { // e.g. not in a Go module
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
+		if moduleErr == nil && pkgNameGuess != "" {
+			return pkgNameGuess, modulePkgPath, nil
+		}
 		return pkgNameGuess, "", err
 	} else if len(pkgs) != 1 { // probably never happens?
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
+		if moduleErr == nil && pkgNameGuess != "" {
+			return pkgNameGuess, modulePkgPath, nil
+		}
 		return pkgNameGuess, "", fmt.Errorf("found %v packages in %v, expected 1", len(pkgs), dir)
 	}
 
@@ -165,12 +179,69 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 	if token.IsIdentifier(pathSuffix) {
 		pkgNameGuess = pathSuffix
 	}
+	if pkg.PkgPath == "" || pkg.PkgPath == "command-line-arguments" {
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
+		if moduleErr == nil {
+			pkg.PkgPath = modulePkgPath
+		}
+	}
 
 	if pkgNameGuess != "" {
 		return pkgNameGuess, pkg.PkgPath, nil
 	} else {
 		return "", "", fmt.Errorf("no package found in %v", dir)
 	}
+}
+
+func packagePathFromModule(directory string) (string, error) {
+	targetDirectory := directory
+	currentDirectory := directory
+	for {
+		moduleFile := filepath.Join(currentDirectory, "go.mod")
+		content, err := os.ReadFile(moduleFile)
+		if err == nil {
+			moduleName := modulePath(content)
+			if moduleName == "" {
+				return "", fmt.Errorf("go.mod in %q has no module path", currentDirectory)
+			}
+
+			relative, relativeErr := filepath.Rel(currentDirectory, targetDirectory)
+			if relativeErr != nil {
+				return "", relativeErr
+			}
+			if relative == "." {
+				return moduleName, nil
+			}
+			return path.Join(moduleName, filepath.ToSlash(relative)), nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+
+		parent := filepath.Dir(currentDirectory)
+		if parent == currentDirectory {
+			return "", fmt.Errorf("no go.mod found for %q", directory)
+		}
+		currentDirectory = parent
+	}
+}
+
+func modulePath(goMod []byte) string {
+	for line := range strings.SplitSeq(string(goMod), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 || fields[0] != "module" {
+			continue
+		}
+		if !strings.HasPrefix(fields[1], `"`) {
+			return fields[1]
+		}
+		unquoted, err := strconv.Unquote(fields[1])
+		if err == nil {
+			return unquoted
+		}
+		return ""
+	}
+	return ""
 }
 
 // ValidateAndFillDefaults ensures that the configuration is valid, and fills
@@ -190,8 +261,15 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 		c.Generated = "generated.go"
 	}
 	c.Generated = pathJoin(baseDir, c.Generated)
+	if c.TestHandlerGenerated != "" {
+		c.TestHandlerGenerated = pathJoin(baseDir, c.TestHandlerGenerated)
+	}
 	if c.ExportOperations != "" {
 		c.ExportOperations = pathJoin(baseDir, c.ExportOperations)
+	}
+	err := c.validateOutputPaths()
+	if err != nil {
+		return err
 	}
 
 	if c.ContextType == "" {
@@ -256,6 +334,46 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	// This is a no-op in some of the error cases, but it still doesn't hurt.
 	c.pkgPath = pkgPath
 
+	if c.TestHandlerGenerated != "" {
+		if c.pkgPath == "" {
+			return errorf(
+				nil,
+				"unable to generate test handler without identifying the generated client package path",
+			)
+		}
+		if c.Package == "main" {
+			return errorf(
+				nil,
+				"test handler cannot import a generated client in package main",
+			)
+		}
+
+		handlerPackage, handlerPkgPath, handlerErr := getPackageNameAndPath(c.TestHandlerGenerated)
+		if handlerErr != nil {
+			return errorf(
+				nil,
+				"unable to identify test handler package for %q: %v",
+				c.TestHandlerGenerated,
+				handlerErr,
+			)
+		}
+		if handlerPackage == "" || handlerPkgPath == "" {
+			return errorf(
+				nil,
+				"unable to identify test handler package for %q",
+				c.TestHandlerGenerated,
+			)
+		}
+		if handlerPkgPath == c.pkgPath {
+			return errorf(
+				nil,
+				"test handler must be generated in a separate package from the client",
+			)
+		}
+		c.testHandlerPackage = handlerPackage
+		c.testHandlerPkgPath = handlerPkgPath
+	}
+
 	if len(c.PackageBindings) > 0 {
 		for _, binding := range c.PackageBindings {
 			if strings.HasSuffix(binding.Package, ".go") {
@@ -313,6 +431,185 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	}
 
 	return nil
+}
+
+func (c *Config) validateOutputPaths() error {
+	outputs := map[string]string{}
+	type existingOutput struct {
+		name string
+		info os.FileInfo
+	}
+	existingOutputs := []existingOutput{}
+	for _, output := range []struct {
+		name string
+		path string
+	}{
+		{name: "generated", path: c.Generated},
+		{name: "export_operations", path: c.ExportOperations},
+		{name: "test_handler.generated", path: c.TestHandlerGenerated},
+	} {
+		if output.path == "" {
+			continue
+		}
+		info, statErr := os.Stat(output.path)
+		if statErr == nil {
+			for _, existing := range existingOutputs {
+				if os.SameFile(existing.info, info) {
+					return errorf(
+						nil,
+						"%s and %s output paths must be different: %q",
+						existing.name,
+						output.name,
+						output.path,
+					)
+				}
+			}
+			existingOutputs = append(existingOutputs, existingOutput{
+				name: output.name,
+				info: info,
+			})
+		} else if !os.IsNotExist(statErr) {
+			return errorf(
+				nil,
+				"checking %s output path %q: %v",
+				output.name,
+				output.path,
+				statErr,
+			)
+		}
+		canonical, err := canonicalOutputPath(output.path)
+		if err != nil {
+			return errorf(
+				nil,
+				"resolving %s output path %q: %v",
+				output.name,
+				output.path,
+				err,
+			)
+		}
+		existing := outputs[canonical]
+		if existing != "" {
+			return errorf(
+				nil,
+				"%s and %s output paths must be different: %q",
+				existing,
+				output.name,
+				canonical,
+			)
+		}
+		outputs[canonical] = output.name
+	}
+	return nil
+}
+
+func canonicalOutputPath(filename string) (string, error) {
+	absolute, err := filepath.Abs(filename)
+	if err != nil {
+		return "", err
+	}
+	resolved, existingAncestor, err := resolveOutputPath(absolute, 0)
+	if err != nil {
+		return "", err
+	}
+	resolved = filepath.Clean(resolved)
+	if filesystemCaseInsensitive(existingAncestor) {
+		resolved = strings.ToLower(resolved)
+	}
+	return resolved, nil
+}
+
+func resolveOutputPath(
+	absolute string,
+	symlinkDepth int,
+) (resolved, existingAncestor string, err error) {
+	if symlinkDepth > 255 {
+		return "", "", fmt.Errorf("too many symlinks resolving %q", absolute)
+	}
+
+	volume := filepath.VolumeName(absolute)
+	root := volume + string(filepath.Separator)
+	relative, err := filepath.Rel(root, absolute)
+	if err != nil {
+		return "", "", err
+	}
+	components := strings.Split(relative, string(filepath.Separator))
+	resolved = root
+	for index, component := range components {
+		if component == "." || component == "" {
+			continue
+		}
+
+		candidate := filepath.Join(resolved, component)
+		info, lstatErr := os.Lstat(candidate)
+		if os.IsNotExist(lstatErr) {
+			return filepath.Join(
+				resolved,
+				filepath.Join(components[index:]...),
+			), resolved, nil
+		}
+		if lstatErr != nil {
+			return "", "", lstatErr
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			resolved = candidate
+			continue
+		}
+
+		target, readErr := os.Readlink(candidate)
+		if readErr != nil {
+			return "", "", readErr
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(resolved, target)
+		}
+		if index+1 < len(components) {
+			target = filepath.Join(
+				target,
+				filepath.Join(components[index+1:]...),
+			)
+		}
+		target, err = filepath.Abs(target)
+		if err != nil {
+			return "", "", err
+		}
+		return resolveOutputPath(target, symlinkDepth+1)
+	}
+	return resolved, resolved, nil
+}
+
+func filesystemCaseInsensitive(existingPath string) bool {
+	current := existingPath
+	for {
+		info, err := os.Stat(current)
+		if err == nil {
+			alternateBase := toggledCase(filepath.Base(current))
+			if alternateBase != filepath.Base(current) {
+				alternate := filepath.Join(filepath.Dir(current), alternateBase)
+				alternateInfo, alternateErr := os.Stat(alternate)
+				if alternateErr == nil && os.SameFile(info, alternateInfo) {
+					return true
+				}
+			}
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return false
+		}
+		current = parent
+	}
+}
+
+func toggledCase(value string) string {
+	for index, char := range value {
+		switch {
+		case char >= 'a' && char <= 'z':
+			return value[:index] + string(char-'a'+'A') + value[index+1:]
+		case char >= 'A' && char <= 'Z':
+			return value[:index] + string(char-'A'+'a') + value[index+1:]
+		}
+	}
+	return value
 }
 
 func (c *Config) omitUnreferencedImplementations() bool {
