@@ -624,7 +624,13 @@ func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	for _, packageName := range []string{"StatusReady", "StatusQueryResponse"} {
+	for _, packageName := range []string{
+		"StatusReady",
+		"StatusQueryResponse",
+		"ExpectStatusQuery",
+		"DefaultStatusQuery",
+		"ResetStatusQuery",
+	} {
 		t.Run(packageName, func(t *testing.T) {
 			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-import-alias-")
 			if err != nil {
@@ -806,6 +812,73 @@ func TestGenerateRejectsTemplateOnlyTestHandlerImportCycle(t *testing.T) {
 	}
 	err = config.ValidateAndFillDefaults("")
 	require.NoError(t, err)
+
+	_, err = Generate(config)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "creating an import cycle")
+}
+
+func TestGenerateRejectsTransitiveTestHandlerImportCycle(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	require.NoError(t, os.MkdirAll(tempRoot, 0o755))
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-transitive-cycle-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
+
+	handlerDir := filepath.Join(tempDir, "githubapitest")
+	bridgeDir := filepath.Join(tempDir, "bridge")
+	require.NoError(t, os.MkdirAll(handlerDir, 0o755))
+	require.NoError(t, os.MkdirAll(bridgeDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(handlerDir, "types.go"),
+		[]byte("package githubapitest\n"),
+		0o600,
+	))
+	absoluteHandlerDir, err := filepath.Abs(handlerDir)
+	require.NoError(t, err)
+	handlerPackagePath, err := packagePathFromModule(absoluteHandlerDir)
+	require.NoError(t, err)
+	absoluteBridgeDir, err := filepath.Abs(bridgeDir)
+	require.NoError(t, err)
+	bridgePackagePath, err := packagePathFromModule(absoluteBridgeDir)
+	require.NoError(t, err)
+	bridgeSource := fmt.Sprintf(
+		"package bridge\n\nimport _ %q\n\ntype Bound string\n",
+		handlerPackagePath,
+	)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(bridgeDir, "types.go"),
+		[]byte(bridgeSource),
+		0o600,
+	))
+
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	require.NoError(t, os.WriteFile(
+		schemaPath,
+		[]byte("scalar Bound\ntype Query { value(input: Bound!): Bound! }\n"),
+		0o600,
+	))
+	require.NoError(t, os.WriteFile(
+		operationPath,
+		[]byte("query BoundValue($input: Bound!) { value(input: $input) }\n"),
+		0o600,
+	))
+	config := &Config{
+		Schema:               []string{schemaPath},
+		Operations:           []string{operationPath},
+		Generated:            filepath.Join(tempDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(handlerDir, "generated.go"),
+		Package:              "client",
+		ContextType:          "-",
+		Bindings: map[string]*TypeBinding{
+			"Bound": {Type: bridgePackagePath + ".Bound"},
+		},
+	}
+	require.NoError(t, config.ValidateAndFillDefaults(""))
 
 	_, err = Generate(config)
 

@@ -435,6 +435,11 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 
 func (c *Config) validateOutputPaths() error {
 	outputs := map[string]string{}
+	type existingOutput struct {
+		name string
+		info os.FileInfo
+	}
+	existingOutputs := []existingOutput{}
 	for _, output := range []struct {
 		name string
 		path string
@@ -445,6 +450,32 @@ func (c *Config) validateOutputPaths() error {
 	} {
 		if output.path == "" {
 			continue
+		}
+		info, statErr := os.Stat(output.path)
+		if statErr == nil {
+			for _, existing := range existingOutputs {
+				if os.SameFile(existing.info, info) {
+					return errorf(
+						nil,
+						"%s and %s output paths must be different: %q",
+						existing.name,
+						output.name,
+						output.path,
+					)
+				}
+			}
+			existingOutputs = append(existingOutputs, existingOutput{
+				name: output.name,
+				info: info,
+			})
+		} else if !os.IsNotExist(statErr) {
+			return errorf(
+				nil,
+				"checking %s output path %q: %v",
+				output.name,
+				output.path,
+				statErr,
+			)
 		}
 		canonical, err := canonicalOutputPath(output.path)
 		if err != nil {

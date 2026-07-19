@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 )
 
@@ -183,8 +184,11 @@ func validateTestHandlerNames(plan *generationPlan) error {
 		}
 	}
 
-	dependencies := clientDependencyPaths(plan)
-	if dependencies[plan.config.testHandlerPkgPath] {
+	dependsOnHandler, err := clientDependsOnTestHandler(plan)
+	if err != nil {
+		return err
+	}
+	if dependsOnHandler {
 		return errorf(
 			nil,
 			"generated client imports test handler package %q, creating an import cycle",
@@ -193,6 +197,44 @@ func validateTestHandlerNames(plan *generationPlan) error {
 	}
 
 	return nil
+}
+
+func clientDependsOnTestHandler(plan *generationPlan) (bool, error) {
+	dependencies := clientDependencyPaths(plan)
+	handlerPackagePath := plan.config.testHandlerPkgPath
+	if dependencies[handlerPackagePath] {
+		return true, nil
+	}
+
+	roots := make([]string, 0, len(dependencies))
+	for packagePath := range dependencies {
+		roots = append(roots, packagePath)
+	}
+	sort.Strings(roots)
+	loaded, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName | packages.NeedImports | packages.NeedDeps,
+	}, roots...)
+	if err != nil {
+		return false, errorf(nil, "loading generated client dependency graph: %v", err)
+	}
+
+	seen := map[*packages.Package]bool{}
+	queue := append([]*packages.Package{}, loaded...)
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if seen[current] {
+			continue
+		}
+		seen[current] = true
+		if current.PkgPath == handlerPackagePath {
+			return true, nil
+		}
+		for _, imported := range current.Imports {
+			queue = append(queue, imported)
+		}
+	}
+	return false, nil
 }
 
 func clientDependencyPaths(plan *generationPlan) map[string]bool {
@@ -306,6 +348,9 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 			handlerGenerator.usedAliases[handlerOperation.VariablesName] = true
 		}
 		handlerGenerator.usedAliases[operation.Name+"Expectation"] = true
+		for _, prefix := range []string{"Expect", "Default", "Reset"} {
+			handlerGenerator.usedAliases[prefix+operation.Name] = true
+		}
 	}
 	sort.Slice(data.Types, func(i, j int) bool {
 		return data.Types[i].Name < data.Types[j].Name

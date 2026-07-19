@@ -66,6 +66,26 @@ func TestValidateOutputPathsFilesystemAliases(t *testing.T) {
 		assert.Contains(t, err.Error(), "output paths must be different")
 	})
 
+	t.Run("hard-linked file", func(t *testing.T) {
+		realFile := filepath.Join(realDir, "hardlink-target.go")
+		err := os.WriteFile(realFile, []byte("package real\n"), 0o600)
+		require.NoError(t, err)
+		aliasFile := filepath.Join(tempDir, "hardlink-alias.go")
+		err = os.Link(realFile, aliasFile)
+		if err != nil {
+			t.Skipf("hard links are unavailable: %v", err)
+		}
+		config := Config{
+			Generated:            realFile,
+			TestHandlerGenerated: aliasFile,
+		}
+
+		err = config.validateOutputPaths()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "output paths must be different")
+	})
+
 	t.Run("case equivalent", func(t *testing.T) {
 		config := Config{
 			Generated:            filepath.Join(realDir, "CaseOutput.go"),
