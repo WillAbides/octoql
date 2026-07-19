@@ -842,9 +842,6 @@ func TestGeneratedCode(t *testing.T) {
 				Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
 				Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
 			},
-			"MyGreatScalar": {
-				Type: "github.com/willabides/octoql/internal/integration.myGreatScalar",
-			},
 			"IssueState": {
 				Type: "github.com/willabides/octoql/internal/integration/server.IssueState",
 			},

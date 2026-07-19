@@ -16,6 +16,8 @@ type customContext interface {
 }
 
 // getClient returns the octoql client carried by ctx.
+//
+//nolint:unparam // Generated client getters return an error.
 func getClient(ctx customContext) (*octoql.Client, error) {
 	return ctx.OctoqlClient(), nil
 }

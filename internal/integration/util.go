@@ -61,9 +61,3 @@ func runGenerateTest(t *testing.T, config *generate.Config) {
 		}
 	}
 }
-
-// Used for an octoqlgen binding.
-//
-// This is here rather than in testutil to test the case where the generated
-// code and the bound type are in the same package.
-type myGreatScalar string

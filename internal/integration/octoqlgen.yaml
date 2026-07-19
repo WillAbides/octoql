@@ -17,8 +17,6 @@ bindings:
     unmarshaler: github.com/willabides/octoql/internal/testutil.UnmarshalDate
   IssueState:
     type: github.com/willabides/octoql/internal/integration/server.IssueState
-  MyGreatScalar:
-    type: github.com/willabides/octoql/internal/integration.myGreatScalar
   PlanName:
     type: github.com/willabides/octoql/internal/integration/server.PlanName
   PullRequestState:

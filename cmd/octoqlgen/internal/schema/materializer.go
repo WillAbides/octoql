@@ -148,9 +148,9 @@ func (m *Materializer) dependencies() dependencies {
 	if lookupEnvironment == nil {
 		lookupEnvironment = defaults.LookupEnvironment
 	}
-	fileSystem := m.FileSystem
-	if fileSystem == nil {
-		fileSystem = defaults.FileSystem
+	fsys := m.FileSystem
+	if fsys == nil {
+		fsys = defaults.FileSystem
 	}
 	githubAPIBaseURL := m.GitHubAPIBaseURL
 	if githubAPIBaseURL == nil {
@@ -169,7 +169,7 @@ func (m *Materializer) dependencies() dependencies {
 		httpClient:        httpClient,
 		commandRunner:     commandRunner,
 		lookupEnvironment: lookupEnvironment,
-		fileSystem:        fileSystem,
+		fileSystem:        fsys,
 		githubAPIBaseURL:  githubAPIBaseURL,
 		maxResponseBytes:  maxResponseBytes,
 		timeout:           timeout,

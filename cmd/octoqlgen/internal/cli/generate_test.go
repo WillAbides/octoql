@@ -487,11 +487,11 @@ func TestMinimalInitConfigGenerates(t *testing.T) {
 
 	directory := t.TempDir()
 	configPath := filepath.Join(directory, config.DefaultFilename)
-	initCommand := initCommand{
+	initCmd := initCommand{
 		ConfigPath: configPath,
 		stdout:     io.Discard,
 	}
-	err := initCommand.Run()
+	err := initCmd.Run()
 	require.NoError(t, err)
 	err = os.WriteFile(
 		filepath.Join(directory, ".octoql", "schema.graphql"),
