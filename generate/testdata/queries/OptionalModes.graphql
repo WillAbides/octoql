@@ -24,3 +24,12 @@ mutation UpdateIssueWithCollidingNames($data: String!, $req: Int, $resp: Int, $c
     id
   }
 }
+
+query OptionalPointerPrecedence(
+  # @genqlient(pointer: false)
+  $owner: String
+) {
+  repositoryByOptionalOwner(owner: $owner) {
+    nameWithOwner
+  }
+}

@@ -6,6 +6,11 @@
       "sourceLocation": "testdata/queries/OptionalModes.graphql"
     },
     {
+      "operationName": "OptionalPointerPrecedence",
+      "query": "\nquery OptionalPointerPrecedence ($owner: String) {\n\trepositoryByOptionalOwner(owner: $owner) {\n\t\tnameWithOwner\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/OptionalModes.graphql"
+    },
+    {
       "operationName": "UpdateIssueWithCollidingNames",
       "query": "\nmutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $client: String) {\n\tcloseIssue(data: $data, req: $req, resp: $resp, client: $client) {\n\t\tid\n\t}\n}\n",
       "sourceLocation": "testdata/queries/OptionalModes.graphql"

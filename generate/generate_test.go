@@ -210,12 +210,12 @@ func TestGenerateWithConfig(t *testing.T) {
 			Optional:         "pointer",
 			Bindings:         testBindings(),
 		}},
-		{"PackageBindings", nil, &Config{
+		{"PackageBindings", []string{"Bindings.graphql"}, &Config{
 			PackageBindings: []*PackageBinding{
 				{Package: "github.com/willabides/octoql/internal/testutil"},
 			},
 		}},
-		{"ExactFieldsBinding", nil, &Config{
+		{"ExactFieldsBinding", []string{"Bindings.graphql"}, &Config{
 			Bindings: map[string]*TypeBinding{
 				"Account": {
 					Type:              "github.com/willabides/octoql/internal/testutil.Account",
@@ -290,7 +290,9 @@ func TestGenerateWithConfig(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			err := config.ValidateAndFillDefaults(dataDir)
 			config.Schema = []string{filepath.Join(dataDir, "schema.graphql")}
-			config.Bindings = addTestScalarBindings(config.Bindings)
+			if test.name != "PackageBindings" && test.name != "ExactFieldsBinding" {
+				config.Bindings = addTestScalarBindings(config.Bindings)
+			}
 			operationFiles := test.operations
 			if operationFiles == nil {
 				operationFiles = []string{"Repository.graphql"}
@@ -329,6 +331,41 @@ func TestGenerateWithConfig(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func TestGenerateWithSubdirectoryConfig(t *testing.T) {
+	configDir := filepath.Join(dataDir, "subpackage")
+	var config Config
+	content, err := os.ReadFile(filepath.Join(configDir, "genqlient.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = yaml.UnmarshalStrict(content, &config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = config.ValidateAndFillDefaults(configDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.Bindings = addTestScalarBindings(config.Bindings)
+
+	wantGenerated := filepath.Join(configDir, "generated.go")
+	if config.Generated != wantGenerated {
+		t.Fatalf("generated path = %q, want %q", config.Generated, wantGenerated)
+	}
+	if config.Package != "subpackage" {
+		t.Fatalf("package = %q, want %q", config.Package, "subpackage")
+	}
+
+	generated, err := Generate(&config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Cupaloy.SnapshotT(t, string(generated[config.Generated]))
+	if err := buildGoFile("subpackage-config", generated[config.Generated]); err != nil {
+		t.Error(err)
 	}
 }
 

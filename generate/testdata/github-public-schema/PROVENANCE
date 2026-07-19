@@ -1,3 +1,4 @@
+format_version=1
 source_repository=https://github.com/github/docs
 source_commit=27a4008f193706042a40cbb6c71cf85633249e79
 source_path=src/graphql/data/fpt/schema.docs.graphql

@@ -53,11 +53,13 @@ func (v *CreateRepositoryInput) GetOwner() RepositorySelector { return v.Owner }
 
 // GitHubInputResponse is returned by GitHubInputs on success.
 type GitHubInputResponse struct {
-	RepositoryBySelector     GitHubInputResponseRepositoryBySelectorRepository `json:"repositoryBySelector"`
-	LatestRelease            GitHubInputResponseLatestRelease                  `json:"latestRelease"`
-	Default                  bool                                              `json:"default"`
-	Omitempty                bool                                              `json:"omitempty"`
-	UseStructReferencesInput bool                                              `json:"useStructReferencesInput"`
+	RepositoryBySelector        GitHubInputResponseRepositoryBySelectorRepository       `json:"repositoryBySelector"`
+	LatestRelease               GitHubInputResponseLatestRelease                        `json:"latestRelease"`
+	Default                     bool                                                    `json:"default"`
+	Omitempty                   bool                                                    `json:"omitempty"`
+	UseStructReferencesInput    bool                                                    `json:"useStructReferencesInput"`
+	ReleasesPublishedOn         []GitHubInputResponseReleasesPublishedOnRelease         `json:"releasesPublishedOn"`
+	ReleasesPublishedOnOptional []GitHubInputResponseReleasesPublishedOnOptionalRelease `json:"releasesPublishedOnOptional"`
 }
 
 // GetRepositoryBySelector returns GitHubInputResponse.RepositoryBySelector, and is useful for accessing the field via an interface.
@@ -78,6 +80,16 @@ func (v *GitHubInputResponse) GetOmitempty() bool { return v.Omitempty }
 
 // GetUseStructReferencesInput returns GitHubInputResponse.UseStructReferencesInput, and is useful for accessing the field via an interface.
 func (v *GitHubInputResponse) GetUseStructReferencesInput() bool { return v.UseStructReferencesInput }
+
+// GetReleasesPublishedOn returns GitHubInputResponse.ReleasesPublishedOn, and is useful for accessing the field via an interface.
+func (v *GitHubInputResponse) GetReleasesPublishedOn() []GitHubInputResponseReleasesPublishedOnRelease {
+	return v.ReleasesPublishedOn
+}
+
+// GetReleasesPublishedOnOptional returns GitHubInputResponse.ReleasesPublishedOnOptional, and is useful for accessing the field via an interface.
+func (v *GitHubInputResponse) GetReleasesPublishedOnOptional() []GitHubInputResponseReleasesPublishedOnOptionalRelease {
+	return v.ReleasesPublishedOnOptional
+}
 
 // GitHubInputResponseLatestRelease includes the requested fields of the GraphQL type Release.
 type GitHubInputResponseLatestRelease struct {
@@ -145,6 +157,152 @@ func (v *GitHubInputResponseLatestRelease) __premarshalJSON() (*__premarshalGitH
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal GitHubInputResponseLatestRelease.PublishedAt: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GitHubInputResponseReleasesPublishedOnOptionalRelease includes the requested fields of the GraphQL type Release.
+type GitHubInputResponseReleasesPublishedOnOptionalRelease struct {
+	PublishedAt time.Time `json:"-"`
+}
+
+// GetPublishedAt returns GitHubInputResponseReleasesPublishedOnOptionalRelease.PublishedAt, and is useful for accessing the field via an interface.
+func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) GetPublishedAt() time.Time {
+	return v.PublishedAt
+}
+
+func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GitHubInputResponseReleasesPublishedOnOptionalRelease
+		PublishedAt json.RawMessage `json:"publishedAt"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GitHubInputResponseReleasesPublishedOnOptionalRelease = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.PublishedAt
+		src := firstPass.PublishedAt
+		if len(src) != 0 && string(src) != "null" {
+			err = testutil.UnmarshalDate(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GitHubInputResponseReleasesPublishedOnOptionalRelease.PublishedAt: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGitHubInputResponseReleasesPublishedOnOptionalRelease struct {
+	PublishedAt json.RawMessage `json:"publishedAt"`
+}
+
+func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) __premarshalJSON() (*__premarshalGitHubInputResponseReleasesPublishedOnOptionalRelease, error) {
+	var retval __premarshalGitHubInputResponseReleasesPublishedOnOptionalRelease
+
+	{
+
+		dst := &retval.PublishedAt
+		src := v.PublishedAt
+		var err error
+		*dst, err = testutil.MarshalDate(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GitHubInputResponseReleasesPublishedOnOptionalRelease.PublishedAt: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GitHubInputResponseReleasesPublishedOnRelease includes the requested fields of the GraphQL type Release.
+type GitHubInputResponseReleasesPublishedOnRelease struct {
+	PublishedAt time.Time `json:"-"`
+}
+
+// GetPublishedAt returns GitHubInputResponseReleasesPublishedOnRelease.PublishedAt, and is useful for accessing the field via an interface.
+func (v *GitHubInputResponseReleasesPublishedOnRelease) GetPublishedAt() time.Time {
+	return v.PublishedAt
+}
+
+func (v *GitHubInputResponseReleasesPublishedOnRelease) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GitHubInputResponseReleasesPublishedOnRelease
+		PublishedAt json.RawMessage `json:"publishedAt"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GitHubInputResponseReleasesPublishedOnRelease = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.PublishedAt
+		src := firstPass.PublishedAt
+		if len(src) != 0 && string(src) != "null" {
+			err = testutil.UnmarshalDate(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GitHubInputResponseReleasesPublishedOnRelease.PublishedAt: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGitHubInputResponseReleasesPublishedOnRelease struct {
+	PublishedAt json.RawMessage `json:"publishedAt"`
+}
+
+func (v *GitHubInputResponseReleasesPublishedOnRelease) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GitHubInputResponseReleasesPublishedOnRelease) __premarshalJSON() (*__premarshalGitHubInputResponseReleasesPublishedOnRelease, error) {
+	var retval __premarshalGitHubInputResponseReleasesPublishedOnRelease
+
+	{
+
+		dst := &retval.PublishedAt
+		src := v.PublishedAt
+		var err error
+		*dst, err = testutil.MarshalDate(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GitHubInputResponseReleasesPublishedOnRelease.PublishedAt: %w", err)
 		}
 	}
 	return &retval, nil
@@ -403,12 +561,14 @@ func (v *__CreateGitHubRepositoryInput) GetInput() CreateRepositoryInput { retur
 
 // __GitHubInputsInput is used internally by genqlient
 type __GitHubInputsInput struct {
-	Repository RepositorySelector       `json:"repository"`
-	Filter     IssueFilter              `json:"filter"`
-	Date       time.Time                `json:"-"`
-	Defaults   InputWithDefaults        `json:"defaults"`
-	Optional   OmitemptyInput           `json:"optional"`
-	Structs    UseStructReferencesInput `json:"structs"`
+	Repository             RepositorySelector       `json:"repository"`
+	Filter                 IssueFilter              `json:"filter"`
+	Date                   time.Time                `json:"-"`
+	Defaults               InputWithDefaults        `json:"defaults"`
+	Optional               OmitemptyInput           `json:"optional"`
+	Structs                UseStructReferencesInput `json:"structs"`
+	PublishedDates         [][][]time.Time          `json:"-"`
+	OptionalPublishedDates [][][]*time.Time         `json:"-"`
 }
 
 // GetRepository returns __GitHubInputsInput.Repository, and is useful for accessing the field via an interface.
@@ -429,6 +589,14 @@ func (v *__GitHubInputsInput) GetOptional() OmitemptyInput { return v.Optional }
 // GetStructs returns __GitHubInputsInput.Structs, and is useful for accessing the field via an interface.
 func (v *__GitHubInputsInput) GetStructs() UseStructReferencesInput { return v.Structs }
 
+// GetPublishedDates returns __GitHubInputsInput.PublishedDates, and is useful for accessing the field via an interface.
+func (v *__GitHubInputsInput) GetPublishedDates() [][][]time.Time { return v.PublishedDates }
+
+// GetOptionalPublishedDates returns __GitHubInputsInput.OptionalPublishedDates, and is useful for accessing the field via an interface.
+func (v *__GitHubInputsInput) GetOptionalPublishedDates() [][][]*time.Time {
+	return v.OptionalPublishedDates
+}
+
 func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -437,7 +605,9 @@ func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*__GitHubInputsInput
-		Date json.RawMessage `json:"date"`
+		Date                   json.RawMessage       `json:"date"`
+		PublishedDates         [][][]json.RawMessage `json:"publishedDates"`
+		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
 		graphql.NoUnmarshalJSON
 	}
 	firstPass.__GitHubInputsInput = v
@@ -459,6 +629,69 @@ func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 			}
 		}
 	}
+
+	{
+		dst := &v.PublishedDates
+		src := firstPass.PublishedDates
+		*dst = make(
+			[][][]time.Time,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			*dst = make(
+				[][]time.Time,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				*dst = make(
+					[]time.Time,
+					len(src))
+				for i, src := range src {
+					dst := &(*dst)[i]
+					if len(src) != 0 && string(src) != "null" {
+						err = testutil.UnmarshalDate(
+							src, dst)
+						if err != nil {
+							return fmt.Errorf(
+								"unable to unmarshal __GitHubInputsInput.PublishedDates: %w", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	{
+		dst := &v.OptionalPublishedDates
+		src := firstPass.OptionalPublishedDates
+		*dst = make(
+			[][][]*time.Time,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			*dst = make(
+				[][]*time.Time,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				*dst = make(
+					[]*time.Time,
+					len(src))
+				for i, src := range src {
+					dst := &(*dst)[i]
+					if len(src) != 0 && string(src) != "null" {
+						*dst = new(time.Time)
+						err = testutil.UnmarshalDate(
+							src, *dst)
+						if err != nil {
+							return fmt.Errorf(
+								"unable to unmarshal __GitHubInputsInput.OptionalPublishedDates: %w", err)
+						}
+					}
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -474,6 +707,10 @@ type __premarshal__GitHubInputsInput struct {
 	Optional OmitemptyInput `json:"optional"`
 
 	Structs UseStructReferencesInput `json:"structs"`
+
+	PublishedDates [][][]json.RawMessage `json:"publishedDates"`
+
+	OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
 }
 
 func (v *__GitHubInputsInput) MarshalJSON() ([]byte, error) {
@@ -504,6 +741,68 @@ func (v *__GitHubInputsInput) __premarshalJSON() (*__premarshal__GitHubInputsInp
 	retval.Defaults = v.Defaults
 	retval.Optional = v.Optional
 	retval.Structs = v.Structs
+	{
+
+		dst := &retval.PublishedDates
+		src := v.PublishedDates
+		*dst = make(
+			[][][]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			*dst = make(
+				[][]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				*dst = make(
+					[]json.RawMessage,
+					len(src))
+				for i, src := range src {
+					dst := &(*dst)[i]
+					var err error
+					*dst, err = testutil.MarshalDate(
+						&src)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"unable to marshal __GitHubInputsInput.PublishedDates: %w", err)
+					}
+				}
+			}
+		}
+	}
+	{
+
+		dst := &retval.OptionalPublishedDates
+		src := v.OptionalPublishedDates
+		*dst = make(
+			[][][]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			*dst = make(
+				[][]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				*dst = make(
+					[]json.RawMessage,
+					len(src))
+				for i, src := range src {
+					dst := &(*dst)[i]
+					if src != nil {
+						var err error
+						*dst, err = testutil.MarshalDate(
+							src)
+						if err != nil {
+							return nil, fmt.Errorf(
+								"unable to marshal __GitHubInputsInput.OptionalPublishedDates: %w", err)
+						}
+					}
+				}
+			}
+		}
+	}
 	return &retval, nil
 }
 
@@ -557,7 +856,7 @@ func CreateGitHubRepository(
 
 // The query executed by GitHubInputs.
 const GitHubInputs_Operation = `
-query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!) {
+query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!, $publishedDates: [[[Date!]!]!]!, $optionalPublishedDates: [[[Date!]!]!]) {
 	repositoryBySelector(input: $repository) {
 		id
 		issues(filter: $filter) {
@@ -572,6 +871,12 @@ query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $dat
 	default(input: $defaults)
 	omitempty(input: $optional)
 	useStructReferencesInput(input: $structs)
+	releasesPublishedOn(dates: $publishedDates) {
+		publishedAt
+	}
+	releasesPublishedOnOptional(dates: $optionalPublishedDates) {
+		publishedAt
+	}
 }
 `
 
@@ -583,14 +888,18 @@ func GitHubInputs(
 	defaults InputWithDefaults,
 	optional OmitemptyInput,
 	structs UseStructReferencesInput,
+	publishedDates [][][]time.Time,
+	optionalPublishedDates [][][]*time.Time,
 ) (*octoql.Response[GitHubInputResponse], error) {
 	variables_ := __GitHubInputsInput{
-		Repository: repository,
-		Filter:     filter,
-		Date:       date,
-		Defaults:   defaults,
-		Optional:   optional,
-		Structs:    structs,
+		Repository:             repository,
+		Filter:                 filter,
+		Date:                   date,
+		Defaults:               defaults,
+		Optional:               optional,
+		Structs:                structs,
+		PublishedDates:         publishedDates,
+		OptionalPublishedDates: optionalPublishedDates,
 	}
 	return octoql.Do[GitHubInputResponse](
 		context.Background(),

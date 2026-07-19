@@ -96,6 +96,25 @@ query NestedNodeShapes {
   }
 }
 
+query RepositoryEventCovariance {
+  latestRepositoryEvent {
+    subject {
+      id
+    }
+    relatedSubjects {
+      id
+    }
+    ... on RepositoryEvent {
+      repositorySubject: subject {
+        nameWithOwner
+      }
+      relatedRepositories: relatedSubjects {
+        nameWithOwner
+      }
+    }
+  }
+}
+
 query RecursiveRepository($input: RecursiveInput!) {
   recur(input: $input) {
     next {

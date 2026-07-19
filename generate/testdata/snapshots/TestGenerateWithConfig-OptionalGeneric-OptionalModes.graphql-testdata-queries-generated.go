@@ -111,6 +111,26 @@ func (v *OptionalGitHubInputsResponse) GetDefault() testutil.Option[bool] { retu
 // GetOmitempty returns OptionalGitHubInputsResponse.Omitempty, and is useful for accessing the field via an interface.
 func (v *OptionalGitHubInputsResponse) GetOmitempty() testutil.Option[bool] { return v.Omitempty }
 
+// OptionalPointerPrecedenceRepositoryByOptionalOwnerRepository includes the requested fields of the GraphQL type Repository.
+type OptionalPointerPrecedenceRepositoryByOptionalOwnerRepository struct {
+	NameWithOwner string `json:"nameWithOwner"`
+}
+
+// GetNameWithOwner returns OptionalPointerPrecedenceRepositoryByOptionalOwnerRepository.NameWithOwner, and is useful for accessing the field via an interface.
+func (v *OptionalPointerPrecedenceRepositoryByOptionalOwnerRepository) GetNameWithOwner() string {
+	return v.NameWithOwner
+}
+
+// OptionalPointerPrecedenceResponse is returned by OptionalPointerPrecedence on success.
+type OptionalPointerPrecedenceResponse struct {
+	RepositoryByOptionalOwner testutil.Option[OptionalPointerPrecedenceRepositoryByOptionalOwnerRepository] `json:"repositoryByOptionalOwner"`
+}
+
+// GetRepositoryByOptionalOwner returns OptionalPointerPrecedenceResponse.RepositoryByOptionalOwner, and is useful for accessing the field via an interface.
+func (v *OptionalPointerPrecedenceResponse) GetRepositoryByOptionalOwner() testutil.Option[OptionalPointerPrecedenceRepositoryByOptionalOwnerRepository] {
+	return v.RepositoryByOptionalOwner
+}
+
 // UpdateIssueWithCollidingNamesCloseIssue includes the requested fields of the GraphQL type Issue.
 type UpdateIssueWithCollidingNamesCloseIssue struct {
 	Id testutil.ID `json:"id"`
@@ -146,6 +166,14 @@ func (v *__OptionalGitHubInputsInput) GetDefaults() InputWithDefaults { return v
 func (v *__OptionalGitHubInputsInput) GetOptional() testutil.Option[OmitemptyInput] {
 	return v.Optional
 }
+
+// __OptionalPointerPrecedenceInput is used internally by genqlient
+type __OptionalPointerPrecedenceInput struct {
+	Owner testutil.Option[string] `json:"owner"`
+}
+
+// GetOwner returns __OptionalPointerPrecedenceInput.Owner, and is useful for accessing the field via an interface.
+func (v *__OptionalPointerPrecedenceInput) GetOwner() testutil.Option[string] { return v.Owner }
 
 // __UpdateIssueWithCollidingNamesInput is used internally by genqlient
 type __UpdateIssueWithCollidingNamesInput struct {
@@ -200,6 +228,34 @@ func OptionalGitHubInputs(
 		octoql.Operation{
 			Name:  "OptionalGitHubInputs",
 			Query: OptionalGitHubInputs_Operation,
+		},
+		&variables_,
+	)
+}
+
+// The query executed by OptionalPointerPrecedence.
+const OptionalPointerPrecedence_Operation = `
+query OptionalPointerPrecedence ($owner: String) {
+	repositoryByOptionalOwner(owner: $owner) {
+		nameWithOwner
+	}
+}
+`
+
+func OptionalPointerPrecedence(
+	ctx_ context.Context,
+	client_ *octoql.Client,
+	owner testutil.Option[string],
+) (*octoql.Response[OptionalPointerPrecedenceResponse], error) {
+	variables_ := __OptionalPointerPrecedenceInput{
+		Owner: owner,
+	}
+	return octoql.Do[OptionalPointerPrecedenceResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "OptionalPointerPrecedence",
+			Query: OptionalPointerPrecedence_Operation,
 		},
 		&variables_,
 	)

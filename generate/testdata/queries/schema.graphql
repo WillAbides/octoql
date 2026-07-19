@@ -53,6 +53,11 @@ interface Starrable {
   viewerHasStarred: Boolean!
 }
 
+interface TimelineItem {
+  subject: Node!
+  relatedSubjects: [Node!]!
+}
+
 type User implements Actor & Node & RepositoryOwner {
   id: ID!
   url: URI!
@@ -82,6 +87,11 @@ type EnterpriseUserAccount implements Actor & Node & RepositoryOwner {
   url: URI!
   login: String!
   repositories(first: Int, after: String): RepositoryConnection!
+}
+
+type RepositoryEvent implements TimelineItem {
+  subject: Repository!
+  relatedSubjects: [Repository!]!
 }
 
 type Account {
@@ -277,6 +287,7 @@ type Query {
   viewer: User!
   account: Account!
   repository(owner: String!, name: String!): Repository
+  repositoryByOptionalOwner(owner: String): Repository
   repositoryBySelector(input: RepositorySelector!): Repository
   node(id: ID!): Node
   actor(login: String!): Actor
@@ -284,6 +295,9 @@ type Query {
   search(query: String!, type: SearchType!, first: Int, after: String): SearchResultConnection!
   searchByInput(input: SearchInput!): SearchResultConnection!
   latestRelease(publishedAfter: Date): Release
+  latestRepositoryEvent: TimelineItem!
+  releasesPublishedOn(dates: [[[Date!]!]!]!): [Release!]!
+  releasesPublishedOnOptional(dates: [[[Date!]!]!]): [Release!]!
   getJSON: JSON
   getComplexJSON: ComplexJSON
   nestedNodes: [[[Node!]!]!]!

@@ -7,7 +7,7 @@
     },
     {
       "operationName": "GitHubInputs",
-      "query": "\nquery GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!) {\n\trepositoryBySelector(input: $repository) {\n\t\tid\n\t\tissues(filter: $filter) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $date) {\n\t\tpublishedAt\n\t}\n\tdefault(input: $defaults)\n\tomitempty(input: $optional)\n\tuseStructReferencesInput(input: $structs)\n}\n",
+      "query": "\nquery GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!, $publishedDates: [[[Date!]!]!]!, $optionalPublishedDates: [[[Date!]!]!]) {\n\trepositoryBySelector(input: $repository) {\n\t\tid\n\t\tissues(filter: $filter) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $date) {\n\t\tpublishedAt\n\t}\n\tdefault(input: $defaults)\n\tomitempty(input: $optional)\n\tuseStructReferencesInput(input: $structs)\n\treleasesPublishedOn(dates: $publishedDates) {\n\t\tpublishedAt\n\t}\n\treleasesPublishedOnOptional(dates: $optionalPublishedDates) {\n\t\tpublishedAt\n\t}\n}\n",
       "sourceLocation": "testdata/queries/Inputs.graphql"
     },
     {

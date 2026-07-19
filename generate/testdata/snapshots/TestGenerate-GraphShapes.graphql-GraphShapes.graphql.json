@@ -21,6 +21,11 @@
       "sourceLocation": "testdata/queries/GraphShapes.graphql"
     },
     {
+      "operationName": "RepositoryEventCovariance",
+      "query": "\nquery RepositoryEventCovariance {\n\tlatestRepositoryEvent {\n\t\t__typename\n\t\tsubject {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\trelatedSubjects {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\t... on RepositoryEvent {\n\t\t\trepositorySubject: subject {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t\trelatedRepositories: relatedSubjects {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t}\n\t}\n}\n",
+      "sourceLocation": "testdata/queries/GraphShapes.graphql"
+    },
+    {
       "operationName": "SearchRepositories",
       "query": "\nquery SearchRepositories ($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {\n\tsearch(query: $query, type: REPOSITORY, first: $first, after: $after) {\n\t\tnodes {\n\t\t\t__typename\n\t\t\t... on Repository {\n\t\t\t\trepoName: nameWithOwner\n\t\t\t\towner {\n\t\t\t\t\t__typename\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\tparent {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on Issue {\n\t\t\t\tissueTitle: title\n\t\t\t\trepository {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on PullRequest {\n\t\t\t\tpullRequestTitle: title\n\t\t\t\tmergeCommit {\n\t\t\t\t\toid\n\t\t\t\t\tparents {\n\t\t\t\t\t\toid\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tpageInfo {\n\t\t\thasNextPage\n\t\t\tendCursor\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $publishedAfter) {\n\t\tname\n\t\tpublishedAt\n\t}\n\tgetJSON\n\tgetComplexJSON\n}\n",
       "sourceLocation": "testdata/queries/GraphShapes.graphql"

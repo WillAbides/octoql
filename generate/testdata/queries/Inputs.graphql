@@ -11,6 +11,9 @@ query GitHubInputs(
   $defaults: InputWithDefaults!
   $optional: OmitemptyInput
   $structs: UseStructReferencesInput!
+  $publishedDates: [[[Date!]!]!]!
+  # @genqlient(pointer: true)
+  $optionalPublishedDates: [[[Date!]!]!]
 ) {
   repositoryBySelector(input: $repository) {
     id
@@ -26,6 +29,12 @@ query GitHubInputs(
   default(input: $defaults)
   omitempty(input: $optional)
   useStructReferencesInput(input: $structs)
+  releasesPublishedOn(dates: $publishedDates) {
+    publishedAt
+  }
+  releasesPublishedOnOptional(dates: $optionalPublishedDates) {
+    publishedAt
+  }
 }
 
 mutation CreateGitHubRepository($input: CreateRepositoryInput!) {

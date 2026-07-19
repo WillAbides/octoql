@@ -1663,6 +1663,824 @@ type RecursiveRepositoryResponse struct {
 // GetRecur returns RecursiveRepositoryResponse.Recur, and is useful for accessing the field via an interface.
 func (v *RecursiveRepositoryResponse) GetRecur() RecursiveRepositoryRecurRecursive { return v.Recur }
 
+// RepositoryEventCovarianceLatestRepositoryEvent includes the requested fields of the GraphQL type RepositoryEvent.
+type RepositoryEventCovarianceLatestRepositoryEvent struct {
+	Typename            string                                                                          `json:"__typename"`
+	Subject             RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode           `json:"-"`
+	RelatedSubjects     []RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode `json:"-"`
+	RepositorySubject   RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository       `json:"repositorySubject"`
+	RelatedRepositories []RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository   `json:"relatedRepositories"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEvent.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetTypename() string { return v.Typename }
+
+// GetSubject returns RepositoryEventCovarianceLatestRepositoryEvent.Subject, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetSubject() RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode {
+	return v.Subject
+}
+
+// GetRelatedSubjects returns RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetRelatedSubjects() []RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode {
+	return v.RelatedSubjects
+}
+
+// GetRepositorySubject returns RepositoryEventCovarianceLatestRepositoryEvent.RepositorySubject, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetRepositorySubject() RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository {
+	return v.RepositorySubject
+}
+
+// GetRelatedRepositories returns RepositoryEventCovarianceLatestRepositoryEvent.RelatedRepositories, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetRelatedRepositories() []RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository {
+	return v.RelatedRepositories
+}
+
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RepositoryEventCovarianceLatestRepositoryEvent
+		Subject         json.RawMessage   `json:"subject"`
+		RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RepositoryEventCovarianceLatestRepositoryEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Subject
+		src := firstPass.Subject
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.Subject: %w", err)
+			}
+		}
+	}
+
+	{
+		dst := &v.RelatedSubjects
+		src := firstPass.RelatedSubjects
+		*dst = make(
+			[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalRepositoryEventCovarianceLatestRepositoryEvent struct {
+	Typename string `json:"__typename"`
+
+	Subject json.RawMessage `json:"subject"`
+
+	RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
+
+	RepositorySubject RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository `json:"repositorySubject"`
+
+	RelatedRepositories []RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository `json:"relatedRepositories"`
+}
+
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) __premarshalJSON() (*__premarshalRepositoryEventCovarianceLatestRepositoryEvent, error) {
+	var retval __premarshalRepositoryEventCovarianceLatestRepositoryEvent
+
+	retval.Typename = v.Typename
+	{
+
+		dst := &retval.Subject
+		src := v.Subject
+		var err error
+		*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal RepositoryEventCovarianceLatestRepositoryEvent.Subject: %w", err)
+		}
+	}
+	{
+
+		dst := &retval.RelatedSubjects
+		src := v.RelatedSubjects
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+			}
+		}
+	}
+	retval.RepositorySubject = v.RepositorySubject
+	retval.RelatedRepositories = v.RelatedRepositories
+	return &retval, nil
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository includes the requested fields of the GraphQL type Repository.
+type RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository struct {
+	NameWithOwner string `json:"nameWithOwner"`
+}
+
+// GetNameWithOwner returns RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository.NameWithOwner, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository) GetNameWithOwner() string {
+	return v.NameWithOwner
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository includes the requested fields of the GraphQL type Repository.
+type RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository struct {
+	NameWithOwner string `json:"nameWithOwner"`
+}
+
+// GetNameWithOwner returns RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository.NameWithOwner, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository) GetNameWithOwner() string {
+	return v.NameWithOwner
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItem includes the requested fields of the GraphQL interface TimelineItem.
+//
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItem is implemented by the following types:
+// RepositoryEventCovarianceLatestRepositoryEvent
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItem interface {
+	implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItem()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetSubject returns the interface-field "subject" from its implementation.
+	GetSubject() RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode
+	// GetRelatedSubjects returns the interface-field "relatedSubjects" from its implementation.
+	GetRelatedSubjects() []RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode
+}
+
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItem() {
+}
+
+func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "RepositoryEvent":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEvent)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing TimelineItem.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItem: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *RepositoryEventCovarianceLatestRepositoryEvent:
+		typename = "RepositoryEvent"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalRepositoryEventCovarianceLatestRepositoryEvent
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItem: "%T"`, v)
+	}
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot includes the requested fields of the GraphQL type Bot.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount includes the requested fields of the GraphQL type EnterpriseUserAccount.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue includes the requested fields of the GraphQL type Issue.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode includes the requested fields of the GraphQL interface Node.
+//
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode is implemented by the following types:
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode interface {
+	implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetId returns the interface-field "id" from its implementation.
+	GetId() testutil.ID
+}
+
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
+}
+
+func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Bot":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot)
+		return json.Unmarshal(b, *v)
+	case "EnterpriseUserAccount":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount)
+		return json.Unmarshal(b, *v)
+	case "Issue":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue)
+		return json.Unmarshal(b, *v)
+	case "Organization":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization)
+		return json.Unmarshal(b, *v)
+	case "PullRequest":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest)
+		return json.Unmarshal(b, *v)
+	case "Repository":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository)
+		return json.Unmarshal(b, *v)
+	case "User":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Node.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot:
+		typename = "Bot"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsBot
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount:
+		typename = "EnterpriseUserAccount"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsEnterpriseUserAccount
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue:
+		typename = "Issue"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsIssue
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization:
+		typename = "Organization"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest:
+		typename = "PullRequest"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser:
+		typename = "User"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode: "%T"`, v)
+	}
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization includes the requested fields of the GraphQL type Organization.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsOrganization) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest includes the requested fields of the GraphQL type PullRequest.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsPullRequest) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository includes the requested fields of the GraphQL type Repository.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsRepository) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser includes the requested fields of the GraphQL type User.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsUser) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot includes the requested fields of the GraphQL type Bot.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount includes the requested fields of the GraphQL type EnterpriseUserAccount.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue includes the requested fields of the GraphQL type Issue.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode includes the requested fields of the GraphQL interface Node.
+//
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode is implemented by the following types:
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode interface {
+	implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetId returns the interface-field "id" from its implementation.
+	GetId() testutil.ID
+}
+
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
+}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
+}
+
+func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Bot":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot)
+		return json.Unmarshal(b, *v)
+	case "EnterpriseUserAccount":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount)
+		return json.Unmarshal(b, *v)
+	case "Issue":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue)
+		return json.Unmarshal(b, *v)
+	case "Organization":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization)
+		return json.Unmarshal(b, *v)
+	case "PullRequest":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest)
+		return json.Unmarshal(b, *v)
+	case "Repository":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository)
+		return json.Unmarshal(b, *v)
+	case "User":
+		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Node.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot:
+		typename = "Bot"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectBot
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount:
+		typename = "EnterpriseUserAccount"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectEnterpriseUserAccount
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue:
+		typename = "Issue"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectIssue
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization:
+		typename = "Organization"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest:
+		typename = "PullRequest"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser:
+		typename = "User"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode: "%T"`, v)
+	}
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization includes the requested fields of the GraphQL type Organization.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectOrganization) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest includes the requested fields of the GraphQL type PullRequest.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectPullRequest) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository includes the requested fields of the GraphQL type Repository.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectRepository) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser includes the requested fields of the GraphQL type User.
+type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser struct {
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+}
+
+// GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser.Typename, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser) GetTypename() string {
+	return v.Typename
+}
+
+// GetId returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser.Id, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectUser) GetId() testutil.ID {
+	return v.Id
+}
+
+// RepositoryEventCovarianceResponse is returned by RepositoryEventCovariance on success.
+type RepositoryEventCovarianceResponse struct {
+	LatestRepositoryEvent RepositoryEventCovarianceLatestRepositoryEventTimelineItem `json:"-"`
+}
+
+// GetLatestRepositoryEvent returns RepositoryEventCovarianceResponse.LatestRepositoryEvent, and is useful for accessing the field via an interface.
+func (v *RepositoryEventCovarianceResponse) GetLatestRepositoryEvent() RepositoryEventCovarianceLatestRepositoryEventTimelineItem {
+	return v.LatestRepositoryEvent
+}
+
+func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RepositoryEventCovarianceResponse
+		LatestRepositoryEvent json.RawMessage `json:"latestRepositoryEvent"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RepositoryEventCovarianceResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.LatestRepositoryEvent
+		src := firstPass.LatestRepositoryEvent
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal RepositoryEventCovarianceResponse.LatestRepositoryEvent: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalRepositoryEventCovarianceResponse struct {
+	LatestRepositoryEvent json.RawMessage `json:"latestRepositoryEvent"`
+}
+
+func (v *RepositoryEventCovarianceResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RepositoryEventCovarianceResponse) __premarshalJSON() (*__premarshalRepositoryEventCovarianceResponse, error) {
+	var retval __premarshalRepositoryEventCovarianceResponse
+
+	{
+
+		dst := &retval.LatestRepositoryEvent
+		src := v.LatestRepositoryEvent
+		var err error
+		*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal RepositoryEventCovarianceResponse.LatestRepositoryEvent: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
 // RepositoryOwnerDetails includes the GraphQL fields of RepositoryOwner requested by the fragment RepositoryOwnerDetails.
 //
 // RepositoryOwnerDetails is implemented by the following types:
@@ -2762,6 +3580,45 @@ func RecursiveRepository(
 			Query: RecursiveRepository_Operation,
 		},
 		&variables_,
+	)
+}
+
+// The query executed by RepositoryEventCovariance.
+const RepositoryEventCovariance_Operation = `
+query RepositoryEventCovariance {
+	latestRepositoryEvent {
+		__typename
+		subject {
+			__typename
+			id
+		}
+		relatedSubjects {
+			__typename
+			id
+		}
+		... on RepositoryEvent {
+			repositorySubject: subject {
+				nameWithOwner
+			}
+			relatedRepositories: relatedSubjects {
+				nameWithOwner
+			}
+		}
+	}
+}
+`
+
+func RepositoryEventCovariance(
+	client_ *octoql.Client,
+) (*octoql.Response[RepositoryEventCovarianceResponse], error) {
+	return octoql.Do[RepositoryEventCovarianceResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "RepositoryEventCovariance",
+			Query: RepositoryEventCovariance_Operation,
+		},
+		nil,
 	)
 }
 
