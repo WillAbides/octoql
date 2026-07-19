@@ -19,8 +19,7 @@ The example endpoint and authentication are configured in
 [`main.go`](main.go). The main [README](../README.md) documents remote schema
 materialization and the recommended gitignored `.octoql` workflow.
 
-Generated helpers return concrete operation data rather than the low-level
-generic response envelope:
+Generated helpers return concrete operation data:
 
 ```go
 response, err := getViewer(ctx, client)

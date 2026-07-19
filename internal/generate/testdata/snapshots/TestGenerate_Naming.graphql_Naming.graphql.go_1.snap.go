@@ -119,15 +119,13 @@ query GitHubNaming {
 func GitHubNaming(
 	client_ *octoql.Client,
 ) (*GitHubNamingResponse, error) {
-	return octoql.ResponseData(
-		octoql.Do[GitHubNamingResponse](
-			context.Background(),
-			client_,
-			octoql.Operation{
-				Name:  "GitHubNaming",
-				Query: GitHubNaming_Operation,
-			},
-			nil,
-		),
+	return octoql.Do[GitHubNamingResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "GitHubNaming",
+			Query: GitHubNaming_Operation,
+		},
+		nil,
 	)
 }

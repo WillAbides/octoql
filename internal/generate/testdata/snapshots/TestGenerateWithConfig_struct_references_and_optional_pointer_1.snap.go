@@ -857,16 +857,14 @@ func CreateGitHubRepository(
 	variables_ := __CreateGitHubRepositoryInput{
 		Input: input,
 	}
-	return octoql.ResponseData(
-		octoql.Do[CreateGitHubRepositoryResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "CreateGitHubRepository",
-				Query: CreateGitHubRepository_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[CreateGitHubRepositoryResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "CreateGitHubRepository",
+			Query: CreateGitHubRepository_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -918,16 +916,14 @@ func GitHubInputs(
 		PublishedDates:         publishedDates,
 		OptionalPublishedDates: optionalPublishedDates,
 	}
-	return octoql.ResponseData(
-		octoql.Do[GitHubInputResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "GitHubInputs",
-				Query: GitHubInputs_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[GitHubInputResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "GitHubInputs",
+			Query: GitHubInputs_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -954,15 +950,13 @@ func UpdateIssueWithCollidingNames(
 		Resp:   resp,
 		Client: client,
 	}
-	return octoql.ResponseData(
-		octoql.Do[UpdateIssueWithCollidingNamesResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "UpdateIssueWithCollidingNames",
-				Query: UpdateIssueWithCollidingNames_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[UpdateIssueWithCollidingNamesResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "UpdateIssueWithCollidingNames",
+			Query: UpdateIssueWithCollidingNames_Operation,
+		},
+		&variables_,
 	)
 }

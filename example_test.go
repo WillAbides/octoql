@@ -42,7 +42,7 @@ func ExampleDo() {
 		return
 	}
 
-	fmt.Println(response.Data.Viewer.Login)
+	fmt.Println(response.Viewer.Login)
 	// Output: octocat
 }
 
@@ -78,7 +78,7 @@ func ExampleDo_partialData() {
 
 	var graphqlErrors octoql.Errors
 	if errors.As(err, &graphqlErrors) {
-		fmt.Println(response.Data.Repository.Name)
+		fmt.Println(response.Repository.Name)
 		fmt.Println(graphqlErrors[0].Type)
 	}
 	// Output:

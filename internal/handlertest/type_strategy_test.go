@@ -58,7 +58,6 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 						Reset:     updatedAt,
 						Resource:  "graphql",
 					}),
-					clienttypes.WithExtensions(map[string]any{"trace": "client-local"}),
 				)
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
@@ -78,7 +77,6 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 						Reset:     updatedAt,
 						Resource:  "graphql",
 					}),
-					localtypes.WithExtensions(map[string]any{"trace": "client-local"}),
 				)
 			},
 		},

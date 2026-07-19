@@ -2928,16 +2928,14 @@ func GetActor(
 	variables_ := __GetActorInput{
 		Login: login,
 	}
-	return octoql.ResponseData(
-		octoql.Do[GetActorResponse](
-			context.Background(),
-			client_,
-			octoql.Operation{
-				Name:  "GetActor",
-				Query: GetActor_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[GetActorResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "GetActor",
+			Query: GetActor_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -2973,16 +2971,14 @@ func GetNode(
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	return octoql.ResponseData(
-		octoql.Do[GetNodeResponse](
-			context.Background(),
-			client_,
-			octoql.Operation{
-				Name:  "GetNode",
-				Query: GetNode_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[GetNodeResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "GetNode",
+			Query: GetNode_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -2999,16 +2995,14 @@ query NestedNodeShapes {
 func NestedNodeShapes(
 	client_ *octoql.Client,
 ) (*NestedNodeShapesResponse, error) {
-	return octoql.ResponseData(
-		octoql.Do[NestedNodeShapesResponse](
-			context.Background(),
-			client_,
-			octoql.Operation{
-				Name:  "NestedNodeShapes",
-				Query: NestedNodeShapes_Operation,
-			},
-			nil,
-		),
+	return octoql.Do[NestedNodeShapesResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "NestedNodeShapes",
+			Query: NestedNodeShapes_Operation,
+		},
+		nil,
 	)
 }
 
@@ -3032,16 +3026,14 @@ func RecursiveRepository(
 	variables_ := __RecursiveRepositoryInput{
 		Input: input,
 	}
-	return octoql.ResponseData(
-		octoql.Do[RecursiveRepositoryResponse](
-			context.Background(),
-			client_,
-			octoql.Operation{
-				Name:  "RecursiveRepository",
-				Query: RecursiveRepository_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[RecursiveRepositoryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "RecursiveRepository",
+			Query: RecursiveRepository_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -3073,16 +3065,14 @@ query RepositoryEventCovariance {
 func RepositoryEventCovariance(
 	client_ *octoql.Client,
 ) (*RepositoryEventCovarianceResponse, error) {
-	return octoql.ResponseData(
-		octoql.Do[RepositoryEventCovarianceResponse](
-			context.Background(),
-			client_,
-			octoql.Operation{
-				Name:  "RepositoryEventCovariance",
-				Query: RepositoryEventCovariance_Operation,
-			},
-			nil,
-		),
+	return octoql.Do[RepositoryEventCovarianceResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "RepositoryEventCovariance",
+			Query: RepositoryEventCovariance_Operation,
+		},
+		nil,
 	)
 }
 
@@ -3145,15 +3135,13 @@ func SearchRepositories(
 		After:          after,
 		PublishedAfter: publishedAfter,
 	}
-	return octoql.ResponseData(
-		octoql.Do[SearchRepositoriesResponse](
-			context.Background(),
-			client_,
-			octoql.Operation{
-				Name:  "SearchRepositories",
-				Query: SearchRepositories_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[SearchRepositoriesResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "SearchRepositories",
+			Query: SearchRepositories_Operation,
+		},
+		&variables_,
 	)
 }

@@ -120,9 +120,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				Name:  "Repository",
 				Query: "query Repository { repository { name } }",
 			}
-			response, err := octoql.ResponseData(
-				octoql.Do[testData](t.Context(), client, operation, nil),
-			)
+			response, err := octoql.Do[testData](t.Context(), client, operation, nil)
 			test.check(t, response, err)
 
 			responseError, ok := errors.AsType[*octoql.ResponseError](err)
@@ -371,9 +369,7 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 		},
 	)
 
-	response, err := octoql.ResponseData(
-		octoql.Do[testData](t.Context(), client, validOperation(), nil),
-	)
+	response, err := octoql.Do[testData](t.Context(), client, validOperation(), nil)
 	require.NotNil(t, response)
 	assert.Equal(t, "partial", response.Repository.Name)
 	assert.ErrorIs(t, err, closeError)

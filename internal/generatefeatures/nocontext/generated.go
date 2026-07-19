@@ -54,15 +54,13 @@ func GetRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	return octoql.ResponseData(
-		octoql.Do[GetRepositoryResponse](
-			context.Background(),
-			client_,
-			octoql.Operation{
-				Name:  "GetRepository",
-				Query: GetRepository_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[GetRepositoryResponse](
+		context.Background(),
+		client_,
+		octoql.Operation{
+			Name:  "GetRepository",
+			Query: GetRepository_Operation,
+		},
+		&variables_,
 	)
 }

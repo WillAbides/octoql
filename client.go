@@ -35,17 +35,9 @@ type Operation struct {
 	Query string
 }
 
-// Response contains decoded GraphQL data and top-level extensions.
-// GraphQL errors are returned through error.
-type Response[T any] struct {
-	Data       T              `json:"data"`
-	Extensions map[string]any `json:"extensions,omitempty"`
-}
-
 type responseEnvelope struct {
-	Data       json.RawMessage `json:"data"`
-	Errors     json.RawMessage `json:"errors"`
-	Extensions json.RawMessage `json:"extensions"`
+	Data   json.RawMessage `json:"data"`
+	Errors json.RawMessage `json:"errors"`
 }
 
 //nolint:govet // Preserve standard GraphQL request field order in encoded JSON.
@@ -87,18 +79,20 @@ func (client *Client) RateLimit() (RateLimit, bool) {
 	return *client.rateLimit, true
 }
 
-// Do executes operation and decodes its response into T.
+// Do executes operation and decodes its response data into T.
 //
 // Once the server returns an HTTP response, Do always returns a non-nil data
-// envelope. A response failure returns [ResponseError]. GraphQL errors and rate
+// pointer. A response failure returns [ResponseError]. GraphQL errors and rate
 // limits remain discoverable in that error chain as [Errors] and
-// [RateLimitError]. Failures before an HTTP response return nil.
+// [RateLimitError]. Failures before an HTTP response return nil data.
+//
+// Handwritten callers should use a non-pointer T; a pointer T produces **T.
 func Do[T any](
 	ctx context.Context,
 	client *Client,
 	operation Operation,
 	variables any,
-) (*Response[T], error) {
+) (*T, error) {
 	err := validateRequest(ctx, client, operation)
 	if err != nil {
 		return nil, err
@@ -142,7 +136,7 @@ func Do[T any](
 	rateLimit := rateLimitFromHeader(httpResponse.Header, rateLimitNow())
 	client.observeRateLimit(observation, &rateLimit)
 
-	response := &Response[T]{}
+	response := new(T)
 	statusCode := httpResponse.StatusCode
 	requestID := requestIDFromHeader(httpResponse.Header)
 	if sendErr != nil {
@@ -192,15 +186,6 @@ func Do[T any](
 	retainBody := !isSuccessful || hasDecodeFailure
 	responseError := newResponseError(statusCode, requestID, body, retainBody, cause)
 	return response, classifyRateLimit(statusCode, &rateLimit, responseError)
-}
-
-// ResponseData is a generated-code contract that converts the low-level
-// response envelope into a concrete data return.
-func ResponseData[T any](response *Response[T], err error) (*T, error) {
-	if response == nil {
-		return nil, err
-	}
-	return &response.Data, err
 }
 
 func (client *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
@@ -290,8 +275,8 @@ func readAndClose(body io.ReadCloser) ([]byte, error, error) {
 
 func decodeResponse[T any](
 	body []byte,
-) (*Response[T], Errors, bool, bool, error) {
-	response := &Response[T]{}
+) (*T, Errors, bool, bool, error) {
+	response := new(T)
 	var envelope responseEnvelope
 	err := json.Unmarshal(body, &envelope)
 	if err != nil {
@@ -319,27 +304,14 @@ func decodeResponse[T any](
 		decoded := new(T)
 		dataErr = json.Unmarshal(envelope.Data, decoded)
 		if dataErr == nil {
-			response.Data = *decoded
+			response = decoded
 		}
 		if dataErr != nil {
 			dataErr = fmt.Errorf("decode graphql response data: %w", dataErr)
 		}
 	}
 
-	var extensionsErr error
-	if envelope.Extensions != nil {
-		extensionsErr = json.Unmarshal(envelope.Extensions, &response.Extensions)
-		if extensionsErr != nil {
-			extensionsErr = fmt.Errorf(
-				"decode graphql response extensions: %w",
-				extensionsErr,
-			)
-		}
-	}
-
-	decodeErr := joinErrors(errorsErr, dataErr)
-	decodeErr = joinErrors(decodeErr, extensionsErr)
-	return response, graphqlErrors, hasData, hasErrors, decodeErr
+	return response, graphqlErrors, hasData, hasErrors, joinErrors(errorsErr, dataErr)
 }
 
 func isSuccessfulStatus(statusCode int) bool {

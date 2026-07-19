@@ -88,16 +88,14 @@ func getUser(
 	variables_ := __getUserInput{
 		Login: Login,
 	}
-	return octoql.ResponseData(
-		octoql.Do[getUserResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "getUser",
-				Query: getUser_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[getUserResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "getUser",
+			Query: getUser_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -115,15 +113,13 @@ func getViewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*getViewerResponse, error) {
-	return octoql.ResponseData(
-		octoql.Do[getViewerResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "getViewer",
-				Query: getViewer_Operation,
-			},
-			nil,
-		),
+	return octoql.Do[getViewerResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "getViewer",
+			Query: getViewer_Operation,
+		},
+		nil,
 	)
 }

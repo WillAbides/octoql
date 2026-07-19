@@ -785,16 +785,14 @@ func CreateRepository(
 	variables_ := __CreateRepositoryInput{
 		Input: input,
 	}
-	return octoql.ResponseData(
-		octoql.Do[CreateRepositoryResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "CreateRepository",
-				Query: CreateRepository_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[CreateRepositoryResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "CreateRepository",
+			Query: CreateRepository_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -816,16 +814,14 @@ func EchoAny(
 	variables_ := __EchoAnyInput{
 		Value: value,
 	}
-	return octoql.ResponseData(
-		octoql.Do[EchoAnyResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "EchoAny",
-				Query: EchoAny_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[EchoAnyResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "EchoAny",
+			Query: EchoAny_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -847,16 +843,14 @@ func EchoAt(
 	variables_ := __EchoAtInput{
 		Value: value,
 	}
-	return octoql.ResponseData(
-		octoql.Do[EchoAtResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "EchoAt",
-				Query: EchoAt_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[EchoAtResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "EchoAt",
+			Query: EchoAt_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -878,16 +872,14 @@ func EchoProperty(
 	variables_ := __EchoPropertyInput{
 		Value: value,
 	}
-	return octoql.ResponseData(
-		octoql.Do[EchoPropertyResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "EchoProperty",
-				Query: EchoProperty_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[EchoPropertyResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "EchoProperty",
+			Query: EchoProperty_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -918,16 +910,14 @@ func GetNode(
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	return octoql.ResponseData(
-		octoql.Do[GetNodeResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "GetNode",
-				Query: GetNode_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[GetNodeResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "GetNode",
+			Query: GetNode_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -970,16 +960,14 @@ func GetRepository(
 		First: first,
 		After: after,
 	}
-	return octoql.ResponseData(
-		octoql.Do[GetRepositoryResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "GetRepository",
-				Query: GetRepository_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[GetRepositoryResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "GetRepository",
+			Query: GetRepository_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -1011,16 +999,14 @@ func Search(
 	variables_ := __SearchInput{
 		Query: query,
 	}
-	return octoql.ResponseData(
-		octoql.Do[SearchResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "Search",
-				Query: Search_Operation,
-			},
-			&variables_,
-		),
+	return octoql.Do[SearchResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "Search",
+			Query: Search_Operation,
+		},
+		&variables_,
 	)
 }
 
@@ -1041,15 +1027,13 @@ func Viewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*ViewerResponse, error) {
-	return octoql.ResponseData(
-		octoql.Do[ViewerResponse](
-			ctx_,
-			client_,
-			octoql.Operation{
-				Name:  "Viewer",
-				Query: Viewer_Operation,
-			},
-			nil,
-		),
+	return octoql.Do[ViewerResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "Viewer",
+			Query: Viewer_Operation,
+		},
+		nil,
 	)
 }

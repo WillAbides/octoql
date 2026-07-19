@@ -274,9 +274,9 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := rateLimitClient(test.statusCode, test.header, test.body)
-			response, err := ResponseData(Do[struct {
+			response, err := Do[struct {
 				Value string `json:"value"`
-			}](t.Context(), client, testOperation(), nil))
+			}](t.Context(), client, testOperation(), nil)
 
 			require.NotNil(t, response)
 			if !test.wantRate {

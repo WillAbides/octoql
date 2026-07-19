@@ -34,7 +34,7 @@ func TestDoReturnsConcreteData(t *testing.T) {
 	assert.Equal(t, "octoql", response.Repository.Name)
 }
 
-func TestDoRetainsTopLevelExtensions(t *testing.T) {
+func TestDoIgnoresTopLevelExtensions(t *testing.T) {
 	client := responseAPIClient(
 		http.StatusOK,
 		http.Header{},
@@ -53,8 +53,48 @@ func TestDoRetainsTopLevelExtensions(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, response)
-	assert.Equal(t, "octoql", response.Data.Repository.Name)
-	assert.Equal(t, "abc", response.Extensions["trace"])
+	assert.Equal(t, "octoql", response.Repository.Name)
+}
+
+func TestDoPointerData(t *testing.T) {
+	t.Run("object allocates inner pointer", func(t *testing.T) {
+		client := responseAPIClient(
+			http.StatusOK,
+			http.Header{},
+			`{"data":{"repository":{"name":"octoql"}}}`,
+		)
+
+		response, err := octoql.Do[*responseData](
+			t.Context(),
+			client,
+			validOperation(),
+			nil,
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, response)
+		require.NotNil(t, *response)
+		assert.Equal(t, "octoql", (*response).Repository.Name)
+	})
+
+	t.Run("null preserves nil inner pointer", func(t *testing.T) {
+		client := responseAPIClient(
+			http.StatusOK,
+			http.Header{},
+			`{"data":null}`,
+		)
+
+		response, err := octoql.Do[*responseData](
+			t.Context(),
+			client,
+			validOperation(),
+			nil,
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, response)
+		assert.Nil(t, *response)
+	})
 }
 
 func TestDoReturnsResponseErrorFacets(t *testing.T) {
@@ -164,9 +204,8 @@ func TestDoRejectsExtensionsOnlyResponse(t *testing.T) {
 		validOperation(),
 		nil,
 	)
-
 	require.NotNil(t, response)
-	assert.Equal(t, "abc", response.Extensions["trace"])
+	require.NotNil(t, response)
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, body, string(responseError.RawBody))
@@ -282,10 +321,10 @@ func responseAPIData[T any](
 	t *testing.T,
 	client *octoql.Client,
 ) (*T, error) {
-	return octoql.ResponseData(octoql.Do[T](
+	return octoql.Do[T](
 		t.Context(),
 		client,
 		validOperation(),
 		nil,
-	))
+	)
 }
