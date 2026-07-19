@@ -7,6 +7,9 @@
 - The module path is `github.com/willabides/octoql`, with Go version `1.26.0`.
 - All generated-code runtime support and reusable runtime APIs belong in the
   root `octoql` package. Do not recreate a separate `graphql` runtime package.
+  `NoMarshalJSON` and `NoUnmarshalJSON` are generated-code-only root contracts
+  that prevent JSON method promotion; preserve them unless equivalent
+  `encoding/json` semantics and generated compatibility are proven.
   Generator implementation belongs in `internal/generate`; users invoke
   `cmd/octoqlgen`. Do not recreate a public `generate` package.
 - The root `README.md` is the primary user guide. Keep `docs/` for specialized
@@ -67,10 +70,11 @@
   reachable references owned by the generated client package.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
-- Keep the runtime and generator in the single root module. The root runtime has
-  a standard-library-only dependency closure, module graph pruning isolates
-  generator-only dependencies for runtime consumers, and one module keeps
-  generator/runtime versions, licenses, and release validation synchronized.
+- Keep the runtime and generator in the single root module. Runtime users compile
+  only the root package's standard-library dependency closure, although direct
+  generator requirements remain in the module graph and participate in MVS.
+  That accepted graph cost is outweighed by synchronized generator/runtime
+  versions, licenses, release validation, and CI.
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve
   project-level attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`, and
   preserve generated `Code generated ... DO NOT EDIT.` notices.
