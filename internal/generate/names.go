@@ -1,9 +1,8 @@
 package generate
 
-// This file generates the names for genqlient's generated types.  This is
+// This file generates names for octoqlgen's generated types. This is
 // somewhat tricky because the names need to be unique, stable, and, to the
-// extent possible, human-readable and -writable.  See docs/design.md for an
-// overview of the considerations; in short, we need long names.
+// extent possible, human-readable and -writable. In short, we need long names.
 //
 // Specifically, the names we generate are of the form:
 //	MyOperationMyFieldMyTypeMySubFieldMySubType
@@ -33,7 +32,7 @@ package generate
 // One subtlety in the above description is: is the "MyType" the interface or
 // the implementation?  When it's a suffix, the answer is both: we generate
 // both MyFieldMyInterface and MyFieldMyImplementation, and the latter, in Go,
-// implements the former.  (See docs/design.md for more.)  But as an infix, we
+// implements the former. But as an infix, we
 // use the type on which the field is requested.  Concretely, the following
 // schema and query:
 //	type Query { f: I }
