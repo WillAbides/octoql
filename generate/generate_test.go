@@ -151,6 +151,20 @@ func TestGenerateDeterministic(t *testing.T) {
 }
 
 func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
+	for _, strategy := range []TestHandlerTypeStrategy{
+		TestHandlerTypesClient,
+		TestHandlerTypesLocal,
+	} {
+		t.Run(string(strategy), func(t *testing.T) {
+			testGenerateWithTestHandlerUsesOnePlan(t, strategy)
+		})
+	}
+}
+
+func testGenerateWithTestHandlerUsesOnePlan(
+	t *testing.T,
+	strategy TestHandlerTypeStrategy,
+) {
 	tempRoot := filepath.Join("testdata", "tmp")
 	err := os.MkdirAll(tempRoot, 0o755)
 	if err != nil {
@@ -172,6 +186,7 @@ func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
 		Operations:           []string{filepath.Join(dataDir, "GraphShapes.graphql")},
 		Generated:            filepath.Join(tempDir, "client", "generated.go"),
 		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+		TestHandlerTypes:     strategy,
 		ContextType:          "-",
 		Bindings:             testBindings(),
 	}
@@ -227,8 +242,51 @@ func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
 	assert.Equal(t, outputs[config.TestHandlerGenerated], handlerFirst)
 	assert.Equal(t, outputs[config.Generated], clientSecond)
 	assert.Equal(t, clientSecond, clientAgain)
+	handlerSource := string(outputs[config.TestHandlerGenerated])
+	clientImport := config.pkgPath + `"`
+	if strategy == TestHandlerTypesLocal {
+		assert.NotContains(t, handlerSource, clientImport)
+		assert.Contains(t, handlerSource, "type SearchRepositoriesResponse struct")
+	} else {
+		assert.Contains(t, handlerSource, clientImport)
+	}
 
 	compileGeneratedOutputs(t, tempDir, outputs)
+}
+
+func TestGenerateTestHandlerOmittedTypesEqualsClient(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-default-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
+
+	newConfig := func(strategy TestHandlerTypeStrategy) *Config {
+		config := &Config{
+			Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+			Operations:           []string{filepath.Join(dataDir, "GraphShapes.graphql")},
+			Generated:            filepath.Join(tempDir, "client", "generated.go"),
+			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+			TestHandlerTypes:     strategy,
+			ContextType:          "-",
+			Bindings:             testBindings(),
+		}
+		err := config.ValidateAndFillDefaults("")
+		require.NoError(t, err)
+		return config
+	}
+
+	omittedConfig := newConfig("")
+	omitted, err := Generate(omittedConfig)
+	require.NoError(t, err)
+	explicitConfig := newConfig(TestHandlerTypesClient)
+	explicit, err := Generate(explicitConfig)
+	require.NoError(t, err)
+
+	assert.Equal(t, explicit, omitted)
 }
 
 func TestGenerateWithTestHandlerRendererFailureReturnsNoOutputs(t *testing.T) {

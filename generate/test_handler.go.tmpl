@@ -4,6 +4,12 @@ package {{.Package}}
 
 {{.Generator.Imports}}
 
+{{if .LocalTypes -}}
+{{.LocalTypeDefinitions}}
+{{range .LocalAliases -}}
+type {{.Name}} = {{.ClientName}}
+{{end}}
+{{else -}}
 {{range .Types -}}
 type {{.Name}} = {{$.ClientPackage}}.{{.ClientName}}
 {{if .EnumValues}}
@@ -14,10 +20,15 @@ const (
 )
 {{end}}
 {{end -}}
+{{end -}}
 
 {{range .Operations -}}
 {{if .HasVariables -}}
+{{if $.LocalTypes -}}
+type {{.VariablesName}} = {{.LocalVariablesName}}
+{{else -}}
 type {{.VariablesName}} = {{$.ClientPackage}}.{{.ClientVariablesName}}
+{{end -}}
 {{end}}
 {{end -}}
 
