@@ -1,0 +1,99 @@
+# Copyright (c) 2026 octoql contributors
+# SPDX-License-Identifier: MIT
+
+fragment SharedNodeFields on Node {
+  id
+  url
+}
+
+fragment SharedActorFields on Actor {
+  id
+  login
+  ... on User {
+    name
+  }
+}
+
+fragment ConcreteUserFields on User {
+  name
+  organizations {
+    login
+  }
+}
+
+query GitHubAbstractSelections($id: ID!, $login: String!, $query: String!) {
+  node(id: $id) {
+    id
+    url
+    ... on Repository {
+      nameWithOwner
+      ...SharedNodeFields
+    }
+  }
+  actor(login: $login) {
+    ...SharedActorFields
+  }
+  repositoryOwner(login: $login) {
+    id
+    ...ConcreteUserFields
+  }
+  search(query: $query, type: REPOSITORY, first: 10) {
+    nodes {
+      ... on Repository {
+        nameWithOwner
+        owner {
+          login
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+  latestRepositoryEvent {
+    subject {
+      id
+    }
+    relatedSubjects {
+      id
+    }
+  }
+  firstNode: node(id: $id) {
+    id
+  }
+  secondNode: node(id: $id) {
+    id
+  }
+}
+
+query AllActorImplementations($login: String!) {
+  actor(login: $login) {
+    ... on User {
+      name
+    }
+    ... on Organization {
+      login
+    }
+    ... on Bot {
+      login
+    }
+    ... on EnterpriseUserAccount {
+      login
+    }
+  }
+}
+
+query RuntimeAbstracts($id: ID!) {
+  node(id: $id) {
+    id
+    url
+    ... on Repository {
+      nameWithOwner
+    }
+  }
+  nestedNodes {
+    id
+    url
+  }
+}

@@ -53,13 +53,27 @@ GraphQL [defines][spec#scalar] five standard scalar types, which genqlient autom
 | `Boolean`    | `bool`    |
 | `ID`         | `string`  |
 
-For custom scalars, or to map to different types, use the `bindings` option in [`genqlient.yaml`](genqlient.yaml).
+octoqlgen also provides defaults for the custom scalars in GitHub's public
+schema:
+
+| GraphQL type | Go type |
+|--------------|---------|
+| `DateTime`, `PreciseDateTime`, `GitTimestamp` | `time.Time` |
+| `Base64String`, `BigInt`, `CustomPropertyValue`, `Date` | `string` |
+| `GitObjectID`, `GitRefname`, `GitSSHRemote` | `string` |
+| `HTML`, `URI`, `X509Certificate` | `string` |
+
+For other custom scalars, or to override any standard or GitHub mapping, use
+the `bindings` option in [`genqlient.yaml`](genqlient.yaml). Explicit bindings
+always take precedence.
 
 [spec#scalar]: https://spec.graphql.org/draft/#sec-Scalars
 
 ### Custom scalars
 
-Some schemas define custom scalars. You'll need to tell genqlient what types to use for those via the `bindings` option in `genqlient.yaml`, for example:
+Schemas can define custom scalars beyond the GitHub defaults. Tell octoqlgen
+what Go types to use for those through `bindings` in `genqlient.yaml`, for
+example:
 
 ```yaml
 bindings:

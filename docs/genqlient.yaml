@@ -98,6 +98,16 @@ use_struct_references: boolean
 # helpers always expose GraphQL extensions through octoql.Response.Extensions.
 use_extensions: boolean
 
+# Generate concrete Go structs only for abstract GraphQL implementations named
+# by applicable inline or named fragments. Each abstract selection also gets an
+# `OctoqlOther` catch-all containing the shared fields and `__typename`, so
+# responses remain usable when GitHub returns another current or future
+# implementation. Defaults to true.
+#
+# Set this to false when migrating code that relies on a generated Go struct for
+# every implementation allowed by the schema.
+omit_unreferenced_implementations: true
+
 # Customize how models are generated for optional fields. This can currently
 # be set to one of the following values:
 # - value (default): optional fields are generated as values, the same as
@@ -132,8 +142,11 @@ optional_generic_type: github.com/organisation/repository/example.Type
 # This is primarily used for custom scalars, or to map builtin scalars
 # to a nonstandard type that is defined elsewhere.  By default,
 # builtin scalars are mapped to the obvious Go types (String and ID to
-# string, Int to int, Float to float64, and Boolean to bool), but this
-# setting will extend or override those mappings.  (See also
+# string, Int to int, Float to float64, and Boolean to bool). octoql also maps
+# GitHub's DateTime, PreciseDateTime, and GitTimestamp scalars to time.Time.
+# Base64String, BigInt, CustomPropertyValue, Date, GitObjectID, GitRefname,
+# GitSSHRemote, HTML, URI, and X509Certificate map to string. This setting will
+# extend or override all those mappings. (See also
 # @genqlient(typename: ...), which can be used to map builtin scalars
 # to a nonstandard type that genqlient defines for you.)
 #

@@ -107,7 +107,12 @@ type MyInputType struct {
 
 ## GraphQL Interfaces
 
-If you request an interface field, genqlient generates an interface type corresponding to the GraphQL interface, and several struct types corresponding to its implementations.  For example, given a query:
+If you request an interface field, octoqlgen generates an interface type
+corresponding to the GraphQL interface. By default it generates concrete Go
+structs only for implementations referenced by applicable inline or named
+fragments. It also generates an `OctoqlOther` catch-all for the remaining
+current implementations and any implementation added to the schema later. For
+example, given a query:
 
 ```graphql
 query GetBooks {
@@ -137,7 +142,10 @@ type GetBooksFavoriteDictionary struct {
   Title string
   Language string
 }
-// (similarly for any other types that implement Book)
+type GetBooksFavoriteBookOctoqlOther struct {
+  Typename string
+  Title string
+}
 ```
 
 These can be used in the ordinary Go ways: to access shared fields, use the interface methods; to access type-specific fields, use a type switch:
@@ -150,7 +158,17 @@ if novel, ok := resp.Data.Favorite.(*GetBooksFavoriteNovel); ok {
 }
 ```
 
-The interface-type's GoDoc will include a list of its implementations, for your convenience.
+The interface type's GoDoc lists its generated implementations. Shared fields
+are available through interface getters. The catch-all's `GetTypename` method
+returns the concrete GraphQL `__typename`, which lets callers identify an
+omitted runtime type without losing the shared fields.
+
+The catch-all is emitted even when fragments currently reference every
+implementation. This keeps unmarshalling future-compatible if the server adds
+another implementation. Set `omit_unreferenced_implementations: false` in
+`genqlient.yaml` to restore inherited generation of a concrete Go struct for
+every implementation in the schema. The opt-out does not add a catch-all, so an
+unexpected typename remains an unmarshalling error.
 
 If you only want to request shared fields of the interface (i.e. no fragments), this may seem like a lot of ceremony.  If you prefer, you can instead add `# @genqlient(struct: true)` to the field, and genqlient will just generate a struct, like it does for GraphQL object types.  For example, given:
 

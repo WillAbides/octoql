@@ -211,7 +211,7 @@ func (field *goStructField) Selector() string {
 //     unqualified name)
 //   - true if we need to generate an unmarshaler at all, false if the default
 //     behavior will suffice
-func (field *goStructField) unmarshaler() (qualifiedName string, needsImport bool, needsUnmarshaler bool) {
+func (field *goStructField) unmarshaler() (qualifiedName string, needsImport, needsUnmarshaler bool) {
 	switch typ := field.GoType.Unwrap().(type) {
 	case *goOpaqueType:
 		if typ.Unmarshaler != "" {
@@ -237,7 +237,7 @@ func (field *goStructField) Unmarshaler(g *generator) (string, error) {
 //   - the fully-qualified name of the function to use to marshal this field
 //   - true if we need to generate a marshaler at all, false if the default
 //     behavior will suffice
-func (field *goStructField) marshaler() (qualifiedName string, needsImport bool, needsMarshaler bool) {
+func (field *goStructField) marshaler() (qualifiedName string, needsImport, needsMarshaler bool) {
 	switch typ := field.GoType.Unwrap().(type) {
 	case *goOpaqueType:
 		if typ.Marshaler != "" {
@@ -484,9 +484,10 @@ type goInterfaceType struct {
 	GoName string
 	// Fields shared by all the interface's implementations;
 	// we'll generate getter methods for each.
-	SharedFields    []*goStructField
-	Implementations []*goStructType
-	Selection       ast.SelectionSet
+	SharedFields        []*goStructField
+	Implementations     []*goStructType
+	OtherImplementation *goStructType
+	Selection           ast.SelectionSet
 	descriptionInfo
 }
 
@@ -529,6 +530,10 @@ func (typ *goInterfaceType) WriteDefinition(w io.Writer, g *generator) error {
 	for _, impl := range typ.Implementations {
 		fmt.Fprintf(w, "func (v *%s) %s() {}\n",
 			impl.Reference(), implementsMethodName)
+	}
+	if typ.OtherImplementation != nil {
+		fmt.Fprintf(w, "func (v *%s) %s() {}\n",
+			typ.OtherImplementation.Reference(), implementsMethodName)
 	}
 
 	// Finally, write the marshal- and unmarshal-helpers, which

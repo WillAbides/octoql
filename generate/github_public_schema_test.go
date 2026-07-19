@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -50,11 +51,6 @@ func TestGenerateGitHubPublicSchema(t *testing.T) {
 		Generated:   generatedFilename,
 		Package:     "githubschema",
 		ContextType: "-",
-		Bindings: map[string]*TypeBinding{
-			"DateTime":    {Type: "time.Time"},
-			"GitObjectID": {Type: "string"},
-			"URI":         {Type: "string"},
-		},
 	}
 
 	first, err := Generate(config)
@@ -71,22 +67,64 @@ func TestGenerateGitHubPublicSchema(t *testing.T) {
 	if !bytes.Equal(firstSource, secondSource) {
 		t.Fatal("generation is not deterministic")
 	}
-	if _, err := parser.ParseFile(token.NewFileSet(), generatedFilename, firstSource, parser.AllErrors); err != nil {
-		t.Fatalf("generated Go is not syntactically valid: %v", err)
+	_, parseErr := parser.ParseFile(token.NewFileSet(), generatedFilename, firstSource, parser.AllErrors)
+	if parseErr != nil {
+		t.Fatalf("generated Go is not syntactically valid: %v", parseErr)
 	}
 	compileGitHubPublicSchemaOutput(t, generatedDir, firstSource)
+
+	omit := false
+	optOutConfig := *config
+	optOutConfig.OmitUnreferencedImplementations = &omit
+	optOut, err := Generate(&optOutConfig)
+	if err != nil {
+		t.Fatalf("opt-out generation: %v", err)
+	}
+	optOutSource := optOut[generatedFilename]
+	defaultImplementations := bytes.Count(firstSource, []byte(") implementsGraphQLInterface"))
+	optOutImplementations := bytes.Count(optOutSource, []byte(") implementsGraphQLInterface"))
+	if optOutImplementations <= defaultImplementations*2 {
+		t.Fatalf(
+			"default implementation count = %d, opt-out = %d; omission did not materially bound output",
+			defaultImplementations,
+			optOutImplementations,
+		)
+	}
+	if len(firstSource) >= len(optOutSource) {
+		t.Fatalf("default output size = %d, opt-out = %d", len(firstSource), len(optOutSource))
+	}
 
 	output := string(firstSource)
 	for _, want := range []string{
 		"func RepositorySummary(",
 		"func NodesByID(",
 		"func StarRepository(",
+		"func GitHubAbstractCorpus(",
 		"CreatedAt time.Time",
 		"Oid string",
 		"Url string",
+		"OctoqlOther struct",
 	} {
 		if !strings.Contains(output, want) {
 			t.Errorf("generated output does not contain %q", want)
+		}
+	}
+	for _, pattern := range []string{
+		`type \w*Nodes\w*Repository struct`,
+		`type \w*Nodes\w*Issue struct`,
+		`type \w*Nodes\w*PullRequest struct`,
+	} {
+		if !regexp.MustCompile(pattern).MatchString(output) {
+			t.Errorf("generated output does not match %q", pattern)
+		}
+	}
+	for _, pattern := range []string{
+		"GenqlientOther",
+		`type \w*Nodes\w*App struct`,
+		`type \w*Search\w*Nodes\w*MarketplaceListing struct`,
+	} {
+		if regexp.MustCompile(pattern).MatchString(output) {
+			t.Errorf("generated output unexpectedly matches %q", pattern)
 		}
 	}
 }
