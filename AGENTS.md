@@ -23,6 +23,8 @@
   introducing parallel abstractions.
 - Assign variables, including errors, before conditionals rather than using
   initializer clauses in `if` statements.
+- Avoid `else` in handwritten Go. Prefer early exits, `switch`, or
+  default-then-override. Generated Go and templates are exempt.
 - Test helpers that take `*testing.T` use `t.Context()` internally. Use
   `t.Helper()` only for assertion helpers.
 - Use `testify/require` for test prerequisites and `testify/assert` for

@@ -244,10 +244,11 @@ func testGenerateWithTestHandlerUsesOnePlan(
 	assert.Equal(t, clientSecond, clientAgain)
 	handlerSource := string(outputs[config.TestHandlerGenerated])
 	clientImport := config.pkgPath + `"`
-	if strategy == TestHandlerTypesLocal {
+	switch strategy {
+	case TestHandlerTypesLocal:
 		assert.NotContains(t, handlerSource, clientImport)
 		assert.Contains(t, handlerSource, "type SearchRepositoriesResponse struct")
-	} else {
+	default:
 		assert.Contains(t, handlerSource, clientImport)
 	}
 

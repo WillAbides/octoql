@@ -210,13 +210,14 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 		Operations: make([]testHandlerOperation, 0, len(plan.operations)),
 	}
 
-	if localTypes {
+	switch {
+	case localTypes:
 		typeDefinitions, err := renderTypeDefinitions(handlerGenerator)
 		if err != nil {
 			return nil, testHandlerTemplateData{}, err
 		}
 		data.LocalTypeDefinitions = string(typeDefinitions)
-	} else {
+	default:
 		typeNames := make([]string, 0, len(plan.typeMap))
 		for name := range plan.typeMap {
 			if token.IsExported(name) {
@@ -245,9 +246,10 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 				Name:       responseName,
 				ClientName: operation.ResponseName,
 			}
-			if localTypes {
+			switch {
+			case localTypes:
 				data.LocalAliases = append(data.LocalAliases, responseAlias)
-			} else if !containsTestHandlerType(data.Types, responseName) {
+			case !containsTestHandlerType(data.Types, responseName):
 				data.Types = append(data.Types, responseAlias)
 			}
 			handlerGenerator.usedAliases[responseName] = true
