@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -364,10 +366,33 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 
 func TestLocalHandlerClientDecoding(t *testing.T) {
 	handler := localtypes.NewTestHandler(t)
-	server := httptest.NewServer(handler)
+	requests := make(chan recordedGraphQLRequest, 16)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		body, err := io.ReadAll(request.Body)
+		require.NoError(t, err)
+		request.Body = io.NopCloser(bytes.NewReader(body))
+		var recorded recordedGraphQLRequest
+		err = json.Unmarshal(body, &recorded)
+		require.NoError(t, err)
+		requests <- recorded
+		handler.ServeHTTP(writer, request)
+	}))
 	t.Cleanup(server.Close)
 	client := octoql.NewClient(server.URL, server.Client())
 	updatedAt := time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC)
+
+	handler.ExpectViewer().Respond(localtypes.ViewerResponse{
+		Viewer: localtypes.ViewerViewerUser{
+			ViewerVariables: localtypes.ViewerVariables{
+				Id:    "U1",
+				Login: "octocat",
+			},
+		},
+	})
+	viewerResponse, err := githubapi.Viewer(t.Context(), client)
+	require.NoError(t, err)
+	assert.Equal(t, "octocat", viewerResponse.Data.Viewer.Login)
+	requireGeneratedRequest(t, requests, "Viewer", "fragment ViewerVariables", "")
 
 	variables := localtypes.GetRepositoryVariables{
 		Owner: "octo-org",
@@ -390,6 +415,48 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	assert.JSONEq(t, `["red","blue"]`, string(response.Data.Repository.PropertyValue))
 	require.Len(t, response.Data.Repository.Issues.Nodes, 1)
 	assert.Equal(t, "cursor-2", response.Data.Repository.Issues.PageInfo.EndCursor)
+	requireGeneratedRequest(
+		t,
+		requests,
+		"GetRepository",
+		"query GetRepository",
+		`{"owner":"octo-org","name":"octo-repo","first":2,"after":"cursor-1"}`,
+	)
+
+	input := localtypes.CreateRepositoryInput{
+		Name:             "created",
+		OwnerId:          "O1",
+		Visibility:       localtypes.RepositoryVisibilityPrivate,
+		ClientMutationId: "mutation-1",
+	}
+	handler.ExpectCreateRepository(localtypes.CreateRepositoryVariables{
+		Input: input,
+	}).Respond(localtypes.CreateRepositoryResponse{
+		CreateRepository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
+			Repository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+				Id:            "R2",
+				NameWithOwner: "octo-org/created",
+				UpdatedAt:     updatedAt,
+			},
+			ClientMutationId: "mutation-1",
+		},
+	})
+	clientInput := githubapi.CreateRepositoryInput{
+		Name:             input.Name,
+		OwnerId:          input.OwnerId,
+		Visibility:       githubapi.RepositoryVisibilityPrivate,
+		ClientMutationId: input.ClientMutationId,
+	}
+	mutationResponse, err := githubapi.CreateRepository(t.Context(), client, clientInput)
+	require.NoError(t, err)
+	assert.Equal(t, "octo-org/created", mutationResponse.Data.CreateRepository.Repository.NameWithOwner)
+	requireGeneratedRequest(
+		t,
+		requests,
+		"CreateRepository",
+		"mutation CreateRepository",
+		`{"input":{"name":"created","ownerId":"O1","visibility":"PRIVATE","clientMutationId":"mutation-1"}}`,
+	)
 
 	nodeVariables := localtypes.GetNodeVariables{Id: "user"}
 	handler.ExpectGetNode(nodeVariables).Respond(localtypes.GetNodeResponse{
@@ -403,6 +470,69 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	other, ok := nodeResponse.Data.Node.(*githubapi.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", other.Typename)
+	requireGeneratedRequest(t, requests, "GetNode", "query GetNode", `{"id":"user"}`)
+
+	searchVariables := localtypes.SearchVariables{Query: "octo"}
+	handler.ExpectSearch(searchVariables).Respond(localtypes.SearchResponse{
+		Search: []localtypes.SearchSearchSearchResultItem{
+			&localtypes.SearchSearchRepository{
+				Id:            "R1",
+				NameWithOwner: "octo-org/octo-repo",
+			},
+			&localtypes.SearchSearchIssue{Id: "I1", Title: "bug"},
+			&localtypes.SearchSearchSearchResultItemOctoqlOther{Typename: "User"},
+		},
+	})
+	searchResponse, err := githubapi.Search(t.Context(), client, searchVariables.Query)
+	require.NoError(t, err)
+	require.Len(t, searchResponse.Data.Search, 3)
+	_, ok = searchResponse.Data.Search[0].(*githubapi.SearchSearchRepository)
+	assert.True(t, ok)
+	_, ok = searchResponse.Data.Search[1].(*githubapi.SearchSearchIssue)
+	assert.True(t, ok)
+	_, ok = searchResponse.Data.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
+	assert.True(t, ok)
+	requireGeneratedRequest(t, requests, "Search", "query Search", `{"query":"octo"}`)
+
+	property := json.RawMessage(`["one","two"]`)
+	handler.ExpectEchoProperty(localtypes.EchoPropertyVariables{Value: property}).
+		Respond(localtypes.EchoPropertyResponse{EchoProperty: property})
+	propertyResponse, err := githubapi.EchoProperty(t.Context(), client, property)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(property), string(propertyResponse.Data.EchoProperty))
+	requireGeneratedRequest(
+		t,
+		requests,
+		"EchoProperty",
+		"query EchoProperty",
+		`{"value":["one","two"]}`,
+	)
+
+	handler.ExpectEchoAt(localtypes.EchoAtVariables{Value: updatedAt}).
+		Respond(localtypes.EchoAtResponse{EchoAt: updatedAt})
+	temporalResponse, err := githubapi.EchoAt(t.Context(), client, updatedAt)
+	require.NoError(t, err)
+	assert.Equal(t, updatedAt, temporalResponse.Data.EchoAt)
+	requireGeneratedRequest(
+		t,
+		requests,
+		"EchoAt",
+		"query EchoAt",
+		`{"value":"2026-07-19T12:00:00Z"}`,
+	)
+
+	const largeInteger = int64(9_007_199_254_740_993)
+	handler.ExpectEchoAny(localtypes.EchoAnyVariables{Value: largeInteger}).
+		Respond(localtypes.EchoAnyResponse{EchoAny: largeInteger})
+	_, err = githubapi.EchoAny(t.Context(), client, largeInteger)
+	require.NoError(t, err)
+	requireGeneratedRequest(
+		t,
+		requests,
+		"EchoAny",
+		"query EchoAny",
+		`{"value":9007199254740993}`,
+	)
 
 	errorVariables := localtypes.GetNodeVariables{Id: "missing"}
 	handler.ExpectGetNode(errorVariables).RespondError(octoql.Error{
@@ -415,6 +545,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 	require.True(t, ok)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
+	requireGeneratedRequest(t, requests, "GetNode", "query GetNode", `{"id":"missing"}`)
 }
 
 func TestLocalAndClientHandlerTypesAreDistinct(t *testing.T) {
@@ -488,4 +619,28 @@ func postGraphQL(
 	handler.ServeHTTP(response, request)
 	require.NotEmpty(t, response.Body.String())
 	return response
+}
+
+type recordedGraphQLRequest struct {
+	OperationName string          `json:"operationName"`
+	Query         string          `json:"query"`
+	Variables     json.RawMessage `json:"variables"`
+}
+
+func requireGeneratedRequest(
+	t *testing.T,
+	requests <-chan recordedGraphQLRequest,
+	operationName string,
+	querySubstring string,
+	variables string,
+) {
+	t.Helper()
+	recorded := <-requests
+	assert.Equal(t, operationName, recorded.OperationName)
+	assert.True(t, strings.Contains(recorded.Query, querySubstring))
+	if variables == "" {
+		assert.Empty(t, recorded.Variables)
+		return
+	}
+	assert.JSONEq(t, variables, string(recorded.Variables))
 }
