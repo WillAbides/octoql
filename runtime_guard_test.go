@@ -19,8 +19,8 @@ func (marshalJSONEmbed) MarshalJSON() ([]byte, error) {
 }
 
 type guardedMarshalJSON struct {
-	marshalJSONEmbed
 	octoql.NoMarshalJSON
+	marshalJSONEmbed
 }
 
 type unmarshalJSONEmbed struct {
@@ -34,8 +34,8 @@ func (e *unmarshalJSONEmbed) UnmarshalJSON([]byte) error {
 }
 
 type guardedUnmarshalJSON struct {
-	unmarshalJSONEmbed
 	octoql.NoUnmarshalJSON
+	unmarshalJSONEmbed
 }
 
 func TestNoMarshalJSONPreventsMethodPromotion(t *testing.T) {
