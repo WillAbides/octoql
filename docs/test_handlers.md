@@ -7,6 +7,7 @@ server:
 generated: internal/githubapi/generated.go
 test_handler:
   generated: internal/githubapitest/generated.go
+  types: client
 ```
 
 `octoqlgen generate --config octoqlgen.yaml` loads the config once, verifies or
@@ -16,10 +17,31 @@ output is written. Omitting `test_handler` generates only the client.
 
 The handler destination is resolved relative to `octoqlgen.yaml`. Its package is
 inferred independently from its directory, including a new empty directory. The
-generated package imports the generated client package and aliases the converted
-operation, input, enum, fragment, abstract variant, and `OctoqlOther` types.
-Operations included in a handler must begin with an uppercase letter so their
-client types can be imported by the separate handler package.
+client and handler destinations must use separate packages.
+
+`test_handler.types` selects one of two strategies:
+
+- `client` is the default. The handler imports the generated client package and
+  aliases its operation, input, enum, fragment, abstract variant, and
+  `OctoqlOther` types. Handler values are directly assignable to the matching
+  client types.
+- `local` emits the operation-reachable types and marshal helpers directly in
+  the handler package. It does not import the client package, which avoids a
+  handler-to-client dependency, but the handler and client Go types are
+  intentionally distinct and are not directly assignable.
+
+```yaml
+generated: internal/githubapi/generated.go
+test_handler:
+  generated: internal/githubapitest/generated.go
+  types: local
+```
+
+Both strategies use the same converted operation plan, scalar and package
+bindings, optional representation, fragments, abstract variants, and
+`OctoqlOther` behavior. They produce the same GraphQL JSON and HTTP headers.
+Local mode generates more declarations and may increase test-package compile
+work. Operations included in a handler must begin with an uppercase letter.
 
 ## Typed expectations
 
@@ -121,8 +143,8 @@ handler.ExpectGetRepository(rateLimited).RespondError(
 ```
 
 The checked-in
-[`internal/handlertest`](../internal/handlertest/handler_test.go) fixture is a
-runnable example covering mutations, aliases, partial data, GitHub errors,
-top-level extensions, custom status and headers, primary and secondary rate
-limits, dynamic handlers, abstract types, pagination inputs, custom scalars, and
-concurrent requests.
+[`internal/handlertest`](../internal/handlertest/handler_test.go) fixtures are
+runnable examples covering both type strategies, mutations, aliases, partial
+data, GitHub errors, top-level extensions, custom status and headers, primary
+and secondary rate limits, dynamic handlers, abstract types, pagination inputs,
+custom scalars, and concurrent requests.

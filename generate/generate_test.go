@@ -289,6 +289,54 @@ func TestGenerateTestHandlerOmittedTypesEqualsClient(t *testing.T) {
 	assert.Equal(t, explicit, omitted)
 }
 
+func TestGenerateLocalTestHandlerOptionalModes(t *testing.T) {
+	tests := []struct {
+		name                string
+		optional            string
+		optionalGenericType string
+	}{
+		{name: "value", optional: "value"},
+		{name: "pointer", optional: "pointer"},
+		{name: "pointer omitempty", optional: "pointer_omitempty"},
+		{
+			name:                "generic",
+			optional:            "generic",
+			optionalGenericType: "github.com/willabides/octoql/internal/testutil.Option",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tempRoot := filepath.Join("testdata", "tmp")
+			err := os.MkdirAll(tempRoot, 0o755)
+			require.NoError(t, err)
+			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-optional-")
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, os.RemoveAll(tempDir))
+			})
+
+			config := &Config{
+				Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+				Operations:           []string{filepath.Join(dataDir, "OptionalModes.graphql")},
+				Generated:            filepath.Join(tempDir, "client", "generated.go"),
+				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+				TestHandlerTypes:     TestHandlerTypesLocal,
+				ContextType:          "-",
+				Bindings:             testBindings(),
+				Optional:             test.optional,
+				OptionalGenericType:  test.optionalGenericType,
+			}
+			err = config.ValidateAndFillDefaults("")
+			require.NoError(t, err)
+			outputs, err := Generate(config)
+			require.NoError(t, err)
+			handlerSource := string(outputs[config.TestHandlerGenerated])
+			assert.NotContains(t, handlerSource, config.pkgPath+`"`)
+			compileGeneratedOutputs(t, tempDir, outputs)
+		})
+	}
+}
+
 func TestGenerateWithTestHandlerRendererFailureReturnsNoOutputs(t *testing.T) {
 	tempRoot := filepath.Join("testdata", "tmp")
 	err := os.MkdirAll(tempRoot, 0o755)
@@ -444,6 +492,29 @@ func TestTestHandlerConfigurationErrors(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("local types do not import main client", func(t *testing.T) {
+		config := &Config{
+			Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+			Operations:           []string{filepath.Join(dataDir, "Repository.graphql")},
+			Generated:            filepath.Join(tempDir, "client", "generated.go"),
+			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+			TestHandlerTypes:     TestHandlerTypesLocal,
+			Package:              "main",
+			ContextType:          "-",
+			Bindings:             testBindings(),
+		}
+
+		err := config.ValidateAndFillDefaults("")
+		require.NoError(t, err)
+		outputs, err := Generate(config)
+		require.NoError(t, err)
+		assert.NotContains(
+			t,
+			string(outputs[config.TestHandlerGenerated]),
+			config.pkgPath+`"`,
+		)
+	})
 }
 
 func TestGenerateTestHandlerNameCollision(t *testing.T) {

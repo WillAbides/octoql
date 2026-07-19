@@ -34,10 +34,12 @@
   parsed and converted operation plan as client generation. Do not add a second
   config load, schema parse, operation parser, abstract-type analysis, or
   subscription path.
-- Generated test handlers live in a separate inferred package, import the
-  generated client package, and alias its converted types so scalar bindings,
-  aliases, fragments, abstract variants, `OctoqlOther`, and marshaling behavior
-  cannot drift.
+- Generated test handlers use `test_handler.types: client` by default to import
+  and alias generated client types. `types: local` emits distinct operation
+  types in the handler package without importing the client package.
+- Both test-handler type strategies render from the same immutable generation
+  plan and shared type renderer. Do not add a second config load, schema parse,
+  operation parser, type conversion, or abstract-type analysis.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve
