@@ -12,6 +12,7 @@ Welcome to the genqlient documentation! This documentation is made possible by v
 - [Handling your GraphQL schema](schema.md)
 - [Client configuration and usage](client_config.md)
 - [Writing your GraphQL operations](operations.md)
+- [Migrating inherited generator configuration](migration.md)
 
 # Reference
 

@@ -53,3 +53,105 @@ mutation StarRepository($repositoryID: ID!, $clientMutationID: String) {
     }
   }
 }
+
+fragment PublicActorSummary on Actor {
+    login
+    url
+    ... on User {
+      name
+    }
+}
+
+fragment PublicRepositoryOwnerSummary on RepositoryOwner {
+    login
+    repositories(first: 2) {
+      nodes {
+        nameWithOwner
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      }
+}
+
+query GitHubAbstractCorpus($ids: [ID!]!, $login: String!, $query: String!, $after: String) {
+    nodes(ids: $ids) {
+      id
+      ... on Actor {
+        ...PublicActorSummary
+      }
+      ... on RepositoryOwner {
+        ...PublicRepositoryOwnerSummary
+      }
+      ... on Repository {
+        nameWithOwner
+        issues(first: 2, after: $after, states: [OPEN]) {
+          nodes {
+            number
+            title
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+        pullRequests(first: 2, after: $after, states: [OPEN]) {
+          nodes {
+            number
+            title
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+      ... on Issue {
+        number
+        title
+        author {
+          login
+        }
+        repository {
+          nameWithOwner
+        }
+      }
+      ... on PullRequest {
+        number
+        title
+        author {
+          login
+        }
+        repository {
+          nameWithOwner
+        }
+      }
+    }
+    repositoryOwner(login: $login) {
+      ...PublicRepositoryOwnerSummary
+    }
+    search(query: $query, type: ISSUE, first: 10, after: $after) {
+      nodes {
+        __typename
+        ... on Repository {
+          nameWithOwner
+        }
+        ... on Issue {
+          number
+          title
+        }
+        ... on PullRequest {
+          number
+          title
+        }
+        ... on User {
+          login
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+}

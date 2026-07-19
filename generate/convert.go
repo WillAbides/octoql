@@ -11,6 +11,7 @@ package generate
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/vektah/gqlparser/v2/ast"
@@ -143,6 +144,31 @@ var builtinTypes = map[string]string{
 	"String":  "string",
 	"Boolean": "bool",
 	"ID":      "string",
+}
+
+var githubScalarTypes = map[string]string{
+	"Base64String":        "string",
+	"BigInt":              "string",
+	"CustomPropertyValue": "encoding/json.RawMessage",
+	"Date":                "string",
+	"DateTime":            "time.Time",
+	"GitObjectID":         "string",
+	"GitRefname":          "string",
+	"GitSSHRemote":        "string",
+	"GitTimestamp":        "time.Time",
+	"HTML":                "string",
+	"PreciseDateTime":     "time.Time",
+	"URI":                 "string",
+	"X509Certificate":     "string",
+}
+
+func defaultScalarType(graphQLName string) (string, bool) {
+	goType, ok := builtinTypes[graphQLName]
+	if ok {
+		return goType, true
+	}
+	goType, ok = githubScalarTypes[graphQLName]
+	return goType, ok
 }
 
 // convertArguments builds the type of the GraphQL arguments to the given
@@ -348,9 +374,13 @@ func (g *generator) convertDefinition(
 			Unmarshaler: globalBinding.Unmarshaler,
 		}, err
 	}
-	goBuiltinName, ok := builtinTypes[def.Name]
+	goBuiltinName, ok := defaultScalarType(def.Name)
 	if ok && options.TypeName == "" {
-		return &goOpaqueType{GoRef: goBuiltinName, GraphQLName: def.Name}, nil
+		goRef, err := g.ref(goBuiltinName)
+		if err != nil {
+			return nil, err
+		}
+		return &goOpaqueType{GoRef: goRef, GraphQLName: def.Name}, nil
 	}
 
 	// Determine the name to use for this type.
@@ -511,33 +541,33 @@ func (g *generator) convertDefinition(
 		// Flatten can only flatten if there is only one field (plus perhaps
 		// __typename), and it's shared.
 		if options.GetFlatten() {
-			i, err := validateFlattenOption(def, selectionSet, pos)
-			if err == nil {
-				return sharedFields[i].GoType, nil
+			fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
+			if flattenErr == nil {
+				return sharedFields[fieldIndex].GoType, nil
 			}
 		}
 
 		implementationTypes := g.schema.GetPossibleTypes(def)
 		// Make sure we generate stable output by sorting the types by name when we get them
 		sort.Slice(implementationTypes, func(i, j int) bool { return implementationTypes[i].Name < implementationTypes[j].Name })
+		implementationTypes = g.filterReferencedImplementations(implementationTypes, selectionSet)
 		goType := &goInterfaceType{
 			GoName:          name,
 			SharedFields:    sharedFields,
-			Implementations: make([]*goStructType, len(implementationTypes)),
 			Selection:       selectionSet,
 			descriptionInfo: desc,
 		}
 
-		for i, implDef := range implementationTypes {
+		for _, implDef := range implementationTypes {
 			// TODO(benkraft): In principle we should skip generating a Go
 			// field for __typename each of these impl-defs if you didn't
 			// request it (and it was automatically added by
 			// preprocessQueryDocument).  But in practice it doesn't really
 			// hurt, and would be extra work to avoid, so we just leave it.
-			implTyp, err := g.convertDefinition(
+			implTyp, convertErr := g.convertDefinition(
 				namePrefix, implDef, pos, selectionSet, options, queryOptions)
-			if err != nil {
-				return nil, err
+			if convertErr != nil {
+				return nil, convertErr
 			}
 
 			implStructTyp, ok := implTyp.(*goStructType)
@@ -546,7 +576,11 @@ func (g *generator) convertDefinition(
 					pos, "interface %s had non-object implementation %s",
 					def.Name, implDef.Name)
 			}
-			goType.Implementations[i] = implStructTyp
+			goType.Implementations = append(goType.Implementations, implStructTyp)
+		}
+		err = g.attachCatchAllImplementation(goType, def.Name, pos)
+		if err != nil {
+			return nil, err
 		}
 		return g.addType(goType, goType.GoName, pos)
 
@@ -557,6 +591,7 @@ func (g *generator) convertDefinition(
 			Description: def.Description,
 			Values:      make([]goEnumValue, len(def.EnumValues)),
 		}
+
 		goNames := make(map[string]*goEnumValue, len(def.EnumValues))
 		for i, val := range def.EnumValues {
 			goName := g.Config.Casing.enumValueName(name, def, val)
@@ -596,6 +631,179 @@ func (g *generator) convertDefinition(
 	default:
 		return nil, errorf(pos, "unexpected kind: %v", def.Kind)
 	}
+}
+
+func (g *generator) filterReferencedImplementations(
+	implementations []*ast.Definition,
+	selectionSet ast.SelectionSet,
+) []*ast.Definition {
+	if !g.Config.omitUnreferencedImplementations() {
+		return implementations
+	}
+
+	applicable := make(map[string]bool, len(implementations))
+	for _, implementation := range implementations {
+		applicable[implementation.Name] = true
+	}
+
+	type selectionContext struct {
+		selectionSet ast.SelectionSet
+		applicable   map[string]bool
+	}
+
+	referenced := map[string]bool{}
+	queue := []selectionContext{{
+		selectionSet: selectionSet,
+		applicable:   applicable,
+	}}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for _, selection := range current.selectionSet {
+			var typeCondition string
+			var fragmentSelectionSet ast.SelectionSet
+			switch selection := selection.(type) {
+			case *ast.InlineFragment:
+				typeCondition = selection.TypeCondition
+				fragmentSelectionSet = selection.SelectionSet
+			case *ast.FragmentSpread:
+				if selection.Definition == nil {
+					continue
+				}
+				typeCondition = selection.Definition.TypeCondition
+				fragmentSelectionSet = selection.Definition.SelectionSet
+			default:
+				continue
+			}
+
+			if typeCondition == "" {
+				if selectionSetHasDirectFields(fragmentSelectionSet) {
+					for concreteType := range current.applicable {
+						referenced[concreteType] = true
+					}
+				}
+				queue = append(queue, selectionContext{
+					selectionSet: fragmentSelectionSet,
+					applicable:   current.applicable,
+				})
+				continue
+			}
+
+			definition := g.schema.Types[typeCondition]
+			conditionTypes := g.possibleObjectTypes(definition)
+			fragmentApplicable := map[string]bool{}
+			for concreteType := range conditionTypes {
+				if current.applicable[concreteType] {
+					fragmentApplicable[concreteType] = true
+				}
+			}
+			if len(fragmentApplicable) == 0 {
+				continue
+			}
+			referencesApplicableTypes := definition.Kind == ast.Object ||
+				selectionSetHasDirectFields(fragmentSelectionSet)
+			if referencesApplicableTypes {
+				for concreteType := range fragmentApplicable {
+					referenced[concreteType] = true
+				}
+			}
+			queue = append(queue, selectionContext{
+				selectionSet: fragmentSelectionSet,
+				applicable:   fragmentApplicable,
+			})
+		}
+	}
+
+	return slices.DeleteFunc(slices.Clone(implementations), func(implementation *ast.Definition) bool {
+		return !referenced[implementation.Name]
+	})
+}
+
+func selectionSetHasDirectFields(selectionSet ast.SelectionSet) bool {
+	for _, selection := range selectionSet {
+		field, ok := selection.(*ast.Field)
+		if ok && field.Name != "__typename" {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generator) possibleObjectTypes(definition *ast.Definition) map[string]bool {
+	if definition == nil {
+		return map[string]bool{}
+	}
+	if definition.Kind == ast.Object {
+		return map[string]bool{definition.Name: true}
+	}
+	if definition.Kind != ast.Interface && definition.Kind != ast.Union {
+		return map[string]bool{}
+	}
+
+	possibleTypes := g.schema.GetPossibleTypes(definition)
+	result := make(map[string]bool, len(possibleTypes))
+	for _, possibleType := range possibleTypes {
+		result[possibleType.Name] = true
+	}
+	return result
+}
+
+func (g *generator) attachCatchAllImplementation(
+	abstractType *goInterfaceType,
+	graphQLName string,
+	pos *ast.Position,
+) error {
+	if !g.Config.omitUnreferencedImplementations() {
+		return nil
+	}
+
+	fields := make([]*goStructField, 0, len(abstractType.SharedFields))
+	for _, field := range abstractType.SharedFields {
+		if field.GoName != "" {
+			fields = append(fields, field)
+			continue
+		}
+
+		embedded, ok := field.GoType.(*goInterfaceType)
+		if !ok {
+			fields = append(fields, field)
+			continue
+		}
+
+		replacement := *field
+		replacement.GoType = embedded.OtherImplementation
+		fields = append(fields, &replacement)
+	}
+
+	catchAll := &goStructType{
+		GoName:    g.catchAllName(abstractType.GoName),
+		Fields:    fields,
+		Selection: abstractType.Selection,
+		descriptionInfo: descriptionInfo{
+			GraphQLName: graphQLName,
+			CommentOverride: fmt.Sprintf(
+				"%sOctoqlOther represents %s implementations not explicitly selected by a fragment. "+
+					"Use GetTypename to identify the concrete GraphQL type.",
+				abstractType.GoName,
+				abstractType.GoName,
+			),
+		},
+		Generator: g,
+	}
+	_, err := g.addType(catchAll, catchAll.GoName, pos)
+	if err != nil {
+		return err
+	}
+	abstractType.OtherImplementation = catchAll
+	return nil
+}
+
+func (g *generator) catchAllName(abstractTypeName string) string {
+	name := abstractTypeName + "OctoqlOther"
+	for suffix := 2; g.typeMap[name] != nil; suffix++ {
+		name = fmt.Sprintf("%s%dOctoqlOther", abstractTypeName, suffix)
+	}
+	return name
 }
 
 // convertSelectionSet converts a GraphQL selection-set into a list of
@@ -825,7 +1033,11 @@ func (g *generator) convertFragmentSpread(
 		for _, impl := range iface.Implementations {
 			if impl.GraphQLName == containingTypedef.Name {
 				typ = impl
+				break
 			}
+		}
+		if typ == iface && iface.OtherImplementation != nil {
+			typ = iface.OtherImplementation
 		}
 	}
 
@@ -863,9 +1075,9 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 		// Flatten on a fragment-definition is a bit weird -- it makes one
 		// fragment effectively an alias for another -- but no reason we can't
 		// allow it.
-		i, err := validateFlattenOption(typ, fragment.SelectionSet, fragment.Position)
-		if err == nil {
-			return fields[i].GoType, nil
+		fieldIndex, flattenErr := validateFlattenOption(typ, fragment.SelectionSet, fragment.Position)
+		if flattenErr == nil {
+			return fields[fieldIndex].GoType, nil
 		}
 	}
 
@@ -884,20 +1096,20 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 		implementationTypes := g.schema.GetPossibleTypes(typ)
 		// Make sure we generate stable output by sorting the types by name when we get them
 		sort.Slice(implementationTypes, func(i, j int) bool { return implementationTypes[i].Name < implementationTypes[j].Name })
+		implementationTypes = g.filterReferencedImplementations(implementationTypes, fragment.SelectionSet)
 		goType := &goInterfaceType{
 			GoName:          fragment.Name,
 			SharedFields:    fields,
-			Implementations: make([]*goStructType, len(implementationTypes)),
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
 		g.typeMap[fragment.Name] = goType
 
-		for i, implDef := range implementationTypes {
-			implFields, err := g.convertSelectionSet(
+		for _, implDef := range implementationTypes {
+			implFields, convertErr := g.convertSelectionSet(
 				newPrefixList(fragment.Name), fragment.SelectionSet, implDef, directive)
-			if err != nil {
-				return nil, err
+			if convertErr != nil {
+				return nil, convertErr
 			}
 
 			implDesc := desc
@@ -910,10 +1122,14 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 				descriptionInfo: implDesc,
 				Generator:       g,
 			}
-			goType.Implementations[i] = implTyp
+			goType.Implementations = append(goType.Implementations, implTyp)
 			g.typeMap[implTyp.GoName] = implTyp
 		}
 
+		err = g.attachCatchAllImplementation(goType, typ.Name, fragment.Position)
+		if err != nil {
+			return nil, err
+		}
 		return goType, nil
 	default:
 		return nil, errorf(fragment.Position, "invalid type for fragment: %v is a %v",
