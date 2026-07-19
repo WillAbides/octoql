@@ -38,7 +38,7 @@ query := `query GetUser($id: ID!) { user(id: $id) { name } }`
 variables := map[string]interface{}{"id": "123"}
 var resp struct {
 	Me struct {
-		Name graphql.String
+		Name string
 	}
 }
 client.Query(ctx, query, &resp, variables)
