@@ -14,7 +14,7 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
-// Check that context_type from octoql.yaml implements context.Context.
+// Check that context_type from octoqlgen.yaml implements context.Context.
 var _ context.Context = (testutil.MyContext)(nil)
 
 // ActorFields includes the GraphQL fields of Actor requested by the fragment ActorFields.

@@ -132,10 +132,10 @@ func TestGenerateCommandRun(t *testing.T) {
 	didMaterialize := false
 	generateCalls := 0
 	command := GenerateCommand{
-		Config:  "custom-octoql.yaml",
+		Config:  "custom-octoqlgen.yaml",
 		context: t.Context(),
 		loadConfig: func(filename string) (*config.Config, error) {
-			assert.Equal(t, "custom-octoql.yaml", filename)
+			assert.Equal(t, "custom-octoqlgen.yaml", filename)
 			return loaded, nil
 		},
 		materializer: materializer,
@@ -295,7 +295,7 @@ func TestGenerateCommandMissingLocalSchema(t *testing.T) {
 	tempDir := t.TempDir()
 	packageName := "client"
 	command := GenerateCommand{
-		Config:  filepath.Join(tempDir, "octoql.yaml"),
+		Config:  filepath.Join(tempDir, "octoqlgen.yaml"),
 		context: t.Context(),
 		loadConfig: func(string) (*config.Config, error) {
 			return &config.Config{
@@ -337,8 +337,11 @@ func TestGenerateRejectsPositionalConfig(t *testing.T) {
 
 func TestGenerateDoesNotDiscoverLegacyConfig(t *testing.T) {
 	directory := t.TempDir()
-	err := os.WriteFile(filepath.Join(directory, "genqlient.yaml"), []byte("legacy\n"), 0o600)
-	require.NoError(t, err)
+	legacyOctoqlFilename := "octoql" + ".yaml"
+	for _, filename := range []string{"genqlient.yaml", legacyOctoqlFilename} {
+		err := os.WriteFile(filepath.Join(directory, filename), []byte("legacy\n"), 0o600)
+		require.NoError(t, err)
+	}
 	originalDirectory, err := os.Getwd()
 	require.NoError(t, err)
 	err = os.Chdir(directory)
@@ -358,6 +361,7 @@ func TestGenerateDoesNotDiscoverLegacyConfig(t *testing.T) {
 			LoadConfig: func(filename string) (*config.Config, error) {
 				assert.Equal(t, config.DefaultFilename, filepath.Base(filename))
 				assert.NotEqual(t, "genqlient.yaml", filepath.Base(filename))
+				assert.NotEqual(t, legacyOctoqlFilename, filepath.Base(filename))
 				return nil, expectedErr
 			},
 		},

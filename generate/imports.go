@@ -81,7 +81,7 @@ var _sliceOrMapPrefixRegexp = regexp.MustCompile(`^(\*|\[\d*\]|map\[string\])*`)
 //   - any nonstandard spelling of those (interface {/* hi */},
 //     map[  string      ]T)
 //
-// (This is documented in docs/octoql.yaml)
+// (This is documented in docs/octoqlgen.yaml)
 func (g *generator) ref(fullyQualifiedName string) (qualifiedName string, err error) {
 	errorMsg := `invalid type-name "%v" (%v); expected a builtin, ` +
 		`path/to/package.Name, interface{}, or a slice, map, or pointer of those`

@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const DefaultFilename = "octoql.yaml"
+const DefaultFilename = "octoqlgen.yaml"
 
 func Load(filename string) (*Config, error) {
 	if filename == "" {

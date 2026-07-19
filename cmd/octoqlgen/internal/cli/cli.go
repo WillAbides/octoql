@@ -40,7 +40,7 @@ type SchemaMaterializeCommand struct {
 	outputWriter OutputWriter
 	stdout       io.Writer
 
-	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoqlgen configuration file. Defaults to octoql.yaml."`
+	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoqlgen configuration file. Defaults to octoqlgen.yaml."`
 	Output        string `short:"o" name:"output" type:"path" placeholder:"PATH" help:"Write the exact schema bytes to a file instead of stdout."`
 	GitHubVersion string `name:"github-version" placeholder:"VERSION" help:"Fetch a pinned github/docs schema version (fpt, ghec, or ghes-X.Y)."`
 	SourceURL     string `name:"source-url" placeholder:"URL" help:"Fetch a schema from an immutable URL."`
@@ -55,7 +55,7 @@ type RemoteResolver interface {
 type InitCommand struct {
 	stdout io.Writer
 
-	ConfigPath string `name:"config" type:"path" default:"octoql.yaml" placeholder:"PATH" help:"Path for the new octoqlgen configuration."`
+	ConfigPath string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path for the new octoqlgen configuration."`
 }
 
 func (cmd *InitCommand) Run() error {
@@ -188,7 +188,7 @@ type SchemaUpdateCommand struct {
 	outputWriter OutputWriter
 	stdout       io.Writer
 
-	Config string `name:"config" type:"path" default:"octoql.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
+	Config string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
 }
 
 func (cmd *SchemaUpdateCommand) Run() error {

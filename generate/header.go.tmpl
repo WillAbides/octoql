@@ -6,6 +6,6 @@ package {{.Config.Package}}
 {{.Imports}}
 
 {{if and (ne .Config.ContextType "-") (ne .Config.ContextType "context.Context") }}
-// Check that context_type from octoql.yaml implements context.Context.
+// Check that context_type from octoqlgen.yaml implements context.Context.
 var _ {{ref "context.Context"}} = ({{ref .Config.ContextType}})(nil)
 {{end}}

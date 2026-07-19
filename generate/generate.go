@@ -382,7 +382,7 @@ func Generate(config *Config) (map[string][]byte, error) {
 	if len(document.Operations) == 0 {
 		// Hard to have a position when there are no operations :(
 		return nil, errorf(nil,
-			"no queries found, looked in: %v (configure this in octoql.yaml)",
+			"no queries found, looked in: %v (configure this in octoqlgen.yaml)",
 			strings.Join(config.Operations, ", "))
 	}
 

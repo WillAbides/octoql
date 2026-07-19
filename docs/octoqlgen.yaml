@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../octoqlgen.schema.yaml
-# octoql.yaml is octoqlgen's only user-facing configuration file.
+# octoqlgen.yaml is octoqlgen's only user-facing configuration file.
 #
 # Run `go tool octoqlgen init` to create a minimal local configuration. Edit
 # schema.source and its pin when using a remote schema, then run
 # `go tool octoqlgen schema materialize` followed by
 # `go tool octoqlgen generate`. Pass `--config PATH` to either command when the
-# file is not named octoql.yaml. init never fetches a schema.
+# file is not named octoqlgen.yaml. init never fetches a schema.
 #
 # Every path and glob below is resolved relative to this file.
 
@@ -35,7 +35,7 @@ schema:
 # local-only schema and is verified when present.
 
 # Filename(s) or globs with the operations for which to generate code, relative
-# to octoql.yaml.
+# to octoqlgen.yaml.
 #
 # These may be .graphql files, containing the queries in SDL format, or
 # Go files, in which case any string-literal starting with (optional
@@ -46,7 +46,7 @@ operations:
 - genqlient.graphql
 - "pkg/*.go"
 
-# The filename to which to write the generated code, relative to octoql.yaml.
+# The filename to which to write the generated code, relative to octoqlgen.yaml.
 generated: generated/genqlient.go
 
 # test_handler is reserved for future typed test-handler generation. It is
@@ -62,7 +62,7 @@ generated: generated/genqlient.go
 # already.
 package: mygenerated
 
-# If set, a file at this path (relative to octoql.yaml) will be generated
+# If set, a file at this path (relative to octoqlgen.yaml) will be generated
 # containing the exact operations that genqlient will send to the server.
 #
 # This is useful for systems which require queries to be explicitly

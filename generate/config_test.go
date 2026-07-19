@@ -50,7 +50,7 @@ func TestConfigValidationErrors(t *testing.T) {
 		{
 			name:      "invalid package",
 			config:    Config{Package: "invalid-package"},
-			wantError: "invalid package in octoql.yaml",
+			wantError: "invalid package in octoqlgen.yaml",
 		},
 		{
 			name: "invalid casing",

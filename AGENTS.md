@@ -8,7 +8,7 @@
 - Reusable runtime APIs belong in the root `octoql` package. The generator
   command is `cmd/octoqlgen`.
 - Do not update `docs/CHANGELOG.md` unless a task explicitly requires it.
-- `octoql.yaml` is the only user-facing generator configuration. Do not restore
+- `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
 - octoql does not support GraphQL subscriptions. Preserve top-level
   `Response.Extensions` and per-error `Error.Extensions`; do not restore the

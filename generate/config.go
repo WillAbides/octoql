@@ -215,7 +215,7 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if c.Package != "" && !token.IsIdentifier(c.Package) {
 		// No need for link here -- if you're already setting the package
 		// you know where to set the package.
-		return errorf(nil, "invalid package in octoql.yaml: '%v' is not a valid identifier", c.Package)
+		return errorf(nil, "invalid package in octoqlgen.yaml: '%v' is not a valid identifier", c.Package)
 	}
 
 	pkgName, pkgPath, err := getPackageNameAndPath(c.Generated)
@@ -238,14 +238,14 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 			c.Package = pkgName
 		} else {
 			return errorf(nil, "unable to guess package-name: %v"+
-				"\nSet package name in octoql.yaml"+
-				"\nExample: https://github.com/willabides/octoql/blob/main/example/octoql.yaml", err)
+				"\nSet package name in octoqlgen.yaml"+
+				"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", err)
 		}
 	} else { // err == nil
 		if c.Package == pkgName || c.Package == "" {
 			c.Package = pkgName
 		} else {
-			warnErr := warn(errorf(nil, "warning: package setting in octoql.yaml '%v' looks wrong "+
+			warnErr := warn(errorf(nil, "warning: package setting in octoqlgen.yaml '%v' looks wrong "+
 				"('%v' is in package '%v') but proceeding with '%v' anyway\n",
 				c.Package, c.Generated, pkgName, c.Package))
 			if warnErr != nil {

@@ -134,7 +134,7 @@ func TestSchemaCommandDirectValidation(t *testing.T) {
 		{
 			name: "config with direct source",
 			command: SchemaMaterializeCommand{
-				Config:    "octoql.yaml",
+				Config:    "octoqlgen.yaml",
 				SourceURL: "https://example.test/schema.graphql",
 				SHA256:    cliSHA256,
 			},
@@ -229,7 +229,7 @@ func TestAtomicOutputWriter(t *testing.T) {
 func TestInitCommandRun(t *testing.T) {
 	t.Parallel()
 
-	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
 	var stdout bytes.Buffer
 	command := InitCommand{
 		ConfigPath: configPath,
@@ -262,7 +262,7 @@ func TestInitCommandPreservesExistingGitignore(t *testing.T) {
 	err = os.WriteFile(gitignorePath, []byte("keep\n"), 0o600)
 	require.NoError(t, err)
 	command := InitCommand{
-		ConfigPath: filepath.Join(directory, "nested", "octoql.yaml"),
+		ConfigPath: filepath.Join(directory, "nested", "octoqlgen.yaml"),
 		stdout:     io.Discard,
 	}
 
@@ -276,7 +276,7 @@ func TestInitCommandPreservesExistingGitignore(t *testing.T) {
 func TestInitCommandRefusesExistingConfig(t *testing.T) {
 	t.Parallel()
 
-	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
 	err := os.WriteFile(configPath, []byte("existing\n"), 0o600)
 	require.NoError(t, err)
 	command := InitCommand{
@@ -292,7 +292,7 @@ func TestInitCommandRefusesExistingConfig(t *testing.T) {
 func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 	t.Parallel()
 
-	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
 	err := os.WriteFile(configPath, []byte("schema:\n  path: schema.graphql\n"), 0o600)
 	require.NoError(t, err)
 	command := SchemaUpdateCommand{
@@ -310,7 +310,7 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 func TestAcquireUpdateLock(t *testing.T) {
 	t.Parallel()
 
-	configPath := filepath.Join(t.TempDir(), "octoql.yaml")
+	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
 	unlock, err := acquireUpdateLock(configPath)
 	require.NoError(t, err)
 	defer unlock()

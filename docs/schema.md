@@ -1,7 +1,7 @@
 # Configuring octoqlgen to use your GraphQL schema
 
 This document describes schema configuration for octoqlgen. For the complete
-configuration, see the [`octoql.yaml` reference](octoql.yaml).
+configuration, see the [`octoqlgen.yaml` reference](octoqlgen.yaml).
 
 ## Schema materialization
 
@@ -16,7 +16,7 @@ and materialization before generation, so it never generates against unverified
 bytes. Schema update behavior remains explicit through
 `go tool octoqlgen schema update`.
 
-All schema and output paths are relative to `octoql.yaml`. Materialization never
+All schema and output paths are relative to `octoqlgen.yaml`. Materialization never
 rewrites the configuration.
 
 ## Scalars
@@ -43,7 +43,7 @@ schema:
 | `HTML`, `URI`, `X509Certificate` | `string` |
 
 For other custom scalars, or to override any standard or GitHub mapping, use
-the `bindings` option in [`octoql.yaml`](octoql.yaml). Explicit bindings
+the `bindings` option in [`octoqlgen.yaml`](octoqlgen.yaml). Explicit bindings
 always take precedence.
 
 [spec#scalar]: https://spec.graphql.org/draft/#sec-Scalars
@@ -51,7 +51,7 @@ always take precedence.
 ### Custom scalars
 
 Schemas can define custom scalars beyond the GitHub defaults. Tell octoqlgen
-what Go types to use for those through `bindings` in `octoql.yaml`, for
+what Go types to use for those through `bindings` in `octoqlgen.yaml`, for
 example:
 
 ```yaml
@@ -72,7 +72,7 @@ bindings:
 
 See octoql's integration tests for a full example:
 [types](../internal/testutil/types.go) and
-[config](../internal/integration/octoql.yaml).
+[config](../internal/integration/octoqlgen.yaml).
 
 To leave a custom scalar as raw JSON, map it to `encoding/json.RawMessage`:
 
@@ -93,7 +93,7 @@ The GraphQL spec officially defines the `Int` type to be a [signed 32-bit intege
 
 By default, genqlient maps GraphQL `Int`s to Go's `int`, meaning that on 64-bit systems there's no client-side restriction. This is convenient for most use cases, but means the client won't prevent you from passing a 64-bit integer to a server that will reject or truncate it.
 
-If you prefer to limit integers to `int32`, set a binding in `octoql.yaml`:
+If you prefer to limit integers to `int32`, set a binding in `octoqlgen.yaml`:
 
 ```yaml
 bindings:
@@ -120,7 +120,7 @@ mutation helpers always expose top-level values through `response.Extensions`.
 Each GraphQL error retains its own values through `error.Extensions`.
 
 The legacy `use_extensions` option was a no-op and is not accepted in
-`octoql.yaml`. Remove it when migrating configuration.
+`octoqlgen.yaml`. Remove it when migrating configuration.
 
 ## Hasura, Dgraph, and other generated schemas
 

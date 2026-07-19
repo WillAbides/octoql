@@ -4,7 +4,7 @@ This document describes how to set up octoql and use it for simple queries. See
 also the full worked [example](../example), the [FAQ](faq.md), and the rest of
 the [documentation](./).
 
-## Step 1: Initialize octoql.yaml
+## Step 1: Initialize octoqlgen.yaml
 
 Run:
 
@@ -12,14 +12,14 @@ Run:
 go tool octoqlgen init
 ```
 
-This creates a minimal `octoql.yaml` and `.octoql/.gitignore`. It does not fetch
+This creates a minimal `octoqlgen.yaml` and `.octoql/.gitignore`. It does not fetch
 a schema.
 
 ## Step 2: Configure and materialize your schema
 
 For a local schema, put SDL at the configured `schema.path`. For a pinned remote
 schema, add one `schema.source` variant and its SHA-256 as shown in the
-[`octoql.yaml` reference](octoql.yaml), then run:
+[`octoqlgen.yaml` reference](octoqlgen.yaml), then run:
 
 ```sh
 go tool octoqlgen schema materialize
@@ -27,7 +27,7 @@ go tool octoqlgen schema materialize
 
 Materialization verifies an existing local file or fetches a missing remote
 file, validates its checksum and SDL, and writes only the configured schema
-path. It never rewrites `octoql.yaml`.
+path. It never rewrites `octoqlgen.yaml`.
 
 ## Step 3: Write your queries
 
@@ -42,7 +42,7 @@ query getUser($login: String!) {
 
 ## Step 4: Run octoqlgen
 
-Set `operations` and `generated` in `octoql.yaml`, then run
+Set `operations` and `generated` in `octoqlgen.yaml`, then run
 `go tool octoqlgen generate`. Generation verifies or materializes the configured
 schema before producing the client and optional exported operations.
 
@@ -97,6 +97,6 @@ resp, err := getUser(...)
 ```
 (You don't need to do anything with the constant, just keep it somewhere in the
 source as documentation and for the next generation run.) In this case, update
-`operations` in `octoql.yaml` to include your Go source.
+`operations` in `octoqlgen.yaml` to include your Go source.
 
 All the filenames above, and many other aspects of genqlient, are configurable; see the [full documentation](.) for usage guides, reference information, and documentation on how to contribute to genqlient.

@@ -19,13 +19,13 @@ Welcome to the octoql documentation. If you see something unclear, file an
 
 - [Go package reference](https://pkg.go.dev/github.com/willabides/octoql)
 - [octoqlgen configuration schema](../octoqlgen.schema.yaml)
-- [`octoql.yaml` configuration reference](octoql.yaml)
+- [`octoqlgen.yaml` configuration reference](octoqlgen.yaml)
 - [`@genqlient` directive reference](genqlient_directive.graphql)
 - [changelog](CHANGELOG.md)
 
 The committed YAML Schema is the canonical structural definition of
-octoqlgen's `octoql.yaml` configuration. Repository checkouts can reference it
-relatively, as shown in [`octoql.yaml`](octoql.yaml). Downstream editor
+octoqlgen's `octoqlgen.yaml` configuration. Repository checkouts can reference it
+relatively, as shown in [`octoqlgen.yaml`](octoqlgen.yaml). Downstream editor
 configuration can use
 `https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml`.
 

@@ -840,4 +840,4 @@ func TestGeneratedCode(t *testing.T) {
 	})
 }
 
-//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoql.yaml
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml

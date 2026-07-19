@@ -24,7 +24,7 @@ const (
 	githubPublicSchemaDir          = "testdata/github-public-schema"
 	githubPublicSchemaSize         = int64(1520362)
 	githubPublicSchemaSHA256       = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
-	githubPublicSchemaConfigFile   = "octoql.yaml"
+	githubPublicSchemaConfigFile   = "octoqlgen.yaml"
 	githubPublicSchemaMaterialized = "schema.docs.graphql"
 )
 
@@ -229,7 +229,7 @@ func TestEnsureGitHubPublicSchema(t *testing.T) {
 			return os.WriteFile(schemaFilename, []byte("schema"), 0o600)
 		}
 
-		err := ensureGitHubPublicSchema(t.Context(), schemaFilename, "octoql.yaml", run)
+		err := ensureGitHubPublicSchema(t.Context(), schemaFilename, "octoqlgen.yaml", run)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -250,7 +250,7 @@ func TestEnsureGitHubPublicSchema(t *testing.T) {
 			return errors.New("materializer should not run")
 		}
 
-		err = ensureGitHubPublicSchema(t.Context(), schemaFilename, "octoql.yaml", run)
+		err = ensureGitHubPublicSchema(t.Context(), schemaFilename, "octoqlgen.yaml", run)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -270,7 +270,7 @@ func TestEnsureGitHubPublicSchema(t *testing.T) {
 			return errors.New("exit status 1")
 		}
 
-		err := ensureGitHubPublicSchema(t.Context(), schemaFilename, "octoql.yaml", run)
+		err := ensureGitHubPublicSchema(t.Context(), schemaFilename, "octoqlgen.yaml", run)
 		if err == nil {
 			t.Fatal("expected materialization error")
 		}

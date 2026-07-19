@@ -20,7 +20,7 @@ type GenerateCommand struct {
 	generate     func(*generate.Config) (map[string][]byte, error)
 	outputWriter OutputWriter
 
-	Config string `name:"config" type:"path" default:"octoql.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
+	Config string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
 }
 
 func (cmd *GenerateCommand) Run() error {
