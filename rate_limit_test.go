@@ -356,14 +356,14 @@ func TestDoDoesNotClassifyTransportErrors(t *testing.T) {
 
 func TestClientRateLimitNewestObservationWins(t *testing.T) {
 	client := &Client{}
-	client.observeRateLimit(2, parsedRateLimit{
+	client.observeRateLimit(2, &parsedRateLimit{
 		RateLimit: RateLimit{
 			Remaining: 20,
 			Used:      80,
 		},
 		remainingValid: true,
 	})
-	client.observeRateLimit(1, parsedRateLimit{
+	client.observeRateLimit(1, &parsedRateLimit{
 		RateLimit: RateLimit{
 			Remaining: 90,
 			Used:      10,
@@ -384,7 +384,7 @@ func TestClientRateLimitConcurrentAccess(t *testing.T) {
 		waitGroup.Add(2)
 		go func() {
 			defer waitGroup.Done()
-			client.observeRateLimit(observation, parsedRateLimit{
+			client.observeRateLimit(observation, &parsedRateLimit{
 				RateLimit: RateLimit{
 					Remaining: int(observation),
 				},

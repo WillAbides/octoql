@@ -21,13 +21,12 @@ import (
 // after construction.
 type Client struct {
 	httpClient *http.Client
+	rateLimit  *RateLimit
 	endpoint   string
 
 	responseObservation  atomic.Uint64
 	rateLimitMu          sync.RWMutex
-	rateLimit            RateLimit
 	rateLimitObservation uint64
-	hasRateLimit         bool
 }
 
 // Operation describes a named GraphQL operation and its query document.
@@ -82,7 +81,10 @@ func (client *Client) RateLimit() (RateLimit, bool) {
 
 	client.rateLimitMu.RLock()
 	defer client.rateLimitMu.RUnlock()
-	return client.rateLimit, client.hasRateLimit
+	if client.rateLimit == nil {
+		return RateLimit{}, false
+	}
+	return *client.rateLimit, true
 }
 
 // Do executes operation and decodes its response into T.
@@ -138,7 +140,7 @@ func Do[T any](
 
 	observation := client.responseObservation.Add(1)
 	rateLimit := rateLimitFromHeader(httpResponse.Header, rateLimitNow())
-	client.observeRateLimit(observation, rateLimit)
+	client.observeRateLimit(observation, &rateLimit)
 
 	response := &Response[T]{}
 	statusCode := httpResponse.StatusCode
@@ -201,8 +203,8 @@ func ResponseData[T any](response *Response[T], err error) (*T, error) {
 	return &response.Data, err
 }
 
-func (client *Client) observeRateLimit(observation uint64, parsed parsedRateLimit) {
-	if client == nil || !parsed.remainingValid {
+func (client *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
+	if client == nil || parsed == nil || !parsed.remainingValid {
 		return
 	}
 
@@ -210,14 +212,13 @@ func (client *Client) observeRateLimit(observation uint64, parsed parsedRateLimi
 	client.rateLimitMu.Lock()
 	defer client.rateLimitMu.Unlock()
 
-	hasNewerObservation := client.hasRateLimit &&
+	hasNewerObservation := client.rateLimit != nil &&
 		client.rateLimitObservation >= observation
 	if hasNewerObservation {
 		return
 	}
-	client.rateLimit = rateLimit
+	client.rateLimit = &rateLimit
 	client.rateLimitObservation = observation
-	client.hasRateLimit = true
 }
 
 func validateRequest(ctx context.Context, client *Client, operation Operation) error {

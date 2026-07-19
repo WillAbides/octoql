@@ -110,7 +110,7 @@ func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
 	return rateLimit
 }
 
-func (rateLimit parsedRateLimit) primarySnapshot() RateLimit {
+func (rateLimit *parsedRateLimit) primarySnapshot() RateLimit {
 	snapshot := rateLimit.RateLimit
 	snapshot.RetryAfter = 0
 	snapshot.RetryAt = time.Time{}
