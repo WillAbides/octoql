@@ -19,7 +19,9 @@
 - Write tests first using a red/green strategy where possible. It's also useful
   to commit the failing test first.
 - Use Kong declarative structs and `Run` methods for CLI commands. Keep parsing,
-  dependency construction, and command execution separately testable.
+  dependency construction, and command execution separately testable. Put all
+  Kong metadata in one consolidated `kong:"..."` tag; do not use separate
+  metadata tags such as `cmd`, `help`, `name`, `type`, or `default`.
 - Use gopls first for Go symbols, references, package APIs, renames, and
   diagnostics. Follow existing Go style and repository patterns rather than
   introducing parallel abstractions.

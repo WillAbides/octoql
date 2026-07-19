@@ -22,15 +22,15 @@ import (
 )
 
 type commandTree struct {
-	Generate generateCommand  `cmd:"" help:"Generate GraphQL client code."`
-	Init     initCommand      `cmd:"" help:"Create an octoqlgen configuration and materialized schema."`
-	Schema   schemaCommand    `cmd:"" help:"Materialize or verify a pinned GraphQL schema."`
-	Version  kong.VersionFlag `name:"version" help:"Show version information."`
+	Generate generateCommand  `kong:"cmd,help='Generate GraphQL client code.'"`
+	Init     initCommand      `kong:"cmd,help='Create an octoqlgen configuration and materialized schema.'"`
+	Schema   schemaCommand    `kong:"cmd,help='Materialize or verify a pinned GraphQL schema.'"`
+	Version  kong.VersionFlag `kong:"name='version',help='Show version information.'"`
 }
 
 type schemaCommand struct {
-	Materialize schemaMaterializeCommand `cmd:"" default:"1" help:"Materialize or verify a pinned GraphQL schema."`
-	Update      schemaUpdateCommand      `cmd:"" help:"Update a configured remote schema pin."`
+	Materialize schemaMaterializeCommand `kong:"cmd,default='1',help='Materialize or verify a pinned GraphQL schema.'"`
+	Update      schemaUpdateCommand      `kong:"cmd,help='Update a configured remote schema pin.'"`
 }
 
 type schemaMaterializeCommand struct {
@@ -40,12 +40,12 @@ type schemaMaterializeCommand struct {
 	outputWriter outputWriter
 	stdout       io.Writer
 
-	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoqlgen configuration file. Defaults to octoqlgen.yaml."`
-	Output        string `short:"o" name:"output" type:"path" placeholder:"PATH" help:"Write the exact schema bytes to a file instead of stdout."`
-	GitHubVersion string `name:"github-version" placeholder:"VERSION" help:"Fetch a pinned github/docs schema version (fpt, ghec, or ghes-X.Y)."`
-	SourceURL     string `name:"source-url" placeholder:"URL" help:"Fetch a schema from an immutable URL."`
-	Revision      string `name:"revision" placeholder:"SHA" help:"Full github/docs commit revision for --github-version."`
-	SHA256        string `name:"sha256" placeholder:"HEX" help:"Expected SHA-256 for a direct remote source."`
+	Config        string `kong:"name='config',type='path',placeholder='PATH',help='Path to an octoqlgen configuration file. Defaults to octoqlgen.yaml.'"`
+	Output        string `kong:"short='o',name='output',type='path',placeholder='PATH',help='Write the exact schema bytes to a file instead of stdout.'"`
+	GitHubVersion string `kong:"name='github-version',placeholder='VERSION',help='Fetch a pinned github/docs schema version (fpt, ghec, or ghes-X.Y).'"`
+	SourceURL     string `kong:"name='source-url',placeholder='URL',help='Fetch a schema from an immutable URL.'"`
+	Revision      string `kong:"name='revision',placeholder='SHA',help='Full github/docs commit revision for --github-version.'"`
+	SHA256        string `kong:"name='sha256',placeholder='HEX',help='Expected SHA-256 for a direct remote source.'"`
 }
 
 type remoteResolver interface {
@@ -55,7 +55,7 @@ type remoteResolver interface {
 type initCommand struct {
 	stdout io.Writer
 
-	ConfigPath string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path for the new octoqlgen configuration."`
+	ConfigPath string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path for the new octoqlgen configuration.'"`
 }
 
 func (cmd *initCommand) Run() error {
@@ -188,7 +188,7 @@ type schemaUpdateCommand struct {
 	outputWriter outputWriter
 	stdout       io.Writer
 
-	Config string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
+	Config string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path to an octoqlgen configuration file.'"`
 }
 
 func (cmd *schemaUpdateCommand) Run() error {
