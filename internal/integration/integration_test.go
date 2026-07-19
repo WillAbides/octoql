@@ -7,8 +7,10 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -623,6 +625,27 @@ func TestNamedFragments(t *testing.T) {
 		assert.Equal(t, 17, repoOwnerTopContributor.GetContributionCount())
 
 		assert.Nil(t, response.Data.Actors[2])
+
+		encoded, err := json.Marshal(&response.Data)
+		require.NoError(t, err)
+		var encodedData struct {
+			Actors []json.RawMessage `json:"actors"`
+		}
+		err = json.Unmarshal(encoded, &encodedData)
+		require.NoError(t, err)
+		require.Len(t, encodedData.Actors, 3)
+		assert.Equal(t, 1, strings.Count(string(encodedData.Actors[0]), `"id"`))
+
+		var roundtrip queryWithNamedFragmentsResponse
+		err = json.Unmarshal(encoded, &roundtrip)
+		require.NoError(t, err)
+		require.Len(t, roundtrip.Actors, 3)
+		roundtripUser, ok := roundtrip.Actors[0].(*queryWithNamedFragmentsActorsUser)
+		require.Truef(t, ok, "got %T, not User", roundtrip.Actors[0])
+		assert.Equal(t, "1", roundtripUser.Id)
+		assert.Equal(t, "1", roundtripUser.userFields.Id)
+		assert.Equal(t, "1", roundtripUser.userFields.moreUserFields.Id)
+		assert.Equal(t, "1", roundtripUser.userFields.repositoryOwnerFieldsUser.moreUserFields.Id)
 	}
 }
 

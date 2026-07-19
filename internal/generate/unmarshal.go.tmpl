@@ -31,12 +31,11 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
          json.Unmarshal on the receiver (v).  But if we do that naively on a
          value of type <.GoName>, it will call this function again, and recurse
          infinitely.  So we make a wrapper type which embeds both this type and
-         NoUnmarshalJSON, which prevents either's UnmarshalJSON method from
-         being promoted.  For more on why this is so difficult, see
+         __noUnmarshalJSON, which prevents either's UnmarshalJSON method from
+         being promoted. This is the Approach 6 method-set technique from
          https://github.com/benjaminjkraft/notes/blob/master/go-json-interfaces.md.
-         (Note there are a few different ways "hide" the method, but this one
-         seems to be the best option that works if this type has embedded types
-         with UnmarshalJSON methods.)
+         It avoids recursive UnmarshalJSON calls while preserving encoding/json's
+         ordinary embedded-field handling.
     */}}
 
     {{/* TODO(benkraft): Omit/simplify the first pass if all fields are
@@ -50,7 +49,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
         {{end -}}
         {{/* TODO(benkraft): In principle you might have a field-name that
              conflicts with this one; avoid that. */ -}}
-        {{ref "github.com/willabides/octoql.NoUnmarshalJSON"}}
+        __noUnmarshalJSON
     }
     firstPass.{{.GoName}} = v
 

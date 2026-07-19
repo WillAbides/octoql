@@ -13,6 +13,12 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type __noUnmarshalJSON struct{}
+
+func (__noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("__noUnmarshalJSON.UnmarshalJSON should never be called")
+}
+
 // __addCommentInput is used internally by genqlient
 type __addCommentInput struct {
 	Input server.AddCommentInput `json:"input"`
@@ -58,7 +64,7 @@ func (v *__queryWithCustomMarshalInput) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*__queryWithCustomMarshalInput
 		Date json.RawMessage `json:"date"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.__queryWithCustomMarshalInput = v
 
@@ -133,7 +139,7 @@ func (v *__queryWithCustomMarshalOptionalInput) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*__queryWithCustomMarshalOptionalInput
 		Date json.RawMessage `json:"date"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.__queryWithCustomMarshalOptionalInput = v
 
@@ -210,7 +216,7 @@ func (v *__queryWithCustomMarshalSliceInput) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*__queryWithCustomMarshalSliceInput
 		Dates []json.RawMessage `json:"dates"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.__queryWithCustomMarshalSliceInput = v
 
@@ -425,7 +431,7 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*addStarAddStarAddStarPayload
 		Starrable json.RawMessage `json:"starrable"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.addStarAddStarAddStarPayload = v
 
@@ -625,7 +631,7 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*getRepositoryRepository
 		Owner json.RawMessage `json:"owner"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.getRepositoryRepository = v
 
@@ -1057,7 +1063,7 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*organizationFields
 		TopContributor json.RawMessage `json:"topContributor"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.organizationFields = v
 
@@ -1260,7 +1266,7 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 
 	var firstPass struct {
 		*organizationFieldsTopContributorOrganization
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.organizationFieldsTopContributorOrganization = v
 
@@ -1334,7 +1340,7 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*organizationFieldsTopContributorUser
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.organizationFieldsTopContributorUser = v
 
@@ -1401,7 +1407,7 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryFragment
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryFragment = v
 
@@ -1600,7 +1606,7 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryFragmentActorsOrganization
 		TopContributor json.RawMessage `json:"topContributor"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryFragmentActorsOrganization = v
 
@@ -1686,7 +1692,7 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryFragmentActorsUser
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryFragmentActorsUser = v
 
@@ -1763,7 +1769,7 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) e
 	var firstPass struct {
 		*queryWithCustomMarshalOptionalUserSearchUser
 		CreatedAt json.RawMessage `json:"createdAt"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalOptionalUserSearchUser = v
 
@@ -1870,7 +1876,7 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []b
 	var firstPass struct {
 		*queryWithCustomMarshalSliceUsersCreatedOnDatesUser
 		CreatedAt json.RawMessage `json:"createdAt"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalSliceUsersCreatedOnDatesUser = v
 
@@ -1955,7 +1961,7 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error
 	var firstPass struct {
 		*queryWithCustomMarshalUsersCreatedOnUser
 		CreatedAt json.RawMessage `json:"createdAt"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalUsersCreatedOnUser = v
 
@@ -2165,7 +2171,7 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithFragmentsActorsOrganization
 		TopContributor json.RawMessage `json:"topContributor"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithFragmentsActorsOrganization = v
 
@@ -2446,7 +2452,7 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithFragmentsResponse
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithFragmentsResponse = v
 
@@ -2670,7 +2676,7 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithInterfaceListFieldResponse
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceListFieldResponse = v
 
@@ -2896,7 +2902,7 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 	var firstPass struct {
 		*queryWithInterfaceListPointerFieldResponse
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceListPointerFieldResponse = v
 
@@ -3129,7 +3135,7 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithInterfaceNoFragmentsResponse
 		Actor json.RawMessage `json:"actor"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceNoFragmentsResponse = v
 
@@ -3338,7 +3344,7 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 
 	var firstPass struct {
 		*queryWithNamedFragmentsActorsOrganization
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithNamedFragmentsActorsOrganization = v
 
@@ -3425,7 +3431,7 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithNamedFragmentsActorsUser
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithNamedFragmentsActorsUser = v
 
@@ -3489,7 +3495,7 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithNamedFragmentsResponse
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithNamedFragmentsResponse = v
 
@@ -3598,7 +3604,7 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithSearchResponse
 		Search []json.RawMessage `json:"search"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.queryWithSearchResponse = v
 
@@ -3946,7 +3952,7 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*removeStarRemoveStarRemoveStarPayload
 		Starrable json.RawMessage `json:"starrable"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.removeStarRemoveStarRemoveStarPayload = v
 
@@ -4221,7 +4227,7 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*repositoryOwnerFieldsUser
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.repositoryOwnerFieldsUser = v
 
@@ -4287,7 +4293,7 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*userFields
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.userFields = v
 
