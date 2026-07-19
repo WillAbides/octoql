@@ -169,7 +169,6 @@ type goStructType struct {
 	IsInput   bool
 	Selection ast.SelectionSet
 	descriptionInfo
-	Generator *generator // for the convenience of the template
 }
 
 type goStructField struct {

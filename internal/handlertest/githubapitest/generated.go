@@ -18,11 +18,13 @@ import (
 	githubapi "github.com/willabides/octoql/internal/handlertest/client"
 )
 
-type CreateRepositoryCreateRepository = githubapi.CreateRepositoryCreateRepository
+type CreateRepositoryCreateRepositoryCreateRepositoryPayload = githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayload
 
-type CreateRepositoryCreateRepositoryIssuesIssueConnection = githubapi.CreateRepositoryCreateRepositoryIssuesIssueConnection
+type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository = githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository
 
-type CreateRepositoryCreateRepositoryIssuesIssueConnectionPageInfo = githubapi.CreateRepositoryCreateRepositoryIssuesIssueConnectionPageInfo
+type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection = githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection
+
+type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo = githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo
 
 type CreateRepositoryInput = githubapi.CreateRepositoryInput
 
@@ -56,6 +58,13 @@ type GetRepositoryResponse = githubapi.GetRepositoryResponse
 
 type RepositorySelector = githubapi.RepositorySelector
 
+type RepositoryVisibility = githubapi.RepositoryVisibility
+
+const (
+	RepositoryVisibilityPrivate = githubapi.RepositoryVisibilityPrivate
+	RepositoryVisibilityPublic  = githubapi.RepositoryVisibilityPublic
+)
+
 type SearchResponse = githubapi.SearchResponse
 
 type SearchSearchIssue = githubapi.SearchSearchIssue
@@ -65,6 +74,12 @@ type SearchSearchRepository = githubapi.SearchSearchRepository
 type SearchSearchSearchResultItem = githubapi.SearchSearchSearchResultItem
 
 type SearchSearchSearchResultItemOctoqlOther = githubapi.SearchSearchSearchResultItemOctoqlOther
+
+type ViewerResponse = githubapi.ViewerResponse
+
+type ViewerVariables = githubapi.ViewerVariables
+
+type ViewerViewerUser = githubapi.ViewerViewerUser
 
 type CreateRepositoryVariables = githubapi.CreateRepositoryVariables
 
@@ -494,6 +509,7 @@ type TestHandler struct {
 	operation4 expectationSet[GetNodeVariables]
 	operation5 expectationSet[GetRepositoryVariables]
 	operation6 expectationSet[SearchVariables]
+	operation7 expectationSet[struct{}]
 }
 
 var _ http.Handler = (*TestHandler)(nil)
@@ -539,6 +555,11 @@ func newTestHandler(testingTB testTB) *TestHandler {
 		operation:    "Search",
 		expectations: []*expectation[SearchVariables]{},
 	}
+	handler.operation7 = expectationSet[struct{}]{
+		tb:           testingTB,
+		operation:    "Viewer",
+		expectations: []*expectation[struct{}]{},
+	}
 	testingTB.Cleanup(handler.verify)
 	return handler
 }
@@ -551,6 +572,7 @@ func (handler *TestHandler) verify() {
 	handler.operation4.verify()
 	handler.operation5.verify()
 	handler.operation6.verify()
+	handler.operation7.verify()
 }
 
 func (handler *TestHandler) Reset() {
@@ -561,6 +583,7 @@ func (handler *TestHandler) Reset() {
 	handler.operation4.reset()
 	handler.operation5.reset()
 	handler.operation6.reset()
+	handler.operation7.reset()
 }
 
 func (handler *TestHandler) ServeHTTP(
@@ -882,6 +905,42 @@ func (handler *TestHandler) ServeHTTP(
 		if err != nil {
 			handler.tb.Errorf("serving Search response: %v", err)
 		}
+	case "Viewer":
+		var variables struct{}
+		err = decodeVariables(graphqlRequest.Variables, &variables)
+		if err != nil {
+			handler.tb.Errorf("decoding Viewer variables: %v", err)
+			writeErr := writeRequestError(
+				writer,
+				http.StatusOK,
+				"decoding Viewer variables: "+err.Error(),
+			)
+			if writeErr != nil {
+				handler.tb.Errorf("writing Viewer variable error response: %v", writeErr)
+			}
+			return
+		}
+
+		result, matchErr := handler.operation7.match(
+			variables,
+			graphqlRequest.Variables,
+		)
+		if matchErr != nil {
+			handler.tb.Errorf("%v", matchErr)
+			writeErr := writeRequestError(
+				writer,
+				http.StatusOK,
+				matchErr.Error(),
+			)
+			if writeErr != nil {
+				handler.tb.Errorf("writing Viewer expectation error response: %v", writeErr)
+			}
+			return
+		}
+		err = result(variables, writer)
+		if err != nil {
+			handler.tb.Errorf("serving Viewer response: %v", err)
+		}
 	default:
 		err = writeRequestError(
 			writer,
@@ -905,9 +964,12 @@ func (handler *TestHandler) ExpectCreateRepository(
 	options ...ExpectOption,
 ) *CreateRepositoryExpectation {
 	return &CreateRepositoryExpectation{
-		set:      &handler.operation0,
-		expected: handler.operation0.expect(variables, options...),
-		options:  []ResponseOption{},
+		set: &handler.operation0,
+		expected: handler.operation0.expect(
+			variables,
+			options...,
+		),
+		options: []ResponseOption{},
 	}
 }
 
@@ -1014,9 +1076,12 @@ func (handler *TestHandler) ExpectEchoAny(
 	options ...ExpectOption,
 ) *EchoAnyExpectation {
 	return &EchoAnyExpectation{
-		set:      &handler.operation1,
-		expected: handler.operation1.expect(variables, options...),
-		options:  []ResponseOption{},
+		set: &handler.operation1,
+		expected: handler.operation1.expect(
+			variables,
+			options...,
+		),
+		options: []ResponseOption{},
 	}
 }
 
@@ -1123,9 +1188,12 @@ func (handler *TestHandler) ExpectEchoAt(
 	options ...ExpectOption,
 ) *EchoAtExpectation {
 	return &EchoAtExpectation{
-		set:      &handler.operation2,
-		expected: handler.operation2.expect(variables, options...),
-		options:  []ResponseOption{},
+		set: &handler.operation2,
+		expected: handler.operation2.expect(
+			variables,
+			options...,
+		),
+		options: []ResponseOption{},
 	}
 }
 
@@ -1232,9 +1300,12 @@ func (handler *TestHandler) ExpectEchoProperty(
 	options ...ExpectOption,
 ) *EchoPropertyExpectation {
 	return &EchoPropertyExpectation{
-		set:      &handler.operation3,
-		expected: handler.operation3.expect(variables, options...),
-		options:  []ResponseOption{},
+		set: &handler.operation3,
+		expected: handler.operation3.expect(
+			variables,
+			options...,
+		),
+		options: []ResponseOption{},
 	}
 }
 
@@ -1341,9 +1412,12 @@ func (handler *TestHandler) ExpectGetNode(
 	options ...ExpectOption,
 ) *GetNodeExpectation {
 	return &GetNodeExpectation{
-		set:      &handler.operation4,
-		expected: handler.operation4.expect(variables, options...),
-		options:  []ResponseOption{},
+		set: &handler.operation4,
+		expected: handler.operation4.expect(
+			variables,
+			options...,
+		),
+		options: []ResponseOption{},
 	}
 }
 
@@ -1450,9 +1524,12 @@ func (handler *TestHandler) ExpectGetRepository(
 	options ...ExpectOption,
 ) *GetRepositoryExpectation {
 	return &GetRepositoryExpectation{
-		set:      &handler.operation5,
-		expected: handler.operation5.expect(variables, options...),
-		options:  []ResponseOption{},
+		set: &handler.operation5,
+		expected: handler.operation5.expect(
+			variables,
+			options...,
+		),
+		options: []ResponseOption{},
 	}
 }
 
@@ -1559,9 +1636,12 @@ func (handler *TestHandler) ExpectSearch(
 	options ...ExpectOption,
 ) *SearchExpectation {
 	return &SearchExpectation{
-		set:      &handler.operation6,
-		expected: handler.operation6.expect(variables, options...),
-		options:  []ResponseOption{},
+		set: &handler.operation6,
+		expected: handler.operation6.expect(
+			variables,
+			options...,
+		),
+		options: []ResponseOption{},
 	}
 }
 
@@ -1652,6 +1732,117 @@ func (builder *SearchExpectation) Handle(
 		builder.expected,
 		func(variables SearchVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
+			return nil
+		},
+	)
+}
+
+type ViewerExpectation struct {
+	set      *expectationSet[struct{}]
+	expected *expectation[struct{}]
+	options  []ResponseOption
+}
+
+func (handler *TestHandler) ExpectViewer(
+	options ...ExpectOption,
+) *ViewerExpectation {
+	return &ViewerExpectation{
+		set: &handler.operation7,
+		expected: handler.operation7.expect(
+			struct{}{},
+			options...,
+		),
+		options: []ResponseOption{},
+	}
+}
+
+func (handler *TestHandler) DefaultViewer() *ViewerExpectation {
+	return &ViewerExpectation{
+		set:      &handler.operation7,
+		expected: handler.operation7.expectDefault(),
+		options:  []ResponseOption{},
+	}
+}
+
+func (handler *TestHandler) ResetViewer() {
+	handler.operation7.reset()
+}
+
+func (builder *ViewerExpectation) WithOptions(
+	options ...ResponseOption,
+) *ViewerExpectation {
+	builder.options = combineResponseOptions(builder.options, options)
+	return builder
+}
+
+func (builder *ViewerExpectation) Respond(
+	data ViewerResponse,
+	options ...ResponseOption,
+) {
+	combined := combineResponseOptions(builder.options, options)
+	responseConfig := buildResponseOptions(combined...)
+	builder.set.setResult(
+		builder.expected,
+		func(_ struct{}, writer http.ResponseWriter) error {
+			return writeGraphQLResponse(writer, &data, nil, responseConfig)
+		},
+	)
+}
+
+func (builder *ViewerExpectation) RespondError(
+	graphqlError octoql.Error,
+	options ...ResponseOption,
+) {
+	combined := combineResponseOptions(builder.options, options)
+	responseConfig := buildResponseOptions(combined...)
+	builder.set.setResult(
+		builder.expected,
+		func(_ struct{}, writer http.ResponseWriter) error {
+			return writeGraphQLResponse(
+				writer,
+				nil,
+				[]octoql.Error{graphqlError},
+				responseConfig,
+			)
+		},
+	)
+}
+
+func (builder *ViewerExpectation) RespondDataAndErrors(
+	data ViewerResponse,
+	graphqlErrors ...octoql.Error,
+) {
+	responseConfig := buildResponseOptions(builder.options...)
+	builder.set.setResult(
+		builder.expected,
+		func(_ struct{}, writer http.ResponseWriter) error {
+			return writeGraphQLResponse(
+				writer,
+				&data,
+				graphqlErrors,
+				responseConfig,
+			)
+		},
+	)
+}
+
+func (builder *ViewerExpectation) Handle(
+	handler func(http.ResponseWriter),
+) {
+	if handler == nil {
+		builder.set.tb.Errorf("Viewer dynamic handler must not be nil")
+		builder.set.setResult(
+			builder.expected,
+			func(_ struct{}, _ http.ResponseWriter) error {
+				return fmt.Errorf("Viewer dynamic handler is nil")
+			},
+		)
+		return
+	}
+	builder.set.setResult(
+		builder.expected,
+		func(variables struct{}, writer http.ResponseWriter) error {
+			handler(writer)
 			return nil
 		},
 	)

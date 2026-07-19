@@ -1,3 +1,14 @@
+fragment ViewerVariables on User {
+  id
+  login
+}
+
+query Viewer {
+  viewer {
+    ...ViewerVariables
+  }
+}
+
 query GetRepository(
   $owner: String!
   $name: String!
@@ -31,15 +42,18 @@ query GetRepository(
 
 mutation CreateRepository($input: CreateRepositoryInput!) {
   createRepository(input: $input) {
-    id
-    nameWithOwner
-    updatedAt
-    propertyValue
-    issues(first: 1) {
-      pageInfo {
-        hasNextPage
+    repository {
+      id
+      nameWithOwner
+      updatedAt
+      propertyValue
+      issues(first: 1) {
+        pageInfo {
+          hasNextPage
+        }
       }
     }
+    clientMutationId
   }
 }
 

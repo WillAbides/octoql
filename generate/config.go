@@ -446,7 +446,7 @@ func (c *Config) validateOutputPaths() error {
 		if output.path == "" {
 			continue
 		}
-		absolute, err := filepath.Abs(output.path)
+		canonical, err := canonicalOutputPath(output.path)
 		if err != nil {
 			return errorf(
 				nil,
@@ -456,19 +456,129 @@ func (c *Config) validateOutputPaths() error {
 				err,
 			)
 		}
-		existing := outputs[absolute]
+		existing := outputs[canonical]
 		if existing != "" {
 			return errorf(
 				nil,
 				"%s and %s output paths must be different: %q",
 				existing,
 				output.name,
-				absolute,
+				canonical,
 			)
 		}
-		outputs[absolute] = output.name
+		outputs[canonical] = output.name
 	}
 	return nil
+}
+
+func canonicalOutputPath(filename string) (string, error) {
+	absolute, err := filepath.Abs(filename)
+	if err != nil {
+		return "", err
+	}
+	resolved, existingAncestor, err := resolveOutputPath(absolute, 0)
+	if err != nil {
+		return "", err
+	}
+	resolved = filepath.Clean(resolved)
+	if filesystemCaseInsensitive(existingAncestor) {
+		resolved = strings.ToLower(resolved)
+	}
+	return resolved, nil
+}
+
+func resolveOutputPath(
+	absolute string,
+	symlinkDepth int,
+) (resolved, existingAncestor string, err error) {
+	if symlinkDepth > 255 {
+		return "", "", fmt.Errorf("too many symlinks resolving %q", absolute)
+	}
+
+	volume := filepath.VolumeName(absolute)
+	root := volume + string(filepath.Separator)
+	relative, err := filepath.Rel(root, absolute)
+	if err != nil {
+		return "", "", err
+	}
+	components := strings.Split(relative, string(filepath.Separator))
+	resolved = root
+	for index, component := range components {
+		if component == "." || component == "" {
+			continue
+		}
+
+		candidate := filepath.Join(resolved, component)
+		info, lstatErr := os.Lstat(candidate)
+		if os.IsNotExist(lstatErr) {
+			return filepath.Join(
+				resolved,
+				filepath.Join(components[index:]...),
+			), resolved, nil
+		}
+		if lstatErr != nil {
+			return "", "", lstatErr
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			resolved = candidate
+			continue
+		}
+
+		target, readErr := os.Readlink(candidate)
+		if readErr != nil {
+			return "", "", readErr
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(resolved, target)
+		}
+		if index+1 < len(components) {
+			target = filepath.Join(
+				target,
+				filepath.Join(components[index+1:]...),
+			)
+		}
+		target, err = filepath.Abs(target)
+		if err != nil {
+			return "", "", err
+		}
+		return resolveOutputPath(target, symlinkDepth+1)
+	}
+	return resolved, resolved, nil
+}
+
+func filesystemCaseInsensitive(existingPath string) bool {
+	current := existingPath
+	for {
+		info, err := os.Stat(current)
+		if err == nil {
+			alternateBase := toggledCase(filepath.Base(current))
+			if alternateBase != filepath.Base(current) {
+				alternate := filepath.Join(filepath.Dir(current), alternateBase)
+				alternateInfo, alternateErr := os.Stat(alternate)
+				if alternateErr == nil && os.SameFile(info, alternateInfo) {
+					return true
+				}
+			}
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return false
+		}
+		current = parent
+	}
+}
+
+func toggledCase(value string) string {
+	for index, char := range value {
+		switch {
+		case char >= 'a' && char <= 'z':
+			return value[:index] + string(char-'a'+'A') + value[index+1:]
+		case char >= 'A' && char <= 'Z':
+			return value[:index] + string(char-'A'+'a') + value[index+1:]
+		}
+	}
+	return value
 }
 
 func (c *Config) omitUnreferencedImplementations() bool {

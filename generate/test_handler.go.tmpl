@@ -18,8 +18,6 @@ const (
 {{range .Operations -}}
 {{if .HasVariables -}}
 type {{.VariablesName}} = {{$.ClientPackage}}.{{.ClientVariablesName}}
-{{else -}}
-type {{.VariablesName}} struct{}
 {{end}}
 {{end -}}
 
@@ -431,7 +429,7 @@ func writeRequestError(
 type TestHandler struct {
 	tb testTB
 	{{range .Operations -}}
-	{{.FieldName}} expectationSet[{{.VariablesName}}]
+	{{.FieldName}} expectationSet[{{.VariablesType}}]
 	{{end -}}
 }
 
@@ -444,10 +442,10 @@ func NewTestHandler(testingTB {{ref "testing.TB"}}) *TestHandler {
 func newTestHandler(testingTB testTB) *TestHandler {
 	handler := &TestHandler{tb: testingTB}
 	{{range .Operations -}}
-	handler.{{.FieldName}} = expectationSet[{{.VariablesName}}]{
+	handler.{{.FieldName}} = expectationSet[{{.VariablesType}}]{
 		tb: testingTB,
 		operation: "{{.Name}}",
-		expectations: []*expectation[{{.VariablesName}}]{},
+		expectations: []*expectation[{{.VariablesType}}]{},
 	}
 	{{end -}}
 	testingTB.Cleanup(handler.verify)
@@ -535,7 +533,7 @@ func (handler *TestHandler) ServeHTTP(
 	switch graphqlRequest.OperationName {
 	{{range .Operations -}}
 	case "{{.Name}}":
-		var variables {{.VariablesName}}
+		var variables {{.VariablesType}}
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			handler.tb.Errorf("decoding {{.Name}} variables: %v", err)
@@ -585,18 +583,23 @@ func (handler *TestHandler) ServeHTTP(
 
 {{range .Operations -}}
 type {{.Name}}Expectation struct {
-	set      *expectationSet[{{.VariablesName}}]
-	expected *expectation[{{.VariablesName}}]
+	set      *expectationSet[{{.VariablesType}}]
+	expected *expectation[{{.VariablesType}}]
 	options  []ResponseOption
 }
 
 func (handler *TestHandler) Expect{{.Name}}(
+	{{if .HasVariables -}}
 	variables {{.VariablesName}},
+	{{end -}}
 	options ...ExpectOption,
 ) *{{.Name}}Expectation {
 	return &{{.Name}}Expectation{
 		set: &handler.{{.FieldName}},
-		expected: handler.{{.FieldName}}.expect(variables, options...),
+		expected: handler.{{.FieldName}}.expect(
+			{{if .HasVariables}}variables{{else}}struct{}{}{{end}},
+			options...,
+		),
 		options: []ResponseOption{},
 	}
 }
@@ -609,8 +612,12 @@ func (handler *TestHandler) Default{{.Name}}() *{{.Name}}Expectation {
 	}
 }
 
-func (handler *TestHandler) Reset{{.Name}}(variables ...{{.VariablesName}}) {
+func (handler *TestHandler) Reset{{.Name}}({{if .HasVariables}}variables ...{{.VariablesName}}{{end}}) {
+	{{if .HasVariables -}}
 	handler.{{.FieldName}}.reset(variables...)
+	{{else -}}
+	handler.{{.FieldName}}.reset()
+	{{end -}}
 }
 
 func (builder *{{.Name}}Expectation) WithOptions(
@@ -628,7 +635,7 @@ func (builder *{{.Name}}Expectation) Respond(
 	responseConfig := buildResponseOptions(combined...)
 	builder.set.setResult(
 		builder.expected,
-		func(_ {{.VariablesName}}, writer {{ref "net/http.ResponseWriter"}}) error {
+		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
@@ -642,7 +649,7 @@ func (builder *{{.Name}}Expectation) RespondError(
 	responseConfig := buildResponseOptions(combined...)
 	builder.set.setResult(
 		builder.expected,
-		func(_ {{.VariablesName}}, writer {{ref "net/http.ResponseWriter"}}) error {
+		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
@@ -660,7 +667,7 @@ func (builder *{{.Name}}Expectation) RespondDataAndErrors(
 	responseConfig := buildResponseOptions(builder.options...)
 	builder.set.setResult(
 		builder.expected,
-		func(_ {{.VariablesName}}, writer {{ref "net/http.ResponseWriter"}}) error {
+		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -672,13 +679,13 @@ func (builder *{{.Name}}Expectation) RespondDataAndErrors(
 }
 
 func (builder *{{.Name}}Expectation) Handle(
-	handler func({{.VariablesName}}, {{ref "net/http.ResponseWriter"}}),
+	handler func({{if .HasVariables}}{{.VariablesName}}, {{end}}{{ref "net/http.ResponseWriter"}}),
 ) {
 	if handler == nil {
 		builder.set.tb.Errorf("{{.Name}} dynamic handler must not be nil")
 		builder.set.setResult(
 			builder.expected,
-			func(_ {{.VariablesName}}, _ {{ref "net/http.ResponseWriter"}}) error {
+			func(_ {{.VariablesType}}, _ {{ref "net/http.ResponseWriter"}}) error {
 				return {{ref "fmt.Errorf"}}("{{.Name}} dynamic handler is nil")
 			},
 		)
@@ -686,8 +693,8 @@ func (builder *{{.Name}}Expectation) Handle(
 	}
 	builder.set.setResult(
 		builder.expected,
-		func(variables {{.VariablesName}}, writer {{ref "net/http.ResponseWriter"}}) error {
-			handler(variables, writer)
+		func(variables {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
+			handler({{if .HasVariables}}variables, {{end}}writer)
 			return nil
 		},
 	)

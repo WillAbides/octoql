@@ -2,6 +2,11 @@ scalar CustomPropertyValue
 scalar DateTime
 scalar ArbitraryJSON
 
+enum RepositoryVisibility {
+  PRIVATE
+  PUBLIC
+}
+
 interface Node {
   id: ID!
 }
@@ -42,11 +47,19 @@ input RepositorySelector {
 }
 
 input CreateRepositoryInput {
-  selector: RepositorySelector!
-  propertyValue: CustomPropertyValue!
+  name: String!
+  ownerId: ID
+  visibility: RepositoryVisibility
+  clientMutationId: String
+}
+
+type CreateRepositoryPayload {
+  repository: Repository
+  clientMutationId: String
 }
 
 type Query {
+  viewer: User!
   repository(
     owner: String!
     name: String!
@@ -62,5 +75,5 @@ type Query {
 }
 
 type Mutation {
-  createRepository(input: CreateRepositoryInput!): Repository!
+  createRepository(input: CreateRepositoryInput!): CreateRepositoryPayload!
 }

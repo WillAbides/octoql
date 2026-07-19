@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/gkampitakis/go-snaps/snaps"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -214,24 +216,19 @@ func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
 		}
 	}
 
-	for filename, content := range outputs {
-		err = os.MkdirAll(filepath.Dir(filename), 0o755)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = os.WriteFile(filename, content, 0o600)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	reversePlan, err := buildGenerationPlan(config)
+	require.NoError(t, err)
+	handlerFirst, err := renderTestHandler(reversePlan)
+	require.NoError(t, err)
+	clientSecond, err := renderClient(reversePlan)
+	require.NoError(t, err)
+	clientAgain, err := renderClient(reversePlan)
+	require.NoError(t, err)
+	assert.Equal(t, outputs[config.TestHandlerGenerated], handlerFirst)
+	assert.Equal(t, outputs[config.Generated], clientSecond)
+	assert.Equal(t, clientSecond, clientAgain)
 
-	command := exec.Command("go", "test", "./...")
-	command.Dir = tempDir
-	command.Env = append(os.Environ(), "GOWORK=off")
-	output, err := command.CombinedOutput()
-	if err != nil {
-		t.Fatalf("generated packages do not compile: %v\n%s", err, output)
-	}
+	compileGeneratedOutputs(t, tempDir, outputs)
 }
 
 func TestGenerateWithTestHandlerRendererFailureReturnsNoOutputs(t *testing.T) {
@@ -562,6 +559,279 @@ type Query {
 			}
 		})
 	}
+}
+
+func TestGenerateVariablelessHandlerWithVariablesResponseName(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-variableless-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Errorf("removing temporary generation directory: %v", err)
+		}
+	})
+
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(
+		schemaPath,
+		[]byte("type Viewer { login: String! }\ntype Query { viewer: Viewer! }\n"),
+		0o600,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(
+		operationPath,
+		[]byte("fragment ViewerVariables on Viewer { login }\nquery Viewer { viewer { ...ViewerVariables } }\n"),
+		0o600,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := &Config{
+		Schema:               []string{schemaPath},
+		Operations:           []string{operationPath},
+		Generated:            filepath.Join(tempDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+		Package:              "client",
+		ContextType:          "-",
+	}
+	err = config.ValidateAndFillDefaults("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outputs, err := Generate(config)
+	require.NoError(t, err)
+	handlerSource := string(outputs[config.TestHandlerGenerated])
+	assert.NotContains(t, handlerSource, "type ViewerVariables struct")
+	assert.Contains(t, handlerSource, "func (handler *TestHandler) ExpectViewer(")
+	compileGeneratedOutputs(t, tempDir, outputs)
+}
+
+func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, packageName := range []string{"StatusReady", "StatusQueryResponse"} {
+		t.Run(packageName, func(t *testing.T) {
+			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-import-alias-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				err = os.RemoveAll(tempDir)
+				if err != nil {
+					t.Errorf("removing temporary generation directory: %v", err)
+				}
+			})
+
+			schemaPath := filepath.Join(tempDir, "schema.graphql")
+			operationPath := filepath.Join(tempDir, "operation.graphql")
+			err = os.WriteFile(
+				schemaPath,
+				[]byte("enum Status { READY }\ntype Query { status: Status! }\n"),
+				0o600,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = os.WriteFile(
+				operationPath,
+				[]byte("query StatusQuery { status }\n"),
+				0o600,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := &Config{
+				Schema:               []string{schemaPath},
+				Operations:           []string{operationPath},
+				Generated:            filepath.Join(tempDir, "client", "generated.go"),
+				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+				Package:              packageName,
+				ContextType:          "-",
+			}
+			err = config.ValidateAndFillDefaults("")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			outputs, err := Generate(config)
+			require.NoError(t, err)
+			handlerSource := string(outputs[config.TestHandlerGenerated])
+			expectedImport := packageName + `2 "`
+			assert.Contains(t, handlerSource, expectedImport)
+			compileGeneratedOutputs(t, tempDir, outputs)
+		})
+	}
+}
+
+func TestGenerateRejectsTestHandlerImportCycle(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, test := range []struct {
+		name    string
+		binding func(string) *TypeBinding
+	}{
+		{
+			name: "bound type",
+			binding: func(packagePath string) *TypeBinding {
+				return &TypeBinding{Type: packagePath + ".Bound"}
+			},
+		},
+		{
+			name: "custom marshalers",
+			binding: func(packagePath string) *TypeBinding {
+				return &TypeBinding{
+					Type:        "string",
+					Marshaler:   packagePath + ".MarshalBound",
+					Unmarshaler: packagePath + ".UnmarshalBound",
+				}
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-import-cycle-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				err = os.RemoveAll(tempDir)
+				if err != nil {
+					t.Errorf("removing temporary generation directory: %v", err)
+				}
+			})
+
+			handlerDir := filepath.Join(tempDir, "githubapitest")
+			err = os.MkdirAll(handlerDir, 0o755)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = os.WriteFile(
+				filepath.Join(handlerDir, "types.go"),
+				[]byte("package githubapitest\n\ntype Bound string\n"),
+				0o600,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			absoluteHandlerDir, err := filepath.Abs(handlerDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			handlerPackagePath, err := packagePathFromModule(absoluteHandlerDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			schemaPath := filepath.Join(tempDir, "schema.graphql")
+			operationPath := filepath.Join(tempDir, "operation.graphql")
+			err = os.WriteFile(
+				schemaPath,
+				[]byte("scalar Bound\ntype Query { value(input: Bound!): Bound! }\n"),
+				0o600,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = os.WriteFile(
+				operationPath,
+				[]byte("query BoundValue($input: Bound!) { value(input: $input) }\n"),
+				0o600,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := &Config{
+				Schema:               []string{schemaPath},
+				Operations:           []string{operationPath},
+				Generated:            filepath.Join(tempDir, "client", "generated.go"),
+				TestHandlerGenerated: filepath.Join(handlerDir, "generated.go"),
+				Package:              "client",
+				ContextType:          "-",
+				Bindings: map[string]*TypeBinding{
+					"Bound": test.binding(handlerPackagePath),
+				},
+			}
+			err = config.ValidateAndFillDefaults("")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = Generate(config)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "creating an import cycle")
+		})
+	}
+}
+
+func TestGenerateRejectsTemplateOnlyTestHandlerImportCycle(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-template-cycle-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
+
+	config := &Config{
+		Schema:     []string{filepath.Join(dataDir, "schema.graphql")},
+		Operations: []string{filepath.Join(dataDir, "GraphShapes.graphql")},
+		Generated:  filepath.Join(tempDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(
+			"..",
+			"graphql",
+			"generated_test_handler.go",
+		),
+		Package:     "client",
+		ContextType: "-",
+		Bindings:    testBindings(),
+	}
+	err = config.ValidateAndFillDefaults("")
+	require.NoError(t, err)
+
+	_, err = Generate(config)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "creating an import cycle")
+}
+
+func compileGeneratedOutputs(
+	t *testing.T,
+	directory string,
+	outputs map[string][]byte,
+) {
+	t.Helper()
+
+	for filename, content := range outputs {
+		err := os.MkdirAll(filepath.Dir(filename), 0o755)
+		require.NoError(t, err)
+		err = os.WriteFile(filename, content, 0o600)
+		require.NoError(t, err)
+	}
+
+	command := exec.Command("go", "test", "./...")
+	command.Dir = directory
+	command.Env = append(os.Environ(), "GOWORK=off")
+	output, err := command.CombinedOutput()
+	require.NoErrorf(t, err, "generated packages do not compile:\n%s", output)
 }
 
 func TestGenerateTestHandlerRejectsSubscription(t *testing.T) {

@@ -71,7 +71,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
          different embeds differs from ordinary json-unmarshaling: we unmarshal
          into *all* of the fields.  See goStructType.FlattenedFields in
          types.go for more discussion of embedding and visibility. */ -}}
-    err = {{$field.Unmarshaler $.Generator}}(
+    err = {{unmarshaler $field}}(
         b, &v.{{$field.GoType.Unwrap.Reference}})
     if err != nil {
         return err
@@ -135,7 +135,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
                  need to initialize the *elements* of the list. */ -}}
             *dst = new({{$field.GoType.Unwrap.Reference}})
             {{end -}}
-            err = {{$field.Unmarshaler $.Generator}}(
+            err = {{unmarshaler $field}}(
                 src, {{if $field.GoType.IsPointer}}*{{end}}dst)
             if err != nil {
                 return fmt.Errorf(

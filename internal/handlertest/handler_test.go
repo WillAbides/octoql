@@ -22,6 +22,18 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	t.Cleanup(server.Close)
 	client := octoql.NewClient(server.URL, http.DefaultClient)
 
+	handler.ExpectViewer().Respond(githubapitest.ViewerResponse{
+		Viewer: githubapitest.ViewerViewerUser{
+			ViewerVariables: githubapitest.ViewerVariables{
+				Id:    "U1",
+				Login: "octocat",
+			},
+		},
+	})
+	viewerResponse, err := githubapi.Viewer(t.Context(), client)
+	require.NoError(t, err)
+	assert.Equal(t, "octocat", viewerResponse.Data.Viewer.Login)
+
 	variables := repositoryVariables()
 	data := repositoryData()
 	handler.ExpectGetRepository(variables).Respond(data)
@@ -44,18 +56,20 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	assert.Equal(t, "cursor-2", response.Data.Repository.Issues.PageInfo.EndCursor)
 
 	input := githubapitest.CreateRepositoryInput{
-		Selector: githubapitest.RepositorySelector{
-			Owner: "octo-org",
-			Name:  "created",
-		},
-		PropertyValue: json.RawMessage(`"enabled"`),
+		Name:             "created",
+		OwnerId:          "O1",
+		Visibility:       githubapitest.RepositoryVisibilityPrivate,
+		ClientMutationId: "mutation-1",
 	}
 	mutationData := githubapitest.CreateRepositoryResponse{
-		CreateRepository: githubapitest.CreateRepositoryCreateRepository{
-			Id:            "R2",
-			NameWithOwner: "octo-org/created",
-			UpdatedAt:     time.Date(2026, time.July, 19, 13, 0, 0, 0, time.UTC),
-			PropertyValue: json.RawMessage(`"enabled"`),
+		CreateRepository: githubapitest.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
+			Repository: githubapitest.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+				Id:            "R2",
+				NameWithOwner: "octo-org/created",
+				UpdatedAt:     time.Date(2026, time.July, 19, 13, 0, 0, 0, time.UTC),
+				PropertyValue: json.RawMessage(`"enabled"`),
+			},
+			ClientMutationId: "mutation-1",
 		},
 	}
 	handler.ExpectCreateRepository(githubapitest.CreateRepositoryVariables{
@@ -64,7 +78,8 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 
 	mutationResponse, err := githubapi.CreateRepository(t.Context(), client, input)
 	require.NoError(t, err)
-	assert.Equal(t, "octo-org/created", mutationResponse.Data.CreateRepository.NameWithOwner)
+	assert.Equal(t, "octo-org/created", mutationResponse.Data.CreateRepository.Repository.NameWithOwner)
+	assert.Equal(t, "mutation-1", mutationResponse.Data.CreateRepository.ClientMutationId)
 
 	property := json.RawMessage(`["one","two"]`)
 	handler.ExpectEchoProperty(githubapitest.EchoPropertyVariables{

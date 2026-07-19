@@ -25,6 +25,8 @@
   initializer clauses in `if` statements.
 - Test helpers that take `*testing.T` use `t.Context()` internally. Use
   `t.Helper()` only for assertion helpers.
+- Use `testify/require` for test prerequisites and `testify/assert` for
+  non-fatal checks whenever they make tests clearer.
 - The runtime config model is generated from `octoqlgen.schema.yaml` with the
   repository-pinned `script/jsonschematogo`; do not add handwritten user config
   structs.

@@ -13,70 +13,102 @@ import (
 	"github.com/willabides/octoql/graphql"
 )
 
-// CreateRepositoryCreateRepository includes the requested fields of the GraphQL type Repository.
-type CreateRepositoryCreateRepository struct {
-	Id            string                                                `json:"id"`
-	NameWithOwner string                                                `json:"nameWithOwner"`
-	UpdatedAt     time.Time                                             `json:"updatedAt"`
-	PropertyValue json.RawMessage                                       `json:"propertyValue"`
-	Issues        CreateRepositoryCreateRepositoryIssuesIssueConnection `json:"issues"`
+// CreateRepositoryCreateRepositoryCreateRepositoryPayload includes the requested fields of the GraphQL type CreateRepositoryPayload.
+type CreateRepositoryCreateRepositoryCreateRepositoryPayload struct {
+	Repository       CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository `json:"repository"`
+	ClientMutationId string                                                            `json:"clientMutationId"`
 }
 
-// GetId returns CreateRepositoryCreateRepository.Id, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepository) GetId() string { return v.Id }
+// GetRepository returns CreateRepositoryCreateRepositoryCreateRepositoryPayload.Repository, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetRepository() CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository {
+	return v.Repository
+}
 
-// GetNameWithOwner returns CreateRepositoryCreateRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepository) GetNameWithOwner() string { return v.NameWithOwner }
+// GetClientMutationId returns CreateRepositoryCreateRepositoryCreateRepositoryPayload.ClientMutationId, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetClientMutationId() string {
+	return v.ClientMutationId
+}
 
-// GetUpdatedAt returns CreateRepositoryCreateRepository.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepository) GetUpdatedAt() time.Time { return v.UpdatedAt }
+// CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository includes the requested fields of the GraphQL type Repository.
+type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository struct {
+	Id            string                                                                                 `json:"id"`
+	NameWithOwner string                                                                                 `json:"nameWithOwner"`
+	UpdatedAt     time.Time                                                                              `json:"updatedAt"`
+	PropertyValue json.RawMessage                                                                        `json:"propertyValue"`
+	Issues        CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection `json:"issues"`
+}
 
-// GetPropertyValue returns CreateRepositoryCreateRepository.PropertyValue, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepository) GetPropertyValue() json.RawMessage { return v.PropertyValue }
+// GetId returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.Id, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetId() string {
+	return v.Id
+}
 
-// GetIssues returns CreateRepositoryCreateRepository.Issues, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepository) GetIssues() CreateRepositoryCreateRepositoryIssuesIssueConnection {
+// GetNameWithOwner returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.NameWithOwner, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetNameWithOwner() string {
+	return v.NameWithOwner
+}
+
+// GetUpdatedAt returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetUpdatedAt() time.Time {
+	return v.UpdatedAt
+}
+
+// GetPropertyValue returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.PropertyValue, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetPropertyValue() json.RawMessage {
+	return v.PropertyValue
+}
+
+// GetIssues returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.Issues, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetIssues() CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection {
 	return v.Issues
 }
 
-// CreateRepositoryCreateRepositoryIssuesIssueConnection includes the requested fields of the GraphQL type IssueConnection.
-type CreateRepositoryCreateRepositoryIssuesIssueConnection struct {
-	PageInfo CreateRepositoryCreateRepositoryIssuesIssueConnectionPageInfo `json:"pageInfo"`
+// CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection includes the requested fields of the GraphQL type IssueConnection.
+type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection struct {
+	PageInfo CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo `json:"pageInfo"`
 }
 
-// GetPageInfo returns CreateRepositoryCreateRepositoryIssuesIssueConnection.PageInfo, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryIssuesIssueConnection) GetPageInfo() CreateRepositoryCreateRepositoryIssuesIssueConnectionPageInfo {
+// GetPageInfo returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection.PageInfo, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection) GetPageInfo() CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo {
 	return v.PageInfo
 }
 
-// CreateRepositoryCreateRepositoryIssuesIssueConnectionPageInfo includes the requested fields of the GraphQL type PageInfo.
-type CreateRepositoryCreateRepositoryIssuesIssueConnectionPageInfo struct {
+// CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo includes the requested fields of the GraphQL type PageInfo.
+type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo struct {
 	HasNextPage bool `json:"hasNextPage"`
 }
 
-// GetHasNextPage returns CreateRepositoryCreateRepositoryIssuesIssueConnectionPageInfo.HasNextPage, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryIssuesIssueConnectionPageInfo) GetHasNextPage() bool {
+// GetHasNextPage returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo) GetHasNextPage() bool {
 	return v.HasNextPage
 }
 
 type CreateRepositoryInput struct {
-	Selector      RepositorySelector `json:"selector"`
-	PropertyValue json.RawMessage    `json:"propertyValue"`
+	Name             string               `json:"name"`
+	OwnerId          string               `json:"ownerId"`
+	Visibility       RepositoryVisibility `json:"visibility"`
+	ClientMutationId string               `json:"clientMutationId"`
 }
 
-// GetSelector returns CreateRepositoryInput.Selector, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryInput) GetSelector() RepositorySelector { return v.Selector }
+// GetName returns CreateRepositoryInput.Name, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryInput) GetName() string { return v.Name }
 
-// GetPropertyValue returns CreateRepositoryInput.PropertyValue, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryInput) GetPropertyValue() json.RawMessage { return v.PropertyValue }
+// GetOwnerId returns CreateRepositoryInput.OwnerId, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryInput) GetOwnerId() string { return v.OwnerId }
+
+// GetVisibility returns CreateRepositoryInput.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryInput) GetVisibility() RepositoryVisibility { return v.Visibility }
+
+// GetClientMutationId returns CreateRepositoryInput.ClientMutationId, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryInput) GetClientMutationId() string { return v.ClientMutationId }
 
 // CreateRepositoryResponse is returned by CreateRepository on success.
 type CreateRepositoryResponse struct {
-	CreateRepository CreateRepositoryCreateRepository `json:"createRepository"`
+	CreateRepository CreateRepositoryCreateRepositoryCreateRepositoryPayload `json:"createRepository"`
 }
 
 // GetCreateRepository returns CreateRepositoryResponse.CreateRepository, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryResponse) GetCreateRepository() CreateRepositoryCreateRepository {
+func (v *CreateRepositoryResponse) GetCreateRepository() CreateRepositoryCreateRepositoryCreateRepositoryPayload {
 	return v.CreateRepository
 }
 
@@ -385,6 +417,18 @@ func (v *RepositorySelector) GetOwner() string { return v.Owner }
 // GetName returns RepositorySelector.Name, and is useful for accessing the field via an interface.
 func (v *RepositorySelector) GetName() string { return v.Name }
 
+type RepositoryVisibility string
+
+const (
+	RepositoryVisibilityPrivate RepositoryVisibility = "PRIVATE"
+	RepositoryVisibilityPublic  RepositoryVisibility = "PUBLIC"
+)
+
+var AllRepositoryVisibility = []RepositoryVisibility{
+	RepositoryVisibilityPrivate,
+	RepositoryVisibilityPublic,
+}
+
 // SearchResponse is returned by Search on success.
 type SearchResponse struct {
 	Search []SearchSearchSearchResultItem `json:"-"`
@@ -584,6 +628,84 @@ type SearchSearchSearchResultItemOctoqlOther struct {
 // GetTypename returns SearchSearchSearchResultItemOctoqlOther.Typename, and is useful for accessing the field via an interface.
 func (v *SearchSearchSearchResultItemOctoqlOther) GetTypename() string { return v.Typename }
 
+// ViewerResponse is returned by Viewer on success.
+type ViewerResponse struct {
+	Viewer ViewerViewerUser `json:"viewer"`
+}
+
+// GetViewer returns ViewerResponse.Viewer, and is useful for accessing the field via an interface.
+func (v *ViewerResponse) GetViewer() ViewerViewerUser { return v.Viewer }
+
+// ViewerVariables includes the GraphQL fields of User requested by the fragment ViewerVariables.
+type ViewerVariables struct {
+	Id    string `json:"id"`
+	Login string `json:"login"`
+}
+
+// GetId returns ViewerVariables.Id, and is useful for accessing the field via an interface.
+func (v *ViewerVariables) GetId() string { return v.Id }
+
+// GetLogin returns ViewerVariables.Login, and is useful for accessing the field via an interface.
+func (v *ViewerVariables) GetLogin() string { return v.Login }
+
+// ViewerViewerUser includes the requested fields of the GraphQL type User.
+type ViewerViewerUser struct {
+	ViewerVariables `json:"-"`
+}
+
+// GetId returns ViewerViewerUser.Id, and is useful for accessing the field via an interface.
+func (v *ViewerViewerUser) GetId() string { return v.ViewerVariables.Id }
+
+// GetLogin returns ViewerViewerUser.Login, and is useful for accessing the field via an interface.
+func (v *ViewerViewerUser) GetLogin() string { return v.ViewerVariables.Login }
+
+func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ViewerViewerUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ViewerViewerUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ViewerVariables)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalViewerViewerUser struct {
+	Id string `json:"id"`
+
+	Login string `json:"login"`
+}
+
+func (v *ViewerViewerUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, error) {
+	var retval __premarshalViewerViewerUser
+
+	retval.Id = v.ViewerVariables.Id
+	retval.Login = v.ViewerVariables.Login
+	return &retval, nil
+}
+
 // __CreateRepositoryInput is used internally by genqlient
 type __CreateRepositoryInput struct {
 	Input CreateRepositoryInput `json:"input"`
@@ -660,15 +782,18 @@ func (v *__SearchInput) GetQuery() string { return v.Query }
 const CreateRepository_Operation = `
 mutation CreateRepository ($input: CreateRepositoryInput!) {
 	createRepository(input: $input) {
-		id
-		nameWithOwner
-		updatedAt
-		propertyValue
-		issues(first: 1) {
-			pageInfo {
-				hasNextPage
+		repository {
+			id
+			nameWithOwner
+			updatedAt
+			propertyValue
+			issues(first: 1) {
+				pageInfo {
+					hasNextPage
+				}
 			}
 		}
+		clientMutationId
 	}
 }
 `
@@ -908,5 +1033,33 @@ func Search(
 			Query: Search_Operation,
 		},
 		&variables_,
+	)
+}
+
+// The query executed by Viewer.
+const Viewer_Operation = `
+query Viewer {
+	viewer {
+		... ViewerVariables
+	}
+}
+fragment ViewerVariables on User {
+	id
+	login
+}
+`
+
+func Viewer(
+	ctx_ context.Context,
+	client_ *octoql.Client,
+) (*octoql.Response[ViewerResponse], error) {
+	return octoql.Do[ViewerResponse](
+		ctx_,
+		client_,
+		octoql.Operation{
+			Name:  "Viewer",
+			Query: Viewer_Operation,
+		},
+		nil,
 	)
 }

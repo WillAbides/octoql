@@ -1,12 +1,87 @@
 package generate
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidateOutputPathsFilesystemAliases(t *testing.T) {
+	tempDir := t.TempDir()
+	realDir := filepath.Join(tempDir, "real")
+	err := os.Mkdir(realDir, 0o755)
+	require.NoError(t, err)
+	aliasDir := filepath.Join(tempDir, "alias")
+	err = os.Symlink(realDir, aliasDir)
+	if err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+
+	t.Run("symlinked parent", func(t *testing.T) {
+		config := Config{
+			Generated:            filepath.Join(realDir, "generated.go"),
+			TestHandlerGenerated: filepath.Join(aliasDir, "generated.go"),
+		}
+
+		err := config.validateOutputPaths()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "output paths must be different")
+	})
+
+	t.Run("symlinked file", func(t *testing.T) {
+		realFile := filepath.Join(realDir, "existing.go")
+		err := os.WriteFile(realFile, []byte("package real\n"), 0o600)
+		require.NoError(t, err)
+		aliasFile := filepath.Join(tempDir, "existing-alias.go")
+		err = os.Symlink(realFile, aliasFile)
+		require.NoError(t, err)
+		config := Config{
+			Generated:            realFile,
+			TestHandlerGenerated: aliasFile,
+		}
+
+		err = config.validateOutputPaths()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "output paths must be different")
+	})
+
+	t.Run("dangling symlink", func(t *testing.T) {
+		targetFile := filepath.Join(realDir, "future.go")
+		aliasFile := filepath.Join(tempDir, "future-alias.go")
+		err := os.Symlink(targetFile, aliasFile)
+		require.NoError(t, err)
+		config := Config{
+			Generated:            targetFile,
+			TestHandlerGenerated: aliasFile,
+		}
+
+		err = config.validateOutputPaths()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "output paths must be different")
+	})
+
+	t.Run("case equivalent", func(t *testing.T) {
+		config := Config{
+			Generated:            filepath.Join(realDir, "CaseOutput.go"),
+			TestHandlerGenerated: filepath.Join(realDir, "caseoutput.go"),
+		}
+
+		err := config.validateOutputPaths()
+
+		if filesystemCaseInsensitive(realDir) {
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "output paths must be different")
+			return
+		}
+		require.NoError(t, err)
+	})
+}
 
 func TestConfigValidateAndFillDefaults(t *testing.T) {
 	t.Parallel()

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"go/format"
 	"io"
+	"maps"
 	"sort"
 	"strings"
 	"text/template"
@@ -87,12 +88,86 @@ type exportedOperations struct {
 }
 
 type generationPlan struct {
-	generator *generator
+	config      Config
+	operations  []*operation
+	typeMap     map[string]goType
+	imports     map[string]string
+	usedAliases map[string]bool
 }
 
 type planBuilder func(*Config) (*generationPlan, error)
 
 type outputRenderer func(*generationPlan) ([]byte, error)
+
+func freezeGenerationPlan(g *generator) *generationPlan {
+	config := cloneConfig(g.Config)
+	return &generationPlan{
+		config:      config,
+		operations:  cloneOperations(g.Operations, nil),
+		typeMap:     maps.Clone(g.typeMap),
+		imports:     maps.Clone(g.imports),
+		usedAliases: maps.Clone(g.usedAliases),
+	}
+}
+
+func cloneConfig(config *Config) Config {
+	cloned := *config
+	cloned.Schema = append(StringList{}, config.Schema...)
+	cloned.Operations = append(StringList{}, config.Operations...)
+	cloned.Bindings = make(map[string]*TypeBinding, len(config.Bindings))
+	for name, binding := range config.Bindings {
+		if binding == nil {
+			cloned.Bindings[name] = nil
+			continue
+		}
+		bindingCopy := *binding
+		cloned.Bindings[name] = &bindingCopy
+	}
+	cloned.PackageBindings = make([]*PackageBinding, 0, len(config.PackageBindings))
+	for _, binding := range config.PackageBindings {
+		if binding == nil {
+			cloned.PackageBindings = append(cloned.PackageBindings, nil)
+			continue
+		}
+		bindingCopy := *binding
+		cloned.PackageBindings = append(cloned.PackageBindings, &bindingCopy)
+	}
+	cloned.Casing.Enums = maps.Clone(config.Casing.Enums)
+	if config.OmitUnreferencedImplementations != nil {
+		omit := *config.OmitUnreferencedImplementations
+		cloned.OmitUnreferencedImplementations = &omit
+	}
+	return cloned
+}
+
+func cloneOperations(operations []*operation, config *Config) []*operation {
+	cloned := make([]*operation, 0, len(operations))
+	for _, source := range operations {
+		operationCopy := *source
+		operationCopy.Config = config
+		cloned = append(cloned, &operationCopy)
+	}
+	return cloned
+}
+
+func (plan *generationPlan) newRenderer(config *Config, includePlanImports bool) *generator {
+	renderConfig := cloneConfig(config)
+	renderer := &generator{
+		Config:               &renderConfig,
+		Operations:           cloneOperations(plan.operations, &renderConfig),
+		typeMap:              plan.typeMap,
+		imports:              map[string]string{},
+		usedAliases:          map[string]bool{},
+		templateCache:        map[string]*template.Template{},
+		operationIdentifiers: map[*ast.OperationDefinition]operationIdentifiers{},
+		fragments:            map[string]*ast.FragmentDefinition{},
+	}
+	if includePlanImports {
+		renderer.imports = maps.Clone(plan.imports)
+		renderer.usedAliases = maps.Clone(plan.usedAliases)
+	}
+	return renderer
+}
 
 func newGenerator(
 	config *Config,
@@ -405,7 +480,7 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 		return g.Operations[i].Name < g.Operations[j].Name
 	})
 
-	plan := &generationPlan{generator: g}
+	plan := freezeGenerationPlan(g)
 	err = validateTestHandlerNames(plan)
 	if err != nil {
 		return nil, err
@@ -414,7 +489,7 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 }
 
 func renderClient(plan *generationPlan) ([]byte, error) {
-	g := plan.generator
+	g := plan.newRenderer(&plan.config, true)
 
 	var bodyBuf bytes.Buffer
 	err := g.WriteTypes(&bodyBuf)
@@ -469,9 +544,8 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 }
 
 func renderExportedOperations(plan *generationPlan) ([]byte, error) {
-	g := plan.generator
 	content, err := json.MarshalIndent(
-		exportedOperations{Operations: g.Operations},
+		exportedOperations{Operations: plan.operations},
 		"",
 		"  ",
 	)
