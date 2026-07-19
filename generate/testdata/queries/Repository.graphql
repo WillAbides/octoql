@@ -1,0 +1,102 @@
+# Copyright (c) 2026 octoql contributors
+# SPDX-License-Identifier: MIT
+
+query GetRepository($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    id
+    nameWithOwner
+    visibility
+    url
+    databaseId
+    createdAt
+    pushedAt
+    owner {
+      ...ActorFields
+    }
+  }
+}
+
+query ListRepositoryIssues($owner: String!, $name: String!, $first: Int = 20, $after: String) {
+  repository(owner: $owner, name: $name) {
+    issues(states: [OPEN], first: $first, after: $after) {
+      edges {
+        cursor
+        node {
+          ...IssueFields
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+
+query ListPullRequests(
+  $owner: String!
+  $name: String!
+  $includeClosed: Boolean! = false
+  $first: Int = 10
+  $after: String
+) {
+  repository(owner: $owner, name: $name) {
+    open: pullRequests(states: [OPEN], first: $first, after: $after) {
+      nodes {
+        id
+        title
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+    closed: pullRequests(states: [CLOSED], first: $first, after: $after) @include(if: $includeClosed) {
+      nodes {
+        id
+        title
+      }
+    }
+  }
+}
+
+fragment ActorFields on Actor {
+  id
+  login
+}
+
+fragment IssueFields on Issue {
+  id
+  title
+  state
+  assignees {
+    ...ActorFields
+  }
+}
+
+mutation AddComment($input: AddCommentInput!) {
+  addComment(input: $input) {
+    subject {
+      id
+    }
+    clientMutationId
+  }
+}
+
+mutation AddStar($input: AddStarInput!) {
+  addStar(input: $input) {
+    starrable {
+      id
+      viewerHasStarred
+    }
+  }
+}
+
+mutation RemoveStar($input: RemoveStarInput!) {
+  removeStar(input: $input) {
+    starrable {
+      id
+      viewerHasStarred
+    }
+  }
+}

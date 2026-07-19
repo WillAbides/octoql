@@ -1,7 +1,7 @@
 package errors
 
 const _ = `# @genqlient
-query GetPokemonWrongFields {
-  pokemon { species }
+query GetAccountWrongFields {
+  account { id }
 }
 `

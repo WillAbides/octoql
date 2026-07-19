@@ -1,5 +1,0 @@
-query unexported($query: UserQueryInput) {
-  user(query: $query) {
-    id
-  }
-}

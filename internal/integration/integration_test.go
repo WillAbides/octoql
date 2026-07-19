@@ -18,9 +18,16 @@ import (
 	"github.com/willabides/octoql/internal/integration/server"
 )
 
-func TestSimpleQuery(t *testing.T) {
+func TestGetRepository(t *testing.T) {
 	_ = `# @genqlient
-	query simpleQuery { me { id name luckyNumber greatScalar } }`
+	query getRepository($owner: String!, $name: String!) {
+		repository(owner: $owner, name: $name) {
+			id
+			name
+			nameWithOwner
+			owner { login }
+		}
+	}`
 
 	ctx := context.Background()
 	server := server.RunServer()
@@ -28,33 +35,67 @@ func TestSimpleQuery(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := simpleQuery(ctx, client)
+		response, err := getRepository(ctx, client, "octocat", "octo-repo")
 		require.NoError(t, err)
 
-		assert.Equal(t, "1", response.Data.Me.Id)
-		assert.Equal(t, "Yours Truly", response.Data.Me.Name)
-		assert.Equal(t, 17, response.Data.Me.LuckyNumber)
+		require.NotNil(t, response.Data.Repository)
+		assert.Equal(t, "10", response.Data.Repository.Id)
+		assert.Equal(t, "octo-repo", response.Data.Repository.Name)
+		assert.Equal(t, "octocat/octo-repo", response.Data.Repository.NameWithOwner)
+		assert.Equal(t, "octocat", response.Data.Repository.Owner.GetLogin())
 	}
 }
 
 func TestMutation(t *testing.T) {
 	_ = `# @genqlient
-	mutation createUser($user: NewUser!) { createUser(input: $user) { id name } }`
+	mutation addComment($input: AddCommentInput!) {
+		addComment(input: $input) { commentEdge { node { id body } } }
+	}`
 
 	ctx := context.Background()
 	server := server.RunServer()
 	defer server.Close()
 	postClient := newRoundtripClient(server.URL)
 
-	response, err := createUser(ctx, postClient, NewUser{Name: "Jack"})
+	response, err := addComment(ctx, postClient, AddCommentInput{SubjectId: "20", Body: "Thanks for reporting!"})
 	require.NoError(t, err)
-	assert.Equal(t, "5", response.Data.CreateUser.Id)
-	assert.Equal(t, "Jack", response.Data.CreateUser.Name)
+	require.NotNil(t, response.Data.AddComment.CommentEdge)
+	require.NotNil(t, response.Data.AddComment.CommentEdge.Node)
+	assert.Equal(t, "Thanks for reporting!", response.Data.AddComment.CommentEdge.Node.Body)
+}
+
+func TestStarMutations(t *testing.T) {
+	_ = `# @genqlient
+	mutation addStar($input: AddStarInput!) {
+		addStar(input: $input) { starrable { id stargazerCount viewerHasStarred } }
+	}
+	mutation removeStar($input: RemoveStarInput!) {
+		removeStar(input: $input) { starrable { id stargazerCount viewerHasStarred } }
+	}`
+
+	ctx := context.Background()
+	server := server.RunServer()
+	defer server.Close()
+	postClient := newRoundtripClient(server.URL)
+
+	starResponse, err := addStar(ctx, postClient, AddStarInput{StarrableId: "10"})
+	require.NoError(t, err)
+	require.NotNil(t, starResponse.Data.AddStar.Starrable)
+	assert.Equal(t, "10", starResponse.Data.AddStar.Starrable.GetId())
+	assert.True(t, starResponse.Data.AddStar.Starrable.GetViewerHasStarred())
+	assert.Equal(t, 43, starResponse.Data.AddStar.Starrable.GetStargazerCount())
+
+	unstarResponse, err := removeStar(ctx, postClient, RemoveStarInput{StarrableId: "10"})
+	require.NoError(t, err)
+	require.NotNil(t, unstarResponse.Data.RemoveStar.Starrable)
+	assert.Equal(t, "10", unstarResponse.Data.RemoveStar.Starrable.GetId())
+	assert.False(t, unstarResponse.Data.RemoveStar.Starrable.GetViewerHasStarred())
+	assert.Equal(t, 42, unstarResponse.Data.RemoveStar.Starrable.GetStargazerCount())
 }
 
 func TestServerError(t *testing.T) {
 	_ = `# @genqlient
-	query failingQuery { fail me { id } }`
+	query failingQuery { fail viewer { id } }`
 
 	ctx := context.Background()
 	server := server.RunServer()
@@ -77,26 +118,29 @@ func TestServerError(t *testing.T) {
 			assert.Equal(t, "oh no", gqlErrors[0].Message)
 		}
 		assert.NotNil(t, response)
-		assert.Equal(t, "1", response.Data.Me.Id)
+		assert.Equal(t, "1", response.Data.Viewer.Id)
 	}
 }
 
 func TestNetworkError(t *testing.T) {
 	ctx := context.Background()
-	clients := newRoundtripClients("https://nothing.invalid/graphql")
+	transportError := errors.New("offline transport failure")
+	client := octoql.NewClient("https://api.github.example/graphql", &http.Client{
+		Transport: integrationRoundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, transportError
+		}),
+	})
 
-	for _, client := range clients {
-		response, err := failingQuery(ctx, client)
-		assert.Error(t, err)
-		var gqlErrors octoql.Errors
-		assert.False(t, errors.As(err, &gqlErrors), "network errors should not contain octoql.Errors")
-		assert.Nil(t, response)
-	}
+	response, err := failingQuery(ctx, client)
+	assert.ErrorIs(t, err, transportError)
+	var gqlErrors octoql.Errors
+	assert.False(t, errors.As(err, &gqlErrors), "network errors should not contain octoql.Errors")
+	assert.Nil(t, response)
 }
 
 func TestVariables(t *testing.T) {
 	_ = `# @genqlient
-	query queryWithVariables($id: ID!) { user(id: $id) { id name luckyNumber } }`
+	query queryWithVariables($login: String!) { user(login: $login) { id login contributionCount } }`
 
 	ctx := context.Background()
 	server := server.RunServer()
@@ -104,14 +148,14 @@ func TestVariables(t *testing.T) {
 	clients := []*octoql.Client{octoql.NewClient(server.URL, http.DefaultClient)}
 
 	for _, client := range clients {
-		response, err := queryWithVariables(ctx, client, "2")
+		response, err := queryWithVariables(ctx, client, "raven")
 		require.NoError(t, err)
 
 		assert.Equal(t, "2", response.Data.User.Id)
-		assert.Equal(t, "Raven", response.Data.User.Name)
-		assert.Equal(t, -1, response.Data.User.LuckyNumber)
+		assert.Equal(t, "raven", response.Data.User.Login)
+		assert.Equal(t, -1, response.Data.User.ContributionCount)
 
-		response, err = queryWithVariables(ctx, client, "374892379482379")
+		response, err = queryWithVariables(ctx, client, "definitely-not-a-real-login")
 		require.NoError(t, err)
 
 		assert.Zero(t, response.Data.User)
@@ -120,7 +164,7 @@ func TestVariables(t *testing.T) {
 
 func TestExtensions(t *testing.T) {
 	_ = `# @genqlient
-	query simpleQueryExt { me { id name luckyNumber } }`
+	query simpleQueryExt { viewer { id login contributionCount } }`
 
 	ctx := context.Background()
 	server := server.RunServer()
@@ -137,8 +181,8 @@ func TestExtensions(t *testing.T) {
 
 func TestOmitempty(t *testing.T) {
 	_ = `# @genqlient(omitempty: true)
-	query queryWithOmitempty($id: ID) {
-		user(id: $id) { id name luckyNumber }
+	query queryWithOmitempty($login: String) {
+		user(login: $login) { id login contributionCount }
 	}`
 
 	ctx := context.Background()
@@ -147,27 +191,27 @@ func TestOmitempty(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithOmitempty(ctx, client, "2")
+		response, err := queryWithOmitempty(ctx, client, "raven")
 		require.NoError(t, err)
 
 		assert.Equal(t, "2", response.Data.User.Id)
-		assert.Equal(t, "Raven", response.Data.User.Name)
-		assert.Equal(t, -1, response.Data.User.LuckyNumber)
+		assert.Equal(t, "raven", response.Data.User.Login)
+		assert.Equal(t, -1, response.Data.User.ContributionCount)
 
-		// should return default user, not the user with ID ""
+		// should return the default viewer-like user, not the user with login ""
 		response, err = queryWithOmitempty(ctx, client, "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "1", response.Data.User.Id)
-		assert.Equal(t, "Yours Truly", response.Data.User.Name)
-		assert.Equal(t, 17, response.Data.User.LuckyNumber)
+		assert.Equal(t, "octocat", response.Data.User.Login)
+		assert.Equal(t, 17, response.Data.User.ContributionCount)
 	}
 }
 
 func TestCustomMarshal(t *testing.T) {
 	_ = `# @genqlient
 	query queryWithCustomMarshal($date: Date!) {
-		usersBornOn(date: $date) { id name birthdate }
+		usersCreatedOn(date: $date) { id login createdAt }
 	}`
 
 	ctx := context.Background()
@@ -180,25 +224,25 @@ func TestCustomMarshal(t *testing.T) {
 			time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))
 		require.NoError(t, err)
 
-		assert.Len(t, response.Data.UsersBornOn, 1)
-		user := response.Data.UsersBornOn[0]
+		assert.Len(t, response.Data.UsersCreatedOn, 1)
+		user := response.Data.UsersCreatedOn[0]
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, "Yours Truly", user.Name)
+		assert.Equal(t, "octocat", user.Login)
 		assert.Equal(t,
 			time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
-			user.Birthdate)
+			user.CreatedAt)
 
 		response, err = queryWithCustomMarshal(ctx, client,
 			time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC))
 		require.NoError(t, err)
-		assert.Len(t, response.Data.UsersBornOn, 0)
+		assert.Len(t, response.Data.UsersCreatedOn, 0)
 	}
 }
 
 func TestCustomMarshalSlice(t *testing.T) {
 	_ = `# @genqlient
 	query queryWithCustomMarshalSlice($dates: [Date!]!) {
-		usersBornOnDates(dates: $dates) { id name birthdate }
+		usersCreatedOnDates(dates: $dates) { id login createdAt }
 	}`
 
 	ctx := context.Background()
@@ -211,18 +255,18 @@ func TestCustomMarshalSlice(t *testing.T) {
 			[]time.Time{time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)})
 		require.NoError(t, err)
 
-		assert.Len(t, response.Data.UsersBornOnDates, 1)
-		user := response.Data.UsersBornOnDates[0]
+		assert.Len(t, response.Data.UsersCreatedOnDates, 1)
+		user := response.Data.UsersCreatedOnDates[0]
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, "Yours Truly", user.Name)
+		assert.Equal(t, "octocat", user.Login)
 		assert.Equal(t,
 			time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
-			user.Birthdate)
+			user.CreatedAt)
 
 		response, err = queryWithCustomMarshalSlice(ctx, client,
 			[]time.Time{time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)})
 		require.NoError(t, err)
-		assert.Len(t, response.Data.UsersBornOnDates, 0)
+		assert.Len(t, response.Data.UsersCreatedOnDates, 0)
 	}
 }
 
@@ -232,9 +276,9 @@ func TestCustomMarshalOptional(t *testing.T) {
 		# @genqlient(pointer: true)
 		$date: Date,
 		# @genqlient(pointer: true)
-		$id: ID,
+		$login: String,
 	) {
-		userSearch(birthdate: $date, id: $id) { id name birthdate }
+		userSearch(createdOn: $date, login: $login) { id login createdAt }
 	}`
 
 	ctx := context.Background()
@@ -250,27 +294,27 @@ func TestCustomMarshalOptional(t *testing.T) {
 		assert.Len(t, response.Data.UserSearch, 1)
 		user := response.Data.UserSearch[0]
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, "Yours Truly", user.Name)
+		assert.Equal(t, "octocat", user.Login)
 		assert.Equal(t,
 			time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
-			user.Birthdate)
+			user.CreatedAt)
 
-		id := "2"
-		response, err = queryWithCustomMarshalOptional(ctx, client, nil, &id)
+		login := "raven"
+		response, err = queryWithCustomMarshalOptional(ctx, client, nil, &login)
 		require.NoError(t, err)
 		assert.Len(t, response.Data.UserSearch, 1)
 		user = response.Data.UserSearch[0]
 		assert.Equal(t, "2", user.Id)
-		assert.Equal(t, "Raven", user.Name)
-		assert.Zero(t, user.Birthdate)
+		assert.Equal(t, "raven", user.Login)
+		assert.Zero(t, user.CreatedAt)
 	}
 }
 
 func TestInterfaceNoFragments(t *testing.T) {
 	_ = `# @genqlient
 	query queryWithInterfaceNoFragments($id: ID!) {
-		being(id: $id) { id name }
-		me { id name }
+		actor(id: $id) { id login }
+		viewer { id login }
 	}`
 
 	ctx := context.Background()
@@ -283,59 +327,59 @@ func TestInterfaceNoFragments(t *testing.T) {
 		require.NoError(t, err)
 
 		// We should get the following response:
-		//	me: User{Id: 1, Name: "Yours Truly"},
-		//	being: User{Id: 1, Name: "Yours Truly"},
+		//	viewer: User{Id: 1, Login: "octocat"},
+		//	actor: User{Id: 1, Login: "octocat"},
 
-		assert.Equal(t, "1", response.Data.Me.Id)
-		assert.Equal(t, "Yours Truly", response.Data.Me.Name)
+		assert.Equal(t, "1", response.Data.Viewer.Id)
+		assert.Equal(t, "octocat", response.Data.Viewer.Login)
 
 		// Check fields both via interface and via type-assertion:
-		assert.Equal(t, "User", response.Data.Being.GetTypename())
-		assert.Equal(t, "1", response.Data.Being.GetId())
-		assert.Equal(t, "Yours Truly", response.Data.Being.GetName())
+		assert.Equal(t, "User", response.Data.Actor.GetTypename())
+		assert.Equal(t, "1", response.Data.Actor.GetId())
+		assert.Equal(t, "octocat", response.Data.Actor.GetLogin())
 
-		user, ok := response.Data.Being.(*queryWithInterfaceNoFragmentsBeingUser)
-		require.Truef(t, ok, "got %T, not User", response.Data.Being)
+		user, ok := response.Data.Actor.(*queryWithInterfaceNoFragmentsActorUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Actor)
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, "Yours Truly", user.Name)
+		assert.Equal(t, "octocat", user.Login)
 
 		response, err = queryWithInterfaceNoFragments(ctx, client, "3")
 		require.NoError(t, err)
 
 		// We should get the following response:
-		//	me: User{Id: 1, Name: "Yours Truly"},
-		//	being: Animal{Id: 3, Name: "Fido"},
+		//	viewer: User{Id: 1, Login: "octocat"},
+		//	actor: Organization{Id: 3, Login: "octo-org"},
 
-		assert.Equal(t, "1", response.Data.Me.Id)
-		assert.Equal(t, "Yours Truly", response.Data.Me.Name)
+		assert.Equal(t, "1", response.Data.Viewer.Id)
+		assert.Equal(t, "octocat", response.Data.Viewer.Login)
 
-		assert.Equal(t, "Animal", response.Data.Being.GetTypename())
-		assert.Equal(t, "3", response.Data.Being.GetId())
-		assert.Equal(t, "Fido", response.Data.Being.GetName())
+		assert.Equal(t, "Organization", response.Data.Actor.GetTypename())
+		assert.Equal(t, "3", response.Data.Actor.GetId())
+		assert.Equal(t, "octo-org", response.Data.Actor.GetLogin())
 
-		animal, ok := response.Data.Being.(*queryWithInterfaceNoFragmentsBeingAnimal)
-		require.Truef(t, ok, "got %T, not Animal", response.Data.Being)
-		assert.Equal(t, "3", animal.Id)
-		assert.Equal(t, "Fido", animal.Name)
+		org, ok := response.Data.Actor.(*queryWithInterfaceNoFragmentsActorOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Data.Actor)
+		assert.Equal(t, "3", org.Id)
+		assert.Equal(t, "octo-org", org.Login)
 
 		response, err = queryWithInterfaceNoFragments(ctx, client, "4757233945723")
 		require.NoError(t, err)
 
 		// We should get the following response:
-		//	me: User{Id: 1, Name: "Yours Truly"},
-		//	being: null
+		//	viewer: User{Id: 1, Login: "octocat"},
+		//	actor: null
 
-		assert.Equal(t, "1", response.Data.Me.Id)
-		assert.Equal(t, "Yours Truly", response.Data.Me.Name)
+		assert.Equal(t, "1", response.Data.Viewer.Id)
+		assert.Equal(t, "octocat", response.Data.Viewer.Login)
 
-		assert.Nil(t, response.Data.Being)
+		assert.Nil(t, response.Data.Actor)
 	}
 }
 
 func TestInterfaceListField(t *testing.T) {
 	_ = `# @genqlient
 	query queryWithInterfaceListField($ids: [ID!]!) {
-		beings(ids: $ids) { id name }
+		actors(ids: $ids) { id login }
 	}`
 
 	ctx := context.Background()
@@ -348,33 +392,33 @@ func TestInterfaceListField(t *testing.T) {
 			[]string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, response.Data.Beings, 3)
+		require.Len(t, response.Data.Actors, 3)
 
-		// We should get the following three beings:
-		//	User{Id: 1, Name: "Yours Truly"},
-		//	Animal{Id: 3, Name: "Fido"},
+		// We should get the following three actors:
+		//	User{Id: 1, Login: "octocat"},
+		//	Organization{Id: 3, Login: "octo-org"},
 		//	null
 
 		// Check fields both via interface and via type-assertion:
-		assert.Equal(t, "User", response.Data.Beings[0].GetTypename())
-		assert.Equal(t, "1", response.Data.Beings[0].GetId())
-		assert.Equal(t, "Yours Truly", response.Data.Beings[0].GetName())
+		assert.Equal(t, "User", response.Data.Actors[0].GetTypename())
+		assert.Equal(t, "1", response.Data.Actors[0].GetId())
+		assert.Equal(t, "octocat", response.Data.Actors[0].GetLogin())
 
-		user, ok := response.Data.Beings[0].(*queryWithInterfaceListFieldBeingsUser)
-		require.Truef(t, ok, "got %T, not User", response.Data.Beings[0])
+		user, ok := response.Data.Actors[0].(*queryWithInterfaceListFieldActorsUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Actors[0])
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, "Yours Truly", user.Name)
+		assert.Equal(t, "octocat", user.Login)
 
-		assert.Equal(t, "Animal", response.Data.Beings[1].GetTypename())
-		assert.Equal(t, "3", response.Data.Beings[1].GetId())
-		assert.Equal(t, "Fido", response.Data.Beings[1].GetName())
+		assert.Equal(t, "Organization", response.Data.Actors[1].GetTypename())
+		assert.Equal(t, "3", response.Data.Actors[1].GetId())
+		assert.Equal(t, "octo-org", response.Data.Actors[1].GetLogin())
 
-		animal, ok := response.Data.Beings[1].(*queryWithInterfaceListFieldBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
-		assert.Equal(t, "3", animal.Id)
-		assert.Equal(t, "Fido", animal.Name)
+		org, ok := response.Data.Actors[1].(*queryWithInterfaceListFieldActorsOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Data.Actors[1])
+		assert.Equal(t, "3", org.Id)
+		assert.Equal(t, "octo-org", org.Login)
 
-		assert.Nil(t, response.Data.Beings[2])
+		assert.Nil(t, response.Data.Actors[2])
 	}
 }
 
@@ -382,8 +426,8 @@ func TestInterfaceListPointerField(t *testing.T) {
 	_ = `# @genqlient
 	query queryWithInterfaceListPointerField($ids: [ID!]!) {
 		# @genqlient(pointer: true)
-		beings(ids: $ids) {
-			__typename id name
+		actors(ids: $ids) {
+			__typename id login
 		}
 	}`
 
@@ -397,49 +441,48 @@ func TestInterfaceListPointerField(t *testing.T) {
 			[]string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, response.Data.Beings, 3)
+		require.Len(t, response.Data.Actors, 3)
 
 		// Check fields both via interface and via type-assertion:
-		assert.Equal(t, "User", (*response.Data.Beings[0]).GetTypename())
-		assert.Equal(t, "1", (*response.Data.Beings[0]).GetId())
-		assert.Equal(t, "Yours Truly", (*response.Data.Beings[0]).GetName())
+		assert.Equal(t, "User", (*response.Data.Actors[0]).GetTypename())
+		assert.Equal(t, "1", (*response.Data.Actors[0]).GetId())
+		assert.Equal(t, "octocat", (*response.Data.Actors[0]).GetLogin())
 
-		user, ok := (*response.Data.Beings[0]).(*queryWithInterfaceListPointerFieldBeingsUser)
-		require.Truef(t, ok, "got %T, not User", *response.Data.Beings[0])
+		user, ok := (*response.Data.Actors[0]).(*queryWithInterfaceListPointerFieldActorsUser)
+		require.Truef(t, ok, "got %T, not User", *response.Data.Actors[0])
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, "Yours Truly", user.Name)
+		assert.Equal(t, "octocat", user.Login)
 
-		assert.Equal(t, "Animal", (*response.Data.Beings[1]).GetTypename())
-		assert.Equal(t, "3", (*response.Data.Beings[1]).GetId())
-		assert.Equal(t, "Fido", (*response.Data.Beings[1]).GetName())
+		assert.Equal(t, "Organization", (*response.Data.Actors[1]).GetTypename())
+		assert.Equal(t, "3", (*response.Data.Actors[1]).GetId())
+		assert.Equal(t, "octo-org", (*response.Data.Actors[1]).GetLogin())
 
-		animal, ok := (*response.Data.Beings[1]).(*queryWithInterfaceListPointerFieldBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
-		assert.Equal(t, "3", animal.Id)
-		assert.Equal(t, "Fido", animal.Name)
+		org, ok := (*response.Data.Actors[1]).(*queryWithInterfaceListPointerFieldActorsOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Data.Actors[1])
+		assert.Equal(t, "3", org.Id)
+		assert.Equal(t, "octo-org", org.Login)
 
-		assert.Nil(t, response.Data.Beings[2])
+		assert.Nil(t, response.Data.Actors[2])
 	}
 }
 
 func TestFragments(t *testing.T) {
 	_ = `# @genqlient
 	query queryWithFragments($ids: [ID!]!) {
-		beings(ids: $ids) {
+		actors(ids: $ids) {
 			__typename id
-			... on Being { id name }
-			... on Animal {
+			... on Actor { id login }
+			... on Organization {
 				id
-				hair { hasHair }
-				species
-				owner {
+				plan { name }
+				topContributor {
 					id
-					... on Being { name }
-					... on User { luckyNumber }
+					... on Actor { login }
+					... on User { contributionCount }
 				}
 			}
-			... on Lucky { luckyNumber }
-			... on User { hair { color } }
+			... on RepositoryOwner { contributionCount }
+			... on User { status { emoji } }
 		}
 	}`
 
@@ -452,88 +495,88 @@ func TestFragments(t *testing.T) {
 		response, err := queryWithFragments(ctx, client, []string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, response.Data.Beings, 3)
+		require.Len(t, response.Data.Actors, 3)
 
-		// We should get the following three beings:
-		//	User{Id: 1, Name: "Yours Truly"},
-		//	Animal{Id: 3, Name: "Fido"},
+		// We should get the following three actors:
+		//	User{Id: 1, Login: "octocat"},
+		//	Organization{Id: 3, Login: "octo-org"},
 		//	null
 
 		// Check fields both via interface and via type-assertion when possible
-		// User has, in total, the fields: __typename id name luckyNumber.
-		assert.Equal(t, "User", response.Data.Beings[0].GetTypename())
-		assert.Equal(t, "1", response.Data.Beings[0].GetId())
-		assert.Equal(t, "Yours Truly", response.Data.Beings[0].GetName())
-		// (hair and luckyNumber we need to cast for)
+		// User has, in total, the fields: __typename id login contributionCount.
+		assert.Equal(t, "User", response.Data.Actors[0].GetTypename())
+		assert.Equal(t, "1", response.Data.Actors[0].GetId())
+		assert.Equal(t, "octocat", response.Data.Actors[0].GetLogin())
+		// (status and contributionCount we need to cast for)
 
-		user, ok := response.Data.Beings[0].(*queryWithFragmentsBeingsUser)
-		require.Truef(t, ok, "got %T, not User", response.Data.Beings[0])
+		user, ok := response.Data.Actors[0].(*queryWithFragmentsActorsUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Actors[0])
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, "Yours Truly", user.Name)
-		assert.Equal(t, "Black", user.Hair.Color)
-		assert.Equal(t, 17, user.LuckyNumber)
+		assert.Equal(t, "octocat", user.Login)
+		assert.Equal(t, ":octocat:", user.Status.Emoji)
+		assert.Equal(t, 17, user.ContributionCount)
 
-		// Animal has, in total, the fields:
+		// Organization has, in total, the fields:
 		//	__typename
 		//	id
-		//	species
-		//	owner {
+		//	plan
+		//	contributionCount
+		//	topContributor {
 		//		id
-		//		name
-		//		... on User { luckyNumber }
+		//		login
+		//		... on User { contributionCount }
 		//	}
-		assert.Equal(t, "Animal", response.Data.Beings[1].GetTypename())
-		assert.Equal(t, "3", response.Data.Beings[1].GetId())
-		// (hair, species, and owner.* we have to cast for)
+		assert.Equal(t, "Organization", response.Data.Actors[1].GetTypename())
+		assert.Equal(t, "3", response.Data.Actors[1].GetId())
+		// (plan, contributionCount, and topContributor.* we have to cast for)
 
-		animal, ok := response.Data.Beings[1].(*queryWithFragmentsBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
-		assert.Equal(t, "3", animal.Id)
-		assert.Equal(t, SpeciesDog, animal.Species)
-		assert.True(t, animal.Hair.HasHair)
+		org, ok := response.Data.Actors[1].(*queryWithFragmentsActorsOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Data.Actors[1])
+		assert.Equal(t, "3", org.Id)
+		assert.Equal(t, PlanNameTeam, org.Plan.Name)
 
-		assert.Equal(t, "1", animal.Owner.GetId())
-		assert.Equal(t, "Yours Truly", animal.Owner.GetName())
-		// (luckyNumber we have to cast for, again)
+		assert.Equal(t, "1", org.TopContributor.GetId())
+		assert.Equal(t, "octocat", org.TopContributor.GetLogin())
+		// (contributionCount we have to cast for, again)
 
-		owner, ok := animal.Owner.(*queryWithFragmentsBeingsAnimalOwnerUser)
-		require.Truef(t, ok, "got %T, not User", animal.Owner)
-		assert.Equal(t, "1", owner.Id)
-		assert.Equal(t, "Yours Truly", owner.Name)
-		assert.Equal(t, 17, owner.LuckyNumber)
+		topContributor, ok := org.TopContributor.(*queryWithFragmentsActorsOrganizationTopContributorUser)
+		require.Truef(t, ok, "got %T, not User", org.TopContributor)
+		assert.Equal(t, "1", topContributor.Id)
+		assert.Equal(t, "octocat", topContributor.Login)
+		assert.Equal(t, 17, topContributor.ContributionCount)
 
-		assert.Nil(t, response.Data.Beings[2])
+		assert.Nil(t, response.Data.Actors[2])
 	}
 }
 
 func TestNamedFragments(t *testing.T) {
 	_ = `# @genqlient
-	fragment AnimalFields on Animal {
+	fragment OrganizationFields on Organization {
 		id
-		hair { hasHair }
-		owner { id ...UserFields ...LuckyFields }
+		plan { name }
+		topContributor { id ...UserFields ...RepositoryOwnerFields }
 	}
 
 	fragment MoreUserFields on User {
 		id
-		hair { color }
+		status { emoji }
 	}
 
-	fragment LuckyFields on Lucky {
+	fragment RepositoryOwnerFields on RepositoryOwner {
 		...MoreUserFields
-		luckyNumber
+		contributionCount
 	}
 	
 	fragment UserFields on User {
 		id
-		...LuckyFields
+		...RepositoryOwnerFields
 		...MoreUserFields
 	}
 
 	query queryWithNamedFragments($ids: [ID!]!) {
-		beings(ids: $ids) {
+		actors(ids: $ids) {
 			__typename id
-			...AnimalFields
+			...OrganizationFields
 			...UserFields
 		}
 	}`
@@ -547,116 +590,116 @@ func TestNamedFragments(t *testing.T) {
 		response, err := queryWithNamedFragments(ctx, client, []string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, response.Data.Beings, 3)
+		require.Len(t, response.Data.Actors, 3)
 
-		// We should get the following three beings:
-		//	User{Id: 1, Name: "Yours Truly"},
-		//	Animal{Id: 3, Name: "Fido"},
+		// We should get the following three actors:
+		//	User{Id: 1, Login: "octocat"},
+		//	Organization{Id: 3, Login: "octo-org"},
 		//	null
 
 		// Check fields both via interface and via type-assertion when possible
-		// User has, in total, the fields: __typename id luckyNumber.
-		assert.Equal(t, "User", response.Data.Beings[0].GetTypename())
-		assert.Equal(t, "1", response.Data.Beings[0].GetId())
-		// (luckyNumber, hair we need to cast for)
+		// User has, in total, the fields: __typename id contributionCount.
+		assert.Equal(t, "User", response.Data.Actors[0].GetTypename())
+		assert.Equal(t, "1", response.Data.Actors[0].GetId())
+		// (contributionCount, status we need to cast for)
 
-		user, ok := response.Data.Beings[0].(*queryWithNamedFragmentsBeingsUser)
-		require.Truef(t, ok, "got %T, not User", response.Data.Beings[0])
+		user, ok := response.Data.Actors[0].(*queryWithNamedFragmentsActorsUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Actors[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "1", user.UserFields.Id)
 		assert.Equal(t, "1", user.UserFields.MoreUserFields.Id)
-		assert.Equal(t, "1", user.UserFields.LuckyFieldsUser.MoreUserFields.Id)
+		assert.Equal(t, "1", user.UserFields.RepositoryOwnerFieldsUser.MoreUserFields.Id)
 		// on UserFields, but we should be able to access directly via embedding:
-		assert.Equal(t, 17, user.LuckyNumber)
-		assert.Equal(t, "Black", user.Hair.Color)
-		assert.Equal(t, "Black", user.UserFields.MoreUserFields.Hair.Color)
-		assert.Equal(t, "Black", user.UserFields.LuckyFieldsUser.MoreUserFields.Hair.Color)
+		assert.Equal(t, 17, user.ContributionCount)
+		assert.Equal(t, ":octocat:", user.Status.Emoji)
+		assert.Equal(t, ":octocat:", user.UserFields.MoreUserFields.Status.Emoji)
+		assert.Equal(t, ":octocat:", user.UserFields.RepositoryOwnerFieldsUser.MoreUserFields.Status.Emoji)
 
-		// Animal has, in total, the fields:
+		// Organization has, in total, the fields:
 		//	__typename
 		//	id
-		//	hair { hasHair }
-		//	owner { id luckyNumber }
-		assert.Equal(t, "Animal", response.Data.Beings[1].GetTypename())
-		assert.Equal(t, "3", response.Data.Beings[1].GetId())
-		// (hair.* and owner.* we have to cast for)
+		//	plan
+		//	topContributor { id contributionCount }
+		assert.Equal(t, "Organization", response.Data.Actors[1].GetTypename())
+		assert.Equal(t, "3", response.Data.Actors[1].GetId())
+		// (plan.* and topContributor.* we have to cast for)
 
-		animal, ok := response.Data.Beings[1].(*queryWithNamedFragmentsBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
+		org, ok := response.Data.Actors[1].(*queryWithNamedFragmentsActorsOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Data.Actors[1])
 		// Check that we filled in *both* ID fields:
-		assert.Equal(t, "3", animal.Id)
-		assert.Equal(t, "3", animal.AnimalFields.Id)
-		// on AnimalFields:
-		assert.True(t, animal.Hair.HasHair)
-		assert.Equal(t, "1", animal.Owner.GetId())
-		// (luckyNumber we have to cast for, again)
+		assert.Equal(t, "3", org.Id)
+		assert.Equal(t, "3", org.OrganizationFields.Id)
+		// on OrganizationFields:
+		assert.Equal(t, PlanNameTeam, org.Plan.Name)
+		assert.Equal(t, "1", org.TopContributor.GetId())
+		// (contributionCount we have to cast for, again)
 
-		owner, ok := animal.Owner.(*AnimalFieldsOwnerUser)
-		require.Truef(t, ok, "got %T, not User", animal.Owner)
+		topContributor, ok := org.TopContributor.(*OrganizationFieldsTopContributorUser)
+		require.Truef(t, ok, "got %T, not User", org.TopContributor)
 		// Check that we filled in *both* ID fields:
-		assert.Equal(t, "1", owner.Id)
-		assert.Equal(t, "1", owner.UserFields.Id)
-		assert.Equal(t, "1", owner.UserFields.MoreUserFields.Id)
-		assert.Equal(t, "1", owner.UserFields.LuckyFieldsUser.MoreUserFields.Id)
+		assert.Equal(t, "1", topContributor.Id)
+		assert.Equal(t, "1", topContributor.UserFields.Id)
+		assert.Equal(t, "1", topContributor.UserFields.MoreUserFields.Id)
+		assert.Equal(t, "1", topContributor.UserFields.RepositoryOwnerFieldsUser.MoreUserFields.Id)
 		// on UserFields:
-		assert.Equal(t, 17, owner.LuckyNumber)
-		assert.Equal(t, "Black", owner.UserFields.MoreUserFields.Hair.Color)
-		assert.Equal(t, "Black", owner.UserFields.LuckyFieldsUser.MoreUserFields.Hair.Color)
+		assert.Equal(t, 17, topContributor.ContributionCount)
+		assert.Equal(t, ":octocat:", topContributor.UserFields.MoreUserFields.Status.Emoji)
+		assert.Equal(t, ":octocat:", topContributor.UserFields.RepositoryOwnerFieldsUser.MoreUserFields.Status.Emoji)
 
-		// Lucky-based fields we can also get by casting to the fragment-interface.
-		luckyOwner, ok := animal.Owner.(LuckyFields)
-		require.Truef(t, ok, "got %T, not Lucky", animal.Owner)
-		assert.Equal(t, 17, luckyOwner.GetLuckyNumber())
+		// RepositoryOwner-based fields we can also get by casting to the fragment-interface.
+		repoOwnerTopContributor, ok := org.TopContributor.(RepositoryOwnerFields)
+		require.Truef(t, ok, "got %T, not RepositoryOwner", org.TopContributor)
+		assert.Equal(t, 17, repoOwnerTopContributor.GetContributionCount())
 
-		assert.Nil(t, response.Data.Beings[2])
+		assert.Nil(t, response.Data.Actors[2])
 	}
 }
 
 func TestFlatten(t *testing.T) {
 	_ = `# @genqlient
 	# @genqlient(flatten: true)
-	fragment BeingFields on Being {
-		...InnerBeingFields
+	fragment ActorFields on Actor {
+		...InnerActorFields
 	}
 
-	fragment InnerBeingFields on Being {
+	fragment InnerActorFields on Actor {
 		id
-		name
+		login
 		... on User {
 			# @genqlient(flatten: true)
-			friends {
-				...FriendsFields
+			repositories {
+				...RepositoriesFields
 			}
 		}
 	}
 
-	fragment FriendsFields on User {
+	fragment RepositoriesFields on Repository {
 		id
 		name
 	}
 
 	# @genqlient(flatten: true)
 	fragment FlattenedUserFields on User {
-		...FlattenedLuckyFields
+		...FlattenedRepositoryOwnerFields
 	}
 
 	# @genqlient(flatten: true)
-	fragment FlattenedLuckyFields on Lucky {
-		...InnerLuckyFields
+	fragment FlattenedRepositoryOwnerFields on RepositoryOwner {
+		...InnerRepositoryOwnerFields
 	}
 
-	fragment InnerLuckyFields on Lucky {
-		luckyNumber
+	fragment InnerRepositoryOwnerFields on RepositoryOwner {
+		contributionCount
 	}
 	
 	fragment QueryFragment on Query {
-		beings(ids: $ids) {
+		actors(ids: $ids) {
 			__typename id
 			...FlattenedUserFields
-			... on Animal {
+			... on Organization {
 				# @genqlient(flatten: true)
-				owner {
-					...BeingFields
+				topContributor {
+					...ActorFields
 				}
 			}
 		}
@@ -678,49 +721,101 @@ func TestFlatten(t *testing.T) {
 		response, err := queryWithFlatten(ctx, client, []string{"1", "3", "12847394823"})
 		require.NoError(t, err)
 
-		require.Len(t, response.Data.Beings, 3)
+		require.Len(t, response.Data.Actors, 3)
 
-		// We should get the following three beings:
-		//	User{Id: 1, Name: "Yours Truly"},
-		//	Animal{Id: 3, Name: "Fido"},
+		// We should get the following three actors:
+		//	User{Id: 1, Login: "octocat"},
+		//	Organization{Id: 3, Login: "octo-org"},
 		//	null
 
 		// Check fields both via interface and via type-assertion when possible
-		// User has, in total, the fields: __typename id luckyNumber.
-		assert.Equal(t, "User", response.Data.Beings[0].GetTypename())
-		assert.Equal(t, "1", response.Data.Beings[0].GetId())
-		// (luckyNumber we need to cast for)
+		// User has, in total, the fields: __typename id contributionCount.
+		assert.Equal(t, "User", response.Data.Actors[0].GetTypename())
+		assert.Equal(t, "1", response.Data.Actors[0].GetId())
+		// (contributionCount we need to cast for)
 
-		user, ok := response.Data.Beings[0].(*QueryFragmentBeingsUser)
-		require.Truef(t, ok, "got %T, not User", response.Data.Beings[0])
+		user, ok := response.Data.Actors[0].(*QueryFragmentActorsUser)
+		require.Truef(t, ok, "got %T, not User", response.Data.Actors[0])
 		assert.Equal(t, "1", user.Id)
-		assert.Equal(t, 17, user.InnerLuckyFieldsUser.LuckyNumber)
+		assert.Equal(t, 17, user.InnerRepositoryOwnerFieldsUser.ContributionCount)
 
-		// Animal has, in total, the fields:
+		// Organization has, in total, the fields:
 		//	__typename
 		//	id
-		//	owner { id name ... on User { friends { id name } } }
-		assert.Equal(t, "Animal", response.Data.Beings[1].GetTypename())
-		assert.Equal(t, "3", response.Data.Beings[1].GetId())
-		// (owner.* we have to cast for)
+		//	topContributor { id login ... on User { repositories { id name } } }
+		assert.Equal(t, "Organization", response.Data.Actors[1].GetTypename())
+		assert.Equal(t, "3", response.Data.Actors[1].GetId())
+		// (topContributor.* we have to cast for)
 
-		animal, ok := response.Data.Beings[1].(*QueryFragmentBeingsAnimal)
-		require.Truef(t, ok, "got %T, not Animal", response.Data.Beings[1])
-		assert.Equal(t, "3", animal.Id)
-		// on AnimalFields:
-		assert.Equal(t, "1", animal.Owner.GetId())
-		assert.Equal(t, "Yours Truly", animal.Owner.GetName())
-		// (friends.* we have to cast for, again)
+		org, ok := response.Data.Actors[1].(*QueryFragmentActorsOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Data.Actors[1])
+		assert.Equal(t, "3", org.Id)
+		// on ActorFields:
+		assert.Equal(t, "1", org.TopContributor.GetId())
+		assert.Equal(t, "octocat", org.TopContributor.GetLogin())
+		// (repositories.* we have to cast for, again)
 
-		owner, ok := animal.Owner.(*InnerBeingFieldsUser)
-		require.Truef(t, ok, "got %T, not User", animal.Owner)
-		assert.Equal(t, "1", owner.Id)
-		assert.Equal(t, "Yours Truly", owner.Name)
-		assert.Len(t, owner.Friends, 1)
-		assert.Equal(t, "2", owner.Friends[0].Id)
-		assert.Equal(t, "Raven", owner.Friends[0].Name)
+		topContributor, ok := org.TopContributor.(*InnerActorFieldsUser)
+		require.Truef(t, ok, "got %T, not User", org.TopContributor)
+		assert.Equal(t, "1", topContributor.Id)
+		assert.Equal(t, "octocat", topContributor.Login)
+		assert.Len(t, topContributor.Repositories, 1)
+		assert.Equal(t, "10", topContributor.Repositories[0].Id)
+		assert.Equal(t, "octo-repo", topContributor.Repositories[0].Name)
 
-		assert.Nil(t, response.Data.Beings[2])
+		assert.Nil(t, response.Data.Actors[2])
+	}
+}
+
+func TestSearch(t *testing.T) {
+	_ = `# @genqlient
+	query queryWithSearch($query: String!, $searchType: SearchType!) {
+		search(query: $query, type: $searchType) {
+			__typename
+			... on Node { id }
+			... on Repository { name stargazerCount }
+			... on Issue { title issueState: state }
+			... on PullRequest { title pullRequestState: state }
+			... on Actor { login }
+		}
+	}`
+
+	ctx := context.Background()
+	server := server.RunServer()
+	defer server.Close()
+	clients := newRoundtripClients(server.URL)
+
+	for _, client := range clients {
+		response, err := queryWithSearch(ctx, client, "octo", SearchTypeRepository)
+		require.NoError(t, err)
+		require.Len(t, response.Data.Search, 1)
+
+		repo, ok := response.Data.Search[0].(*queryWithSearchSearchRepository)
+		require.Truef(t, ok, "got %T, not Repository", response.Data.Search[0])
+		assert.Equal(t, "octo-repo", repo.Name)
+		assert.Equal(t, 42, repo.StargazerCount)
+
+		response, err = queryWithSearch(ctx, client, "bug", SearchTypeIssue)
+		require.NoError(t, err)
+		require.Len(t, response.Data.Search, 2)
+
+		issue, ok := response.Data.Search[0].(*queryWithSearchSearchIssue)
+		require.Truef(t, ok, "got %T, not Issue", response.Data.Search[0])
+		assert.Equal(t, "Bug report", issue.Title)
+		assert.Equal(t, IssueStateOpen, issue.IssueState)
+
+		pr, ok := response.Data.Search[1].(*queryWithSearchSearchPullRequest)
+		require.Truef(t, ok, "got %T, not PullRequest", response.Data.Search[1])
+		assert.Equal(t, "Fix bug", pr.Title)
+		assert.Equal(t, PullRequestStateMerged, pr.PullRequestState)
+
+		response, err = queryWithSearch(ctx, client, "dependabot", SearchTypeUser)
+		require.NoError(t, err)
+		require.Len(t, response.Data.Search, 1)
+
+		bot, ok := response.Data.Search[0].(*queryWithSearchSearchBot)
+		require.Truef(t, ok, "got %T, not Bot", response.Data.Search[0])
+		assert.Equal(t, "dependabot", bot.Login)
 	}
 }
 

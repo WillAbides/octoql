@@ -1,7 +1,0 @@
-query SimpleQueryWithPointerFalseOverride {
-    user {
-        id
-        # @genqlient(pointer: false)
-        name
-    }
-}

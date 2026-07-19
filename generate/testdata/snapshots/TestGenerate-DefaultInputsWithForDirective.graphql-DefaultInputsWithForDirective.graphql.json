@@ -1,9 +1,0 @@
-{
-  "operations": [
-    {
-      "operationName": "DefaultInputs",
-      "query": "\nquery DefaultInputs ($input: InputWithDefaults!) {\n\tdefault(input: $input)\n}\n",
-      "sourceLocation": "testdata/queries/DefaultInputsWithForDirective.graphql"
-    }
-  ]
-}

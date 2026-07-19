@@ -1,5 +1,0 @@
-query UnionNoFragmentsQuery {
-  randomLeaf {
-    __typename
-  }
-}
