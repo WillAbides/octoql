@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"go/format"
 	"go/token"
+	"go/types"
 	"sort"
 	"strconv"
-	"strings"
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
@@ -200,7 +200,10 @@ func validateTestHandlerNames(plan *generationPlan) error {
 }
 
 func clientDependsOnTestHandler(plan *generationPlan) (bool, error) {
-	dependencies := clientDependencyPaths(plan)
+	dependencies, err := clientDependencyPaths(plan)
+	if err != nil {
+		return false, err
+	}
 	handlerPackagePath := plan.config.testHandlerPkgPath
 	if dependencies[handlerPackagePath] {
 		return true, nil
@@ -237,54 +240,16 @@ func clientDependsOnTestHandler(plan *generationPlan) (bool, error) {
 	return false, nil
 }
 
-func clientDependencyPaths(plan *generationPlan) map[string]bool {
-	dependencies := make(map[string]bool, len(plan.imports)+1)
-	for packagePath := range plan.imports {
+func clientDependencyPaths(plan *generationPlan) (map[string]bool, error) {
+	imports, err := clientRenderImports(plan)
+	if err != nil {
+		return nil, err
+	}
+	dependencies := make(map[string]bool, len(imports))
+	for packagePath := range imports {
 		dependencies[packagePath] = true
 	}
-	dependencies["github.com/willabides/octoql"] = true
-	for _, generatedType := range plan.typeMap {
-		structType, ok := generatedType.(*goStructType)
-		if ok && structType.NeedsMarshaling() {
-			dependencies["github.com/willabides/octoql/graphql"] = true
-		}
-	}
-	for _, binding := range plan.config.Bindings {
-		if binding == nil {
-			continue
-		}
-		for _, reference := range []string{
-			binding.Type,
-			binding.Marshaler,
-			binding.Unmarshaler,
-		} {
-			packagePath := packagePathFromReference(reference)
-			if packagePath != "" {
-				dependencies[packagePath] = true
-			}
-		}
-	}
-	for _, reference := range []string{
-		plan.config.ContextType,
-		plan.config.ClientGetter,
-		plan.config.OptionalGenericType,
-	} {
-		packagePath := packagePathFromReference(reference)
-		if packagePath != "" {
-			dependencies[packagePath] = true
-		}
-	}
-	return dependencies
-}
-
-func packagePathFromReference(reference string) string {
-	prefix := _sliceOrMapPrefixRegexp.FindString(reference)
-	name := reference[len(prefix):]
-	index := strings.LastIndex(name, ".")
-	if index == -1 {
-		return ""
-	}
-	return name[:index]
+	return dependencies, nil
 }
 
 func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTemplateData, error) {
@@ -357,6 +322,9 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 	})
 
 	for _, name := range testHandlerReservedNames {
+		handlerGenerator.usedAliases[name] = true
+	}
+	for _, name := range types.Universe.Names() {
 		handlerGenerator.usedAliases[name] = true
 	}
 

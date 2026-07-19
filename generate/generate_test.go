@@ -630,6 +630,9 @@ func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) 
 		"ExpectStatusQuery",
 		"DefaultStatusQuery",
 		"ResetStatusQuery",
+		"string",
+		"error",
+		"any",
 	} {
 		t.Run(packageName, func(t *testing.T) {
 			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-import-alias-")
@@ -884,6 +887,57 @@ func TestGenerateRejectsTransitiveTestHandlerImportCycle(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "creating an import cycle")
+}
+
+func TestGenerateAllowsUnusedTestHandlerPackageBinding(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	require.NoError(t, os.MkdirAll(tempRoot, 0o755))
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-unused-binding-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
+
+	handlerDir := filepath.Join(tempDir, "githubapitest")
+	require.NoError(t, os.MkdirAll(handlerDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(handlerDir, "types.go"),
+		[]byte("package githubapitest\n\ntype Bound string\n"),
+		0o600,
+	))
+	absoluteHandlerDir, err := filepath.Abs(handlerDir)
+	require.NoError(t, err)
+	handlerPackagePath, err := packagePathFromModule(absoluteHandlerDir)
+	require.NoError(t, err)
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	require.NoError(t, os.WriteFile(
+		schemaPath,
+		[]byte("type Query { value: String! }\n"),
+		0o600,
+	))
+	require.NoError(t, os.WriteFile(
+		operationPath,
+		[]byte("query Value { value }\n"),
+		0o600,
+	))
+	config := &Config{
+		Schema:               []string{schemaPath},
+		Operations:           []string{operationPath},
+		Generated:            filepath.Join(tempDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(handlerDir, "generated.go"),
+		Package:              "client",
+		ContextType:          "-",
+		Bindings: map[string]*TypeBinding{
+			"Bound": {Type: handlerPackagePath + ".Bound"},
+		},
+	}
+	require.NoError(t, config.ValidateAndFillDefaults(""))
+
+	outputs, err := Generate(config)
+
+	require.NoError(t, err)
+	compileGeneratedOutputs(t, tempDir, outputs)
 }
 
 func compileGeneratedOutputs(

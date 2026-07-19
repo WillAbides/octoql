@@ -490,7 +490,10 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 
 func renderClient(plan *generationPlan) ([]byte, error) {
 	g := plan.newRenderer(&plan.config, true)
+	return renderClientGenerator(g)
+}
 
+func renderClientGenerator(g *generator) ([]byte, error) {
 	var bodyBuf bytes.Buffer
 	err := g.WriteTypes(&bodyBuf)
 	if err != nil {
@@ -541,6 +544,15 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 	}
 
 	return importsed, nil
+}
+
+func clientRenderImports(plan *generationPlan) (map[string]string, error) {
+	g := plan.newRenderer(&plan.config, true)
+	_, err := renderClientGenerator(g)
+	if err != nil {
+		return nil, err
+	}
+	return maps.Clone(g.imports), nil
 }
 
 func renderExportedOperations(plan *generationPlan) ([]byte, error) {
