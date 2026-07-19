@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../../octoqlgen.schema.yaml
+
+schema:
+  path: schema.docs.graphql
+  sha256: c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
+  source:
+    github_docs:
+      # fpt resolves to src/graphql/data/fpt/schema.docs.graphql.
+      version: fpt
+      revision: 27a4008f193706042a40cbb6c71cf85633249e79
+operations:
+  - operations.graphql
+generated: generated.go
