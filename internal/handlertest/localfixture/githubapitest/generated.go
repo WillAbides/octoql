@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/willabides/octoql"
-	"github.com/willabides/octoql/graphql"
 )
 
 // CreateRepositoryCreateRepositoryCreateRepositoryPayload includes the requested fields of the GraphQL type CreateRepositoryPayload.
@@ -273,7 +272,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*GetNodeResponse
 		Node json.RawMessage `json:"node"`
-		graphql.NoUnmarshalJSON
+		octoql.NoUnmarshalJSON
 	}
 	firstPass.GetNodeResponse = v
 
@@ -434,7 +433,7 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*SearchResponse
 		Search []json.RawMessage `json:"search"`
-		graphql.NoUnmarshalJSON
+		octoql.NoUnmarshalJSON
 	}
 	firstPass.SearchResponse = v
 
@@ -655,7 +654,7 @@ func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*ViewerViewerUser
-		graphql.NoUnmarshalJSON
+		octoql.NoUnmarshalJSON
 	}
 	firstPass.ViewerViewerUser = v
 

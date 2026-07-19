@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/willabides/octoql"
-	"github.com/willabides/octoql/graphql"
 	"github.com/willabides/octoql/internal/testutil"
 )
 
@@ -108,7 +107,7 @@ func (v *GitHubInputResponseLatestRelease) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*GitHubInputResponseLatestRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		graphql.NoUnmarshalJSON
+		octoql.NoUnmarshalJSON
 	}
 	firstPass.GitHubInputResponseLatestRelease = v
 
@@ -184,7 +183,7 @@ func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) UnmarshalJSON(b 
 	var firstPass struct {
 		*GitHubInputResponseReleasesPublishedOnOptionalRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		graphql.NoUnmarshalJSON
+		octoql.NoUnmarshalJSON
 	}
 	firstPass.GitHubInputResponseReleasesPublishedOnOptionalRelease = v
 
@@ -260,7 +259,7 @@ func (v *GitHubInputResponseReleasesPublishedOnRelease) UnmarshalJSON(b []byte) 
 	var firstPass struct {
 		*GitHubInputResponseReleasesPublishedOnRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		graphql.NoUnmarshalJSON
+		octoql.NoUnmarshalJSON
 	}
 	firstPass.GitHubInputResponseReleasesPublishedOnRelease = v
 
@@ -436,7 +435,7 @@ func (v *RepositorySelector) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*RepositorySelector
 		CreatedAfter json.RawMessage `json:"createdAfter"`
-		graphql.NoUnmarshalJSON
+		octoql.NoUnmarshalJSON
 	}
 	firstPass.RepositorySelector = v
 
@@ -620,7 +619,7 @@ func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 		Date                   json.RawMessage       `json:"date"`
 		PublishedDates         [][][]json.RawMessage `json:"publishedDates"`
 		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
-		graphql.NoUnmarshalJSON
+		octoql.NoUnmarshalJSON
 	}
 	firstPass.__GitHubInputsInput = v
 
