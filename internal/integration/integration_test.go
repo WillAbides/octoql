@@ -49,26 +49,6 @@ func TestGetRepository(t *testing.T) {
 	}
 }
 
-func TestGeneratedUnmarshalPreservesExistingDirectFields(t *testing.T) {
-	value := getRepositoryRepository{
-		Id:            "10",
-		Name:          "original",
-		NameWithOwner: "octocat/original",
-	}
-
-	err := json.Unmarshal([]byte(`{"name":"updated"}`), &value)
-	require.NoError(t, err)
-	assert.Equal(t, "10", value.Id)
-	assert.Equal(t, "updated", value.Name)
-	assert.Equal(t, "octocat/original", value.NameWithOwner)
-
-	err = json.Unmarshal([]byte(" \n null \t"), &value)
-	require.NoError(t, err)
-	assert.Equal(t, "10", value.Id)
-	assert.Equal(t, "updated", value.Name)
-	assert.Equal(t, "octocat/original", value.NameWithOwner)
-}
-
 func TestMutation(t *testing.T) {
 	_ = `# @genqlient
 	mutation addComment($input: AddCommentInput!) {

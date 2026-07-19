@@ -62,9 +62,11 @@ func (v *__queryWithCustomMarshalInput) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*__queryWithCustomMarshalInput
 		Date json.RawMessage `json:"date"`
 		__noUnmarshalJSON
 	}
+	firstPass.__queryWithCustomMarshalInput = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -139,14 +141,12 @@ func (v *__queryWithCustomMarshalOptionalInput) UnmarshalJSON(b []byte) error {
 		Date json.RawMessage `json:"date"`
 		__noUnmarshalJSON
 	}
+	firstPass.__queryWithCustomMarshalOptionalInput = v
 
-	firstPass.Login = v.Login
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Login = firstPass.Login
 
 	{
 		dst := &v.Date
@@ -214,9 +214,11 @@ func (v *__queryWithCustomMarshalSliceInput) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*__queryWithCustomMarshalSliceInput
 		Dates []json.RawMessage `json:"dates"`
 		__noUnmarshalJSON
 	}
+	firstPass.__queryWithCustomMarshalSliceInput = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -427,9 +429,11 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*addStarAddStarAddStarPayload
 		Starrable json.RawMessage `json:"starrable"`
 		__noUnmarshalJSON
 	}
+	firstPass.addStarAddStarAddStarPayload = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -629,18 +633,12 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 		Owner json.RawMessage `json:"owner"`
 		__noUnmarshalJSON
 	}
+	firstPass.getRepositoryRepository = v
 
-	firstPass.Id = v.Id
-	firstPass.Name = v.Name
-	firstPass.NameWithOwner = v.NameWithOwner
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Id = firstPass.Id
-	v.Name = firstPass.Name
-	v.NameWithOwner = firstPass.NameWithOwner
 
 	{
 		dst := &v.Owner
@@ -1067,16 +1065,12 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 		TopContributor json.RawMessage `json:"topContributor"`
 		__noUnmarshalJSON
 	}
+	firstPass.organizationFields = v
 
-	firstPass.Id = v.Id
-	firstPass.Plan = v.Plan
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Id = firstPass.Id
-	v.Plan = firstPass.Plan
 
 	{
 		dst := &v.TopContributor
@@ -1274,16 +1268,12 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 		*organizationFieldsTopContributorOrganization
 		__noUnmarshalJSON
 	}
+	firstPass.organizationFieldsTopContributorOrganization = v
 
-	firstPass.Typename = v.Typename
-	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Typename = firstPass.Typename
-	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.repositoryOwnerFieldsOrganization)
@@ -1352,16 +1342,12 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 		*organizationFieldsTopContributorUser
 		__noUnmarshalJSON
 	}
+	firstPass.organizationFieldsTopContributorUser = v
 
-	firstPass.Typename = v.Typename
-	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Typename = firstPass.Typename
-	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.userFields)
@@ -1419,9 +1405,11 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*queryFragment
 		Actors []json.RawMessage `json:"actors"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryFragment = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -1616,21 +1604,16 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Typename       string          `json:"__typename"`
-		Id             string          `json:"id"`
+		*queryFragmentActorsOrganization
 		TopContributor json.RawMessage `json:"topContributor"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryFragmentActorsOrganization = v
 
-	firstPass.Typename = v.Typename
-	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Typename = firstPass.Typename
-	v.Id = firstPass.Id
 
 	{
 		dst := &v.TopContributor
@@ -1711,16 +1694,12 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 		*queryFragmentActorsUser
 		__noUnmarshalJSON
 	}
+	firstPass.queryFragmentActorsUser = v
 
-	firstPass.Typename = v.Typename
-	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Typename = firstPass.Typename
-	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.innerRepositoryOwnerFieldsUser)
@@ -1788,21 +1767,16 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) e
 	}
 
 	var firstPass struct {
-		Id        string          `json:"id"`
-		Login     string          `json:"login"`
+		*queryWithCustomMarshalOptionalUserSearchUser
 		CreatedAt json.RawMessage `json:"createdAt"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithCustomMarshalOptionalUserSearchUser = v
 
-	firstPass.Id = v.Id
-	firstPass.Login = v.Login
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Id = firstPass.Id
-	v.Login = firstPass.Login
 
 	{
 		dst := &v.CreatedAt
@@ -1900,21 +1874,16 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []b
 	}
 
 	var firstPass struct {
-		Id        string          `json:"id"`
-		Login     string          `json:"login"`
+		*queryWithCustomMarshalSliceUsersCreatedOnDatesUser
 		CreatedAt json.RawMessage `json:"createdAt"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithCustomMarshalSliceUsersCreatedOnDatesUser = v
 
-	firstPass.Id = v.Id
-	firstPass.Login = v.Login
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Id = firstPass.Id
-	v.Login = firstPass.Login
 
 	{
 		dst := &v.CreatedAt
@@ -1990,21 +1959,16 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error
 	}
 
 	var firstPass struct {
-		Id        string          `json:"id"`
-		Login     string          `json:"login"`
+		*queryWithCustomMarshalUsersCreatedOnUser
 		CreatedAt json.RawMessage `json:"createdAt"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithCustomMarshalUsersCreatedOnUser = v
 
-	firstPass.Id = v.Id
-	firstPass.Login = v.Login
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Id = firstPass.Id
-	v.Login = firstPass.Login
 
 	{
 		dst := &v.CreatedAt
@@ -2209,22 +2173,12 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 		TopContributor json.RawMessage `json:"topContributor"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithFragmentsActorsOrganization = v
 
-	firstPass.Typename = v.Typename
-	firstPass.Id = v.Id
-	firstPass.Login = v.Login
-	firstPass.Plan = v.Plan
-	firstPass.ContributionCount = v.ContributionCount
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Typename = firstPass.Typename
-	v.Id = firstPass.Id
-	v.Login = firstPass.Login
-	v.Plan = firstPass.Plan
-	v.ContributionCount = firstPass.ContributionCount
 
 	{
 		dst := &v.TopContributor
@@ -2496,9 +2450,11 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*queryWithFragmentsResponse
 		Actors []json.RawMessage `json:"actors"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithFragmentsResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -2718,9 +2674,11 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*queryWithInterfaceListFieldResponse
 		Actors []json.RawMessage `json:"actors"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithInterfaceListFieldResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -2942,9 +2900,11 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 	}
 
 	var firstPass struct {
+		*queryWithInterfaceListPointerFieldResponse
 		Actors []json.RawMessage `json:"actors"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithInterfaceListPointerFieldResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -3177,14 +3137,12 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 		Actor json.RawMessage `json:"actor"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithInterfaceNoFragmentsResponse = v
 
-	firstPass.Viewer = v.Viewer
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Viewer = firstPass.Viewer
 
 	{
 		dst := &v.Actor
@@ -3388,16 +3346,12 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 		*queryWithNamedFragmentsActorsOrganization
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithNamedFragmentsActorsOrganization = v
 
-	firstPass.Typename = v.Typename
-	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Typename = firstPass.Typename
-	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.organizationFields)
@@ -3479,16 +3433,12 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 		*queryWithNamedFragmentsActorsUser
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithNamedFragmentsActorsUser = v
 
-	firstPass.Typename = v.Typename
-	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Typename = firstPass.Typename
-	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.userFields)
@@ -3543,9 +3493,11 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*queryWithNamedFragmentsResponse
 		Actors []json.RawMessage `json:"actors"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithNamedFragmentsResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -3650,9 +3602,11 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*queryWithSearchResponse
 		Search []json.RawMessage `json:"search"`
 		__noUnmarshalJSON
 	}
+	firstPass.queryWithSearchResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -3996,9 +3950,11 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*removeStarRemoveStarRemoveStarPayload
 		Starrable json.RawMessage `json:"starrable"`
 		__noUnmarshalJSON
 	}
+	firstPass.removeStarRemoveStarRemoveStarPayload = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -4273,14 +4229,12 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 		*repositoryOwnerFieldsUser
 		__noUnmarshalJSON
 	}
+	firstPass.repositoryOwnerFieldsUser = v
 
-	firstPass.ContributionCount = v.ContributionCount
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.ContributionCount = firstPass.ContributionCount
 
 	err = json.Unmarshal(
 		b, &v.moreUserFields)
@@ -4341,14 +4295,12 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 		*userFields
 		__noUnmarshalJSON
 	}
+	firstPass.userFields = v
 
-	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.repositoryOwnerFieldsUser)

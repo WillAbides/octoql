@@ -270,9 +270,11 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*GetNodeResponse
 		Node json.RawMessage `json:"node"`
 		__noUnmarshalJSON
 	}
+	firstPass.GetNodeResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -429,9 +431,11 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*SearchResponse
 		Search []json.RawMessage `json:"search"`
 		__noUnmarshalJSON
 	}
+	firstPass.SearchResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -652,6 +656,7 @@ func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 		*ViewerViewerUser
 		__noUnmarshalJSON
 	}
+	firstPass.ViewerViewerUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {

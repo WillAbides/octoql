@@ -110,9 +110,11 @@ func (v *GitHubInputResponseLatestRelease) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*GitHubInputResponseLatestRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
 		__noUnmarshalJSON
 	}
+	firstPass.GitHubInputResponseLatestRelease = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -184,9 +186,11 @@ func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) UnmarshalJSON(b 
 	}
 
 	var firstPass struct {
+		*GitHubInputResponseReleasesPublishedOnOptionalRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
 		__noUnmarshalJSON
 	}
+	firstPass.GitHubInputResponseReleasesPublishedOnOptionalRelease = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -258,9 +262,11 @@ func (v *GitHubInputResponseReleasesPublishedOnRelease) UnmarshalJSON(b []byte) 
 	}
 
 	var firstPass struct {
+		*GitHubInputResponseReleasesPublishedOnRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
 		__noUnmarshalJSON
 	}
+	firstPass.GitHubInputResponseReleasesPublishedOnRelease = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -432,27 +438,16 @@ func (v *RepositorySelector) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Owner        string          `json:"owner"`
-		Name         string          `json:"name"`
-		DatabaseID   *testutil.ID    `json:"databaseID"`
-		Topics       []string        `json:"topics"`
+		*RepositorySelector
 		CreatedAfter json.RawMessage `json:"createdAfter"`
 		__noUnmarshalJSON
 	}
+	firstPass.RepositorySelector = v
 
-	firstPass.Owner = v.Owner
-	firstPass.Name = v.Name
-	firstPass.DatabaseID = v.DatabaseID
-	firstPass.Topics = v.Topics
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Owner = firstPass.Owner
-	v.Name = firstPass.Name
-	v.DatabaseID = firstPass.DatabaseID
-	v.Topics = firstPass.Topics
 
 	{
 		dst := &v.CreatedAfter
@@ -631,22 +626,12 @@ func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
 		__noUnmarshalJSON
 	}
+	firstPass.__GitHubInputsInput = v
 
-	firstPass.Repository = v.Repository
-	firstPass.Filter = v.Filter
-	firstPass.Defaults = v.Defaults
-	firstPass.Optional = v.Optional
-	firstPass.Structs = v.Structs
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
-
-	v.Repository = firstPass.Repository
-	v.Filter = firstPass.Filter
-	v.Defaults = firstPass.Defaults
-	v.Optional = firstPass.Optional
-	v.Structs = firstPass.Structs
 
 	{
 		dst := &v.Date
