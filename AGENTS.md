@@ -7,9 +7,14 @@
 - The module path is `github.com/willabides/octoql`, with Go version `1.26.0`.
 - All generated-code runtime support and reusable runtime APIs belong in the
   root `octoql` package. Do not recreate a separate `graphql` runtime package.
+  `NoMarshalJSON` and `NoUnmarshalJSON` are generated-code-only root contracts
+  that prevent JSON method promotion; preserve them unless equivalent
+  `encoding/json` semantics and generated compatibility are proven.
   Generator implementation belongs in `internal/generate`; users invoke
   `cmd/octoqlgen`. Do not recreate a public `generate` package.
-- Do not update `docs/CHANGELOG.md` unless a task explicitly requires it.
+- The root `README.md` is the primary user guide. Keep `docs/` for specialized
+  references, design rationale, and project policies that are too detailed for
+  the README. The repository has no changelog; project history remains in Git.
 - `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
 - octoql does not support GraphQL subscriptions. Preserve top-level
@@ -65,6 +70,11 @@
   reachable references owned by the generated client package.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
+- Keep the runtime and generator in the single root module. Runtime users compile
+  only the root package's standard-library dependency closure, although direct
+  generator requirements remain in the module graph and participate in MVS.
+  That accepted graph cost is outweighed by synchronized generator/runtime
+  versions, licenses, release validation, and CI.
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve
   project-level attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`, and
   preserve generated `Code generated ... DO NOT EDIT.` notices.
@@ -105,7 +115,8 @@
 - Edit `.bindown.yaml` only through `script/bindown`; do not edit it directly.
   Update checksums with `script/bindown checksums sync`.
 - Keep release publication disabled. Snapshot and configuration checks are
-  allowed, but do not add publication credentials, triggers, or jobs.
+  allowed, but do not add publication credentials, triggers, or jobs. Release
+  archives must contain `LICENSE` and `THIRD_PARTY_NOTICES.md`.
 - CI runs independent `test`, `lint`, `generate`, and `release` jobs.
 - Remove generated local tool and build artifacts such as `bin/`, `.bindown/`,
   `dist/`, and root-level binaries before finishing work.

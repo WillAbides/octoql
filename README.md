@@ -25,6 +25,7 @@ test-handler generation.
 - [Generated types and GitHub defaults](#generated-types-and-github-defaults)
 - [Typed test handlers](#typed-test-handlers)
 - [Migration from genqlient or earlier octoql config](#migration-from-genqlient-or-earlier-octoql-config)
+- [Contributing](#contributing)
 - [Reference and project policies](#reference-and-project-policies)
 
 ## Requirements and installation
@@ -524,6 +525,14 @@ or sleep.
   exhaustive type switch.
 - Upgrade the runtime and generator together, then regenerate checked-in code.
   The single module intentionally keeps their versions synchronized.
+
+## Contributing
+
+Snapshot maintenance is a contributor workflow, not part of installing or using
+octoql. Update go-snaps output only when the behavior or generated artifacts
+covered by an affected test intentionally change, review every update, and run
+the same focused test normally afterward. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for commands and repository conventions.
 
 ## Reference and project policies
 
