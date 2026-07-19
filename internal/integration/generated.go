@@ -13,6 +13,12 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type __noUnmarshalJSON struct{}
+
+func (__noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("__noUnmarshalJSON.UnmarshalJSON should never be called")
+}
+
 // __addCommentInput is used internally by genqlient
 type __addCommentInput struct {
 	Input server.AddCommentInput `json:"input"`
@@ -57,6 +63,7 @@ func (v *__queryWithCustomMarshalInput) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Date json.RawMessage `json:"date"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -128,8 +135,9 @@ func (v *__queryWithCustomMarshalOptionalInput) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Date  json.RawMessage `json:"date"`
-		Login *string         `json:"login"`
+		*__queryWithCustomMarshalOptionalInput
+		Date json.RawMessage `json:"date"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Login = v.Login
@@ -207,6 +215,7 @@ func (v *__queryWithCustomMarshalSliceInput) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Dates []json.RawMessage `json:"dates"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -419,6 +428,7 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Starrable json.RawMessage `json:"starrable"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -615,10 +625,9 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Id            string          `json:"id"`
-		Name          string          `json:"name"`
-		NameWithOwner string          `json:"nameWithOwner"`
-		Owner         json.RawMessage `json:"owner"`
+		*getRepositoryRepository
+		Owner json.RawMessage `json:"owner"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Id = v.Id
@@ -1054,9 +1063,9 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Id             string                 `json:"id"`
-		Plan           organizationFieldsPlan `json:"plan"`
-		TopContributor json.RawMessage        `json:"topContributor"`
+		*organizationFields
+		TopContributor json.RawMessage `json:"topContributor"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Id = v.Id
@@ -1262,8 +1271,8 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 	}
 
 	var firstPass struct {
-		Typename string `json:"__typename"`
-		Id       string `json:"id"`
+		*organizationFieldsTopContributorOrganization
+		__noUnmarshalJSON
 	}
 
 	firstPass.Typename = v.Typename
@@ -1340,8 +1349,8 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Typename string `json:"__typename"`
-		Id       string `json:"id"`
+		*organizationFieldsTopContributorUser
+		__noUnmarshalJSON
 	}
 
 	firstPass.Typename = v.Typename
@@ -1411,6 +1420,7 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Actors []json.RawMessage `json:"actors"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -1609,6 +1619,7 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 		Typename       string          `json:"__typename"`
 		Id             string          `json:"id"`
 		TopContributor json.RawMessage `json:"topContributor"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Typename = v.Typename
@@ -1697,8 +1708,8 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Typename string `json:"__typename"`
-		Id       string `json:"id"`
+		*queryFragmentActorsUser
+		__noUnmarshalJSON
 	}
 
 	firstPass.Typename = v.Typename
@@ -1780,6 +1791,7 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) e
 		Id        string          `json:"id"`
 		Login     string          `json:"login"`
 		CreatedAt json.RawMessage `json:"createdAt"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Id = v.Id
@@ -1891,6 +1903,7 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []b
 		Id        string          `json:"id"`
 		Login     string          `json:"login"`
 		CreatedAt json.RawMessage `json:"createdAt"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Id = v.Id
@@ -1980,6 +1993,7 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error
 		Id        string          `json:"id"`
 		Login     string          `json:"login"`
 		CreatedAt json.RawMessage `json:"createdAt"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Id = v.Id
@@ -2191,12 +2205,9 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Typename          string                                   `json:"__typename"`
-		Id                string                                   `json:"id"`
-		Login             string                                   `json:"login"`
-		Plan              queryWithFragmentsActorsOrganizationPlan `json:"plan"`
-		TopContributor    json.RawMessage                          `json:"topContributor"`
-		ContributionCount int                                      `json:"contributionCount"`
+		*queryWithFragmentsActorsOrganization
+		TopContributor json.RawMessage `json:"topContributor"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Typename = v.Typename
@@ -2486,6 +2497,7 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Actors []json.RawMessage `json:"actors"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -2707,6 +2719,7 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Actors []json.RawMessage `json:"actors"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -2930,6 +2943,7 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 
 	var firstPass struct {
 		Actors []json.RawMessage `json:"actors"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -3159,8 +3173,9 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Actor  json.RawMessage                         `json:"actor"`
-		Viewer queryWithInterfaceNoFragmentsViewerUser `json:"viewer"`
+		*queryWithInterfaceNoFragmentsResponse
+		Actor json.RawMessage `json:"actor"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Viewer = v.Viewer
@@ -3370,8 +3385,8 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 	}
 
 	var firstPass struct {
-		Typename string `json:"__typename"`
-		Id       string `json:"id"`
+		*queryWithNamedFragmentsActorsOrganization
+		__noUnmarshalJSON
 	}
 
 	firstPass.Typename = v.Typename
@@ -3461,8 +3476,8 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Typename string `json:"__typename"`
-		Id       string `json:"id"`
+		*queryWithNamedFragmentsActorsUser
+		__noUnmarshalJSON
 	}
 
 	firstPass.Typename = v.Typename
@@ -3529,6 +3544,7 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Actors []json.RawMessage `json:"actors"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -3635,6 +3651,7 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Search []json.RawMessage `json:"search"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -3980,6 +3997,7 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Starrable json.RawMessage `json:"starrable"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -4252,7 +4270,8 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		ContributionCount int `json:"contributionCount"`
+		*repositoryOwnerFieldsUser
+		__noUnmarshalJSON
 	}
 
 	firstPass.ContributionCount = v.ContributionCount
@@ -4319,7 +4338,8 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Id string `json:"id"`
+		*userFields
+		__noUnmarshalJSON
 	}
 
 	firstPass.Id = v.Id

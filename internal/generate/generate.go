@@ -246,6 +246,17 @@ func (g *generator) prepareOperationIdentifiers(operations ast.OperationList) {
 }
 
 func (g *generator) WriteTypes(w io.Writer) error {
+	if g.needsUnmarshalFence() {
+		err := g.render("unmarshal_guard.go.tmpl", w, nil)
+		if err != nil {
+			return err
+		}
+		_, err = io.WriteString(w, "\n\n")
+		if err != nil {
+			return err
+		}
+	}
+
 	names := make([]string, 0, len(g.typeMap))
 	for name := range g.typeMap {
 		names = append(names, name)
@@ -269,6 +280,19 @@ func (g *generator) WriteTypes(w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func (g *generator) needsUnmarshalFence() bool {
+	for _, typ := range g.typeMap {
+		structType, ok := typ.(*goStructType)
+		if !ok {
+			continue
+		}
+		if structType.NeedsMarshaling() {
+			return true
+		}
+	}
+	return false
 }
 
 func renderTypeDefinitions(g *generator) ([]byte, error) {

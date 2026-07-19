@@ -12,6 +12,12 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type __noUnmarshalJSON struct{}
+
+func (__noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("__noUnmarshalJSON.UnmarshalJSON should never be called")
+}
+
 // CreateGitHubRepositoryCreateRepository includes the requested fields of the GraphQL type Repository.
 type CreateGitHubRepositoryCreateRepository struct {
 	Id            testutil.ID `json:"id"`
@@ -105,6 +111,7 @@ func (v *GitHubInputResponseLatestRelease) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		PublishedAt json.RawMessage `json:"publishedAt"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -178,6 +185,7 @@ func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) UnmarshalJSON(b 
 
 	var firstPass struct {
 		PublishedAt json.RawMessage `json:"publishedAt"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -251,6 +259,7 @@ func (v *GitHubInputResponseReleasesPublishedOnRelease) UnmarshalJSON(b []byte) 
 
 	var firstPass struct {
 		PublishedAt json.RawMessage `json:"publishedAt"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -428,6 +437,7 @@ func (v *RepositorySelector) UnmarshalJSON(b []byte) error {
 		DatabaseID   *testutil.ID    `json:"databaseID"`
 		Topics       []string        `json:"topics"`
 		CreatedAfter json.RawMessage `json:"createdAfter"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Owner = v.Owner
@@ -615,14 +625,11 @@ func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		Repository             *RepositorySelector       `json:"repository,omitempty"`
-		Filter                 *IssueFilter              `json:"filter,omitempty"`
-		Date                   json.RawMessage           `json:"date"`
-		Defaults               *InputWithDefaults        `json:"defaults,omitempty"`
-		Optional               *OmitemptyInput           `json:"optional,omitempty"`
-		Structs                *UseStructReferencesInput `json:"structs,omitempty"`
-		PublishedDates         [][][]json.RawMessage     `json:"publishedDates"`
-		OptionalPublishedDates [][][]json.RawMessage     `json:"optionalPublishedDates"`
+		*__GitHubInputsInput
+		Date                   json.RawMessage       `json:"date"`
+		PublishedDates         [][][]json.RawMessage `json:"publishedDates"`
+		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
+		__noUnmarshalJSON
 	}
 
 	firstPass.Repository = v.Repository

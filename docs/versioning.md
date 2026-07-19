@@ -26,7 +26,8 @@ We don't consider the following changes to be breaking:
 
 The generator and root runtime are released together in the same `octoql` Go
 module. When upgrading octoql, rerun the generator so generated code and its
-runtime calls come from the same module version. Generated JSON methods are
-self-contained and do not depend on marshal-guard runtime exports.
+runtime calls come from the same module version. Generated JSON
+method-promotion fences are unexported implementation details in generated
+files, not root runtime APIs.
 
 Note that while genqlient is on version 0.x we may make breaking changes at any time, although we still aim to do so only in minor version bumps (0.6.0, not 0.5.1), and we aim to minimize breaking changes, especially to core functionality.

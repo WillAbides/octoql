@@ -17,6 +17,12 @@ import (
 	"github.com/willabides/octoql"
 )
 
+type __noUnmarshalJSON struct{}
+
+func (__noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("__noUnmarshalJSON.UnmarshalJSON should never be called")
+}
+
 // CreateRepositoryCreateRepositoryCreateRepositoryPayload includes the requested fields of the GraphQL type CreateRepositoryPayload.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayload struct {
 	Repository       CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository `json:"repository"`
@@ -271,6 +277,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Node json.RawMessage `json:"node"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -429,6 +436,7 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		Search []json.RawMessage `json:"search"`
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)
@@ -647,6 +655,8 @@ func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
+		*ViewerViewerUser
+		__noUnmarshalJSON
 	}
 
 	err := json.Unmarshal(b, &firstPass)

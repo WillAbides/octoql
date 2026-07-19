@@ -122,9 +122,18 @@ func TestGenerate(t *testing.T) {
 					}
 					if extension == ".go" {
 						source := string(content)
-						assert.NotContains(t, source, "NoMarshalJSON")
-						assert.NotContains(t, source, "NoUnmarshalJSON")
+						assert.NotContains(t, source, "octoql.NoMarshalJSON")
+						assert.NotContains(t, source, "octoql.NoUnmarshalJSON")
 						assert.NotContains(t, source, "github.com/willabides/octoql/graphql")
+						expectedFenceCount := 0
+						if sourceFilename == "GraphShapes.graphql" {
+							expectedFenceCount = 1
+						}
+						assert.Equal(
+							t,
+							expectedFenceCount,
+							strings.Count(source, "type __noUnmarshalJSON struct{}"),
+						)
 					}
 					matchGeneratedSnapshot(t, filename, content)
 				})
@@ -248,13 +257,18 @@ func testGenerateWithTestHandlerUsesOnePlan(
 	assert.Equal(t, outputs[config.Generated], clientSecond)
 	assert.Equal(t, clientSecond, clientAgain)
 	handlerSource := string(outputs[config.TestHandlerGenerated])
+	clientSource := string(outputs[config.Generated])
+	assert.Equal(t, 1, strings.Count(clientSource, "type __noUnmarshalJSON struct{}"))
+	assert.NotContains(t, clientSource, "octoql.NoUnmarshalJSON")
 	clientImport := config.pkgPath + `"`
 	switch strategy {
 	case TestHandlerTypesLocal:
 		assert.NotContains(t, handlerSource, clientImport)
 		assert.Contains(t, handlerSource, "type SearchRepositoriesResponse struct")
+		assert.Equal(t, 1, strings.Count(handlerSource, "type __noUnmarshalJSON struct{}"))
 	default:
 		assert.Contains(t, handlerSource, clientImport)
+		assert.NotContains(t, handlerSource, "type __noUnmarshalJSON struct{}")
 	}
 
 	compileGeneratedOutputs(t, tempDir, outputs)
