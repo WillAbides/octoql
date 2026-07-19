@@ -23,7 +23,9 @@ Tell genqlient how to handle your custom scalars with the [`bindings` option](sc
 
 ### Can I use introspection to fetch my client schema?
 
-Yes, but you'll need to use a separate tool ([example](schema.md#fetching-your-schema)).
+octoqlgen does not introspect a server. Use a separate tool to produce local
+SDL, or configure one of octoqlgen's pinned remote sources; see
+[Schema materialization](schema.md#schema-materialization).
 
 ## Why?
 
