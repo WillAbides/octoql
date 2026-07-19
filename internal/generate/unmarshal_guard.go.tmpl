@@ -1,0 +1,8 @@
+{{/* This type creates method ambiguity in the temporary first-pass wrapper
+     used by generated UnmarshalJSON methods. It preserves encoding/json's
+     ordinary field behavior without promoting an embedded type's method. */ -}}
+type __noUnmarshalJSON struct{}
+
+func (__noUnmarshalJSON) UnmarshalJSON([]byte) error {
+    panic("__noUnmarshalJSON.UnmarshalJSON should never be called")
+}

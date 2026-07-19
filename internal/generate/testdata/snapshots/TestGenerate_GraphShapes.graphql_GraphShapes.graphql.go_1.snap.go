@@ -12,6 +12,12 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type __noUnmarshalJSON struct{}
+
+func (__noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("__noUnmarshalJSON.UnmarshalJSON should never be called")
+}
+
 // ActorDetails includes the GraphQL fields of Actor requested by the fragment ActorDetails.
 //
 // ActorDetails is implemented by the following types:
@@ -219,7 +225,7 @@ func (v *GetActorActorBot) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorBot
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorActorBot = v
 
@@ -286,7 +292,7 @@ func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorEnterpriseUserAccount
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorActorEnterpriseUserAccount = v
 
@@ -351,7 +357,7 @@ func (v *GetActorActorOctoqlOther) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorOctoqlOther
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorActorOctoqlOther = v
 
@@ -416,7 +422,7 @@ func (v *GetActorActorOrganization) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorOrganization
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorActorOrganization = v
 
@@ -481,7 +487,7 @@ func (v *GetActorActorUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorUser
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorActorUser = v
 
@@ -661,7 +667,7 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSON(b []byte) e
 
 	var firstPass struct {
 		*GetActorRepositoryOwnerEnterpriseUserAccount
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorRepositoryOwnerEnterpriseUserAccount = v
 
@@ -738,7 +744,7 @@ func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorRepositoryOwnerOctoqlOther
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorRepositoryOwnerOctoqlOther = v
 
@@ -815,7 +821,7 @@ func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorRepositoryOwnerOrganization
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorRepositoryOwnerOrganization = v
 
@@ -892,7 +898,7 @@ func (v *GetActorRepositoryOwnerUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorRepositoryOwnerUser
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorRepositoryOwnerUser = v
 
@@ -959,7 +965,7 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 		*GetActorResponse
 		Actor           json.RawMessage `json:"actor"`
 		RepositoryOwner json.RawMessage `json:"repositoryOwner"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetActorResponse = v
 
@@ -1265,7 +1271,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*GetNodeResponse
 		Node json.RawMessage `json:"node"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GetNodeResponse = v
 
@@ -1401,7 +1407,7 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*NestedNodeShapesResponse
 		NestedNodes [][][]json.RawMessage `json:"nestedNodes"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.NestedNodeShapesResponse = v
 
@@ -1578,7 +1584,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 		*RepositoryEventCovarianceLatestRepositoryEvent
 		Subject         json.RawMessage   `json:"subject"`
 		RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.RepositoryEventCovarianceLatestRepositoryEvent = v
 
@@ -1808,7 +1814,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 		*RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther
 		Subject         json.RawMessage   `json:"subject"`
 		RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther = v
 
@@ -2057,7 +2063,7 @@ func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*RepositoryEventCovarianceResponse
 		LatestRepositoryEvent json.RawMessage `json:"latestRepositoryEvent"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.RepositoryEventCovarianceResponse = v
 
@@ -2222,7 +2228,7 @@ func (v *SearchRepositoriesLatestRelease) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*SearchRepositoriesLatestRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.SearchRepositoriesLatestRelease = v
 
@@ -2330,7 +2336,7 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 	var firstPass struct {
 		*SearchRepositoriesSearchSearchResultConnection
 		Nodes []json.RawMessage `json:"nodes"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.SearchRepositoriesSearchSearchResultConnection = v
 
@@ -2516,7 +2522,7 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) Unmarsha
 	var firstPass struct {
 		*SearchRepositoriesSearchSearchResultConnectionNodesRepository
 		Owner json.RawMessage `json:"owner"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.SearchRepositoriesSearchSearchResultConnectionNodesRepository = v
 
@@ -2831,7 +2837,7 @@ func (v *__SearchRepositoriesInput) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*__SearchRepositoriesInput
 		PublishedAfter json.RawMessage `json:"publishedAfter"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.__SearchRepositoriesInput = v
 

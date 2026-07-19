@@ -12,6 +12,12 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type __noUnmarshalJSON struct{}
+
+func (__noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("__noUnmarshalJSON.UnmarshalJSON should never be called")
+}
+
 // CreateGitHubRepositoryCreateRepository includes the requested fields of the GraphQL type Repository.
 type CreateGitHubRepositoryCreateRepository struct {
 	Id            testutil.ID `json:"id"`
@@ -106,7 +112,7 @@ func (v *GitHubInputResponseLatestRelease) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*GitHubInputResponseLatestRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GitHubInputResponseLatestRelease = v
 
@@ -182,7 +188,7 @@ func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) UnmarshalJSON(b 
 	var firstPass struct {
 		*GitHubInputResponseReleasesPublishedOnOptionalRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GitHubInputResponseReleasesPublishedOnOptionalRelease = v
 
@@ -258,7 +264,7 @@ func (v *GitHubInputResponseReleasesPublishedOnRelease) UnmarshalJSON(b []byte) 
 	var firstPass struct {
 		*GitHubInputResponseReleasesPublishedOnRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.GitHubInputResponseReleasesPublishedOnRelease = v
 
@@ -434,7 +440,7 @@ func (v *RepositorySelector) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*RepositorySelector
 		CreatedAfter json.RawMessage `json:"createdAfter"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.RepositorySelector = v
 
@@ -618,7 +624,7 @@ func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 		Date                   json.RawMessage       `json:"date"`
 		PublishedDates         [][][]json.RawMessage `json:"publishedDates"`
 		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
-		octoql.NoUnmarshalJSON
+		__noUnmarshalJSON
 	}
 	firstPass.__GitHubInputsInput = v
 
