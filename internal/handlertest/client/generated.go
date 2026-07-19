@@ -34,7 +34,6 @@ type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository struct {
 	Id            string                                                                                 `json:"id"`
 	NameWithOwner string                                                                                 `json:"nameWithOwner"`
 	UpdatedAt     time.Time                                                                              `json:"updatedAt"`
-	PropertyValue json.RawMessage                                                                        `json:"propertyValue"`
 	Issues        CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection `json:"issues"`
 }
 
@@ -51,11 +50,6 @@ func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetN
 // GetUpdatedAt returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetUpdatedAt() time.Time {
 	return v.UpdatedAt
-}
-
-// GetPropertyValue returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.PropertyValue, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetPropertyValue() json.RawMessage {
-	return v.PropertyValue
 }
 
 // GetIssues returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.Issues, and is useful for accessing the field via an interface.
@@ -406,17 +400,6 @@ type GetRepositoryResponse struct {
 // GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
 
-type RepositorySelector struct {
-	Owner string `json:"owner"`
-	Name  string `json:"name"`
-}
-
-// GetOwner returns RepositorySelector.Owner, and is useful for accessing the field via an interface.
-func (v *RepositorySelector) GetOwner() string { return v.Owner }
-
-// GetName returns RepositorySelector.Name, and is useful for accessing the field via an interface.
-func (v *RepositorySelector) GetName() string { return v.Name }
-
 type RepositoryVisibility string
 
 const (
@@ -748,11 +731,10 @@ func (v *__GetNodeInput) GetId() string { return v.Id }
 
 // __GetRepositoryInput is used internally by genqlient
 type __GetRepositoryInput struct {
-	Owner    string             `json:"owner"`
-	Name     string             `json:"name"`
-	Selector RepositorySelector `json:"selector"`
-	First    int                `json:"first"`
-	After    string             `json:"after"`
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
+	First int    `json:"first"`
+	After string `json:"after"`
 }
 
 // GetOwner returns __GetRepositoryInput.Owner, and is useful for accessing the field via an interface.
@@ -760,9 +742,6 @@ func (v *__GetRepositoryInput) GetOwner() string { return v.Owner }
 
 // GetName returns __GetRepositoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__GetRepositoryInput) GetName() string { return v.Name }
-
-// GetSelector returns __GetRepositoryInput.Selector, and is useful for accessing the field via an interface.
-func (v *__GetRepositoryInput) GetSelector() RepositorySelector { return v.Selector }
 
 // GetFirst returns __GetRepositoryInput.First, and is useful for accessing the field via an interface.
 func (v *__GetRepositoryInput) GetFirst() int { return v.First }
@@ -786,7 +765,6 @@ mutation CreateRepository ($input: CreateRepositoryInput!) {
 			id
 			nameWithOwner
 			updatedAt
-			propertyValue
 			issues(first: 1) {
 				pageInfo {
 					hasNextPage
@@ -947,8 +925,8 @@ func GetNode(
 
 // The query executed by GetRepository.
 const GetRepository_Operation = `
-query GetRepository ($owner: String!, $name: String!, $selector: RepositorySelector!, $first: Int!, $after: String) {
-	repository(owner: $owner, name: $name, selector: $selector, first: $first, after: $after) {
+query GetRepository ($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name, first: $first, after: $after) {
 		id
 		fullName: nameWithOwner
 		updatedAt
@@ -975,16 +953,14 @@ func GetRepository(
 	client_ *octoql.Client,
 	owner string,
 	name string,
-	selector RepositorySelector,
 	first int,
 	after string,
 ) (*octoql.Response[GetRepositoryResponse], error) {
 	variables_ := __GetRepositoryInput{
-		Owner:    owner,
-		Name:     name,
-		Selector: selector,
-		First:    first,
-		After:    after,
+		Owner: owner,
+		Name:  name,
+		First: first,
+		After: after,
 	}
 	return octoql.Do[GetRepositoryResponse](
 		ctx_,

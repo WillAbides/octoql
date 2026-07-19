@@ -12,14 +12,12 @@ query Viewer {
 query GetRepository(
   $owner: String!
   $name: String!
-  $selector: RepositorySelector!
   $first: Int!
   $after: String
 ) {
   repository(
     owner: $owner
     name: $name
-    selector: $selector
     first: $first
     after: $after
   ) {
@@ -46,7 +44,6 @@ mutation CreateRepository($input: CreateRepositoryInput!) {
       id
       nameWithOwner
       updatedAt
-      propertyValue
       issues(first: 1) {
         pageInfo {
           hasNextPage

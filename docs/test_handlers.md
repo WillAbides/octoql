@@ -85,10 +85,6 @@ client := octoql.NewClient(server.URL, server.Client())
 vars := githubapitest.GetRepositoryVariables{
 	Owner: "octo-org",
 	Name:  "octo-repo",
-	Selector: githubapitest.RepositorySelector{
-		Owner: "octo-org",
-		Name:  "octo-repo",
-	},
 	First: 1,
 }
 handler.ExpectGetRepository(vars).Respond(githubapitest.GetRepositoryResponse{
@@ -102,7 +98,6 @@ response, err := githubapi.GetRepository(
 	client,
 	vars.Owner,
 	vars.Name,
-	vars.Selector,
 	vars.First,
 	vars.After,
 )
@@ -112,10 +107,6 @@ require.Equal(t, "octo-org/octo-repo", response.Data.Repository.FullName)
 rateLimited := githubapitest.GetRepositoryVariables{
 	Owner: "octo-org",
 	Name:  "rate-limited",
-	Selector: githubapitest.RepositorySelector{
-		Owner: "octo-org",
-		Name:  "rate-limited",
-	},
 	First: 1,
 }
 handler.ExpectGetRepository(rateLimited).RespondError(

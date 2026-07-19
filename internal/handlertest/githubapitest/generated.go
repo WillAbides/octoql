@@ -56,8 +56,6 @@ type GetRepositoryRepositoryIssuesIssueConnectionPageInfo = githubapi.GetReposit
 
 type GetRepositoryResponse = githubapi.GetRepositoryResponse
 
-type RepositorySelector = githubapi.RepositorySelector
-
 type RepositoryVisibility = githubapi.RepositoryVisibility
 
 const (

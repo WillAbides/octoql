@@ -43,7 +43,6 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 		client,
 		variables.Owner,
 		variables.Name,
-		variables.Selector,
 		variables.First,
 		variables.After,
 	)
@@ -67,7 +66,6 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 				Id:            "R2",
 				NameWithOwner: "octo-org/created",
 				UpdatedAt:     time.Date(2026, time.July, 19, 13, 0, 0, 0, time.UTC),
-				PropertyValue: json.RawMessage(`"enabled"`),
 			},
 			ClientMutationId: "mutation-1",
 		},
@@ -157,7 +155,6 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 		client,
 		variables.Owner,
 		variables.Name,
-		variables.Selector,
 		variables.First,
 		variables.After,
 	)
@@ -192,7 +189,6 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 			client,
 			variables.Owner,
 			variables.Name,
-			variables.Selector,
 			variables.First,
 			variables.After,
 		)
@@ -376,10 +372,6 @@ func repositoryVariables() githubapitest.GetRepositoryVariables {
 	return githubapitest.GetRepositoryVariables{
 		Owner: "octo-org",
 		Name:  "octo-repo",
-		Selector: githubapitest.RepositorySelector{
-			Owner: "octo-org",
-			Name:  "octo-repo",
-		},
 		First: 2,
 		After: "cursor-1",
 	}
