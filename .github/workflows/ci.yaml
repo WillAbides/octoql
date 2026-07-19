@@ -13,7 +13,58 @@ permissions:
   contents: read
 
 jobs:
-  cibuild:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: WillAbides/setup-go-faster@v1
+        id: setup-go
+        with:
+          go-version-file: go.mod
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ${{ steps.setup-go.outputs.GOCACHE }}
+            ${{ steps.setup-go.outputs.GOMODCACHE }}
+          key: ${{ runner.os }}-test-${{ hashFiles('go.*', '.github/workflows/ci.yaml', 'script/*', '.bindown.yaml', '.goreleaser.yaml') }}
+          restore-keys: ${{ runner.os }}-test-
+      - run: script/test
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: WillAbides/setup-go-faster@v1
+        id: setup-go
+        with:
+          go-version-file: go.mod
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ${{ steps.setup-go.outputs.GOCACHE }}
+            ${{ steps.setup-go.outputs.GOMODCACHE }}
+          key: ${{ runner.os }}-lint-${{ hashFiles('go.*', '.github/workflows/ci.yaml', 'script/*', '.bindown.yaml', '.goreleaser.yaml') }}
+          restore-keys: ${{ runner.os }}-lint-
+      - run: script/lint
+
+  generate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: WillAbides/setup-go-faster@v1
+        id: setup-go
+        with:
+          go-version-file: go.mod
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ${{ steps.setup-go.outputs.GOCACHE }}
+            ${{ steps.setup-go.outputs.GOMODCACHE }}
+          key: ${{ runner.os }}-generate-${{ hashFiles('go.*', '.github/workflows/ci.yaml', 'script/*', '.bindown.yaml', '.goreleaser.yaml') }}
+          restore-keys: ${{ runner.os }}-generate-
+      - run: script/generate --check
+
+  release:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -28,6 +79,7 @@ jobs:
           path: |
             ${{ steps.setup-go.outputs.GOCACHE }}
             ${{ steps.setup-go.outputs.GOMODCACHE }}
-          key: ${{ runner.os }}-go-${{ hashFiles('go.*', '.github/workflows/ci.yaml', 'script/*', '.bindown.yaml', '.goreleaser.yaml') }}
-          restore-keys: ${{ runner.os }}-go-
-      - run: script/cibuild
+          key: ${{ runner.os }}-release-${{ hashFiles('go.*', '.github/workflows/ci.yaml', 'script/*', '.bindown.yaml', '.goreleaser.yaml') }}
+          restore-keys: ${{ runner.os }}-release-
+      - run: script/bindown -q install goreleaser
+      - run: bin/goreleaser build --snapshot --clean

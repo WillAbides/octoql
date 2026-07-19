@@ -23,7 +23,8 @@ Review the recreated files, then run `go test ./generate` normally.
 
 ## Scripts
 
-- `script/cibuild` runs the checks used by CI, including a release snapshot.
+- CI runs focused test, lint, generate, and release snapshot jobs.
+  `script/cibuild` runs those checks locally as an aggregate.
 - `script/fmt` formats Go and shell source.
 - `script/generate` runs generators, while `--check` verifies no generated
   output is stale.
