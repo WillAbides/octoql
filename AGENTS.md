@@ -62,8 +62,7 @@
   Update checksums with `script/bindown checksums sync`.
 - Keep release publication disabled. Snapshot and configuration checks are
   allowed, but do not add publication credentials, triggers, or jobs.
-- CI runs independent `test`, `lint`, `generate`, and `release` jobs. Keep
-  `script/cibuild` as the local aggregate command.
+- CI runs independent `test`, `lint`, `generate`, and `release` jobs.
 - Remove generated local tool and build artifacts such as `bin/`, `.bindown/`,
   `dist/`, and root-level binaries before finishing work.
 

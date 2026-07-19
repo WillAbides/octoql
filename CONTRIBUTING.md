@@ -23,8 +23,10 @@ Review the recreated files, then run `go test ./generate` normally.
 
 ## Scripts
 
-- CI runs focused test, lint, generate, and release snapshot jobs.
-  `script/cibuild` runs those checks locally as an aggregate.
+- CI runs focused test, lint, generate, and release snapshot jobs. Run
+  `script/test`, `script/lint`, `script/generate --check`, and
+  `script/bindown -q install goreleaser && bin/goreleaser build --snapshot --clean`
+  separately as needed.
 - `script/fmt` formats Go and shell source.
 - `script/generate` runs generators, while `--check` verifies no generated
   output is stale.
