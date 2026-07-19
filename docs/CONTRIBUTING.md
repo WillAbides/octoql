@@ -28,11 +28,11 @@ Large changes should typically be discussed on the issue tracker first, and shou
 
 ## Style
 
-Go style should generally follow the conventions of [Effective Go](https://golang.org/doc/effective_go), and should have no lint errors (`make lint` to check). TODOs follow the [Khan Academy style](https://github.com/Khan/style-guides#todosmessage), i.e. `// TODO(yourusername): Simplify once we drop support for Go 1.23.` In general, try to make your code match the style of the surrounding code.
+Go style should generally follow the conventions of [Effective Go](https://golang.org/doc/effective_go), and should have no lint errors (`script/lint` to check). TODOs follow the [Khan Academy style](https://github.com/Khan/style-guides#todosmessage), i.e. `// TODO(yourusername): Simplify once we drop support for Go 1.23.` In general, try to make your code match the style of the surrounding code.
 
 ## Tests
 
-To run tests and lint, `make check`.  (GitHub Actions also runs them.)
+To run tests and lint, use `script/test` and `script/lint`. (GitHub Actions also runs them.)
 
 Notes for contributors:
 - Most of the tests are snapshot-based; see `generate/generate_test.go`.  All new code-generation logic should be snapshot-tested.  Some code additionally has standalone unit tests, when convenient.
