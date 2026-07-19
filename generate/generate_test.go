@@ -519,3 +519,11 @@ func standaloneSnapshotFilename(t *testing.T, extension string) string {
 		normalizeSnapshotName(t.Name())+"_1.snap"+extension,
 	)
 }
+
+func snapshotUpdateEnabled() bool {
+	return os.Getenv("UPDATE_SNAPS") == "true"
+}
+
+func normalizeSnapshotName(name string) string {
+	return strings.NewReplacer("/", "_", `\`, "_").Replace(name)
+}
