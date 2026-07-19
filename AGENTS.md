@@ -19,9 +19,17 @@
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
 - `@octoqlgen` is the only supported generator comment directive. Do not add a
   compatibility alias for a prior spelling.
-- octoql does not support GraphQL subscriptions. Preserve top-level
-  `Response.Extensions` and per-error `Error.Extensions`; do not restore the
-  removed no-op `use_extensions` option.
+- octoql does not support GraphQL subscriptions. Preserve handwritten
+  `Response.Extensions` and per-error `Error.Extensions`; generated helpers
+  return concrete GraphQL data and discard the low-level top-level extensions
+  envelope. Do not restore the removed no-op `use_extensions` option.
+- Every failure after an HTTP response includes `ResponseError`; GraphQL
+  `Errors` and `RateLimitError` are independently discoverable facets in its
+  error chain. Generated helpers preserve non-nil partial data after a response
+  and return nil data for pre-response failures.
+- Successful HTTP metadata is not attached to generated responses. Primary
+  rate-limit state is an advisory, concurrency-safe `Client.RateLimit()`
+  snapshot; request-specific failure metadata remains on the error chain.
 
 ## Development
 
