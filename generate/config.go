@@ -27,6 +27,7 @@ type Config struct {
 	Operations                      StringList
 	Generated                       string
 	TestHandlerGenerated            string
+	TestHandlerTypes                TestHandlerTypeStrategy
 	Package                         string
 	ExportOperations                string
 	ContextType                     string
@@ -47,6 +48,23 @@ type Config struct {
 	// The package name and path for the generated test handler.
 	testHandlerPackage string
 	testHandlerPkgPath string
+}
+
+// TestHandlerTypeStrategy controls where generated test handlers get operation types.
+type TestHandlerTypeStrategy string
+
+const (
+	TestHandlerTypesClient TestHandlerTypeStrategy = "client"
+	TestHandlerTypesLocal  TestHandlerTypeStrategy = "local"
+)
+
+func (strategy TestHandlerTypeStrategy) validate() error {
+	switch strategy {
+	case TestHandlerTypesClient, TestHandlerTypesLocal:
+		return nil
+	default:
+		return errorf(nil, "test_handler.types must be one of: 'client' or 'local'")
+	}
 }
 
 // A TypeBinding represents a Go type to which octoqlgen binds a GraphQL type.
@@ -279,6 +297,13 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 		omit := true
 		c.OmitUnreferencedImplementations = &omit
 	}
+	if c.TestHandlerTypes == "" {
+		c.TestHandlerTypes = TestHandlerTypesClient
+	}
+	err = c.TestHandlerTypes.validate()
+	if err != nil {
+		return err
+	}
 
 	if c.Optional != "" && c.Optional != "value" && c.Optional != "pointer" && c.Optional != "pointer_omitempty" && c.Optional != "generic" {
 		return errorf(nil, "optional must be one of: 'value' (default), 'pointer', 'pointer_omitempty' or 'generic'")
@@ -335,13 +360,13 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	c.pkgPath = pkgPath
 
 	if c.TestHandlerGenerated != "" {
-		if c.pkgPath == "" {
+		if c.TestHandlerTypes == TestHandlerTypesClient && c.pkgPath == "" {
 			return errorf(
 				nil,
 				"unable to generate test handler without identifying the generated client package path",
 			)
 		}
-		if c.Package == "main" {
+		if c.TestHandlerTypes == TestHandlerTypesClient && c.Package == "main" {
 			return errorf(
 				nil,
 				"test handler cannot import a generated client in package main",
@@ -364,7 +389,9 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 				c.TestHandlerGenerated,
 			)
 		}
-		if handlerPkgPath == c.pkgPath {
+		sameDirectory := filepath.Dir(c.TestHandlerGenerated) == filepath.Dir(c.Generated)
+		samePackagePath := c.pkgPath != "" && handlerPkgPath == c.pkgPath
+		if sameDirectory || samePackagePath {
 			return errorf(
 				nil,
 				"test handler must be generated in a separate package from the client",

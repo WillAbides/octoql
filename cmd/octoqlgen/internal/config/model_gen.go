@@ -44,7 +44,8 @@ type Schema struct {
 }
 
 type TestHandler struct {
-	Generated string `json:"generated"`
+	Generated string  `json:"generated"`
+	Types     *string `json:"types"`
 }
 
 type Config struct {

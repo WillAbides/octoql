@@ -242,6 +242,15 @@ func (g *generator) WriteTypes(w io.Writer) error {
 	return nil
 }
 
+func renderTypeDefinitions(g *generator) ([]byte, error) {
+	var buffer bytes.Buffer
+	err := g.WriteTypes(&buffer)
+	if err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
 // usedFragmentNames returns the named-fragments used by (i.e. spread into)
 // this operation.
 func (g *generator) usedFragments(op *ast.OperationDefinition) ast.FragmentDefinitionList {
@@ -494,8 +503,12 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 }
 
 func renderClientGenerator(g *generator) ([]byte, error) {
+	typeDefinitions, err := renderTypeDefinitions(g)
+	if err != nil {
+		return nil, err
+	}
 	var bodyBuf bytes.Buffer
-	err := g.WriteTypes(&bodyBuf)
+	_, err = bodyBuf.Write(typeDefinitions)
 	if err != nil {
 		return nil, err
 	}

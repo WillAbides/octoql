@@ -101,18 +101,21 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 func TestGenerateConfigMapsTestHandler(t *testing.T) {
 	t.Parallel()
 
+	localTypes := config.TestHandlerTypesLocal
 	source := &config.Config{
 		Schema:     config.Schema{Path: "schema.graphql"},
 		Operations: []string{"operation.graphql"},
 		Generated:  "generated.go",
 		TestHandler: &config.TestHandler{
 			Generated: "githubapitest/generated.go",
+			Types:     &localTypes,
 		},
 	}
 
 	actual := generateConfig(source)
 
 	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
+	assert.Equal(t, generate.TestHandlerTypesLocal, actual.TestHandlerTypes)
 }
 
 func TestGenerateCommandRun(t *testing.T) {

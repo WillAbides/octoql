@@ -103,6 +103,11 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 			wantError: `unknown field "unknown"`,
 		},
 		{
+			name:      "invalid test handler type strategy",
+			content:   validConfigYAML() + "  types: invalid\n",
+			wantError: `test_handler.types must be one of "client" or "local"`,
+		},
+		{
 			name:      "multiple documents",
 			content:   validConfigYAML() + "---\n{}\n",
 			wantError: "multiple YAML documents are not allowed",
@@ -163,7 +168,8 @@ func TestLoadGeneratorOptions(t *testing.T) {
 			"use_struct_references: true\n" +
 			"omit_unreferenced_implementations: false\n" +
 			"test_handler:\n" +
-			"  generated: generated/testhandler.go\n",
+			"  generated: generated/testhandler.go\n" +
+			"  types: local\n",
 	)
 	err := os.WriteFile(filename, content, 0o600)
 	require.NoError(t, err)
@@ -174,6 +180,7 @@ func TestLoadGeneratorOptions(t *testing.T) {
 	assert.Equal(t, filepath.Join(directory, "generated", "client.go"), loaded.GeneratedPath())
 	assert.Equal(t, filepath.Join(directory, "generated", "operations.json"), loaded.ExportOperationsPath())
 	assert.Equal(t, filepath.Join(directory, "generated", "testhandler.go"), loaded.TestHandlerGeneratedPath())
+	assert.Equal(t, TestHandlerTypesLocal, loaded.TestHandlerTypesValue())
 	require.NotNil(t, loaded.Package)
 	assert.Equal(t, "githubapi", *loaded.Package)
 	require.NotNil(t, loaded.Bindings)

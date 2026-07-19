@@ -202,3 +202,10 @@ $defs:
         type: string
         examples:
           - githubapitest/generated.go
+      types:
+        description: Source of generated test handler operation types.
+        type: string
+        enum:
+          - client
+          - local
+        default: client

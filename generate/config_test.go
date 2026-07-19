@@ -120,6 +120,7 @@ func TestConfigValidateAndFillDefaults(t *testing.T) {
 	assert.Equal(t, filepath.Join(baseDir, "generated.go"), config.Generated)
 	assert.Equal(t, "subpackage", config.Package)
 	assert.Equal(t, "context.Context", config.ContextType)
+	assert.Equal(t, TestHandlerTypesClient, config.TestHandlerTypes)
 	require.NotNil(t, config.OmitUnreferencedImplementations)
 	assert.True(t, *config.OmitUnreferencedImplementations)
 }
@@ -132,6 +133,11 @@ func TestConfigValidationErrors(t *testing.T) {
 		config    Config
 		wantError string
 	}{
+		{
+			name:      "invalid test handler type strategy",
+			config:    Config{TestHandlerTypes: "invalid"},
+			wantError: "test_handler.types must be one of",
+		},
 		{
 			name:      "invalid optional mode",
 			config:    Config{Optional: "invalid"},
