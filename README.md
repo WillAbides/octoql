@@ -540,7 +540,6 @@ for commands and repository conventions.
 - [Root runtime API](https://pkg.go.dev/github.com/willabides/octoql)
 - [Annotated `octoqlgen.yaml` reference](docs/octoqlgen.yaml)
 - [`@genqlient` directive reference](docs/genqlient_directive.graphql)
-- [Historical design rationale](docs/design.md)
 - [Runnable example](example)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](docs/SECURITY.md)

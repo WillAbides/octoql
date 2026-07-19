@@ -13,8 +13,8 @@
   Generator implementation belongs in `internal/generate`; users invoke
   `cmd/octoqlgen`. Do not recreate a public `generate` package.
 - The root `README.md` is the primary user guide. Keep `docs/` for specialized
-  references, design rationale, and project policies that are too detailed for
-  the README. The repository has no changelog; project history remains in Git.
+  references and project policies that are too detailed for the README. The
+  repository has no changelog; project history remains in Git.
 - `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
 - octoql does not support GraphQL subscriptions. Preserve top-level

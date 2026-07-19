@@ -75,7 +75,6 @@ Do not add global snapshot cleanup, sorting, or `TestMain` lifecycle behavior.
 
 - The root [README](README.md) is the primary user guide.
 - [AGENTS.md](AGENTS.md) records architecture and repository conventions.
-- [docs/design.md](docs/design.md) preserves historical design rationale.
 - Report vulnerabilities through the [security policy](docs/SECURITY.md).
 - Follow the [code of conduct](docs/CODE_OF_CONDUCT.md).
 
