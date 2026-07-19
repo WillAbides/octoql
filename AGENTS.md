@@ -71,8 +71,10 @@
   Do not add automatic retry or sleep behavior.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
-- Use `script/generate --check` to verify generated output. Do not run broad
-  audit targets when targeted validation covers the change.
+- Never run `script/generate --check` in a local or session worktree; it is
+  CI-only. Run `script/generate`, then inspect `git status --short`,
+  `git diff --stat`, and `git diff` for unintended generated changes. Do not
+  run broad audit targets when targeted validation covers the change.
 
 ## Snapshot testing
 
