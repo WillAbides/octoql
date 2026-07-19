@@ -104,11 +104,8 @@ func (v *GitHubInputResponseLatestRelease) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*GitHubInputResponseLatestRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.GitHubInputResponseLatestRelease = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -180,11 +177,8 @@ func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) UnmarshalJSON(b 
 	}
 
 	var firstPass struct {
-		*GitHubInputResponseReleasesPublishedOnOptionalRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.GitHubInputResponseReleasesPublishedOnOptionalRelease = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -256,11 +250,8 @@ func (v *GitHubInputResponseReleasesPublishedOnRelease) UnmarshalJSON(b []byte) 
 	}
 
 	var firstPass struct {
-		*GitHubInputResponseReleasesPublishedOnRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.GitHubInputResponseReleasesPublishedOnRelease = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -432,16 +423,22 @@ func (v *RepositorySelector) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*RepositorySelector
+		Owner        string          `json:"owner"`
+		Name         string          `json:"name"`
+		DatabaseID   *testutil.ID    `json:"databaseID"`
+		Topics       []string        `json:"topics"`
 		CreatedAfter json.RawMessage `json:"createdAfter"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.RepositorySelector = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Owner = firstPass.Owner
+	v.Name = firstPass.Name
+	v.DatabaseID = firstPass.DatabaseID
+	v.Topics = firstPass.Topics
 
 	{
 		dst := &v.CreatedAfter
@@ -614,18 +611,26 @@ func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*__GitHubInputsInput
-		Date                   json.RawMessage       `json:"date"`
-		PublishedDates         [][][]json.RawMessage `json:"publishedDates"`
-		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
-		octoql.NoUnmarshalJSON
+		Repository             *RepositorySelector       `json:"repository,omitempty"`
+		Filter                 *IssueFilter              `json:"filter,omitempty"`
+		Date                   json.RawMessage           `json:"date"`
+		Defaults               *InputWithDefaults        `json:"defaults,omitempty"`
+		Optional               *OmitemptyInput           `json:"optional,omitempty"`
+		Structs                *UseStructReferencesInput `json:"structs,omitempty"`
+		PublishedDates         [][][]json.RawMessage     `json:"publishedDates"`
+		OptionalPublishedDates [][][]json.RawMessage     `json:"optionalPublishedDates"`
 	}
-	firstPass.__GitHubInputsInput = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Repository = firstPass.Repository
+	v.Filter = firstPass.Filter
+	v.Defaults = firstPass.Defaults
+	v.Optional = firstPass.Optional
+	v.Structs = firstPass.Structs
 
 	{
 		dst := &v.Date

@@ -116,8 +116,15 @@ func TestGenerate(t *testing.T) {
 
 			for filename, content := range generated {
 				t.Run(filename, func(t *testing.T) {
-					if filepath.Ext(filename) == ".json" && sourceFilename != "GraphShapes.graphql" {
+					extension := filepath.Ext(filename)
+					if extension == ".json" && sourceFilename != "GraphShapes.graphql" {
 						return
+					}
+					if extension == ".go" {
+						source := string(content)
+						assert.NotContains(t, source, "NoMarshalJSON")
+						assert.NotContains(t, source, "NoUnmarshalJSON")
+						assert.NotContains(t, source, "github.com/willabides/octoql/graphql")
 					}
 					matchGeneratedSnapshot(t, filename, content)
 				})

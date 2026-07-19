@@ -270,11 +270,8 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*GetNodeResponse
 		Node json.RawMessage `json:"node"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.GetNodeResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -431,11 +428,8 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*SearchResponse
 		Search []json.RawMessage `json:"search"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.SearchResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -653,10 +647,7 @@ func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*ViewerViewerUser
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.ViewerViewerUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {

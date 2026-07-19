@@ -56,11 +56,8 @@ func (v *__queryWithCustomMarshalInput) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*__queryWithCustomMarshalInput
 		Date json.RawMessage `json:"date"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.__queryWithCustomMarshalInput = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -131,16 +128,16 @@ func (v *__queryWithCustomMarshalOptionalInput) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*__queryWithCustomMarshalOptionalInput
-		Date json.RawMessage `json:"date"`
-		octoql.NoUnmarshalJSON
+		Date  json.RawMessage `json:"date"`
+		Login *string         `json:"login"`
 	}
-	firstPass.__queryWithCustomMarshalOptionalInput = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Login = firstPass.Login
 
 	{
 		dst := &v.Date
@@ -208,11 +205,8 @@ func (v *__queryWithCustomMarshalSliceInput) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*__queryWithCustomMarshalSliceInput
 		Dates []json.RawMessage `json:"dates"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.__queryWithCustomMarshalSliceInput = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -423,11 +417,8 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*addStarAddStarAddStarPayload
 		Starrable json.RawMessage `json:"starrable"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.addStarAddStarAddStarPayload = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -623,16 +614,20 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*getRepositoryRepository
-		Owner json.RawMessage `json:"owner"`
-		octoql.NoUnmarshalJSON
+		Id            string          `json:"id"`
+		Name          string          `json:"name"`
+		NameWithOwner string          `json:"nameWithOwner"`
+		Owner         json.RawMessage `json:"owner"`
 	}
-	firstPass.getRepositoryRepository = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Id = firstPass.Id
+	v.Name = firstPass.Name
+	v.NameWithOwner = firstPass.NameWithOwner
 
 	{
 		dst := &v.Owner
@@ -1055,16 +1050,18 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*organizationFields
-		TopContributor json.RawMessage `json:"topContributor"`
-		octoql.NoUnmarshalJSON
+		Id             string                 `json:"id"`
+		Plan           organizationFieldsPlan `json:"plan"`
+		TopContributor json.RawMessage        `json:"topContributor"`
 	}
-	firstPass.organizationFields = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Id = firstPass.Id
+	v.Plan = firstPass.Plan
 
 	{
 		dst := &v.TopContributor
@@ -1259,15 +1256,17 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 	}
 
 	var firstPass struct {
-		*organizationFieldsTopContributorOrganization
-		octoql.NoUnmarshalJSON
+		Typename string `json:"__typename"`
+		Id       string `json:"id"`
 	}
-	firstPass.organizationFieldsTopContributorOrganization = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Typename = firstPass.Typename
+	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.repositoryOwnerFieldsOrganization)
@@ -1333,15 +1332,17 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*organizationFieldsTopContributorUser
-		octoql.NoUnmarshalJSON
+		Typename string `json:"__typename"`
+		Id       string `json:"id"`
 	}
-	firstPass.organizationFieldsTopContributorUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Typename = firstPass.Typename
+	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.userFields)
@@ -1399,11 +1400,8 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryFragment
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryFragment = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -1598,16 +1596,18 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryFragmentActorsOrganization
+		Typename       string          `json:"__typename"`
+		Id             string          `json:"id"`
 		TopContributor json.RawMessage `json:"topContributor"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryFragmentActorsOrganization = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Typename = firstPass.Typename
+	v.Id = firstPass.Id
 
 	{
 		dst := &v.TopContributor
@@ -1685,15 +1685,17 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryFragmentActorsUser
-		octoql.NoUnmarshalJSON
+		Typename string `json:"__typename"`
+		Id       string `json:"id"`
 	}
-	firstPass.queryFragmentActorsUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Typename = firstPass.Typename
+	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.innerRepositoryOwnerFieldsUser)
@@ -1761,16 +1763,18 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) e
 	}
 
 	var firstPass struct {
-		*queryWithCustomMarshalOptionalUserSearchUser
+		Id        string          `json:"id"`
+		Login     string          `json:"login"`
 		CreatedAt json.RawMessage `json:"createdAt"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryWithCustomMarshalOptionalUserSearchUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Id = firstPass.Id
+	v.Login = firstPass.Login
 
 	{
 		dst := &v.CreatedAt
@@ -1868,16 +1872,18 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []b
 	}
 
 	var firstPass struct {
-		*queryWithCustomMarshalSliceUsersCreatedOnDatesUser
+		Id        string          `json:"id"`
+		Login     string          `json:"login"`
 		CreatedAt json.RawMessage `json:"createdAt"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryWithCustomMarshalSliceUsersCreatedOnDatesUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Id = firstPass.Id
+	v.Login = firstPass.Login
 
 	{
 		dst := &v.CreatedAt
@@ -1953,16 +1959,18 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error
 	}
 
 	var firstPass struct {
-		*queryWithCustomMarshalUsersCreatedOnUser
+		Id        string          `json:"id"`
+		Login     string          `json:"login"`
 		CreatedAt json.RawMessage `json:"createdAt"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryWithCustomMarshalUsersCreatedOnUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Id = firstPass.Id
+	v.Login = firstPass.Login
 
 	{
 		dst := &v.CreatedAt
@@ -2163,16 +2171,24 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryWithFragmentsActorsOrganization
-		TopContributor json.RawMessage `json:"topContributor"`
-		octoql.NoUnmarshalJSON
+		Typename          string                                   `json:"__typename"`
+		Id                string                                   `json:"id"`
+		Login             string                                   `json:"login"`
+		Plan              queryWithFragmentsActorsOrganizationPlan `json:"plan"`
+		TopContributor    json.RawMessage                          `json:"topContributor"`
+		ContributionCount int                                      `json:"contributionCount"`
 	}
-	firstPass.queryWithFragmentsActorsOrganization = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Typename = firstPass.Typename
+	v.Id = firstPass.Id
+	v.Login = firstPass.Login
+	v.Plan = firstPass.Plan
+	v.ContributionCount = firstPass.ContributionCount
 
 	{
 		dst := &v.TopContributor
@@ -2444,11 +2460,8 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryWithFragmentsResponse
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryWithFragmentsResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -2668,11 +2681,8 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryWithInterfaceListFieldResponse
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryWithInterfaceListFieldResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -2894,11 +2904,8 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 	}
 
 	var firstPass struct {
-		*queryWithInterfaceListPointerFieldResponse
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryWithInterfaceListPointerFieldResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -3127,16 +3134,16 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryWithInterfaceNoFragmentsResponse
-		Actor json.RawMessage `json:"actor"`
-		octoql.NoUnmarshalJSON
+		Actor  json.RawMessage                         `json:"actor"`
+		Viewer queryWithInterfaceNoFragmentsViewerUser `json:"viewer"`
 	}
-	firstPass.queryWithInterfaceNoFragmentsResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Viewer = firstPass.Viewer
 
 	{
 		dst := &v.Actor
@@ -3337,15 +3344,17 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 	}
 
 	var firstPass struct {
-		*queryWithNamedFragmentsActorsOrganization
-		octoql.NoUnmarshalJSON
+		Typename string `json:"__typename"`
+		Id       string `json:"id"`
 	}
-	firstPass.queryWithNamedFragmentsActorsOrganization = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Typename = firstPass.Typename
+	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.organizationFields)
@@ -3424,15 +3433,17 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryWithNamedFragmentsActorsUser
-		octoql.NoUnmarshalJSON
+		Typename string `json:"__typename"`
+		Id       string `json:"id"`
 	}
-	firstPass.queryWithNamedFragmentsActorsUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Typename = firstPass.Typename
+	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.userFields)
@@ -3487,11 +3498,8 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryWithNamedFragmentsResponse
 		Actors []json.RawMessage `json:"actors"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryWithNamedFragmentsResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -3596,11 +3604,8 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*queryWithSearchResponse
 		Search []json.RawMessage `json:"search"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.queryWithSearchResponse = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -3944,11 +3949,8 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*removeStarRemoveStarRemoveStarPayload
 		Starrable json.RawMessage `json:"starrable"`
-		octoql.NoUnmarshalJSON
 	}
-	firstPass.removeStarRemoveStarRemoveStarPayload = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -4220,15 +4222,15 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*repositoryOwnerFieldsUser
-		octoql.NoUnmarshalJSON
+		ContributionCount int `json:"contributionCount"`
 	}
-	firstPass.repositoryOwnerFieldsUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.ContributionCount = firstPass.ContributionCount
 
 	err = json.Unmarshal(
 		b, &v.moreUserFields)
@@ -4286,15 +4288,15 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 	}
 
 	var firstPass struct {
-		*userFields
-		octoql.NoUnmarshalJSON
+		Id string `json:"id"`
 	}
-	firstPass.userFields = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
 	}
+
+	v.Id = firstPass.Id
 
 	err = json.Unmarshal(
 		b, &v.repositoryOwnerFieldsUser)
