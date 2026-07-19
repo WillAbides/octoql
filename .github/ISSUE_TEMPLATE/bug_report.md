@@ -16,8 +16,8 @@ Steps to reproduce the behavior. Please include whether the problem happens at c
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**genqlient version**
-Include your genqlient version here.
+**octoql version**
+Include the octoql module version or commit here.
 
 **Additional context**
 Add any other context about the problem here.
