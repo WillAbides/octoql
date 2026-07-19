@@ -221,6 +221,7 @@ func (v *GetActorActorBot) UnmarshalJSON(b []byte) error {
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -288,6 +289,7 @@ func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -353,6 +355,7 @@ func (v *GetActorActorOctoqlOther) UnmarshalJSON(b []byte) error {
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -418,6 +421,7 @@ func (v *GetActorActorOrganization) UnmarshalJSON(b []byte) error {
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -483,6 +487,7 @@ func (v *GetActorActorUser) UnmarshalJSON(b []byte) error {
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -663,6 +668,7 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSON(b []byte) e
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -740,6 +746,7 @@ func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSON(b []byte) error {
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -817,6 +824,7 @@ func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSON(b []byte) error {
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -894,6 +902,7 @@ func (v *GetActorRepositoryOwnerUser) UnmarshalJSON(b []byte) error {
 		Typename string `json:"__typename"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1573,6 +1582,9 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 		RelatedRepositories []RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository `json:"relatedRepositories"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.RepositorySubject = v.RepositorySubject
+	firstPass.RelatedRepositories = v.RelatedRepositories
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1805,6 +1817,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 		RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
 	}
 
+	firstPass.Typename = v.Typename
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -2216,6 +2229,7 @@ func (v *SearchRepositoriesLatestRelease) UnmarshalJSON(b []byte) error {
 		PublishedAt json.RawMessage `json:"publishedAt"`
 	}
 
+	firstPass.Name = v.Name
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -2324,6 +2338,7 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 		PageInfo SearchRepositoriesSearchSearchResultConnectionPageInfo `json:"pageInfo"`
 	}
 
+	firstPass.PageInfo = v.PageInfo
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -2512,6 +2527,9 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) Unmarsha
 		Parent   SearchRepositoriesSearchSearchResultConnectionNodesRepositoryParentRepository `json:"parent"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.RepoName = v.RepoName
+	firstPass.Parent = v.Parent
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -2831,6 +2849,9 @@ func (v *__SearchRepositoriesInput) UnmarshalJSON(b []byte) error {
 		PublishedAfter json.RawMessage `json:"publishedAfter"`
 	}
 
+	firstPass.Query = v.Query
+	firstPass.First = v.First
+	firstPass.After = v.After
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err

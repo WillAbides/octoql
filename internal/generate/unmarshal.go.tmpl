@@ -45,6 +45,14 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
         {{end -}}
     }
 
+    {{/* Seed ordinary fields so omitted fields and JSON null preserve the
+         receiver's existing values, matching encoding/json. */ -}}
+    {{range $field := .Fields -}}
+    {{if and (not $field.IsEmbedded) (not $field.NeedsMarshaling) -}}
+    firstPass.{{$field.GoName}} = v.{{$field.GoName}}
+    {{end -}}
+    {{end -}}
+
     err := {{ref "encoding/json.Unmarshal"}}(b, &firstPass)
     if err != nil {
         return err

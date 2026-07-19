@@ -132,6 +132,7 @@ func (v *__queryWithCustomMarshalOptionalInput) UnmarshalJSON(b []byte) error {
 		Login *string         `json:"login"`
 	}
 
+	firstPass.Login = v.Login
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -620,6 +621,9 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 		Owner         json.RawMessage `json:"owner"`
 	}
 
+	firstPass.Id = v.Id
+	firstPass.Name = v.Name
+	firstPass.NameWithOwner = v.NameWithOwner
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1055,6 +1059,8 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 		TopContributor json.RawMessage        `json:"topContributor"`
 	}
 
+	firstPass.Id = v.Id
+	firstPass.Plan = v.Plan
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1260,6 +1266,8 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 		Id       string `json:"id"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1336,6 +1344,8 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 		Id       string `json:"id"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1601,6 +1611,8 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 		TopContributor json.RawMessage `json:"topContributor"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1689,6 +1701,8 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 		Id       string `json:"id"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1768,6 +1782,8 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) e
 		CreatedAt json.RawMessage `json:"createdAt"`
 	}
 
+	firstPass.Id = v.Id
+	firstPass.Login = v.Login
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1877,6 +1893,8 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []b
 		CreatedAt json.RawMessage `json:"createdAt"`
 	}
 
+	firstPass.Id = v.Id
+	firstPass.Login = v.Login
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -1964,6 +1982,8 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error
 		CreatedAt json.RawMessage `json:"createdAt"`
 	}
 
+	firstPass.Id = v.Id
+	firstPass.Login = v.Login
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -2179,6 +2199,11 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 		ContributionCount int                                      `json:"contributionCount"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.Id = v.Id
+	firstPass.Login = v.Login
+	firstPass.Plan = v.Plan
+	firstPass.ContributionCount = v.ContributionCount
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -3138,6 +3163,7 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 		Viewer queryWithInterfaceNoFragmentsViewerUser `json:"viewer"`
 	}
 
+	firstPass.Viewer = v.Viewer
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -3348,6 +3374,8 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 		Id       string `json:"id"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -3437,6 +3465,8 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 		Id       string `json:"id"`
 	}
 
+	firstPass.Typename = v.Typename
+	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -4225,6 +4255,7 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 		ContributionCount int `json:"contributionCount"`
 	}
 
+	firstPass.ContributionCount = v.ContributionCount
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -4291,6 +4322,7 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 		Id string `json:"id"`
 	}
 
+	firstPass.Id = v.Id
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err

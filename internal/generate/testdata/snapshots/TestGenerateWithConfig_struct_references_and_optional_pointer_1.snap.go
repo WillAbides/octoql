@@ -430,6 +430,10 @@ func (v *RepositorySelector) UnmarshalJSON(b []byte) error {
 		CreatedAfter json.RawMessage `json:"createdAfter"`
 	}
 
+	firstPass.Owner = v.Owner
+	firstPass.Name = v.Name
+	firstPass.DatabaseID = v.DatabaseID
+	firstPass.Topics = v.Topics
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
@@ -621,6 +625,11 @@ func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
 		OptionalPublishedDates [][][]json.RawMessage     `json:"optionalPublishedDates"`
 	}
 
+	firstPass.Repository = v.Repository
+	firstPass.Filter = v.Filter
+	firstPass.Defaults = v.Defaults
+	firstPass.Optional = v.Optional
+	firstPass.Structs = v.Structs
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
 		return err
