@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const DefaultFilename = "octoql.yaml"
+const DefaultFilename = "octoqlgen.yaml"
 
 func Load(filename string) (*Config, error) {
 	if filename == "" {
@@ -103,6 +103,10 @@ func (c *Config) resolvePaths(baseDir string) {
 		c.Operations[index] = resolvePath(baseDir, operation)
 	}
 	c.Generated = resolvePath(baseDir, c.Generated)
+	if c.ExportOperations != nil {
+		resolved := resolvePath(baseDir, *c.ExportOperations)
+		c.ExportOperations = &resolved
+	}
 	if c.TestHandler != nil {
 		c.TestHandler.Generated = resolvePath(baseDir, c.TestHandler.Generated)
 	}
@@ -118,6 +122,13 @@ func (c *Config) OperationPaths() []string {
 
 func (c *Config) GeneratedPath() string {
 	return filepath.Clean(c.Generated)
+}
+
+func (c *Config) ExportOperationsPath() string {
+	if c.ExportOperations == nil || *c.ExportOperations == "" {
+		return ""
+	}
+	return filepath.Clean(*c.ExportOperations)
 }
 
 func (c *Config) TestHandlerGeneratedPath() string {

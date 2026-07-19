@@ -7,25 +7,54 @@
 - The module path is `github.com/willabides/octoql`, with Go version `1.26.0`.
 - Reusable runtime APIs belong in the root `octoql` package. The generator
   command is `cmd/octoqlgen`.
-- New source files use `Copyright (c) 2026 octoql contributors` and
-  `SPDX-License-Identifier: MIT`.
 - Do not update `docs/CHANGELOG.md` unless a task explicitly requires it.
+- `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
+  `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
+- octoql does not support GraphQL subscriptions. Preserve top-level
+  `Response.Extensions` and per-error `Error.Extensions`; do not restore the
+  removed no-op `use_extensions` option.
 
 ## Development
 
 - Use Kong declarative structs and `Run` methods for CLI commands. Keep parsing,
   dependency construction, and command execution separately testable.
-- Preserve generated-file notices. Generated Go output must identify
-  `octoqlgen` and include `SPDX-License-Identifier: MIT`.
-- Update generator snapshots when generation behavior or templates change:
-  `UPDATE_SNAPS=true go test ./generate`.
-- Recreate external generator snapshots manually when removing obsolete files:
-  `rm -rf generate/testdata/snapshots`, then `UPDATE_SNAPS=true go test ./generate`.
-  Review the recreated files and run the package again normally before committing.
+- Use gopls first for Go symbols, references, package APIs, renames, and
+  diagnostics. Follow existing Go style and repository patterns rather than
+  introducing parallel abstractions.
+- Assign variables, including errors, before conditionals rather than using
+  initializer clauses in `if` statements.
+- Test helpers that take `*testing.T` use `t.Context()` internally. Use
+  `t.Helper()` only for assertion helpers.
+- The runtime config model is generated from `octoqlgen.schema.yaml` with the
+  repository-pinned `script/jsonschematogo`; do not add handwritten user config
+  structs.
+- Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
+  schema is materialized on demand, remains ignored, and must not be committed.
+- Do not add file-level copyright or SPDX headers to new Go files. Preserve
+  project-level attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`, and
+  preserve generated `Code generated ... DO NOT EDIT.` notices.
+- Authentication belongs in the supplied `http.Client` or `http.RoundTripper`.
+  Do not add automatic retry or sleep behavior.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
 - Use `script/generate --check` to verify generated output. Do not run broad
   audit targets when targeted validation covers the change.
+
+## Snapshot testing
+
+- Use go-snaps inline snapshots first for compact help text, errors, and small
+  values. Use external snapshots only for generated files that are compiled or
+  otherwise impractical to review inline.
+- Update affected snapshots with targeted
+  `UPDATE_SNAPS=true go test ./path/to/package` runs.
+- Do not add `TestMain`, automatic cleanup hooks, `Clean`, `Sort`, clean mode, or
+  other global snapshot lifecycle behavior.
+- When obsolete external snapshots must be removed, delete the relevant snapshot
+  directory manually with `rm -rf`, regenerate it with a targeted
+  `UPDATE_SNAPS=true` test, review every recreated file, then run the same test
+  normally and confirm it leaves the worktree clean.
+- Normalize nondeterministic values at the source so snapshots remain stable;
+  do not hide nondeterminism with snapshot ordering or cleanup machinery.
 
 ## Tooling and release safety
 

@@ -1,6 +1,9 @@
 # Frequently Asked Questions
 
-This document describes common questions about genqlient, and provides an index to how to represent common query structures.  For a full list of configuration options, see [genqlient.yaml](genqlient.yaml) and [genqlient_directive.graphql](genqlient_directive.graphql).
+This document describes common questions about the inherited generator behavior
+and provides an index to common query structures. For configuration options, see
+[octoqlgen.yaml](octoqlgen.yaml) and
+[genqlient_directive.graphql](genqlient_directive.graphql).
 
 ## Configuring genqlient
 
@@ -14,17 +17,20 @@ Construct an `*octoql.Client` with a customized
 Construct an `*octoql.Client` with a test HTTP client or server as described in
 the [testing documentation](client_config.md#testing).
 
-### Does genqlient support custom scalars?
+### Does octoql support custom scalars?
 
-Tell genqlient how to handle your custom scalars with the [`bindings` option](schema.md#custom-scalars).
+Configure octoqlgen custom scalars with the
+[`bindings` option](schema.md#custom-scalars).
 
 ### Can I use introspection to fetch my client schema?
 
-Yes, but you'll need to use a separate tool ([example](schema.md#fetching-your-schema)).
+octoqlgen does not introspect a server. Use a separate tool to produce local
+SDL, or configure one of octoqlgen's pinned remote sources; see
+[Schema materialization](schema.md#schema-materialization).
 
 ## Why?
 
-### Why use genqlient?
+### Why use octoql?
 
 See the [README.md](../README.md#why-another-graphql-client).
 

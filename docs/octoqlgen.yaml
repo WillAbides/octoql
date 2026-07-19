@@ -1,37 +1,58 @@
-# genqlient.yaml is octoqlgen's configuration file. This example is a starting
-# point: create it manually, then run
-# `go run github.com/willabides/octoql/cmd/octoqlgen generate`. By default,
-# octoqlgen looks for a configuration file named [.]genqlient.y[a]ml in the
-# current directory or any ancestor, or a filename may be passed to `generate`.
+# yaml-language-server: $schema=../octoqlgen.schema.yaml
+# octoqlgen.yaml is octoqlgen's only user-facing configuration file.
+#
+# Run `go tool octoqlgen init` to create a minimal local configuration. Edit
+# schema.source and its pin when using a remote schema, then run
+# `go tool octoqlgen schema materialize` followed by
+# `go tool octoqlgen generate`. Pass `--config PATH` to either command when the
+# file is not named octoqlgen.yaml. init never fetches a schema.
+#
+# Every path and glob below is resolved relative to this file.
 
-# The filename with the GraphQL schema (in SDL format), relative to
-# genqlient.yaml.
-# This can also be a glob-pattern, or a list of filenames or globs, such as:
-#  schema:
-#  - user.graphql
-#  - ./schema/*.graphql
-#  - ./*/*.graphql          # matches ./a/b.graphql, but not ./a/b/c.graphql
-#  - ./**/*.graphql         # matches ./a.graphql, ./a/b/c.graphql, etc.
-# The glob-pattern "**" is interpreted by github.com/bmatcuk/doublestar/v4, and
-# matches zero or more path components (so you want **/*.graphql, not
-# **.graphql). Each pattern must match at least one file, to avoid mistakes.
-schema: schema.graphql
+# The local GraphQL schema in SDL format. Materialization verifies an existing
+# file or fetches a missing file from the pinned source.
+schema:
+  path: .octoql/schema.graphql
+  # Remote sources require the exact SHA-256 of the schema bytes.
+  sha256: c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
+  source:
+    # Supported versions are fpt, ghec, and ghes-X.Y.
+    github_docs:
+      version: fpt
+      revision: 45d83f459620340069df7c375a8867be62616d61
+    # Use exactly one source variant. A repository source may set host for
+    # GitHub Enterprise.
+    #
+    # github_repository:
+    #   repository: owner/repository
+    #   revision: 45d83f459620340069df7c375a8867be62616d61
+    #   path: path/to/schema.graphql
+    #   host: github.example.com
+    #
+    # url: https://example.com/schema.graphql
+#
+# Omit schema.source for a local-only schema. schema.sha256 is optional for a
+# local-only schema and is verified when present.
 
 # Filename(s) or globs with the operations for which to generate code, relative
-# to genqlient.yaml.
+# to octoqlgen.yaml.
 #
 # These may be .graphql files, containing the queries in SDL format, or
 # Go files, in which case any string-literal starting with (optional
 # whitespace and) the string "# @genqlient" will be extracted as a query.
 #
-# Like schema, this may be a single filename or glob, or a list of those.
+# Operations are always written as a list, even when only one path is needed.
 operations:
 - genqlient.graphql
 - "pkg/*.go"
 
-# The filename to which to write the generated code, relative to
-# genqlient.yaml. Default: generated.go.
+# The filename to which to write the generated code, relative to octoqlgen.yaml.
 generated: generated/genqlient.go
+
+# test_handler is reserved for future typed test-handler generation. It is
+# parsed and path-resolved today but does not change client generation.
+# test_handler:
+#   generated: generated/testhandler.go
 
 # The package name for the output code; defaults to the package-name
 # corresponding to the setting of `generated`, above.
@@ -41,7 +62,7 @@ generated: generated/genqlient.go
 # already.
 package: mygenerated
 
-# If set, a file at this path (relative to genqlient.yaml) will be generated
+# If set, a file at this path (relative to octoqlgen.yaml) will be generated
 # containing the exact operations that genqlient will send to the server.
 #
 # This is useful for systems which require queries to be explicitly
@@ -69,12 +90,12 @@ export_operations: operations.json
 context_type: context.Context
 
 # If set, a function to get an *octoql.Client, perhaps from the context.
-# By default, the client must be passed explicitly to each genqlient
+# By default, the client must be passed explicitly to each octoqlgen
 # generated query-helper.
 #
 # This is useful if you have a shared client, either a global, or
 # available from context, and don't want to pass it explicitly.  In this
-# case the signature of the genqlient-generated helpers will omit the
+# case the signature of the generated helpers will omit the
 # client argument and they will call this function instead.
 #
 # Must be the fully-qualified name of a function which accepts a context
@@ -92,11 +113,7 @@ client_getter: "github.com/you/yourpkg.GetClient"
 # to manually set the flags on a large number of fields.
 #
 # Defaults to false.
-use_struct_references: boolean
-
-# Retained for configuration compatibility. Generated query and mutation
-# helpers always expose GraphQL extensions through octoql.Response.Extensions.
-use_extensions: boolean
+use_struct_references: true
 
 # Generate concrete Go structs only for abstract GraphQL implementations named
 # by applicable inline or named fragments. Each abstract selection also gets an
@@ -131,13 +148,13 @@ omit_unreferenced_implementations: true
 optional: value
 
 # Only used when `optional: generic` is set. `example.Type` must be a fully qualified
-# generic type with only one generic parameter e.g. atomic.Value[string]. 
+# generic type with only one generic parameter e.g. atomic.Value[string].
 # It must also implement the `encoding/json.Marshaler` and `encoding/json.Unmarshaler`
 # interface if you want it to serialize / deserialize properly.
 optional_generic_type: github.com/organisation/repository/example.Type
 
 # A map from GraphQL type name to Go fully-qualified type name to override
-# the Go type genqlient will use for this GraphQL type.
+# the Go type octoqlgen will use for this GraphQL type.
 #
 # This is primarily used for custom scalars, or to map builtin scalars
 # to a nonstandard type that is defined elsewhere.  By default,
@@ -149,9 +166,9 @@ optional_generic_type: github.com/organisation/repository/example.Type
 # GitObjectID, GitRefname, GitSSHRemote, HTML, URI, and X509Certificate map to
 # string. This setting will extend or override all those mappings. (See also
 # @genqlient(typename: ...), which can be used to map builtin scalars
-# to a nonstandard type that genqlient defines for you.)
+# to a nonstandard type that octoqlgen defines for you.)
 #
-# genqlient does not validate these types in any way; they must define
+# octoqlgen does not validate these types in any way; they must define
 # whatever logic is needed (MarshalJSON/UnmarshalJSON or JSON tags) to
 # convert to/from JSON.  For this reason, it's not recommended to use this
 # setting to map object, interface, or union types, because nothing
@@ -200,7 +217,7 @@ bindings:
     # Note that the `omitempty` option is ignored for types with custom
     # marshalers; the custom marshaler can of course choose to map any value it
     # wishes to `"null"` which in GraphQL has the same effect.
-    # 
+    #
     # The default is to use ordinary JSON-marshaling.
     marshaler: github.com/you/yourpkg.MarshalDateTime
     # Optionally, the fully-qualified name of the function to use when
@@ -214,7 +231,7 @@ bindings:
     #  unmarshaler: github.com/you/yourpkg.UnmarshalMyType
     # and that function is defined as e.g.:
     #  func UnmarshalMyType(b []byte, v *MyType) error
-    # 
+    #
     # The default is to use ordinary JSON-unmarshaling.
     unmarshaler: github.com/you/yourpkg.UnmarshalDateTime
 
@@ -224,22 +241,22 @@ bindings:
     # If set, a GraphQL selection which must exactly match the fields
     # requested whenever this type is used.  Only applies if the GraphQL type
     # is a composite output type (object, interface, or union).
-    # 
+    #
     # This is useful if Type is a struct whose UnmarshalJSON or other methods
     # expect that you requested certain fields.  For example, given the below
-    # config, genqlient will reject if you make a query
+    # config, octoqlgen will reject if you make a query
     #    { fieldOfMytype { id title } }
     # The fields must match exactly, including the ordering: "{ name id }"
     # will be rejected.  But the arguments and directives, if any, need not
     # match.
-    # 
+    #
     # TODO(benkraft): Also add ExpectIncludesFields and ExpectSubsetOfFields,
     # or something, if you want to say, for example, that you have to request
     # certain fields but others are optional.
     expect_exact_fields: "{ id name }"
     # unmarshaler and marshaler are also valid here, see above for details.
 
-# A list of packages for which genqlient should automatically generate
+# A list of packages for which octoqlgen should automatically generate
 # bindings.  This is equivalent to adding an entry
 #   TypeName:
 #       type: github.com/you/yourpkg/models.TypeName
@@ -253,12 +270,12 @@ package_bindings:
 - package: github.com/you/yourpkg/models
 
 
-# By default genqlient tries to convert GraphQL type names to Go style
+# By default octoqlgen tries to convert GraphQL type names to Go style
 # automatically. Sometimes it doesn't do a great job; this suite of options
 # lets you configure its algorithm as makes sense for your schema.
 #
 # Options below support the following values:
-# - default: use genqlient's default algorithm, which tries to convert GraphQL
+# - default: use octoqlgen's default algorithm, which tries to convert GraphQL
 #   names to exported Go names. This is usually best for GraphQL schemas using
 #   idiomatic GraphQL types.
 # - raw: map the GraphQL type exactly; don't try to convert it to Go style.

@@ -1,6 +1,10 @@
 # Writing your GraphQL operations for genqlient
 
-While simple query structures map naturally from GraphQL to Go, more complex queries require different handling. This document describes how genqlient maps various GraphQL structures to Go, and the best ways to structure your queries and configure genqlient to handle them. For a complete list of options, see the [`genqlient.yaml`](genqlient.yaml) and [`@genqlient`](genqlient_directive.graphql) references.
+While simple query structures map naturally from GraphQL to Go, more complex
+queries require different handling. This document describes how octoqlgen maps
+GraphQL structures to Go and how to configure that mapping. For a complete list
+of options, see the [`octoqlgen.yaml`](octoqlgen.yaml) and
+[`@genqlient`](genqlient_directive.graphql) references.
 
 ## Nullable fields
 
@@ -166,7 +170,7 @@ omitted runtime type without losing the shared fields.
 The catch-all is emitted even when fragments currently reference every
 implementation. This keeps unmarshalling future-compatible if the server adds
 another implementation. Set `omit_unreferenced_implementations: false` in
-`genqlient.yaml` to restore inherited generation of a concrete Go struct for
+`octoqlgen.yaml` to restore inherited generation of a concrete Go struct for
 every implementation in the schema. The opt-out does not add a catch-all, so an
 unexpected typename remains an unmarshalling error.
 
@@ -353,7 +357,9 @@ See [below](#type-names) for more on this option.
 
 ### Bindings
 
-It's also possible to use the `bindings` option (see [`genqlient.yaml` documentation](genqlient.yaml)) for a similar purpose, but this is not recommended as it typically requires more work for less gain.
+It's also possible to use the `bindings` option (see
+[`octoqlgen.yaml` documentation](octoqlgen.yaml)) for a similar purpose, but this is
+not recommended as it typically requires more work for less gain.
 
 ## Names
 

@@ -28,16 +28,6 @@ type commandTree struct {
 	Version  kong.VersionFlag `name:"version" help:"Show version information."`
 }
 
-type GenerateCommand struct {
-	run func(string) error
-
-	ConfigFilename string `arg:"" optional:"" placeholder:"CONFIG" help:"Path to a genqlient configuration file. Defaults to genqlient.yaml in the current or a parent directory."`
-}
-
-func (cmd GenerateCommand) Run() error {
-	return cmd.run(cmd.ConfigFilename)
-}
-
 type SchemaCommand struct {
 	Materialize SchemaMaterializeCommand `cmd:"" default:"1" help:"Materialize or verify a pinned GraphQL schema."`
 	Update      SchemaUpdateCommand      `cmd:"" help:"Update a configured remote schema pin."`
@@ -50,7 +40,7 @@ type SchemaMaterializeCommand struct {
 	outputWriter OutputWriter
 	stdout       io.Writer
 
-	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoqlgen configuration file. Defaults to octoql.yaml."`
+	Config        string `name:"config" type:"path" placeholder:"PATH" help:"Path to an octoqlgen configuration file. Defaults to octoqlgen.yaml."`
 	Output        string `short:"o" name:"output" type:"path" placeholder:"PATH" help:"Write the exact schema bytes to a file instead of stdout."`
 	GitHubVersion string `name:"github-version" placeholder:"VERSION" help:"Fetch a pinned github/docs schema version (fpt, ghec, or ghes-X.Y)."`
 	SourceURL     string `name:"source-url" placeholder:"URL" help:"Fetch a schema from an immutable URL."`
@@ -65,7 +55,7 @@ type RemoteResolver interface {
 type InitCommand struct {
 	stdout io.Writer
 
-	ConfigPath string `name:"config" type:"path" default:"octoql.yaml" placeholder:"PATH" help:"Path for the new octoqlgen configuration."`
+	ConfigPath string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path for the new octoqlgen configuration."`
 }
 
 func (cmd *InitCommand) Run() error {
@@ -198,7 +188,7 @@ type SchemaUpdateCommand struct {
 	outputWriter OutputWriter
 	stdout       io.Writer
 
-	Config string `name:"config" type:"path" default:"octoql.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
+	Config string `name:"config" type:"path" default:"octoqlgen.yaml" placeholder:"PATH" help:"Path to an octoqlgen configuration file."`
 }
 
 func (cmd *SchemaUpdateCommand) Run() error {
@@ -487,7 +477,7 @@ type Dependencies struct {
 	Context        context.Context
 	Stdout         io.Writer
 	Stderr         io.Writer
-	Generate       func(string) error
+	Generate       func(*generate.Config) (map[string][]byte, error)
 	LoadConfig     func(string) (*config.Config, error)
 	Materializer   Materializer
 	RemoteResolver RemoteResolver
@@ -534,7 +524,11 @@ func normalizeArgs(args []string) []string {
 func newCommandTree(dependencies *Dependencies) *commandTree {
 	return &commandTree{
 		Generate: GenerateCommand{
-			run: dependencies.Generate,
+			context:      dependencies.Context,
+			loadConfig:   dependencies.LoadConfig,
+			materializer: dependencies.Materializer,
+			generate:     dependencies.Generate,
+			outputWriter: dependencies.OutputWriter,
 		},
 		Init: InitCommand{
 			stdout: dependencies.Stdout,
@@ -579,7 +573,7 @@ func (d *Dependencies) setDefaults() {
 		d.Stderr = io.Discard
 	}
 	if d.Generate == nil {
-		d.Generate = generate.Run
+		d.Generate = generate.Generate
 	}
 	if d.LoadConfig == nil {
 		d.LoadConfig = config.Load

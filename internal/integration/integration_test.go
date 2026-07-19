@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql"
+	"github.com/willabides/octoql/generate"
 	"github.com/willabides/octoql/internal/integration/server"
 )
 
@@ -820,7 +821,23 @@ func TestSearch(t *testing.T) {
 }
 
 func TestGeneratedCode(t *testing.T) {
-	RunGenerateTest(t, "internal/integration/genqlient.yaml")
+	omit := false
+	RunGenerateTest(t, &generate.Config{
+		Schema:                          generate.StringList{"internal/integration/schema.graphql"},
+		Operations:                      generate.StringList{"internal/integration/*_test.go"},
+		Generated:                       "internal/integration/generated.go",
+		OmitUnreferencedImplementations: &omit,
+		Bindings: map[string]*generate.TypeBinding{
+			"Date": {
+				Type:        "time.Time",
+				Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
+				Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
+			},
+			"MyGreatScalar": {
+				Type: "github.com/willabides/octoql/internal/integration.MyGreatScalar",
+			},
+		},
+	})
 }
 
-//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate genqlient.yaml
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml

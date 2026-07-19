@@ -30,7 +30,6 @@ linters:
             - github.com/willabides/octoql
             - github.com/vektah/gqlparser/v2
             - golang.org/x/tools
-            - gopkg.in/yaml.v2
             - gopkg.in/yaml.v3
             - github.com/alecthomas/kong
             - github.com/bmatcuk/doublestar/v4

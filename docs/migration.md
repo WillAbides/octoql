@@ -1,9 +1,17 @@
-# Migrating inherited generator configuration
+# Migrating generator configuration
 
-octoql keeps the inherited `genqlient.yaml` format, with GitHub-oriented
-generation defaults.
+octoqlgen uses `octoqlgen.yaml` as its only user-facing generator configuration.
+Move inherited generator settings into the root of `octoqlgen.yaml`, replace the
+legacy scalar or list `schema` setting with `schema.path`, and invoke generation
+with `octoqlgen generate --config PATH` when using a non-default path. Legacy
+`genqlient.yaml` files are not discovered, parsed, merged, or translated.
 
-Abstract selections now omit concrete Go structs that are not referenced by an
+All configured paths are relative to `octoqlgen.yaml`: `schema.path`, `operations`,
+`generated`, `export_operations`, and `test_handler.generated`. The generator
+verifies or materializes `schema.path` before package inference and client
+generation.
+
+Abstract selections omit concrete Go structs that are not referenced by an
 applicable inline or named fragment. Each selection gets an `OctoqlOther`
 catch-all with the shared fields and `__typename`. Code that switches on every
 schema implementation can temporarily restore the inherited behavior:
@@ -12,14 +20,13 @@ schema implementation can temporarily restore the inherited behavior:
 omit_unreferenced_implementations: false
 ```
 
-GitHub public-schema scalars also have built-in mappings. `DateTime`,
+GitHub public-schema scalars have built-in mappings. `DateTime`,
 `PreciseDateTime`, and `GitTimestamp` use `time.Time`. `CustomPropertyValue`
-uses `encoding/json.RawMessage` because GitHub may return either a string or an
-array of strings. `Base64String`, `BigInt`, `Date`, `GitObjectID`, `GitRefname`,
-`GitSSHRemote`, `HTML`, `URI`, and `X509Certificate` use `string`. Existing
-explicit `bindings` continue to win, so compatible inherited configuration does
-not need to change. Unknown custom scalars still require a binding.
+uses `encoding/json.RawMessage`. `Base64String`, `BigInt`, `Date`,
+`GitObjectID`, `GitRefname`, `GitSSHRemote`, `HTML`, `URI`, and
+`X509Certificate` use `string`. Explicit `bindings` in `octoqlgen.yaml` override
+these defaults. Unknown custom scalars still require a binding.
 
-These defaults apply to ordinary SDL supplied through `schema`. They do not
-fetch schemas or imply separate support for internal or enterprise GitHub
-schemas.
+These defaults apply to ordinary SDL supplied through `schema.path`. They do not
+fetch schemas independently of configured materialization and do not add
+subscription or typed test-handler generation.

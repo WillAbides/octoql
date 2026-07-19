@@ -1,7 +1,0 @@
-schema:
-- first_schema.graphql
-- second_schema.graphql
-
-operations:
-- first_operations.graphql
-- second_operations.graphql

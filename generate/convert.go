@@ -599,7 +599,7 @@ func (g *generator) convertDefinition(
 				return nil, errorf(val.Position,
 					"enum values %s and %s have conflicting Go name %s; "+
 						"add 'all_enums: raw' or 'enums: %v: raw' "+
-						"to 'casing' in genqlient.yaml to fix",
+						"to 'casing' in octoqlgen.yaml to fix",
 					val.Name, conflict.GraphQLName, goName, def.Name)
 			}
 
@@ -626,8 +626,8 @@ func (g *generator) convertDefinition(
 
 		// (If you had an entry in bindings, we would have returned it above.)
 		return nil, errorf(
-			pos, "unknown scalar %v: please add it to \"bindings\" in genqlient.yaml"+
-				"\nExample: https://github.com/willabides/octoql/blob/main/example/genqlient.yaml#L12", def.Name)
+			pos, "unknown scalar %v: please add it to \"bindings\" in octoqlgen.yaml"+
+				"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", def.Name)
 	default:
 		return nil, errorf(pos, "unexpected kind: %v", def.Kind)
 	}

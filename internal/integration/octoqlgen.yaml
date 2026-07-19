@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../octoqlgen.schema.yaml
+
+schema:
+  path: schema.graphql
+operations:
+  - "*_test.go"
+generated: generated.go
+omit_unreferenced_implementations: false
+bindings:
+  Date:
+    type: time.Time
+    marshaler: github.com/willabides/octoql/internal/testutil.MarshalDate
+    unmarshaler: github.com/willabides/octoql/internal/testutil.UnmarshalDate
+  MyGreatScalar:
+    type: github.com/willabides/octoql/internal/integration.MyGreatScalar
