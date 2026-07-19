@@ -389,7 +389,7 @@ func runGeneratedPackageTests(t *testing.T, generatedSource, testSource []byte) 
 	t.Helper()
 
 	dir := t.TempDir()
-	moduleRoot, err := filepath.Abs("..")
+	moduleRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	require.NoError(t, err)
 	goMod := fmt.Sprintf(`module github.com/willabides/octoql-github-defaults-test
 

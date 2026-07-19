@@ -5,8 +5,9 @@
 - `octoql` is a standalone project derived from Khan/genqlient. Preserve
   attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`.
 - The module path is `github.com/willabides/octoql`, with Go version `1.26.0`.
-- Reusable runtime APIs belong in the root `octoql` package. The generator
-  command is `cmd/octoqlgen`.
+- Reusable runtime APIs belong in the root `octoql` package. Generator
+  implementation belongs in `internal/generate`; users invoke `cmd/octoqlgen`.
+  Do not recreate a public `generate` package.
 - Do not update `docs/CHANGELOG.md` unless a task explicitly requires it.
 - `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
@@ -70,8 +71,10 @@
   Do not add automatic retry or sleep behavior.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
-- Use `script/generate --check` to verify generated output. Do not run broad
-  audit targets when targeted validation covers the change.
+- Never run `script/generate --check` in a local or session worktree; it is
+  CI-only. Run `script/generate`, then inspect `git status --short`,
+  `git diff --stat`, and `git diff` for unintended generated changes. Do not
+  run broad audit targets when targeted validation covers the change.
 
 ## Snapshot testing
 

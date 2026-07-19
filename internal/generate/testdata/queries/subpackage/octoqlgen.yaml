@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../octoqlgen.schema.yaml
+# yaml-language-server: $schema=../../../../../octoqlgen.schema.yaml
 
 schema:
   path: ../schema.graphql

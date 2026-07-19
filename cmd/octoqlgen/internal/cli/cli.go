@@ -17,7 +17,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/generate"
+	"github.com/willabides/octoql/internal/generate"
 	yamlv3 "gopkg.in/yaml.v3"
 )
 

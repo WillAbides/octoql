@@ -1,4 +1,4 @@
-generate/testdata/tmp
+internal/generate/testdata/tmp
 internal/lint/golangci-lint
 /.bindown/
 /bin/

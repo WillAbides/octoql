@@ -172,7 +172,7 @@ func ensureGitHubPublicSchema(
 }
 
 func runGitHubPublicSchemaMaterializer(ctx context.Context, configFilename string, stderr io.Writer) error {
-	moduleRoot, err := filepath.Abs("..")
+	moduleRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		return fmt.Errorf("resolving repository root: %w", err)
 	}
@@ -289,7 +289,7 @@ func TestEnsureGitHubPublicSchema(t *testing.T) {
 func compileGitHubPublicSchemaOutput(t *testing.T, generatedDir string, source []byte) {
 	t.Helper()
 
-	moduleRoot, err := filepath.Abs("..")
+	moduleRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}

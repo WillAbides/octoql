@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/generate"
+	"github.com/willabides/octoql/internal/generate"
 )
 
 func TestGenerateConfigMapsOptions(t *testing.T) {
@@ -157,7 +157,7 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", "..", "..", ".."))
 	require.NoError(t, err)
-	tempRoot := filepath.Join(repositoryRoot, "generate", "testdata", "tmp")
+	tempRoot := filepath.Join(repositoryRoot, "internal", "generate", "testdata", "tmp")
 	require.NoError(t, os.MkdirAll(tempRoot, 0o755))
 	tempDir, err := os.MkdirTemp(tempRoot, "cli-renderer-error-")
 	require.NoError(t, err)
@@ -170,6 +170,7 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 		Schema: config.Schema{
 			Path: filepath.Join(
 				repositoryRoot,
+				"internal",
 				"generate",
 				"testdata",
 				"queries",
@@ -178,6 +179,7 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 		},
 		Operations: []string{filepath.Join(
 			repositoryRoot,
+			"internal",
 			"generate",
 			"testdata",
 			"queries",
@@ -306,6 +308,7 @@ func TestGenerateSubdirectoryConfig(t *testing.T) {
 			"..",
 			"..",
 			"..",
+			"internal",
 			"generate",
 			"testdata",
 			"queries",

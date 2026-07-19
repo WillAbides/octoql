@@ -76,7 +76,7 @@ linters:
         path: _test\.go$|^internal/testutil/|^internal/integration/
       - linters:
           - forbidigo
-        path: ^example/|^generate/main\.go$|^cmd/octoqlgen/
+        path: ^example/|^internal/generate/main\.go$|^cmd/octoqlgen/
       - linters:
           - errcheck
         path: _test\.go$
@@ -86,11 +86,11 @@ linters:
         path: _test\.go$
       - linters:
           - govet
-        path: ^generate/|^example/
+        path: ^internal/generate/|^example/
         text: '^fieldalignment: struct with \d+ pointer bytes could be \d+$'
       - linters:
           - staticcheck
-        path: ^generate/parse\.go$
+        path: ^internal/generate/parse\.go$
         text: 'SA1019: validator\.Validate is deprecated'
       - linters:
           - staticcheck

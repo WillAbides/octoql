@@ -20,8 +20,7 @@ func warn(err error) error {
 	return nil
 }
 
-// Config controls one programmatic generation run.
-// Callers must call [Config.ValidateAndFillDefaults] before calling [Generate].
+// Config contains the normalized settings used by the generator implementation.
 type Config struct {
 	Schema                          StringList
 	Operations                      StringList

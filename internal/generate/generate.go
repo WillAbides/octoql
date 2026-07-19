@@ -643,12 +643,7 @@ func generateWith(
 	return outputs, nil
 }
 
-// Generate is the main programmatic entrypoint to octoqlgen, and generates and
-// returns Go source code based on the given configuration.
-//
-// See [Config] for more on creating a configuration. The return value is a map
-// from filename to generated file content. Schema and operation parsing occur
-// once, and every configured output is rendered before the map is returned.
+// Generate renders every configured output from one shared generation plan.
 func Generate(config *Config) (map[string][]byte, error) {
 	return generateWith(
 		config,

@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/willabides/octoql/generate"
+	"github.com/willabides/octoql/internal/generate"
 )
 
 func repoRoot(t *testing.T) string {
