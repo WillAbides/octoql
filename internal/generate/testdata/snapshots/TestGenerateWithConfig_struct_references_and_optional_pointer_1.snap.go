@@ -5,6 +5,7 @@ package queries
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -857,7 +858,8 @@ func CreateGitHubRepository(
 	variables_ := __CreateGitHubRepositoryInput{
 		Input: input,
 	}
-	return octoql.Do[CreateGitHubRepositoryResponse](
+	response_ := new(CreateGitHubRepositoryResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -865,7 +867,16 @@ func CreateGitHubRepository(
 			Query: CreateGitHubRepository_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by GitHubInputs.
@@ -916,7 +927,8 @@ func GitHubInputs(
 		PublishedDates:         publishedDates,
 		OptionalPublishedDates: optionalPublishedDates,
 	}
-	return octoql.Do[GitHubInputResponse](
+	response_ := new(GitHubInputResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -924,7 +936,16 @@ func GitHubInputs(
 			Query: GitHubInputs_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The mutation executed by UpdateIssueWithCollidingNames.
@@ -950,7 +971,8 @@ func UpdateIssueWithCollidingNames(
 		Resp:   resp,
 		Client: client,
 	}
-	return octoql.Do[UpdateIssueWithCollidingNamesResponse](
+	response_ := new(UpdateIssueWithCollidingNamesResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -958,5 +980,14 @@ func UpdateIssueWithCollidingNames(
 			Query: UpdateIssueWithCollidingNames_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }

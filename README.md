@@ -380,7 +380,8 @@ type viewerData struct {
 	} `json:"viewer"`
 }
 
-response, err := octoql.Do[viewerData](
+var response viewerData
+err := octoql.Do(
 	ctx,
 	octoql.NewClient("https://api.github.com/graphql", httpClient),
 	octoql.Operation{
@@ -388,6 +389,7 @@ response, err := octoql.Do[viewerData](
 		Query: "query Viewer { viewer { login } }",
 	},
 	nil,
+	&response,
 )
 if err != nil {
 	return err
@@ -395,10 +397,11 @@ if err != nil {
 fmt.Println(response.Viewer.Login)
 ```
 
-Generated helpers and `octoql.Do` both return concrete GraphQL data. Top-level
-response extensions are ignored; per-error extensions remain available through
-`octoql.Errors`. Both paths expose the same error facets and update the same
-client rate-limit snapshot.
+Generated helpers return concrete GraphQL data pointers; `octoql.Do` decodes the
+same data into a caller-supplied non-nil pointer and returns only an error.
+Top-level response extensions are ignored; per-error extensions remain
+available through `octoql.Errors`. Both paths expose the same error facets and
+update the same client rate-limit snapshot.
 
 ## Generated types and GitHub defaults
 
@@ -557,8 +560,10 @@ or sleep.
 - Import the root runtime as `github.com/willabides/octoql`. There is no
   `graphql` runtime package or public `generate` package. Invoke
   `github.com/willabides/octoql/cmd/octoqlgen`.
-- Generated helpers and handwritten `octoql.Do[T]` now return concrete
-  operation data. Replace `response.Data.Field` with `response.Field`.
+- Generated helpers now return concrete operation data. Replace
+  `response.Data.Field` with `response.Field`. Handwritten calls replace
+  `response, err := octoql.Do[T](...)` with a concrete destination and
+  `err := octoql.Do(..., &response)`.
 - Replace `HTTPError` checks with `ResponseError`. The latter covers every
   failure after an HTTP response, including HTTP-200 GraphQL and decode errors.
 - Read successful primary rate-limit state from `Client.RateLimit()`.

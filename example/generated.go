@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/willabides/octoql"
@@ -88,7 +89,8 @@ func getUser(
 	variables_ := __getUserInput{
 		Login: Login,
 	}
-	return octoql.Do[getUserResponse](
+	response_ := new(getUserResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -96,7 +98,16 @@ func getUser(
 			Query: getUser_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by getViewer.
@@ -113,7 +124,8 @@ func getViewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*getViewerResponse, error) {
-	return octoql.Do[getViewerResponse](
+	response_ := new(getViewerResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -121,5 +133,14 @@ func getViewer(
 			Query: getViewer_Operation,
 		},
 		nil,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }

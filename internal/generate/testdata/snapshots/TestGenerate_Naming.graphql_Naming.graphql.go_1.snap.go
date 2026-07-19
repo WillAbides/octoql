@@ -4,6 +4,7 @@ package test
 
 import (
 	"context"
+	"errors"
 
 	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/internal/testutil"
@@ -119,7 +120,8 @@ query GitHubNaming {
 func GitHubNaming(
 	client_ *octoql.Client,
 ) (*GitHubNamingResponse, error) {
-	return octoql.Do[GitHubNamingResponse](
+	response_ := new(GitHubNamingResponse)
+	err_ := octoql.Do(
 		context.Background(),
 		client_,
 		octoql.Operation{
@@ -127,5 +129,14 @@ func GitHubNaming(
 			Query: GitHubNaming_Operation,
 		},
 		nil,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }

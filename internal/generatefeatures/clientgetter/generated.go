@@ -4,6 +4,7 @@ package clientgetter
 
 import (
 	"context"
+	"errors"
 
 	"github.com/willabides/octoql"
 )
@@ -61,7 +62,8 @@ func getRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	return octoql.Do[getRepositoryResponse](
+	response_ := new(getRepositoryResponse)
+	err_ = octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -69,5 +71,14 @@ func getRepository(
 			Query: getRepository_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }

@@ -163,7 +163,6 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 		rateLimitNow = previousNow
 	})
 
-	//nolint:govet // Test fields follow request and expected-response presentation order.
 	tests := map[string]struct {
 		body              string
 		header            http.Header
@@ -274,9 +273,9 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := rateLimitClient(test.statusCode, test.header, test.body)
-			response, err := Do[struct {
+			response, err := doRateLimitOperation[struct {
 				Value string `json:"value"`
-			}](t.Context(), client, testOperation(), nil)
+			}](t, client)
 
 			require.NotNil(t, response)
 			if !test.wantRate {
@@ -326,7 +325,7 @@ func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
 		`{"errors":[{"message":"rate limited"}]}`,
 	)
 
-	response, err := Do[struct{}](t.Context(), client, testOperation(), nil)
+	response, err := doRateLimitOperation[struct{}](t, client)
 	require.NotNil(t, response)
 	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)
@@ -347,7 +346,7 @@ func TestDoDoesNotClassifyTransportErrors(t *testing.T) {
 		})},
 	)
 
-	response, err := Do[struct{}](t.Context(), client, testOperation(), nil)
+	response, err := doRateLimitOperation[struct{}](t, client)
 	assert.Nil(t, response)
 	assert.ErrorIs(t, err, transportError)
 	_, ok := errors.AsType[*RateLimitError](err)
@@ -421,4 +420,17 @@ func testOperation() Operation {
 		Name:  "Viewer",
 		Query: "query Viewer { viewer { login } }",
 	}
+}
+
+func doRateLimitOperation[T any](t *testing.T, client *Client) (*T, error) {
+	response := new(T)
+	err := Do(t.Context(), client, testOperation(), nil, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
 }

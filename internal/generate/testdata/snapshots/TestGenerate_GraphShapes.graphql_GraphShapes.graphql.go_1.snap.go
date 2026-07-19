@@ -5,6 +5,7 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -2928,7 +2929,8 @@ func GetActor(
 	variables_ := __GetActorInput{
 		Login: login,
 	}
-	return octoql.Do[GetActorResponse](
+	response_ := new(GetActorResponse)
+	err_ := octoql.Do(
 		context.Background(),
 		client_,
 		octoql.Operation{
@@ -2936,7 +2938,16 @@ func GetActor(
 			Query: GetActor_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by GetNode.
@@ -2971,7 +2982,8 @@ func GetNode(
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	return octoql.Do[GetNodeResponse](
+	response_ := new(GetNodeResponse)
+	err_ := octoql.Do(
 		context.Background(),
 		client_,
 		octoql.Operation{
@@ -2979,7 +2991,16 @@ func GetNode(
 			Query: GetNode_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by NestedNodeShapes.
@@ -2995,7 +3016,8 @@ query NestedNodeShapes {
 func NestedNodeShapes(
 	client_ *octoql.Client,
 ) (*NestedNodeShapesResponse, error) {
-	return octoql.Do[NestedNodeShapesResponse](
+	response_ := new(NestedNodeShapesResponse)
+	err_ := octoql.Do(
 		context.Background(),
 		client_,
 		octoql.Operation{
@@ -3003,7 +3025,16 @@ func NestedNodeShapes(
 			Query: NestedNodeShapes_Operation,
 		},
 		nil,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by RecursiveRepository.
@@ -3026,7 +3057,8 @@ func RecursiveRepository(
 	variables_ := __RecursiveRepositoryInput{
 		Input: input,
 	}
-	return octoql.Do[RecursiveRepositoryResponse](
+	response_ := new(RecursiveRepositoryResponse)
+	err_ := octoql.Do(
 		context.Background(),
 		client_,
 		octoql.Operation{
@@ -3034,7 +3066,16 @@ func RecursiveRepository(
 			Query: RecursiveRepository_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by RepositoryEventCovariance.
@@ -3065,7 +3106,8 @@ query RepositoryEventCovariance {
 func RepositoryEventCovariance(
 	client_ *octoql.Client,
 ) (*RepositoryEventCovarianceResponse, error) {
-	return octoql.Do[RepositoryEventCovarianceResponse](
+	response_ := new(RepositoryEventCovarianceResponse)
+	err_ := octoql.Do(
 		context.Background(),
 		client_,
 		octoql.Operation{
@@ -3073,7 +3115,16 @@ func RepositoryEventCovariance(
 			Query: RepositoryEventCovariance_Operation,
 		},
 		nil,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by SearchRepositories.
@@ -3135,7 +3186,8 @@ func SearchRepositories(
 		After:          after,
 		PublishedAfter: publishedAfter,
 	}
-	return octoql.Do[SearchRepositoriesResponse](
+	response_ := new(SearchRepositoriesResponse)
+	err_ := octoql.Do(
 		context.Background(),
 		client_,
 		octoql.Operation{
@@ -3143,5 +3195,14 @@ func SearchRepositories(
 			Query: SearchRepositories_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }

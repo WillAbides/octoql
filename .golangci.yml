@@ -63,6 +63,8 @@ linters:
           paramsOnly: true
     govet:
       enable-all: true
+      disable:
+        - fieldalignment
   exclusions:
     generated: lax
     presets:
@@ -84,10 +86,6 @@ linters:
       - linters:
           - unparam
         path: _test\.go$
-      - linters:
-          - govet
-        path: ^internal/generate/|^example/
-        text: '^fieldalignment: struct with \d+ pointer bytes could be \d+$'
       - linters:
           - staticcheck
         path: ^internal/generate/parse\.go$

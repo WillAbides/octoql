@@ -4,6 +4,7 @@ package nocontext
 
 import (
 	"context"
+	"errors"
 
 	"github.com/willabides/octoql"
 )
@@ -54,7 +55,8 @@ func GetRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	return octoql.Do[GetRepositoryResponse](
+	response_ := new(GetRepositoryResponse)
+	err_ := octoql.Do(
 		context.Background(),
 		client_,
 		octoql.Operation{
@@ -62,5 +64,14 @@ func GetRepository(
 			Query: GetRepository_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }

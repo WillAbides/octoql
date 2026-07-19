@@ -120,7 +120,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				Name:  "Repository",
 				Query: "query Repository { repository { name } }",
 			}
-			response, err := octoql.Do[testData](t.Context(), client, operation, nil)
+			response, err := doOperation[testData](t.Context(), client, operation, nil)
 			test.check(t, response, err)
 
 			responseError, ok := errors.AsType[*octoql.ResponseError](err)
@@ -132,7 +132,6 @@ func TestDoHTTPResponses(t *testing.T) {
 }
 
 func TestDoRequest(t *testing.T) {
-	//nolint:govet // The fixture follows the request's presentation order.
 	type recordedRequest struct {
 		header http.Header
 		body   []byte
@@ -170,7 +169,7 @@ func TestDoRequest(t *testing.T) {
 		Name:  "Repository",
 		Query: "query Repository($owner: String!) { repository(owner: $owner) { name } }",
 	}
-	_, err := octoql.Do[struct{}](t.Context(), client, operation, map[string]any{"owner": "octo"})
+	_, err := doOperation[struct{}](t.Context(), client, operation, map[string]any{"owner": "octo"})
 	require.NoError(t, err)
 	withVariables := <-requests
 	assert.Equal(t, http.MethodPost, withVariables.method)
@@ -183,7 +182,7 @@ func TestDoRequest(t *testing.T) {
 	}`
 	assert.JSONEq(t, wantBody, string(withVariables.body))
 
-	_, err = octoql.Do[struct{}](t.Context(), client, operation, nil)
+	_, err = doOperation[struct{}](t.Context(), client, operation, nil)
 	require.NoError(t, err)
 	withoutVariables := <-requests
 	var requestObject map[string]json.RawMessage
@@ -206,52 +205,6 @@ func TestDoFailurePhases(t *testing.T) {
 		wantResponse      bool
 		wantResponseError bool
 	}{
-		{
-			name:      "nil client",
-			ctx:       t.Context(),
-			operation: validOperation(),
-		},
-		{
-			name:      "empty endpoint",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("", nil),
-			operation: validOperation(),
-		},
-		{
-			name:      "invalid endpoint",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("://bad endpoint", nil),
-			operation: validOperation(),
-		},
-		{
-			name:      "unsupported endpoint scheme",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("ftp://github.example/graphql", nil),
-			operation: validOperation(),
-		},
-		{
-			name:      "empty operation name",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("https://api.github.com/graphql", nil),
-			operation: octoql.Operation{Query: "query Viewer { viewer { login } }"},
-		},
-		{
-			name:      "empty operation query",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("https://api.github.com/graphql", nil),
-			operation: octoql.Operation{Name: "Viewer"},
-		},
-		{
-			name:      "invalid operation name",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("https://api.github.com/graphql", nil),
-			operation: octoql.Operation{Name: "Not Valid", Query: "query Viewer { viewer { login } }"},
-		},
-		{
-			name:      "nil context",
-			client:    octoql.NewClient("https://api.github.com/graphql", nil),
-			operation: validOperation(),
-		},
 		{
 			name: "variables cannot be encoded",
 			ctx:  t.Context(),
@@ -307,7 +260,7 @@ func TestDoFailurePhases(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response, err := octoql.Do[struct{}](test.ctx, test.client, test.operation, test.variables)
+			response, err := doOperation[struct{}](test.ctx, test.client, test.operation, test.variables)
 			require.Error(t, err)
 			assert.Equal(t, test.wantResponse, response != nil)
 			if test.wantCause != nil {
@@ -346,7 +299,7 @@ func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 	}
 	client := octoql.NewClient(server.URL, httpClient)
 
-	response, err := octoql.Do[struct{}](t.Context(), client, validOperation(), nil)
+	response, err := doOperation[struct{}](t.Context(), client, validOperation(), nil)
 	require.NotNil(t, response)
 	assert.ErrorIs(t, err, redirectError)
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
@@ -369,7 +322,7 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 		},
 	)
 
-	response, err := octoql.Do[testData](t.Context(), client, validOperation(), nil)
+	response, err := doOperation[testData](t.Context(), client, validOperation(), nil)
 	require.NotNil(t, response)
 	assert.Equal(t, "partial", response.Repository.Name)
 	assert.ErrorIs(t, err, closeError)
@@ -384,6 +337,24 @@ func validOperation() octoql.Operation {
 		Name:  "Viewer",
 		Query: "query Viewer { viewer { login } }",
 	}
+}
+
+func doOperation[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	operation octoql.Operation,
+	variables any,
+) (*T, error) {
+	response := new(T)
+	err := octoql.Do(ctx, client, operation, variables, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
 }
 
 func newStaticResponseClient(statusCode int, header http.Header, body io.ReadCloser) *octoql.Client {

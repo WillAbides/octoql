@@ -26,6 +26,9 @@
   `Errors` and `RateLimitError` are independently discoverable facets in its
   error chain. Generated helpers preserve non-nil partial data after a response
   and return nil data for pre-response failures.
+- The root `Do` API is non-generic: it accepts a non-nil response destination
+  pointer and returns only `error`. It decodes into a temporary and assigns the
+  destination only after successful data decoding.
 - Successful HTTP metadata is not attached to generated responses. Primary
   rate-limit state is an advisory, concurrency-safe `Client.RateLimit()`
   snapshot; request-specific failure metadata remains on the error chain.

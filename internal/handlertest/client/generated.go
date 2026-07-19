@@ -5,6 +5,7 @@ package githubapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -785,7 +786,8 @@ func CreateRepository(
 	variables_ := __CreateRepositoryInput{
 		Input: input,
 	}
-	return octoql.Do[CreateRepositoryResponse](
+	response_ := new(CreateRepositoryResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -793,7 +795,16 @@ func CreateRepository(
 			Query: CreateRepository_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by EchoAny.
@@ -814,7 +825,8 @@ func EchoAny(
 	variables_ := __EchoAnyInput{
 		Value: value,
 	}
-	return octoql.Do[EchoAnyResponse](
+	response_ := new(EchoAnyResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -822,7 +834,16 @@ func EchoAny(
 			Query: EchoAny_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by EchoAt.
@@ -843,7 +864,8 @@ func EchoAt(
 	variables_ := __EchoAtInput{
 		Value: value,
 	}
-	return octoql.Do[EchoAtResponse](
+	response_ := new(EchoAtResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -851,7 +873,16 @@ func EchoAt(
 			Query: EchoAt_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by EchoProperty.
@@ -872,7 +903,8 @@ func EchoProperty(
 	variables_ := __EchoPropertyInput{
 		Value: value,
 	}
-	return octoql.Do[EchoPropertyResponse](
+	response_ := new(EchoPropertyResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -880,7 +912,16 @@ func EchoProperty(
 			Query: EchoProperty_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by GetNode.
@@ -910,7 +951,8 @@ func GetNode(
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	return octoql.Do[GetNodeResponse](
+	response_ := new(GetNodeResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -918,7 +960,16 @@ func GetNode(
 			Query: GetNode_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by GetRepository.
@@ -960,7 +1011,8 @@ func GetRepository(
 		First: first,
 		After: after,
 	}
-	return octoql.Do[GetRepositoryResponse](
+	response_ := new(GetRepositoryResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -968,7 +1020,16 @@ func GetRepository(
 			Query: GetRepository_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by Search.
@@ -999,7 +1060,8 @@ func Search(
 	variables_ := __SearchInput{
 		Query: query,
 	}
-	return octoql.Do[SearchResponse](
+	response_ := new(SearchResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -1007,7 +1069,16 @@ func Search(
 			Query: Search_Operation,
 		},
 		&variables_,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }
 
 // The query executed by Viewer.
@@ -1027,7 +1098,8 @@ func Viewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*ViewerResponse, error) {
-	return octoql.Do[ViewerResponse](
+	response_ := new(ViewerResponse)
+	err_ := octoql.Do(
 		ctx_,
 		client_,
 		octoql.Operation{
@@ -1035,5 +1107,14 @@ func Viewer(
 			Query: Viewer_Operation,
 		},
 		nil,
+		response_,
 	)
+	if err_ == nil {
+		return response_, nil
+	}
+	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
+	if !hasResponse_ {
+		return nil, err_
+	}
+	return response_, err_
 }

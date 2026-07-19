@@ -28,7 +28,8 @@ func ExampleDo() {
 	}
 
 	client := octoql.NewClient(server.URL, server.Client())
-	response, err := octoql.Do[viewerData](
+	var response viewerData
+	err := octoql.Do(
 		context.Background(),
 		client,
 		octoql.Operation{
@@ -36,6 +37,7 @@ func ExampleDo() {
 			Query: "query Viewer { viewer { login } }",
 		},
 		nil,
+		&response,
 	)
 	if err != nil {
 		fmt.Println(err)
@@ -66,7 +68,8 @@ func ExampleDo_partialData() {
 	}
 
 	client := octoql.NewClient(server.URL, server.Client())
-	response, err := octoql.Do[repositoryData](
+	var response repositoryData
+	err := octoql.Do(
 		context.Background(),
 		client,
 		octoql.Operation{
@@ -74,6 +77,7 @@ func ExampleDo_partialData() {
 			Query: "query Repository { repository { name owner { login } } }",
 		},
 		nil,
+		&response,
 	)
 
 	var graphqlErrors octoql.Errors
@@ -97,7 +101,8 @@ func ExampleRateLimitError() {
 	defer server.Close()
 
 	client := octoql.NewClient(server.URL, server.Client())
-	_, err := octoql.Do[struct{}](
+	var response struct{}
+	err := octoql.Do(
 		context.Background(),
 		client,
 		octoql.Operation{
@@ -105,6 +110,7 @@ func ExampleRateLimitError() {
 			Query: "query Viewer { viewer { login } }",
 		},
 		nil,
+		&response,
 	)
 
 	rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
@@ -130,7 +136,8 @@ func ExampleResponseError() {
 	defer server.Close()
 
 	client := octoql.NewClient(server.URL, server.Client())
-	response, err := octoql.Do[struct{}](
+	var response struct{}
+	err := octoql.Do(
 		context.Background(),
 		client,
 		octoql.Operation{
@@ -138,6 +145,7 @@ func ExampleResponseError() {
 			Query: "query Viewer { viewer { login } }",
 		},
 		nil,
+		&response,
 	)
 
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
@@ -151,7 +159,7 @@ func ExampleResponseError() {
 		return
 	}
 
-	fmt.Println(response != nil)
+	fmt.Println(responseError != nil)
 	fmt.Println(responseError.StatusCode)
 	fmt.Println(responseError.RequestID)
 	fmt.Println(graphqlErrors[0].Type)
@@ -175,7 +183,8 @@ func ExampleClient_RateLimit() {
 	defer server.Close()
 
 	client := octoql.NewClient(server.URL, server.Client())
-	_, err := octoql.Do[struct{}](
+	var response struct{}
+	err := octoql.Do(
 		context.Background(),
 		client,
 		octoql.Operation{
@@ -183,6 +192,7 @@ func ExampleClient_RateLimit() {
 			Query: "query Viewer { viewer { login } }",
 		},
 		nil,
+		&response,
 	)
 	if err != nil {
 		fmt.Println(err)

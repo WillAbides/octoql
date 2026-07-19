@@ -44,7 +44,7 @@ func TestDoIgnoresTopLevelExtensions(t *testing.T) {
 		}`,
 	)
 
-	response, err := octoql.Do[responseData](
+	response, err := doOperation[responseData](
 		t.Context(),
 		client,
 		validOperation(),
@@ -56,6 +56,28 @@ func TestDoIgnoresTopLevelExtensions(t *testing.T) {
 	assert.Equal(t, "octoql", response.Repository.Name)
 }
 
+func TestDoReplacesDestinationAfterSuccessfulDecode(t *testing.T) {
+	client := responseAPIClient(
+		http.StatusOK,
+		http.Header{},
+		`{"data":{"repository":{"name":"octoql"}}}`,
+	)
+	response := responseData{Count: 42}
+	response.Repository.Name = "stale"
+
+	err := octoql.Do(
+		t.Context(),
+		client,
+		validOperation(),
+		nil,
+		&response,
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "octoql", response.Repository.Name)
+	assert.Zero(t, response.Count)
+}
+
 func TestDoPointerData(t *testing.T) {
 	t.Run("object allocates inner pointer", func(t *testing.T) {
 		client := responseAPIClient(
@@ -64,7 +86,7 @@ func TestDoPointerData(t *testing.T) {
 			`{"data":{"repository":{"name":"octoql"}}}`,
 		)
 
-		response, err := octoql.Do[*responseData](
+		response, err := doOperation[*responseData](
 			t.Context(),
 			client,
 			validOperation(),
@@ -84,7 +106,7 @@ func TestDoPointerData(t *testing.T) {
 			`{"data":null}`,
 		)
 
-		response, err := octoql.Do[*responseData](
+		response, err := doOperation[*responseData](
 			t.Context(),
 			client,
 			validOperation(),
@@ -133,7 +155,7 @@ func TestDoReturnsResponseErrorFacets(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestDoDoesNotPublishFailedDataDecode(t *testing.T) {
+func TestDoDoesNotMutateDestinationAfterFailedDataDecode(t *testing.T) {
 	body := `{"data":{"repository":{"name":"must not escape"},"count":"invalid"}}`
 	client := responseAPIClient(
 		http.StatusOK,
@@ -141,11 +163,18 @@ func TestDoDoesNotPublishFailedDataDecode(t *testing.T) {
 		body,
 	)
 
-	response, err := responseAPIData[responseData](t, client)
+	response := responseData{Count: 42}
+	response.Repository.Name = "preserved"
+	err := octoql.Do(
+		t.Context(),
+		client,
+		validOperation(),
+		nil,
+		&response,
+	)
 
-	require.NotNil(t, response)
-	assert.Empty(t, response.Repository.Name)
-	assert.Zero(t, response.Count)
+	assert.Equal(t, "preserved", response.Repository.Name)
+	assert.Equal(t, 42, response.Count)
 
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
 	require.True(t, ok)
@@ -198,7 +227,7 @@ func TestDoRejectsExtensionsOnlyResponse(t *testing.T) {
 		body,
 	)
 
-	response, err := octoql.Do[responseData](
+	response, err := doOperation[responseData](
 		t.Context(),
 		client,
 		validOperation(),
@@ -234,7 +263,7 @@ func TestDoRejectsEmptyErrorOnlyResponse(t *testing.T) {
 				test.body,
 			)
 
-			response, err := octoql.Do[responseData](
+			response, err := doOperation[responseData](
 				t.Context(),
 				client,
 				validOperation(),
@@ -282,7 +311,7 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.False(t, known)
 	assert.Equal(t, octoql.RateLimit{}, rateLimit)
 
-	_, err := octoql.Do[struct{}](t.Context(), client, validOperation(), nil)
+	_, err := doOperation[struct{}](t.Context(), client, validOperation(), nil)
 	require.NoError(t, err)
 	rateLimit, known = client.RateLimit()
 	require.True(t, known)
@@ -293,7 +322,7 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.Zero(t, rateLimit.RetryAfter)
 	assert.True(t, rateLimit.RetryAt.IsZero())
 
-	_, err = octoql.Do[struct{}](t.Context(), client, validOperation(), nil)
+	_, err = doOperation[struct{}](t.Context(), client, validOperation(), nil)
 	require.NoError(t, err)
 	preserved, known := client.RateLimit()
 	require.True(t, known)
@@ -321,7 +350,7 @@ func responseAPIData[T any](
 	t *testing.T,
 	client *octoql.Client,
 ) (*T, error) {
-	return octoql.Do[T](
+	return doOperation[T](
 		t.Context(),
 		client,
 		validOperation(),

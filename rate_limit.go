@@ -24,8 +24,6 @@ const (
 //
 // Missing or malformed response headers leave their corresponding fields at
 // their zero values.
-//
-//nolint:govet // Preserve the documented public API field order.
 type RateLimit struct {
 	Limit      int
 	Remaining  int
@@ -44,8 +42,6 @@ type parsedRateLimit struct {
 }
 
 // RateLimitError describes a response rejected because of a GitHub rate limit.
-//
-//nolint:govet // Preserve the documented public API field order.
 type RateLimitError struct {
 	Kind      RateLimitKind
 	RateLimit RateLimit

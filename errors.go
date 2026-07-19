@@ -26,8 +26,6 @@ type Location struct {
 }
 
 // Error describes an error returned in a GraphQL response.
-//
-//nolint:govet // Preserve the documented public API field order.
 type Error struct {
 	Type       ErrorType      `json:"type,omitempty"`
 	Message    string         `json:"message"`
@@ -40,8 +38,6 @@ type Error struct {
 type Errors []*Error
 
 // ResponseError describes a failed GraphQL HTTP response.
-//
-//nolint:govet // Preserve the public error fields in semantic presentation order.
 type ResponseError struct {
 	// StatusCode is the HTTP response status.
 	StatusCode int
