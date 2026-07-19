@@ -43,11 +43,11 @@ schema:
 #
 # Operations are always written as a list, even when only one path is needed.
 operations:
-- genqlient.graphql
+- graphql/repository.graphql
 - "pkg/*.go"
 
 # The filename to which to write the generated code, relative to octoqlgen.yaml.
-generated: generated/genqlient.go
+generated: generated/octoql.go
 
 # Generate an optional typed GraphQL test handler from the same parsed operation
 # plan used for the client. The package is inferred independently from this
@@ -75,7 +75,7 @@ generated: generated/genqlient.go
 package: mygenerated
 
 # If set, a file at this path (relative to octoqlgen.yaml) will be generated
-# containing the exact operations that genqlient will send to the server.
+# containing the exact operations that octoql will send to the server.
 #
 # This is useful for systems which require queries to be explicitly
 # safelisted (e.g. [1]), especially for cases like queries involving fragments

@@ -1,6 +1,9 @@
 # Design decisions
 
-This file contains a log of miscellaneous design decisions in genqlient.  They aren't all necessarily up to date with the exact implementation details, but are preserved here as context for why genqlient does X thing Y way.
+This file preserves historical design decisions inherited from genqlient. It is
+rationale, not current user documentation, and some implementation details have
+changed in octoql. See the root [README](../README.md) and the
+[`octoqlgen.yaml` reference](octoqlgen.yaml) for current behavior.
 
 ## Types
 
