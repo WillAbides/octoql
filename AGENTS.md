@@ -21,13 +21,20 @@
 - Use gopls first for Go symbols, references, package APIs, renames, and
   diagnostics. Follow existing Go style and repository patterns rather than
   introducing parallel abstractions.
+- Assign variables, including errors, before conditionals rather than using
+  initializer clauses in `if` statements.
+- Test helpers that take `*testing.T` use `t.Context()` internally. Use
+  `t.Helper()` only for assertion helpers.
 - The runtime config model is generated from `octoqlgen.schema.yaml` with the
   repository-pinned `script/jsonschematogo`; do not add handwritten user config
   structs.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
-- Preserve generated-file notices. Generated Go output must identify
-  `octoqlgen` and include `SPDX-License-Identifier: MIT`.
+- Do not add file-level copyright or SPDX headers to new Go files. Preserve
+  project-level attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`, and
+  preserve generated `Code generated ... DO NOT EDIT.` notices.
+- Authentication belongs in the supplied `http.Client` or `http.RoundTripper`.
+  Do not add automatic retry or sleep behavior.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
 - Use `script/generate --check` to verify generated output. Do not run broad

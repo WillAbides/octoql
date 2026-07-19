@@ -17,9 +17,10 @@ Construct an `*octoql.Client` with a customized
 Construct an `*octoql.Client` with a test HTTP client or server as described in
 the [testing documentation](client_config.md#testing).
 
-### Does genqlient support custom scalars?
+### Does octoql support custom scalars?
 
-Tell genqlient how to handle your custom scalars with the [`bindings` option](schema.md#custom-scalars).
+Configure octoqlgen custom scalars with the
+[`bindings` option](schema.md#custom-scalars).
 
 ### Can I use introspection to fetch my client schema?
 
@@ -29,7 +30,7 @@ SDL, or configure one of octoqlgen's pinned remote sources; see
 
 ## Why?
 
-### Why use genqlient?
+### Why use octoql?
 
 See the [README.md](../README.md#why-another-graphql-client).
 
