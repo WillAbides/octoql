@@ -28,6 +28,8 @@ type wireParityCase struct {
 }
 
 func TestHandlerTypeStrategiesWireParity(t *testing.T) {
+	// These internal fixtures deliberately export generated client and handler
+	// types so this external-package test can compile both type strategies.
 	updatedAt := time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC)
 	tests := []wireParityCase{
 		{

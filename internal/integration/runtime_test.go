@@ -25,6 +25,8 @@ func (function integrationRoundTripFunc) RoundTrip(request *http.Request) (*http
 }
 
 func TestGeneratedQueryResponseSemantics(t *testing.T) {
+	// The nocontext fixture deliberately exports its generated operation so this
+	// cross-package test can exercise the generated runtime contract.
 	tests := []struct {
 		check      func(*testing.T, *octoql.Response[githubclient.GetRepositoryResponse], error)
 		header     http.Header

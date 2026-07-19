@@ -7,9 +7,21 @@ operations:
 generated: generated.go
 omit_unreferenced_implementations: false
 bindings:
+  AddCommentInput:
+    type: github.com/willabides/octoql/internal/integration/server.AddCommentInput
+  AddStarInput:
+    type: github.com/willabides/octoql/internal/integration/server.AddStarInput
   Date:
     type: time.Time
     marshaler: github.com/willabides/octoql/internal/testutil.MarshalDate
     unmarshaler: github.com/willabides/octoql/internal/testutil.UnmarshalDate
-  MyGreatScalar:
-    type: github.com/willabides/octoql/internal/integration.MyGreatScalar
+  IssueState:
+    type: github.com/willabides/octoql/internal/integration/server.IssueState
+  PlanName:
+    type: github.com/willabides/octoql/internal/integration/server.PlanName
+  PullRequestState:
+    type: github.com/willabides/octoql/internal/integration/server.PullRequestState
+  RemoveStarInput:
+    type: github.com/willabides/octoql/internal/integration/server.RemoveStarInput
+  SearchType:
+    type: github.com/willabides/octoql/internal/integration/server.SearchType

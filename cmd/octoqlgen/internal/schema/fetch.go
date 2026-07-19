@@ -120,7 +120,7 @@ func redactURL(value string) string {
 	return parsed.String()
 }
 
-type HTTPClient interface {
+type httpDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
@@ -189,7 +189,7 @@ func (m *Materializer) fetch(
 
 func fetchURL(
 	ctx context.Context,
-	client HTTPClient,
+	client httpDoer,
 	requestURL string,
 	token string,
 	isGitHub bool,

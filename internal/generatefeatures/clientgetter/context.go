@@ -9,13 +9,15 @@ import (
 	"github.com/willabides/octoql"
 )
 
-// Context is a custom context type carrying an octoql client.
-type Context interface {
+// customContext is a custom context type carrying an octoql client.
+type customContext interface {
 	context.Context
 	OctoqlClient() *octoql.Client
 }
 
-// GetClient returns the octoql client carried by ctx.
-func GetClient(ctx Context) (*octoql.Client, error) {
+// getClient returns the octoql client carried by ctx.
+//
+//nolint:unparam // Generated client getters return an error.
+func getClient(ctx customContext) (*octoql.Client, error) {
 	return ctx.OctoqlClient(), nil
 }

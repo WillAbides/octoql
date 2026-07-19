@@ -397,6 +397,8 @@ query Value($input: Bound) {
 	})
 
 	t.Run("handler binding resolves without self import", func(t *testing.T) {
+		// This temporary fixture deliberately exports its binding because the
+		// generated client imports it from the generated handler package.
 		config, tempDir := newConfig(t, scalarSchema, scalarOperation)
 		config.Bindings = map[string]*TypeBinding{
 			"Bound": {

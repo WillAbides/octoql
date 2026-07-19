@@ -5,5 +5,5 @@ schema:
 operations:
   - operation.graphql
 generated: generated.go
-context_type: github.com/willabides/octoql/internal/generatefeatures/clientgetter.Context
-client_getter: github.com/willabides/octoql/internal/generatefeatures/clientgetter.GetClient
+context_type: github.com/willabides/octoql/internal/generatefeatures/clientgetter.customContext
+client_getter: github.com/willabides/octoql/internal/generatefeatures/clientgetter.getClient

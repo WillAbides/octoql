@@ -10,64 +10,64 @@ import (
 )
 
 // Check that context_type from octoqlgen.yaml implements context.Context.
-var _ context.Context = (Context)(nil)
+var _ context.Context = (customContext)(nil)
 
-// GetRepositoryRepository includes the requested fields of the GraphQL type Repository.
-type GetRepositoryRepository struct {
-	NameWithOwner string `json:"nameWithOwner"`
-}
-
-// GetNameWithOwner returns GetRepositoryRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetNameWithOwner() string { return v.NameWithOwner }
-
-// GetRepositoryResponse is returned by GetRepository on success.
-type GetRepositoryResponse struct {
-	Repository GetRepositoryRepository `json:"repository"`
-}
-
-// GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
-
-// __GetRepositoryInput is used internally by genqlient
-type __GetRepositoryInput struct {
+// __getRepositoryInput is used internally by genqlient
+type __getRepositoryInput struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
 }
 
-// GetOwner returns __GetRepositoryInput.Owner, and is useful for accessing the field via an interface.
-func (v *__GetRepositoryInput) GetOwner() string { return v.Owner }
+// GetOwner returns __getRepositoryInput.Owner, and is useful for accessing the field via an interface.
+func (v *__getRepositoryInput) GetOwner() string { return v.Owner }
 
-// GetName returns __GetRepositoryInput.Name, and is useful for accessing the field via an interface.
-func (v *__GetRepositoryInput) GetName() string { return v.Name }
+// GetName returns __getRepositoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__getRepositoryInput) GetName() string { return v.Name }
 
-// The query executed by GetRepository.
-const GetRepository_Operation = `
-query GetRepository ($owner: String!, $name: String!) {
+// getRepositoryRepository includes the requested fields of the GraphQL type Repository.
+type getRepositoryRepository struct {
+	NameWithOwner string `json:"nameWithOwner"`
+}
+
+// GetNameWithOwner returns getRepositoryRepository.NameWithOwner, and is useful for accessing the field via an interface.
+func (v *getRepositoryRepository) GetNameWithOwner() string { return v.NameWithOwner }
+
+// getRepositoryResponse is returned by getRepository on success.
+type getRepositoryResponse struct {
+	Repository getRepositoryRepository `json:"repository"`
+}
+
+// GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
+func (v *getRepositoryResponse) GetRepository() getRepositoryRepository { return v.Repository }
+
+// The query executed by getRepository.
+const getRepository_Operation = `
+query getRepository ($owner: String!, $name: String!) {
 	repository(owner: $owner, name: $name) {
 		nameWithOwner
 	}
 }
 `
 
-func GetRepository(
-	ctx_ Context,
+func getRepository(
+	ctx_ customContext,
 	owner string,
 	name string,
-) (*octoql.Response[GetRepositoryResponse], error) {
-	client_, err_ := GetClient(ctx_)
+) (*octoql.Response[getRepositoryResponse], error) {
+	client_, err_ := getClient(ctx_)
 	if err_ != nil {
 		return nil, err_
 	}
-	variables_ := __GetRepositoryInput{
+	variables_ := __getRepositoryInput{
 		Owner: owner,
 		Name:  name,
 	}
-	return octoql.Do[GetRepositoryResponse](
+	return octoql.Do[getRepositoryResponse](
 		ctx_,
 		client_,
 		octoql.Operation{
-			Name:  "GetRepository",
-			Query: GetRepository_Operation,
+			Name:  "getRepository",
+			Query: getRepository_Operation,
 		},
 		&variables_,
 	)

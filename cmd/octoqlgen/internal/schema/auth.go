@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-type CommandRunner interface {
+type commandRunner interface {
 	Run(context.Context, string, ...string) ([]byte, []byte, error)
 }
 
@@ -39,7 +39,7 @@ func discoverToken(
 	ctx context.Context,
 	host string,
 	lookupEnvironment func(string) (string, bool),
-	runner CommandRunner,
+	runner commandRunner,
 ) (string, error) {
 	token, found := lookupEnvironment("GH_TOKEN")
 	if found && token != "" {

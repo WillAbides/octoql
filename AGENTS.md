@@ -23,6 +23,12 @@
 - Use gopls first for Go symbols, references, package APIs, renames, and
   diagnostics. Follow existing Go style and repository patterns rather than
   introducing parallel abstractions.
+- Unexport Go declarations aggressively unless they are intentional external
+  APIs, required cross-package contracts, or generated-code contracts.
+- Handwritten examples and test helpers are not public APIs. Keep their
+  declarations and same-package generated operation identifiers unexported.
+- Generated fixture exports require an explicit cross-package compile or API
+  test justification near the consuming test.
 - Assign variables, including errors, before conditionals rather than using
   initializer clauses in `if` statements.
 - Avoid `else` in handwritten Go. Prefer early exits, `switch`, or
