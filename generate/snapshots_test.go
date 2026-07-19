@@ -4,8 +4,6 @@
 package generate
 
 import (
-	"flag"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,56 +12,6 @@ import (
 
 	"github.com/gkampitakis/go-snaps/snaps"
 )
-
-func TestMain(m *testing.M) {
-	exitCode := m.Run()
-	if !shouldCleanSnapshots(exitCode, testRunPattern()) {
-		os.Exit(exitCode)
-	}
-
-	dirty, err := snaps.Clean(m, snaps.CleanOpts{Sort: true})
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "clean snapshots:", err)
-		exitCode = 1
-	}
-	if dirty {
-		exitCode = 1
-	}
-	os.Exit(exitCode)
-}
-
-func shouldCleanSnapshots(exitCode int, testRun string) bool {
-	return exitCode == 0 && testRun == ""
-}
-
-func testRunPattern() string {
-	testRun := flag.Lookup("test.run")
-	if testRun == nil {
-		return ""
-	}
-	return testRun.Value.String()
-}
-
-func TestShouldCleanSnapshots(t *testing.T) {
-	tests := []struct {
-		name     string
-		exitCode int
-		testRun  string
-		want     bool
-	}{
-		{name: "full successful run", want: true},
-		{name: "failed run", exitCode: 1, want: false},
-		{name: "filtered run", testRun: "TestGenerate", want: false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := shouldCleanSnapshots(test.exitCode, test.testRun); got != test.want {
-				t.Errorf("shouldCleanSnapshots(%d, %q) = %t, want %t", test.exitCode, test.testRun, got, test.want)
-			}
-		})
-	}
-}
 
 func TestStandaloneSnapshotRequiresUpdate(t *testing.T) {
 	snapshotDir := t.TempDir()

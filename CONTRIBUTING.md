@@ -12,6 +12,14 @@ generator snapshots, or `UPDATE_SNAPS=true go test ./...` when checked-in
 generated integration output also changes. CLI usage, configuration formatting,
 and diagnostics use inline snapshots. Generated Go and JSON output stays in
 external snapshots because the Go artifacts are compiled from those files.
+To remove obsolete external generator snapshots, run:
+
+```sh
+rm -rf generate/testdata/snapshots
+UPDATE_SNAPS=true go test ./generate
+```
+
+Review the recreated files, then run `go test ./generate` normally.
 
 ## Scripts
 

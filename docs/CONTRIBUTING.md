@@ -45,9 +45,15 @@ If you update code-generation logic or templates, run
 `UPDATE_SNAPS=true go test ./...` when checked-in generated integration output
 also needs an update. Compact diagnostics, configuration formatting, and CLI
 usage are inline snapshots; generated Go and JSON output remains external
-because the Go artifacts are compiled from those snapshot files. Run
-`UPDATE_SNAPS=clean go test ./generate` to remove obsolete generator snapshots
-after deleting or renaming generator tests.
+because the Go artifacts are compiled from those snapshot files. To remove
+obsolete external generator snapshots, run:
+
+```sh
+rm -rf generate/testdata/snapshots
+UPDATE_SNAPS=true go test ./generate
+```
+
+Review the recreated files, then run `go test ./generate` normally.
 
 ## Finding your way around
 

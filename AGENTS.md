@@ -19,6 +19,9 @@
   `octoqlgen` and include `SPDX-License-Identifier: MIT`.
 - Update generator snapshots when generation behavior or templates change:
   `UPDATE_SNAPS=true go test ./generate`.
+- Recreate external generator snapshots manually when removing obsolete files:
+  `rm -rf generate/testdata/snapshots`, then `UPDATE_SNAPS=true go test ./generate`.
+  Review the recreated files and run the package again normally before committing.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
 - Use `script/generate --check` to verify generated output. Do not run broad
