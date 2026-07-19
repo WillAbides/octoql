@@ -70,6 +70,7 @@
   Do not add automatic retry or sleep behavior.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
+- Run normal Go test suites with `-shuffle=on` to detect order dependencies.
 - Use `script/generate --check` to verify generated output. Do not run broad
   audit targets when targeted validation covers the change.
 
