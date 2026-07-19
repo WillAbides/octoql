@@ -11,7 +11,19 @@ import (
 	"github.com/willabides/octoql"
 )
 
-func ExampleDo() {
+type exampleViewerResponse struct {
+	Viewer struct {
+		Login string `json:"login"`
+	} `json:"viewer"`
+}
+
+type exampleRepositoryResponse struct {
+	Repository struct {
+		Name string `json:"name"`
+	} `json:"repository"`
+}
+
+func ExampleNewClient() {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
 		_, err := io.WriteString(writer, `{"data":{"viewer":{"login":"octocat"}}}`)
@@ -21,24 +33,8 @@ func ExampleDo() {
 	}))
 	defer server.Close()
 
-	type viewerData struct {
-		Viewer struct {
-			Login string `json:"login"`
-		} `json:"viewer"`
-	}
-
 	client := octoql.NewClient(server.URL, server.Client())
-	var response viewerData
-	err := octoql.Do(
-		context.Background(),
-		client,
-		octoql.Operation{
-			Name:  "Viewer",
-			Query: "query Viewer { viewer { login } }",
-		},
-		nil,
-		&response,
-	)
+	response, err := getViewer(context.Background(), client)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -48,7 +44,7 @@ func ExampleDo() {
 	// Output: octocat
 }
 
-func ExampleDo_partialData() {
+func ExampleErrors_partialData() {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
 		_, err := io.WriteString(writer, `{
@@ -61,24 +57,8 @@ func ExampleDo_partialData() {
 	}))
 	defer server.Close()
 
-	type repositoryData struct {
-		Repository struct {
-			Name string `json:"name"`
-		} `json:"repository"`
-	}
-
 	client := octoql.NewClient(server.URL, server.Client())
-	var response repositoryData
-	err := octoql.Do(
-		context.Background(),
-		client,
-		octoql.Operation{
-			Name:  "Repository",
-			Query: "query Repository { repository { name owner { login } } }",
-		},
-		nil,
-		&response,
-	)
+	response, err := getRepository(context.Background(), client)
 
 	var graphqlErrors octoql.Errors
 	if errors.As(err, &graphqlErrors) {
@@ -101,17 +81,7 @@ func ExampleRateLimitError() {
 	defer server.Close()
 
 	client := octoql.NewClient(server.URL, server.Client())
-	var response struct{}
-	err := octoql.Do(
-		context.Background(),
-		client,
-		octoql.Operation{
-			Name:  "Viewer",
-			Query: "query Viewer { viewer { login } }",
-		},
-		nil,
-		&response,
-	)
+	_, err := getViewer(context.Background(), client)
 
 	rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 	fmt.Println(ok)
@@ -136,17 +106,7 @@ func ExampleResponseError() {
 	defer server.Close()
 
 	client := octoql.NewClient(server.URL, server.Client())
-	var response struct{}
-	err := octoql.Do(
-		context.Background(),
-		client,
-		octoql.Operation{
-			Name:  "Viewer",
-			Query: "query Viewer { viewer { login } }",
-		},
-		nil,
-		&response,
-	)
+	_, err := getViewer(context.Background(), client)
 
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
 	if !ok {
@@ -183,17 +143,7 @@ func ExampleClient_RateLimit() {
 	defer server.Close()
 
 	client := octoql.NewClient(server.URL, server.Client())
-	var response struct{}
-	err := octoql.Do(
-		context.Background(),
-		client,
-		octoql.Operation{
-			Name:  "Viewer",
-			Query: "query Viewer { viewer { login } }",
-		},
-		nil,
-		&response,
-	)
+	_, err := getViewer(context.Background(), client)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -207,4 +157,49 @@ func ExampleClient_RateLimit() {
 	// true
 	// 5000
 	// 4999
+}
+
+func getViewer(
+	ctx context.Context,
+	client *octoql.Client,
+) (*exampleViewerResponse, error) {
+	return executeExample[exampleViewerResponse](
+		ctx,
+		client,
+		"Viewer",
+		"query Viewer { viewer { login } }",
+	)
+}
+
+func getRepository(
+	ctx context.Context,
+	client *octoql.Client,
+) (*exampleRepositoryResponse, error) {
+	return executeExample[exampleRepositoryResponse](
+		ctx,
+		client,
+		"Repository",
+		"query Repository { repository { name owner { login } } }",
+	)
+}
+
+func executeExample[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	operationName string,
+	query string,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, octoql.Payload{
+		OperationName: operationName,
+		Query:         query,
+	}, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
 }

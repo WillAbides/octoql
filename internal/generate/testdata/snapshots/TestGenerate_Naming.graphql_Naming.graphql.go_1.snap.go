@@ -92,6 +92,23 @@ func (v *GitHubNamingResponseSnake_case_type) GetName() string { return v.Name }
 
 type SecondRepository string
 
+func __octoqlDo[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}
+
 // The query executed by GitHubNaming.
 const GitHubNaming_Operation = `
 query GitHubNaming {
@@ -120,23 +137,13 @@ query GitHubNaming {
 func GitHubNaming(
 	client_ *octoql.Client,
 ) (*GitHubNamingResponse, error) {
-	response_ := new(GitHubNamingResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[GitHubNamingResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "GitHubNaming",
-			Query: GitHubNaming_Operation,
+		octoql.Payload{
+			OperationName: "GitHubNaming",
+			Query:         GitHubNaming_Operation,
+			Variables:     nil,
 		},
-		nil,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }

@@ -367,42 +367,6 @@ octoql never retries or sleeps automatically. Apply retry policy in the calling
 application after considering operation safety, `Retry-After`, and the parsed
 reset time.
 
-## Handwritten operations
-
-Generated helpers call the same root runtime available to handwritten clients.
-Supply the endpoint, operation name, query document, and a JSON-encodable
-variables value:
-
-```go
-type viewerData struct {
-	Viewer struct {
-		Login string `json:"login"`
-	} `json:"viewer"`
-}
-
-var response viewerData
-err := octoql.Do(
-	ctx,
-	octoql.NewClient("https://api.github.com/graphql", httpClient),
-	octoql.Operation{
-		Name:  "Viewer",
-		Query: "query Viewer { viewer { login } }",
-	},
-	nil,
-	&response,
-)
-if err != nil {
-	return err
-}
-fmt.Println(response.Viewer.Login)
-```
-
-Generated helpers return concrete GraphQL data pointers; `octoql.Do` decodes the
-same data into a caller-supplied non-nil pointer and returns only an error.
-Top-level response extensions are ignored; per-error extensions remain
-available through `octoql.Errors`. Both paths expose the same error facets and
-update the same client rate-limit snapshot.
-
 ## Generated types and GitHub defaults
 
 GraphQL's built-in scalars map to ordinary Go values:
@@ -561,9 +525,8 @@ or sleep.
   `graphql` runtime package or public `generate` package. Invoke
   `github.com/willabides/octoql/cmd/octoqlgen`.
 - Generated helpers now return concrete operation data. Replace
-  `response.Data.Field` with `response.Field`. Handwritten calls replace
-  `response, err := octoql.Do[T](...)` with a concrete destination and
-  `err := octoql.Do(..., &response)`.
+  `response.Data.Field` with `response.Field`. Replace handwritten `Do` calls
+  with generated operations.
 - Replace `HTTPError` checks with `ResponseError`. The latter covers every
   failure after an HTTP response, including HTTP-200 GraphQL and decode errors.
 - Read successful primary rate-limit state from `Client.RateLimit()`.

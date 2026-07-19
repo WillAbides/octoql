@@ -415,16 +415,16 @@ func rateLimitClient(statusCode int, header http.Header, body string) *Client {
 	)
 }
 
-func testOperation() Operation {
-	return Operation{
-		Name:  "Viewer",
-		Query: "query Viewer { viewer { login } }",
-	}
-}
-
 func doRateLimitOperation[T any](t *testing.T, client *Client) (*T, error) {
 	response := new(T)
-	err := Do(t.Context(), client, testOperation(), nil, response)
+	err := client.Execute(
+		t.Context(),
+		Payload{
+			OperationName: "Viewer",
+			Query:         "query Viewer { viewer { login } }",
+		},
+		response,
+	)
 	if err == nil {
 		return response, nil
 	}

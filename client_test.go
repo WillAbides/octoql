@@ -27,6 +27,11 @@ type testData struct {
 	} `json:"repository"`
 }
 
+const (
+	validOperationName  = "Viewer"
+	validOperationQuery = "query Viewer { viewer { login } }"
+)
+
 func TestDoHTTPResponses(t *testing.T) {
 	tests := []struct {
 		check      func(*testing.T, *testData, error)
@@ -116,11 +121,13 @@ func TestDoHTTPResponses(t *testing.T) {
 			defer server.Close()
 
 			client := octoql.NewClient(server.URL, nil)
-			operation := octoql.Operation{
-				Name:  "Repository",
-				Query: "query Repository { repository { name } }",
-			}
-			response, err := doOperation[testData](t.Context(), client, operation, nil)
+			response, err := doOperation[testData](
+				t.Context(),
+				client,
+				"Repository",
+				"query Repository { repository { name } }",
+				nil,
+			)
 			test.check(t, response, err)
 
 			responseError, ok := errors.AsType[*octoql.ResponseError](err)
@@ -165,11 +172,15 @@ func TestDoRequest(t *testing.T) {
 	}
 
 	client := octoql.NewClient("https://github.example/api/graphql", httpClient)
-	operation := octoql.Operation{
-		Name:  "Repository",
-		Query: "query Repository($owner: String!) { repository(owner: $owner) { name } }",
-	}
-	_, err := doOperation[struct{}](t.Context(), client, operation, map[string]any{"owner": "octo"})
+	operationName := "Repository"
+	query := "query Repository($owner: String!) { repository(owner: $owner) { name } }"
+	_, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		operationName,
+		query,
+		map[string]any{"owner": "octo"},
+	)
 	require.NoError(t, err)
 	withVariables := <-requests
 	assert.Equal(t, http.MethodPost, withVariables.method)
@@ -182,7 +193,7 @@ func TestDoRequest(t *testing.T) {
 	}`
 	assert.JSONEq(t, wantBody, string(withVariables.body))
 
-	_, err = doOperation[struct{}](t.Context(), client, operation, nil)
+	_, err = doOperation[struct{}](t.Context(), client, operationName, query, nil)
 	require.NoError(t, err)
 	withoutVariables := <-requests
 	var requestObject map[string]json.RawMessage
@@ -197,7 +208,6 @@ func TestDoFailurePhases(t *testing.T) {
 
 	tests := []struct {
 		client            *octoql.Client
-		operation         octoql.Operation
 		ctx               context.Context
 		variables         any
 		wantCause         error
@@ -215,13 +225,11 @@ func TestDoFailurePhases(t *testing.T) {
 					return nil, nil
 				})},
 			),
-			operation: validOperation(),
 			variables: make(chan int),
 		},
 		{
-			name:      "transport error",
-			ctx:       t.Context(),
-			operation: validOperation(),
+			name: "transport error",
+			ctx:  t.Context(),
 			client: octoql.NewClient(
 				"https://api.github.com/graphql",
 				&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -231,9 +239,8 @@ func TestDoFailurePhases(t *testing.T) {
 			wantCause: transportError,
 		},
 		{
-			name:      "unreadable 2xx body",
-			ctx:       t.Context(),
-			operation: validOperation(),
+			name: "unreadable 2xx body",
+			ctx:  t.Context(),
 			client: newStaticResponseClient(
 				http.StatusOK,
 				http.Header{"X-Github-Request-Id": {"request-read-2xx"}},
@@ -244,9 +251,8 @@ func TestDoFailurePhases(t *testing.T) {
 			wantResponseError: true,
 		},
 		{
-			name:      "unreadable non-2xx body",
-			ctx:       t.Context(),
-			operation: validOperation(),
+			name: "unreadable non-2xx body",
+			ctx:  t.Context(),
 			client: newStaticResponseClient(
 				http.StatusBadGateway,
 				http.Header{"X-Github-Request-Id": {"request-read-error"}},
@@ -260,7 +266,13 @@ func TestDoFailurePhases(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response, err := doOperation[struct{}](test.ctx, test.client, test.operation, test.variables)
+			response, err := doOperation[struct{}](
+				test.ctx,
+				test.client,
+				validOperationName,
+				validOperationQuery,
+				test.variables,
+			)
 			require.Error(t, err)
 			assert.Equal(t, test.wantResponse, response != nil)
 			if test.wantCause != nil {
@@ -299,7 +311,13 @@ func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 	}
 	client := octoql.NewClient(server.URL, httpClient)
 
-	response, err := doOperation[struct{}](t.Context(), client, validOperation(), nil)
+	response, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
 	require.NotNil(t, response)
 	assert.ErrorIs(t, err, redirectError)
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
@@ -322,7 +340,13 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 		},
 	)
 
-	response, err := doOperation[testData](t.Context(), client, validOperation(), nil)
+	response, err := doOperation[testData](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
 	require.NotNil(t, response)
 	assert.Equal(t, "partial", response.Repository.Name)
 	assert.ErrorIs(t, err, closeError)
@@ -332,21 +356,19 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 	assert.True(t, responseErrorFound)
 }
 
-func validOperation() octoql.Operation {
-	return octoql.Operation{
-		Name:  "Viewer",
-		Query: "query Viewer { viewer { login } }",
-	}
-}
-
 func doOperation[T any](
 	ctx context.Context,
 	client *octoql.Client,
-	operation octoql.Operation,
+	operationName string,
+	query string,
 	variables any,
 ) (*T, error) {
 	response := new(T)
-	err := octoql.Do(ctx, client, operation, variables, response)
+	err := client.Execute(ctx, octoql.Payload{
+		OperationName: operationName,
+		Query:         query,
+		Variables:     variables,
+	}, response)
 	if err == nil {
 		return response, nil
 	}

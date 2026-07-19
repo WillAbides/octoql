@@ -47,7 +47,8 @@ func TestDoIgnoresTopLevelExtensions(t *testing.T) {
 	response, err := doOperation[responseData](
 		t.Context(),
 		client,
-		validOperation(),
+		validOperationName,
+		validOperationQuery,
 		nil,
 	)
 
@@ -65,11 +66,12 @@ func TestDoReplacesDestinationAfterSuccessfulDecode(t *testing.T) {
 	response := responseData{Count: 42}
 	response.Repository.Name = "stale"
 
-	err := octoql.Do(
+	err := client.Execute(
 		t.Context(),
-		client,
-		validOperation(),
-		nil,
+		octoql.Payload{
+			OperationName: validOperationName,
+			Query:         validOperationQuery,
+		},
 		&response,
 	)
 
@@ -89,7 +91,8 @@ func TestDoPointerData(t *testing.T) {
 		response, err := doOperation[*responseData](
 			t.Context(),
 			client,
-			validOperation(),
+			validOperationName,
+			validOperationQuery,
 			nil,
 		)
 
@@ -109,7 +112,8 @@ func TestDoPointerData(t *testing.T) {
 		response, err := doOperation[*responseData](
 			t.Context(),
 			client,
-			validOperation(),
+			validOperationName,
+			validOperationQuery,
 			nil,
 		)
 
@@ -165,11 +169,12 @@ func TestDoDoesNotMutateDestinationAfterFailedDataDecode(t *testing.T) {
 
 	response := responseData{Count: 42}
 	response.Repository.Name = "preserved"
-	err := octoql.Do(
+	err := client.Execute(
 		t.Context(),
-		client,
-		validOperation(),
-		nil,
+		octoql.Payload{
+			OperationName: validOperationName,
+			Query:         validOperationQuery,
+		},
 		&response,
 	)
 
@@ -230,7 +235,8 @@ func TestDoRejectsExtensionsOnlyResponse(t *testing.T) {
 	response, err := doOperation[responseData](
 		t.Context(),
 		client,
-		validOperation(),
+		validOperationName,
+		validOperationQuery,
 		nil,
 	)
 	require.NotNil(t, response)
@@ -266,7 +272,8 @@ func TestDoRejectsEmptyErrorOnlyResponse(t *testing.T) {
 			response, err := doOperation[responseData](
 				t.Context(),
 				client,
-				validOperation(),
+				validOperationName,
+				validOperationQuery,
 				nil,
 			)
 
@@ -311,7 +318,13 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.False(t, known)
 	assert.Equal(t, octoql.RateLimit{}, rateLimit)
 
-	_, err := doOperation[struct{}](t.Context(), client, validOperation(), nil)
+	_, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
 	require.NoError(t, err)
 	rateLimit, known = client.RateLimit()
 	require.True(t, known)
@@ -322,7 +335,13 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.Zero(t, rateLimit.RetryAfter)
 	assert.True(t, rateLimit.RetryAt.IsZero())
 
-	_, err = doOperation[struct{}](t.Context(), client, validOperation(), nil)
+	_, err = doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
 	require.NoError(t, err)
 	preserved, known := client.RateLimit()
 	require.True(t, known)
@@ -353,7 +372,8 @@ func responseAPIData[T any](
 	return doOperation[T](
 		t.Context(),
 		client,
-		validOperation(),
+		validOperationName,
+		validOperationQuery,
 		nil,
 	)
 }

@@ -1,0 +1,16 @@
+func __octoqlDo[T any](
+	ctx {{ref "context.Context"}},
+	client *{{ref "github.com/willabides/octoql.Client"}},
+	payload {{ref "github.com/willabides/octoql.Payload"}},
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := {{ref "errors.AsType"}}[*{{ref "github.com/willabides/octoql.ResponseError"}}](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}

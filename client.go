@@ -29,15 +29,8 @@ type Client struct {
 	rateLimitObservation uint64
 }
 
-// Operation describes a named GraphQL operation and its query document.
-type Operation struct {
-	Name  string
-	Query string
-}
-
 // NewClient returns a client for endpoint. A nil httpClient uses
-// [http.DefaultClient]. Endpoint validation occurs when [Do] executes an
-// operation.
+// [http.DefaultClient].
 func NewClient(endpoint string, httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
@@ -67,28 +60,27 @@ func (client *Client) RateLimit() (RateLimit, bool) {
 	return *client.rateLimit, true
 }
 
-// Do executes operation and decodes its response data into response.
+// Payload is the GraphQL request body used by generated clients.
+type Payload struct {
+	Query         string `json:"query"`
+	OperationName string `json:"operationName"`
+	Variables     any    `json:"variables,omitempty"`
+}
+
+// Execute runs operation and decodes its response data into response.
 //
-// Response must be a non-nil pointer. Data is decoded into a same-typed
+// Execute is a generated-code contract. Response must be a non-nil pointer.
+// Data is decoded into a same-typed
 // temporary and assigned to response only after successful JSON decoding.
 // Every failure after the server returns an HTTP response includes
 // [ResponseError]. GraphQL errors and rate limits remain discoverable in that
 // error chain as [Errors] and [RateLimitError].
-func Do(
+func (client *Client) Execute(
 	ctx context.Context,
-	client *Client,
-	operation Operation,
-	variables, response any,
+	payload Payload,
+	response any,
 ) error {
-	payload, err := json.Marshal(struct {
-		Query         string `json:"query"`
-		OperationName string `json:"operationName"`
-		Variables     any    `json:"variables,omitempty"`
-	}{
-		Query:         operation.Query,
-		OperationName: operation.Name,
-		Variables:     variables,
-	})
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode graphql request: %w", err)
 	}
@@ -97,7 +89,7 @@ func Do(
 		ctx,
 		http.MethodPost,
 		client.endpoint,
-		bytes.NewReader(payload),
+		bytes.NewReader(body),
 	)
 	if err != nil {
 		return fmt.Errorf("create graphql request: %w", err)

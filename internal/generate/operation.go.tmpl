@@ -34,27 +34,13 @@ func {{.Name}}(
         {{end -}}
     }
     {{end -}}
-    {{.ResultName}} := new({{.ResponseName}})
-    {{if .Config.ClientGetter -}}
-    {{.ErrorName}} = {{ref "github.com/willabides/octoql.Do"}}(
-    {{else -}}
-    {{.ErrorName}} := {{ref "github.com/willabides/octoql.Do"}}(
-    {{end -}}
+    return __octoqlDo[{{.ResponseName}}](
         {{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{ref "context.Background"}}(){{end}},
         {{.ClientName}},
-        {{ref "github.com/willabides/octoql.Operation"}}{
-            Name: "{{.Name}}",
+        {{ref "github.com/willabides/octoql.Payload"}}{
+            OperationName: "{{.Name}}",
             Query: {{.Name}}_Operation,
+            Variables: {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
         },
-        {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
-        {{.ResultName}},
     )
-    if {{.ErrorName}} == nil {
-        return {{.ResultName}}, nil
-    }
-    _, {{.HasResponseName}} := {{ref "errors.AsType"}}[*{{ref "github.com/willabides/octoql.ResponseError"}}]({{.ErrorName}})
-    if !{{.HasResponseName}} {
-        return nil, {{.ErrorName}}
-    }
-    return {{.ResultName}}, {{.ErrorName}}
 }

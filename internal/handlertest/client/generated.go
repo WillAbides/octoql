@@ -756,6 +756,23 @@ type __SearchInput struct {
 // GetQuery returns __SearchInput.Query, and is useful for accessing the field via an interface.
 func (v *__SearchInput) GetQuery() string { return v.Query }
 
+func __octoqlDo[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}
+
 // The mutation executed by CreateRepository.
 const CreateRepository_Operation = `
 mutation CreateRepository ($input: CreateRepositoryInput!) {
@@ -786,25 +803,15 @@ func CreateRepository(
 	variables_ := __CreateRepositoryInput{
 		Input: input,
 	}
-	response_ := new(CreateRepositoryResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[CreateRepositoryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "CreateRepository",
-			Query: CreateRepository_Operation,
+		octoql.Payload{
+			OperationName: "CreateRepository",
+			Query:         CreateRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by EchoAny.
@@ -825,25 +832,15 @@ func EchoAny(
 	variables_ := __EchoAnyInput{
 		Value: value,
 	}
-	response_ := new(EchoAnyResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[EchoAnyResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "EchoAny",
-			Query: EchoAny_Operation,
+		octoql.Payload{
+			OperationName: "EchoAny",
+			Query:         EchoAny_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by EchoAt.
@@ -864,25 +861,15 @@ func EchoAt(
 	variables_ := __EchoAtInput{
 		Value: value,
 	}
-	response_ := new(EchoAtResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[EchoAtResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "EchoAt",
-			Query: EchoAt_Operation,
+		octoql.Payload{
+			OperationName: "EchoAt",
+			Query:         EchoAt_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by EchoProperty.
@@ -903,25 +890,15 @@ func EchoProperty(
 	variables_ := __EchoPropertyInput{
 		Value: value,
 	}
-	response_ := new(EchoPropertyResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[EchoPropertyResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "EchoProperty",
-			Query: EchoProperty_Operation,
+		octoql.Payload{
+			OperationName: "EchoProperty",
+			Query:         EchoProperty_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by GetNode.
@@ -951,25 +928,15 @@ func GetNode(
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	response_ := new(GetNodeResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[GetNodeResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "GetNode",
-			Query: GetNode_Operation,
+		octoql.Payload{
+			OperationName: "GetNode",
+			Query:         GetNode_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by GetRepository.
@@ -1011,25 +978,15 @@ func GetRepository(
 		First: first,
 		After: after,
 	}
-	response_ := new(GetRepositoryResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[GetRepositoryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "GetRepository",
-			Query: GetRepository_Operation,
+		octoql.Payload{
+			OperationName: "GetRepository",
+			Query:         GetRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by Search.
@@ -1060,25 +1017,15 @@ func Search(
 	variables_ := __SearchInput{
 		Query: query,
 	}
-	response_ := new(SearchResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[SearchResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "Search",
-			Query: Search_Operation,
+		octoql.Payload{
+			OperationName: "Search",
+			Query:         Search_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by Viewer.
@@ -1098,23 +1045,13 @@ func Viewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*ViewerResponse, error) {
-	response_ := new(ViewerResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[ViewerResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "Viewer",
-			Query: Viewer_Operation,
+		octoql.Payload{
+			OperationName: "Viewer",
+			Query:         Viewer_Operation,
+			Variables:     nil,
 		},
-		nil,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }

@@ -40,6 +40,23 @@ type getRepositoryResponse struct {
 // GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *getRepositoryResponse) GetRepository() getRepositoryRepository { return v.Repository }
 
+func __octoqlDo[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}
+
 // The query executed by getRepository.
 const getRepository_Operation = `
 query getRepository ($owner: String!, $name: String!) {
@@ -62,23 +79,13 @@ func getRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	response_ := new(getRepositoryResponse)
-	err_ = octoql.Do(
+	return __octoqlDo[getRepositoryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "getRepository",
-			Query: getRepository_Operation,
+		octoql.Payload{
+			OperationName: "getRepository",
+			Query:         getRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }

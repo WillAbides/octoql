@@ -37,6 +37,23 @@ func (v *__GetRepositoryInput) GetOwner() string { return v.Owner }
 // GetName returns __GetRepositoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__GetRepositoryInput) GetName() string { return v.Name }
 
+func __octoqlDo[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}
+
 // The query executed by GetRepository.
 const GetRepository_Operation = `
 query GetRepository ($owner: String!, $name: String!) {
@@ -55,23 +72,13 @@ func GetRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	response_ := new(GetRepositoryResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[GetRepositoryResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "GetRepository",
-			Query: GetRepository_Operation,
+		octoql.Payload{
+			OperationName: "GetRepository",
+			Query:         GetRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }

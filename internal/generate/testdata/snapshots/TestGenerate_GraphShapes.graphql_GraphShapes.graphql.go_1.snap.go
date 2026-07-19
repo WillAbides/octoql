@@ -2895,6 +2895,23 @@ func (v *__SearchRepositoriesInput) __premarshalJSON() (*__premarshal__SearchRep
 	return &retval, nil
 }
 
+func __octoqlDo[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}
+
 // The query executed by GetActor.
 const GetActor_Operation = `
 query GetActor ($login: String!) {
@@ -2929,25 +2946,15 @@ func GetActor(
 	variables_ := __GetActorInput{
 		Login: login,
 	}
-	response_ := new(GetActorResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[GetActorResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "GetActor",
-			Query: GetActor_Operation,
+		octoql.Payload{
+			OperationName: "GetActor",
+			Query:         GetActor_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by GetNode.
@@ -2982,25 +2989,15 @@ func GetNode(
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	response_ := new(GetNodeResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[GetNodeResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "GetNode",
-			Query: GetNode_Operation,
+		octoql.Payload{
+			OperationName: "GetNode",
+			Query:         GetNode_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by NestedNodeShapes.
@@ -3016,25 +3013,15 @@ query NestedNodeShapes {
 func NestedNodeShapes(
 	client_ *octoql.Client,
 ) (*NestedNodeShapesResponse, error) {
-	response_ := new(NestedNodeShapesResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[NestedNodeShapesResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "NestedNodeShapes",
-			Query: NestedNodeShapes_Operation,
+		octoql.Payload{
+			OperationName: "NestedNodeShapes",
+			Query:         NestedNodeShapes_Operation,
+			Variables:     nil,
 		},
-		nil,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by RecursiveRepository.
@@ -3057,25 +3044,15 @@ func RecursiveRepository(
 	variables_ := __RecursiveRepositoryInput{
 		Input: input,
 	}
-	response_ := new(RecursiveRepositoryResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[RecursiveRepositoryResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "RecursiveRepository",
-			Query: RecursiveRepository_Operation,
+		octoql.Payload{
+			OperationName: "RecursiveRepository",
+			Query:         RecursiveRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by RepositoryEventCovariance.
@@ -3106,25 +3083,15 @@ query RepositoryEventCovariance {
 func RepositoryEventCovariance(
 	client_ *octoql.Client,
 ) (*RepositoryEventCovarianceResponse, error) {
-	response_ := new(RepositoryEventCovarianceResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[RepositoryEventCovarianceResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "RepositoryEventCovariance",
-			Query: RepositoryEventCovariance_Operation,
+		octoql.Payload{
+			OperationName: "RepositoryEventCovariance",
+			Query:         RepositoryEventCovariance_Operation,
+			Variables:     nil,
 		},
-		nil,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by SearchRepositories.
@@ -3186,23 +3153,13 @@ func SearchRepositories(
 		After:          after,
 		PublishedAfter: publishedAfter,
 	}
-	response_ := new(SearchRepositoriesResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[SearchRepositoriesResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "SearchRepositories",
-			Query: SearchRepositories_Operation,
+		octoql.Payload{
+			OperationName: "SearchRepositories",
+			Query:         SearchRepositories_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }

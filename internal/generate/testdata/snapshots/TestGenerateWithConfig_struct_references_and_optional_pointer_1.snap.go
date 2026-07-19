@@ -840,6 +840,23 @@ func (v *__UpdateIssueWithCollidingNamesInput) GetResp() *int { return v.Resp }
 // GetClient returns __UpdateIssueWithCollidingNamesInput.Client, and is useful for accessing the field via an interface.
 func (v *__UpdateIssueWithCollidingNamesInput) GetClient() *string { return v.Client }
 
+func __octoqlDo[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}
+
 // The mutation executed by CreateGitHubRepository.
 const CreateGitHubRepository_Operation = `
 mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
@@ -858,25 +875,15 @@ func CreateGitHubRepository(
 	variables_ := __CreateGitHubRepositoryInput{
 		Input: input,
 	}
-	response_ := new(CreateGitHubRepositoryResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[CreateGitHubRepositoryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "CreateGitHubRepository",
-			Query: CreateGitHubRepository_Operation,
+		octoql.Payload{
+			OperationName: "CreateGitHubRepository",
+			Query:         CreateGitHubRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by GitHubInputs.
@@ -927,25 +934,15 @@ func GitHubInputs(
 		PublishedDates:         publishedDates,
 		OptionalPublishedDates: optionalPublishedDates,
 	}
-	response_ := new(GitHubInputResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[GitHubInputResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "GitHubInputs",
-			Query: GitHubInputs_Operation,
+		octoql.Payload{
+			OperationName: "GitHubInputs",
+			Query:         GitHubInputs_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The mutation executed by UpdateIssueWithCollidingNames.
@@ -971,23 +968,13 @@ func UpdateIssueWithCollidingNames(
 		Resp:   resp,
 		Client: client,
 	}
-	response_ := new(UpdateIssueWithCollidingNamesResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[UpdateIssueWithCollidingNamesResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "UpdateIssueWithCollidingNames",
-			Query: UpdateIssueWithCollidingNames_Operation,
+		octoql.Payload{
+			OperationName: "UpdateIssueWithCollidingNames",
+			Query:         UpdateIssueWithCollidingNames_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }

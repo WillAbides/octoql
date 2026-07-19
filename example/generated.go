@@ -70,6 +70,23 @@ func (v *getViewerViewerUser) GetMyName() string { return v.MyName }
 // GetCreatedAt returns getViewerViewerUser.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getViewerViewerUser) GetCreatedAt() time.Time { return v.CreatedAt }
 
+func __octoqlDo[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}
+
 // The query executed by getUser.
 const getUser_Operation = `
 query getUser ($Login: String!) {
@@ -89,25 +106,15 @@ func getUser(
 	variables_ := __getUserInput{
 		Login: Login,
 	}
-	response_ := new(getUserResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[getUserResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "getUser",
-			Query: getUser_Operation,
+		octoql.Payload{
+			OperationName: "getUser",
+			Query:         getUser_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by getViewer.
@@ -124,23 +131,13 @@ func getViewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*getViewerResponse, error) {
-	response_ := new(getViewerResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[getViewerResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "getViewer",
-			Query: getViewer_Operation,
+		octoql.Payload{
+			OperationName: "getViewer",
+			Query:         getViewer_Operation,
+			Variables:     nil,
 		},
-		nil,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }

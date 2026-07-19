@@ -4335,6 +4335,23 @@ func (v *userFields) __premarshalJSON() (*__premarshaluserFields, error) {
 	return &retval, nil
 }
 
+func __octoqlDo[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+) (*T, error) {
+	response := new(T)
+	err := client.Execute(ctx, payload, response)
+	if err == nil {
+		return response, nil
+	}
+	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
+	if !hasResponse {
+		return nil, err
+	}
+	return response, err
+}
+
 // The mutation executed by addComment.
 const addComment_Operation = `
 mutation addComment ($input: AddCommentInput!) {
@@ -4357,25 +4374,15 @@ func addComment(
 	variables_ := __addCommentInput{
 		Input: input,
 	}
-	response_ := new(addCommentResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[addCommentResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "addComment",
-			Query: addComment_Operation,
+		octoql.Payload{
+			OperationName: "addComment",
+			Query:         addComment_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The mutation executed by addStar.
@@ -4400,25 +4407,15 @@ func addStar(
 	variables_ := __addStarInput{
 		Input: input,
 	}
-	response_ := new(addStarResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[addStarResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "addStar",
-			Query: addStar_Operation,
+		octoql.Payload{
+			OperationName: "addStar",
+			Query:         addStar_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by failingQuery.
@@ -4435,25 +4432,15 @@ func failingQuery(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*failingQueryResponse, error) {
-	response_ := new(failingQueryResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[failingQueryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "failingQuery",
-			Query: failingQuery_Operation,
+		octoql.Payload{
+			OperationName: "failingQuery",
+			Query:         failingQuery_Operation,
+			Variables:     nil,
 		},
-		nil,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by getRepository.
@@ -4481,25 +4468,15 @@ func getRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	response_ := new(getRepositoryResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[getRepositoryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "getRepository",
-			Query: getRepository_Operation,
+		octoql.Payload{
+			OperationName: "getRepository",
+			Query:         getRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithCustomMarshal.
@@ -4521,25 +4498,15 @@ func queryWithCustomMarshal(
 	variables_ := __queryWithCustomMarshalInput{
 		Date: date,
 	}
-	response_ := new(queryWithCustomMarshalResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithCustomMarshalResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithCustomMarshal",
-			Query: queryWithCustomMarshal_Operation,
+		octoql.Payload{
+			OperationName: "queryWithCustomMarshal",
+			Query:         queryWithCustomMarshal_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithCustomMarshalOptional.
@@ -4563,25 +4530,15 @@ func queryWithCustomMarshalOptional(
 		Date:  date,
 		Login: login,
 	}
-	response_ := new(queryWithCustomMarshalOptionalResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithCustomMarshalOptionalResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithCustomMarshalOptional",
-			Query: queryWithCustomMarshalOptional_Operation,
+		octoql.Payload{
+			OperationName: "queryWithCustomMarshalOptional",
+			Query:         queryWithCustomMarshalOptional_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithCustomMarshalSlice.
@@ -4603,25 +4560,15 @@ func queryWithCustomMarshalSlice(
 	variables_ := __queryWithCustomMarshalSliceInput{
 		Dates: dates,
 	}
-	response_ := new(queryWithCustomMarshalSliceResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithCustomMarshalSliceResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithCustomMarshalSlice",
-			Query: queryWithCustomMarshalSlice_Operation,
+		octoql.Payload{
+			OperationName: "queryWithCustomMarshalSlice",
+			Query:         queryWithCustomMarshalSlice_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithFlatten.
@@ -4677,25 +4624,15 @@ func queryWithFlatten(
 	variables_ := __queryWithFlattenInput{
 		Ids: ids,
 	}
-	response_ := new(queryFragment)
-	err_ := octoql.Do(
+	return __octoqlDo[queryFragment](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithFlatten",
-			Query: queryWithFlatten_Operation,
+		octoql.Payload{
+			OperationName: "queryWithFlatten",
+			Query:         queryWithFlatten_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithFragments.
@@ -4744,25 +4681,15 @@ func queryWithFragments(
 	variables_ := __queryWithFragmentsInput{
 		Ids: ids,
 	}
-	response_ := new(queryWithFragmentsResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithFragmentsResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithFragments",
-			Query: queryWithFragments_Operation,
+		octoql.Payload{
+			OperationName: "queryWithFragments",
+			Query:         queryWithFragments_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithInterfaceListField.
@@ -4784,25 +4711,15 @@ func queryWithInterfaceListField(
 	variables_ := __queryWithInterfaceListFieldInput{
 		Ids: ids,
 	}
-	response_ := new(queryWithInterfaceListFieldResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithInterfaceListFieldResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithInterfaceListField",
-			Query: queryWithInterfaceListField_Operation,
+		octoql.Payload{
+			OperationName: "queryWithInterfaceListField",
+			Query:         queryWithInterfaceListField_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithInterfaceListPointerField.
@@ -4824,25 +4741,15 @@ func queryWithInterfaceListPointerField(
 	variables_ := __queryWithInterfaceListPointerFieldInput{
 		Ids: ids,
 	}
-	response_ := new(queryWithInterfaceListPointerFieldResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithInterfaceListPointerFieldResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithInterfaceListPointerField",
-			Query: queryWithInterfaceListPointerField_Operation,
+		octoql.Payload{
+			OperationName: "queryWithInterfaceListPointerField",
+			Query:         queryWithInterfaceListPointerField_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithInterfaceNoFragments.
@@ -4868,25 +4775,15 @@ func queryWithInterfaceNoFragments(
 	variables_ := __queryWithInterfaceNoFragmentsInput{
 		Id: id,
 	}
-	response_ := new(queryWithInterfaceNoFragmentsResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithInterfaceNoFragmentsResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithInterfaceNoFragments",
-			Query: queryWithInterfaceNoFragments_Operation,
+		octoql.Payload{
+			OperationName: "queryWithInterfaceNoFragments",
+			Query:         queryWithInterfaceNoFragments_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithNamedFragments.
@@ -4936,25 +4833,15 @@ func queryWithNamedFragments(
 	variables_ := __queryWithNamedFragmentsInput{
 		Ids: ids,
 	}
-	response_ := new(queryWithNamedFragmentsResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithNamedFragmentsResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithNamedFragments",
-			Query: queryWithNamedFragments_Operation,
+		octoql.Payload{
+			OperationName: "queryWithNamedFragments",
+			Query:         queryWithNamedFragments_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithOmitempty.
@@ -4976,25 +4863,15 @@ func queryWithOmitempty(
 	variables_ := __queryWithOmitemptyInput{
 		Login: login,
 	}
-	response_ := new(queryWithOmitemptyResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithOmitemptyResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithOmitempty",
-			Query: queryWithOmitempty_Operation,
+		octoql.Payload{
+			OperationName: "queryWithOmitempty",
+			Query:         queryWithOmitempty_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithSearch.
@@ -5034,25 +4911,15 @@ func queryWithSearch(
 		Query:      query,
 		SearchType: searchType,
 	}
-	response_ := new(queryWithSearchResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithSearchResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithSearch",
-			Query: queryWithSearch_Operation,
+		octoql.Payload{
+			OperationName: "queryWithSearch",
+			Query:         queryWithSearch_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The query executed by queryWithVariables.
@@ -5074,25 +4941,15 @@ func queryWithVariables(
 	variables_ := __queryWithVariablesInput{
 		Login: login,
 	}
-	response_ := new(queryWithVariablesResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[queryWithVariablesResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "queryWithVariables",
-			Query: queryWithVariables_Operation,
+		octoql.Payload{
+			OperationName: "queryWithVariables",
+			Query:         queryWithVariables_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
 
 // The mutation executed by removeStar.
@@ -5117,23 +4974,13 @@ func removeStar(
 	variables_ := __removeStarInput{
 		Input: input,
 	}
-	response_ := new(removeStarResponse)
-	err_ := octoql.Do(
+	return __octoqlDo[removeStarResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "removeStar",
-			Query: removeStar_Operation,
+		octoql.Payload{
+			OperationName: "removeStar",
+			Query:         removeStar_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
-		response_,
 	)
-	if err_ == nil {
-		return response_, nil
-	}
-	_, hasResponse_ := errors.AsType[*octoql.ResponseError](err_)
-	if !hasResponse_ {
-		return nil, err_
-	}
-	return response_, err_
 }
