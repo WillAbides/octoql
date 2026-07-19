@@ -21,12 +21,13 @@ We consider the following changes to be breaking:
 
 We don't consider the following changes to be breaking:
 - syntactic changes to the generated output for existing queries; if you check that your generated code is up to date in CI you should expect to need to update it when you update genqlient
-- changes, including breaking API changes, to any double-underscore-prefixed names in the generated code (i.e. don't refer to these in your code); the same applies to root runtime names documented as generated-code-only contracts
-- coordinated changes to the code-generator and generated-code-only root runtime contracts, provided regenerating updates existing generated code
+- changes, including breaking API changes, to any double-underscore-prefixed names in the generated code (i.e. don't refer to these in your code)
 - dropping support for Go versions which are no longer supported by the Go project (all but the [two newest](https://go.dev/doc/devel/release))
 
 The generator and root runtime are released together in the same `octoql` Go
 module. When upgrading octoql, rerun the generator so generated code and its
-runtime contracts come from the same module version.
+runtime calls come from the same module version. Generated JSON
+method-promotion fences are unexported implementation details in generated
+files, not root runtime APIs.
 
 Note that while genqlient is on version 0.x we may make breaking changes at any time, although we still aim to do so only in minor version bumps (0.6.0, not 0.5.1), and we aim to minimize breaking changes, especially to core functionality.
