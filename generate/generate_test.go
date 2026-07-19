@@ -1400,6 +1400,7 @@ func TestGenerateWithConfig(t *testing.T) {
 			generated, err := Generate(config)
 			require.NoError(t, err)
 			test.check(t, config, generated)
+			require.NoError(t, buildGoFile(test.name, generated[config.Generated]))
 		})
 	}
 }

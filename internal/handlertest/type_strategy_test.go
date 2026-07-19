@@ -83,6 +83,56 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			},
 		},
 		{
+			name:      "mutation input and enum",
+			operation: "CreateRepository",
+			variables: map[string]any{
+				"input": map[string]any{
+					"name":             "created",
+					"ownerId":          "O1",
+					"visibility":       "PRIVATE",
+					"clientMutationId": "mutation-1",
+				},
+			},
+			configureClient: func(handler *clienttypes.TestHandler) {
+				handler.ExpectCreateRepository(clienttypes.CreateRepositoryVariables{
+					Input: clienttypes.CreateRepositoryInput{
+						Name:             "created",
+						OwnerId:          "O1",
+						Visibility:       clienttypes.RepositoryVisibilityPrivate,
+						ClientMutationId: "mutation-1",
+					},
+				}).Respond(clienttypes.CreateRepositoryResponse{
+					CreateRepository: clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
+						Repository: clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+							Id:            "R2",
+							NameWithOwner: "octo-org/created",
+							UpdatedAt:     updatedAt,
+						},
+						ClientMutationId: "mutation-1",
+					},
+				})
+			},
+			configureLocal: func(handler *localtypes.TestHandler) {
+				handler.ExpectCreateRepository(localtypes.CreateRepositoryVariables{
+					Input: localtypes.CreateRepositoryInput{
+						Name:             "created",
+						OwnerId:          "O1",
+						Visibility:       localtypes.RepositoryVisibilityPrivate,
+						ClientMutationId: "mutation-1",
+					},
+				}).Respond(localtypes.CreateRepositoryResponse{
+					CreateRepository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
+						Repository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+							Id:            "R2",
+							NameWithOwner: "octo-org/created",
+							UpdatedAt:     updatedAt,
+						},
+						ClientMutationId: "mutation-1",
+					},
+				})
+			},
+		},
+		{
 			name:      "node catch all actual typename",
 			operation: "GetNode",
 			variables: map[string]any{"id": "user"},
@@ -319,6 +369,28 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	assert.Equal(t, "U1", other.Id)
 	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"user"}`)
 
+	searchVariables := localtypes.SearchVariables{Query: "octo"}
+	handler.ExpectSearch(searchVariables).Respond(localtypes.SearchResponse{
+		Search: []localtypes.SearchSearchSearchResultItem{
+			&localtypes.SearchSearchRepository{
+				Id:            "R1",
+				NameWithOwner: "octo-org/octo-repo",
+			},
+			&localtypes.SearchSearchIssue{Id: "I1", Title: "bug"},
+			&localtypes.SearchSearchSearchResultItemOctoqlOther{Typename: "User"},
+		},
+	})
+	searchResponse, err := githubapi.Search(t.Context(), client, searchVariables.Query)
+	require.NoError(t, err)
+	require.Len(t, searchResponse.Data.Search, 3)
+	searchRepository, ok := searchResponse.Data.Search[0].(*githubapi.SearchSearchRepository)
+	require.True(t, ok)
+	assert.Equal(t, "octo-org/octo-repo", searchRepository.NameWithOwner)
+	searchOther, ok := searchResponse.Data.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
+	require.True(t, ok)
+	assert.Equal(t, "User", searchOther.Typename)
+	requireGeneratedRequest(t, requests, "Search", githubapi.Search_Operation, `{"query":"octo"}`)
+
 	property := json.RawMessage(`["one","two"]`)
 	handler.ExpectEchoProperty(localtypes.EchoPropertyVariables{Value: property}).
 		Respond(localtypes.EchoPropertyResponse{EchoProperty: property})
@@ -344,6 +416,26 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		"EchoAt",
 		githubapi.EchoAt_Operation,
 		`{"value":"2026-07-19T12:00:00Z"}`,
+	)
+
+	const largeInteger = int64(9_007_199_254_740_993)
+	handler.ExpectEchoAny(localtypes.EchoAnyVariables{Value: largeInteger}).
+		Respond(localtypes.EchoAnyResponse{EchoAny: map[string]any{
+			"count": 42,
+			"items": []any{"one", true},
+		}})
+	arbitraryResponse, err := githubapi.EchoAny(t.Context(), client, largeInteger)
+	require.NoError(t, err)
+	arbitrary, ok := arbitraryResponse.Data.EchoAny.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, float64(42), arbitrary["count"])
+	assert.Equal(t, []any{"one", true}, arbitrary["items"])
+	requireGeneratedRequest(
+		t,
+		requests,
+		"EchoAny",
+		githubapi.EchoAny_Operation,
+		`{"value":9007199254740993}`,
 	)
 
 	errorVariables := localtypes.GetNodeVariables{Id: "missing"}
