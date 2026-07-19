@@ -35,11 +35,6 @@ type Operation struct {
 	Query string
 }
 
-type responseEnvelope struct {
-	Data   json.RawMessage `json:"data"`
-	Errors json.RawMessage `json:"errors"`
-}
-
 //nolint:govet // Preserve standard GraphQL request field order in encoded JSON.
 type requestPayload struct {
 	Query         string `json:"query"`
@@ -158,11 +153,24 @@ func Do[T any](
 		return response, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
+	var data json.RawMessage
 	var graphqlErrors Errors
-	var hasData bool
-	var hasErrors bool
 	var decodeErr error
-	response, graphqlErrors, hasData, hasErrors, decodeErr = decodeResponse[T](body)
+	data, graphqlErrors, decodeErr = decodeResponse(body)
+
+	hasData := data != nil
+	hasErrors := len(graphqlErrors) > 0
+	if hasData {
+		decoded := new(T)
+		dataErr := json.Unmarshal(data, decoded)
+		if dataErr == nil {
+			response = decoded
+		}
+		if dataErr != nil {
+			dataErr = fmt.Errorf("decode graphql response data: %w", dataErr)
+		}
+		decodeErr = joinErrors(decodeErr, dataErr)
+	}
 
 	cause := decodeErr
 	if len(graphqlErrors) > 0 {
@@ -273,45 +281,29 @@ func readAndClose(body io.ReadCloser) ([]byte, error, error) {
 	return payload, readErr, closeErr
 }
 
-func decodeResponse[T any](
-	body []byte,
-) (*T, Errors, bool, bool, error) {
-	response := new(T)
-	var envelope responseEnvelope
+func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
+	var envelope struct {
+		Data   json.RawMessage `json:"data"`
+		Errors json.RawMessage `json:"errors"`
+	}
 	err := json.Unmarshal(body, &envelope)
 	if err != nil {
-		return response, nil, false, false, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"decode graphql response envelope: %w",
 			err,
 		)
 	}
 
-	hasData := envelope.Data != nil
-	hasErrorsField := envelope.Errors != nil
-
 	var graphqlErrors Errors
-	var errorsErr error
-	if hasErrorsField {
-		errorsErr = json.Unmarshal(envelope.Errors, &graphqlErrors)
-		if errorsErr != nil {
-			errorsErr = fmt.Errorf("decode graphql response errors: %w", errorsErr)
-		}
-	}
-	hasErrors := len(graphqlErrors) > 0
-
-	var dataErr error
-	if hasData {
-		decoded := new(T)
-		dataErr = json.Unmarshal(envelope.Data, decoded)
-		if dataErr == nil {
-			response = decoded
-		}
-		if dataErr != nil {
-			dataErr = fmt.Errorf("decode graphql response data: %w", dataErr)
-		}
+	if envelope.Errors == nil {
+		return envelope.Data, graphqlErrors, nil
 	}
 
-	return response, graphqlErrors, hasData, hasErrors, joinErrors(errorsErr, dataErr)
+	err = json.Unmarshal(envelope.Errors, &graphqlErrors)
+	if err != nil {
+		err = fmt.Errorf("decode graphql response errors: %w", err)
+	}
+	return envelope.Data, graphqlErrors, err
 }
 
 func isSuccessfulStatus(statusCode int) bool {
