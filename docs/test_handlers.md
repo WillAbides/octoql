@@ -41,7 +41,17 @@ Both strategies use the same converted operation plan, scalar and package
 bindings, optional representation, fragments, abstract variants, and
 `OctoqlOther` behavior. They produce the same GraphQL JSON and HTTP headers.
 Local mode generates more declarations and may increase test-package compile
-work. Operations included in a handler must begin with an uppercase letter.
+work.
+
+Bindings and custom marshal helpers are resolved independently for the client
+and handler packages. External references import normally, and references owned
+by the handler package remain unqualified. Local mode cannot use a reachable
+binding type, marshaler, or unmarshaler owned by the generated client package,
+because that would restore the dependency local mode is intended to remove.
+Generation reports a focused error in that case. Unused client-owned bindings
+do not block local generation.
+
+Operations included in a handler must begin with an uppercase letter.
 
 ## Typed expectations
 

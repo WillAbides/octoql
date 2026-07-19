@@ -196,7 +196,18 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 	config.pkgPath = config.testHandlerPkgPath
 
 	localTypes := config.TestHandlerTypes == TestHandlerTypesLocal
-	handlerGenerator := plan.newRenderer(&config, localTypes)
+	forbiddenImportPath := ""
+	if localTypes {
+		forbiddenImportPath = plan.config.pkgPath
+	}
+	handlerGenerator, err := plan.newRenderer(
+		&config,
+		false,
+		forbiddenImportPath,
+	)
+	if err != nil {
+		return nil, testHandlerTemplateData{}, err
+	}
 	data := testHandlerTemplateData{
 		Generator:  handlerGenerator,
 		Package:    config.Package,

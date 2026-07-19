@@ -290,6 +290,166 @@ func TestGenerateTestHandlerOmittedTypesEqualsClient(t *testing.T) {
 	assert.Equal(t, explicit, omitted)
 }
 
+func TestGenerateLocalTestHandlerBindings(t *testing.T) {
+	newConfig := func(
+		t *testing.T,
+		schema string,
+		operation string,
+	) (*Config, string) {
+		tempRoot := filepath.Join("testdata", "tmp")
+		err := os.MkdirAll(tempRoot, 0o755)
+		require.NoError(t, err)
+		tempDir, err := os.MkdirTemp(tempRoot, "test-handler-binding-")
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, os.RemoveAll(tempDir))
+		})
+		schemaPath := filepath.Join(tempDir, "schema.graphql")
+		err = os.WriteFile(schemaPath, []byte(schema), 0o600)
+		require.NoError(t, err)
+		operationPath := filepath.Join(tempDir, "operation.graphql")
+		err = os.WriteFile(operationPath, []byte(operation), 0o600)
+		require.NoError(t, err)
+		config := &Config{
+			Schema:               []string{schemaPath},
+			Operations:           []string{operationPath},
+			Generated:            filepath.Join(tempDir, "client", "generated.go"),
+			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+			TestHandlerTypes:     TestHandlerTypesLocal,
+			Package:              "client",
+			ContextType:          "-",
+		}
+		err = config.ValidateAndFillDefaults("")
+		require.NoError(t, err)
+		return config, tempDir
+	}
+
+	const scalarSchema = `
+scalar Bound
+scalar Unused
+type Query {
+  value(input: Bound): Bound
+}
+`
+	const scalarOperation = `
+query Value($input: Bound) {
+  value(input: $input)
+}
+`
+
+	t.Run("reachable client binding rejected", func(t *testing.T) {
+		config, _ := newConfig(t, scalarSchema, scalarOperation)
+		config.Bindings = map[string]*TypeBinding{
+			"Bound": {Type: config.pkgPath + ".ClientScalar"},
+		}
+
+		outputs, err := Generate(config)
+
+		require.Error(t, err)
+		assert.Nil(t, outputs)
+		assert.Contains(t, err.Error(), "test_handler.types local cannot use")
+		assert.Contains(t, err.Error(), "generated client package")
+		assert.Contains(t, err.Error(), "ClientScalar")
+	})
+
+	t.Run("reachable client marshaler rejected", func(t *testing.T) {
+		config, _ := newConfig(t, scalarSchema, scalarOperation)
+		config.Bindings = map[string]*TypeBinding{
+			"Bound": {
+				Type:        "string",
+				Marshaler:   config.pkgPath + ".MarshalBound",
+				Unmarshaler: config.pkgPath + ".UnmarshalBound",
+			},
+		}
+
+		outputs, err := Generate(config)
+
+		require.Error(t, err)
+		assert.Nil(t, outputs)
+		assert.Contains(t, err.Error(), "test_handler.types local cannot use")
+		assert.Contains(t, err.Error(), "generated client package")
+		assert.Contains(t, err.Error(), "UnmarshalBound")
+	})
+
+	t.Run("handler binding resolves without self import", func(t *testing.T) {
+		config, tempDir := newConfig(t, scalarSchema, scalarOperation)
+		config.Bindings = map[string]*TypeBinding{
+			"Bound": {
+				Type:        config.testHandlerPkgPath + ".HandlerScalar",
+				Marshaler:   config.testHandlerPkgPath + ".MarshalHandlerScalar",
+				Unmarshaler: config.testHandlerPkgPath + ".UnmarshalHandlerScalar",
+			},
+		}
+
+		outputs, err := Generate(config)
+
+		require.NoError(t, err)
+		handlerSource := string(outputs[config.TestHandlerGenerated])
+		assert.Contains(t, handlerSource, "HandlerScalar")
+		assert.Contains(t, handlerSource, "MarshalHandlerScalar")
+		assert.Contains(t, handlerSource, "UnmarshalHandlerScalar")
+		assert.NotContains(t, handlerSource, `"`+config.testHandlerPkgPath+`"`)
+		outputs[filepath.Join(tempDir, "githubapitest", "support.go")] = []byte(
+			`package githubapitest
+
+import "encoding/json"
+
+type HandlerScalar string
+
+func MarshalHandlerScalar(value *HandlerScalar) ([]byte, error) {
+	return json.Marshal(value)
+}
+
+func UnmarshalHandlerScalar(data []byte, value *HandlerScalar) error {
+	return json.Unmarshal(data, value)
+}
+`,
+		)
+		compileGeneratedOutputs(t, tempDir, outputs)
+	})
+
+	t.Run("external binding and marshalers compile", func(t *testing.T) {
+		config, tempDir := newConfig(t, scalarSchema, scalarOperation)
+		config.Bindings = map[string]*TypeBinding{
+			"Bound": {
+				Type:        "time.Time",
+				Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
+				Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
+			},
+		}
+
+		outputs, err := Generate(config)
+
+		require.NoError(t, err)
+		handlerSource := string(outputs[config.TestHandlerGenerated])
+		assert.Contains(t, handlerSource, `"time"`)
+		assert.Contains(
+			t,
+			handlerSource,
+			`"github.com/willabides/octoql/internal/testutil"`,
+		)
+		compileGeneratedOutputs(t, tempDir, outputs)
+	})
+
+	t.Run("unused client binding does not block", func(t *testing.T) {
+		config, tempDir := newConfig(t, scalarSchema, scalarOperation)
+		config.Bindings = map[string]*TypeBinding{
+			"Bound":  {Type: "string"},
+			"Unused": {Type: config.pkgPath + ".ClientScalar"},
+		}
+
+		outputs, err := Generate(config)
+
+		require.NoError(t, err)
+		assert.NotContains(
+			t,
+			string(outputs[config.TestHandlerGenerated]),
+			`"`+config.pkgPath+`"`,
+		)
+		compileGeneratedOutputs(t, tempDir, outputs)
+	})
+}
+
 func TestGenerateLocalTestHandlerOptionalModes(t *testing.T) {
 	tests := []struct {
 		name                string

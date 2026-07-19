@@ -104,6 +104,14 @@ func (g *generator) ref(fullyQualifiedName string) (qualifiedName string, err er
 
 	pkgPath := nameToImport[:i]
 	localName := nameToImport[i+1:]
+	if pkgPath == g.forbiddenImportPath {
+		return "", errorf(
+			nil,
+			"test_handler.types local cannot use %q because it is owned by the generated client package %q",
+			fullyQualifiedName,
+			pkgPath,
+		)
+	}
 	if pkgPath == g.Config.pkgPath {
 		return prefix + localName, nil
 	}

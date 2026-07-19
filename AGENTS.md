@@ -42,6 +42,9 @@
 - Both test-handler type strategies render from the same immutable generation
   plan and shared type renderer. Do not add a second config load, schema parse,
   operation parser, type conversion, or abstract-type analysis.
+- Preserve destination-neutral binding and marshal-helper references in the
+  shared plan, then resolve imports per renderer. Local handlers reject
+  reachable references owned by the generated client package.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve

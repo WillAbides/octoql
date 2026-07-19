@@ -59,6 +59,9 @@ generated: generated/genqlient.go
 # operation types directly in the handler package without importing the client.
 # Local values are not directly assignable to client types. Omitting test_handler
 # generates only the client and performs no handler package work.
+# In local mode, reachable binding types and marshal helpers may be external or
+# owned by the handler package, but cannot be owned by the generated client
+# package because that would reintroduce the client dependency.
 # test_handler:
 #   generated: internal/githubapitest/generated.go
 #   types: client
