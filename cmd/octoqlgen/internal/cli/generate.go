@@ -10,7 +10,7 @@ import (
 
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/generate"
+	"github.com/willabides/octoql/internal/generate"
 )
 
 type generateCommand struct {

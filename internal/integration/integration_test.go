@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql"
-	"github.com/willabides/octoql/generate"
+	"github.com/willabides/octoql/internal/generate"
 	gqlserver "github.com/willabides/octoql/internal/integration/server"
 )
 

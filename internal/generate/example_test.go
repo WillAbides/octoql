@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/willabides/octoql/generate"
+	"github.com/willabides/octoql/internal/generate"
 )
 
 func TestGenerateExample(t *testing.T) {
@@ -48,7 +48,7 @@ func repoRoot(t *testing.T) string {
 		t.Fatal("runtime.Caller non-ok")
 	}
 
-	root := filepath.Dir(filepath.Dir(thisFile))
+	root := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
 	_, err := os.Stat(filepath.Join(root, ".gitignore"))
 	if err != nil {
 		t.Fatal(fmt.Errorf("doesn't look like repo root: %v", err))
