@@ -1,6 +1,3 @@
-// Copyright (c) 2026 octoql contributors
-// SPDX-License-Identifier: MIT
-
 // Package schema verifies and materializes pinned GraphQL schemas.
 package schema
 

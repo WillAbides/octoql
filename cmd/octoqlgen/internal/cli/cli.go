@@ -1,6 +1,3 @@
-// Copyright (c) 2026 octoql contributors
-// SPDX-License-Identifier: MIT
-
 // Package cli defines the octoqlgen command-line interface.
 package cli
 

@@ -1,6 +1,3 @@
-// Copyright (c) 2026 octoql contributors
-// SPDX-License-Identifier: MIT
-
 package octoql_test
 
 import (
