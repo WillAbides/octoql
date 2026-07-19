@@ -20,7 +20,7 @@ func {{.Name}}(
     {{.GraphQLName}} {{.GoType.Reference}},
     {{end -}}
     {{end -}}
-) (*{{ref "github.com/willabides/octoql.Response"}}[{{.ResponseName}}], error) {
+) (*{{.ResponseName}}, error) {
     {{if .Config.ClientGetter -}}
     {{.ClientName}}, {{.ErrorName}} := {{ref .Config.ClientGetter}}({{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{end}})
     if {{.ErrorName}} != nil {
@@ -34,13 +34,15 @@ func {{.Name}}(
         {{end -}}
     }
     {{end -}}
-    return {{ref "github.com/willabides/octoql.Do"}}[{{.ResponseName}}](
-        {{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{ref "context.Background"}}(){{end}},
-        {{.ClientName}},
-        {{ref "github.com/willabides/octoql.Operation"}}{
-            Name: "{{.Name}}",
-            Query: {{.Name}}_Operation,
-        },
-        {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
+    return {{ref "github.com/willabides/octoql.ResponseData"}}(
+        {{ref "github.com/willabides/octoql.Do"}}[{{.ResponseName}}](
+            {{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{ref "context.Background"}}(){{end}},
+            {{.ClientName}},
+            {{ref "github.com/willabides/octoql.Operation"}}{
+                Name: "{{.Name}}",
+                Query: {{.Name}}_Operation,
+            },
+            {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
+        ),
     )
 }

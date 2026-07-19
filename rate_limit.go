@@ -1,6 +1,7 @@
 package octoql
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -109,6 +110,13 @@ func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
 	return rateLimit
 }
 
+func (rateLimit parsedRateLimit) primarySnapshot() RateLimit {
+	snapshot := rateLimit.RateLimit
+	snapshot.RetryAfter = 0
+	snapshot.RetryAt = time.Time{}
+	return snapshot
+}
+
 func nonnegativeHeaderInt(header http.Header, name string) (int, bool) {
 	value, valid := parseNonnegativeDecimal(headerValue(header, name), strconv.IntSize)
 	if !valid {
@@ -187,7 +195,7 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 		return nil
 	}
 
-	isSecondaryResponse := statusCode == http.StatusOK || statusCode == http.StatusForbidden
+	isSecondaryResponse := isSecondaryRateLimitStatus(statusCode)
 	if rateLimit.retryAfterValid && isSecondaryResponse {
 		return &RateLimitError{
 			Kind:      RateLimitSecondary,
@@ -195,7 +203,13 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 			Err:       err,
 		}
 	}
-	if rateLimit.remainingValid && rateLimit.Remaining == 0 {
+
+	isPrimaryStatus := isPrimaryRateLimitStatus(statusCode)
+	isPrimaryGraphQLError := hasGraphQLRateLimitError(err)
+	hasNoRemaining := rateLimit.remainingValid && rateLimit.Remaining == 0
+	hasPrimarySignal := isPrimaryStatus || isPrimaryGraphQLError
+	isPrimaryLimit := hasNoRemaining && hasPrimarySignal
+	if isPrimaryLimit {
 		return &RateLimitError{
 			Kind:      RateLimitPrimary,
 			RateLimit: rateLimit.RateLimit,
@@ -203,4 +217,35 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 		}
 	}
 	return err
+}
+
+func isSecondaryRateLimitStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusOK, http.StatusForbidden, http.StatusTooManyRequests:
+		return true
+	default:
+		return false
+	}
+}
+
+func isPrimaryRateLimitStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusForbidden, http.StatusTooManyRequests:
+		return true
+	default:
+		return false
+	}
+}
+
+func hasGraphQLRateLimitError(err error) bool {
+	graphqlErrors, ok := errors.AsType[Errors](err)
+	if !ok {
+		return false
+	}
+	for _, graphqlError := range graphqlErrors {
+		if graphqlError != nil && graphqlError.Type == ErrorType("RATE_LIMITED") {
+			return true
+		}
+	}
+	return false
 }

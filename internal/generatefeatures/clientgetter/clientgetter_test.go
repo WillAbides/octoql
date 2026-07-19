@@ -41,5 +41,5 @@ func TestClientGetterWithCustomContext(t *testing.T) {
 	response, err := getRepository(ctx, "octo-org", "octo-repo")
 
 	require.NoError(t, err)
-	assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
+	assert.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)
 }

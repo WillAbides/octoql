@@ -853,18 +853,20 @@ func CreateGitHubRepository(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	input *CreateRepositoryInput,
-) (*octoql.Response[CreateGitHubRepositoryResponse], error) {
+) (*CreateGitHubRepositoryResponse, error) {
 	variables_ := __CreateGitHubRepositoryInput{
 		Input: input,
 	}
-	return octoql.Do[CreateGitHubRepositoryResponse](
-		ctx_,
-		client_,
-		octoql.Operation{
-			Name:  "CreateGitHubRepository",
-			Query: CreateGitHubRepository_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[CreateGitHubRepositoryResponse](
+			ctx_,
+			client_,
+			octoql.Operation{
+				Name:  "CreateGitHubRepository",
+				Query: CreateGitHubRepository_Operation,
+			},
+			&variables_,
+		),
 	)
 }
 
@@ -905,7 +907,7 @@ func GitHubInputs(
 	structs *UseStructReferencesInput,
 	publishedDates [][][]time.Time,
 	optionalPublishedDates [][][]*time.Time,
-) (*octoql.Response[GitHubInputResponse], error) {
+) (*GitHubInputResponse, error) {
 	variables_ := __GitHubInputsInput{
 		Repository:             repository,
 		Filter:                 filter,
@@ -916,14 +918,16 @@ func GitHubInputs(
 		PublishedDates:         publishedDates,
 		OptionalPublishedDates: optionalPublishedDates,
 	}
-	return octoql.Do[GitHubInputResponse](
-		ctx_,
-		client_,
-		octoql.Operation{
-			Name:  "GitHubInputs",
-			Query: GitHubInputs_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[GitHubInputResponse](
+			ctx_,
+			client_,
+			octoql.Operation{
+				Name:  "GitHubInputs",
+				Query: GitHubInputs_Operation,
+			},
+			&variables_,
+		),
 	)
 }
 
@@ -943,20 +947,22 @@ func UpdateIssueWithCollidingNames(
 	req *int,
 	resp *int,
 	client *string,
-) (*octoql.Response[UpdateIssueWithCollidingNamesResponse], error) {
+) (*UpdateIssueWithCollidingNamesResponse, error) {
 	variables_ := __UpdateIssueWithCollidingNamesInput{
 		Data:   data,
 		Req:    req,
 		Resp:   resp,
 		Client: client,
 	}
-	return octoql.Do[UpdateIssueWithCollidingNamesResponse](
-		ctx_,
-		client_,
-		octoql.Operation{
-			Name:  "UpdateIssueWithCollidingNames",
-			Query: UpdateIssueWithCollidingNames_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[UpdateIssueWithCollidingNamesResponse](
+			ctx_,
+			client_,
+			octoql.Operation{
+				Name:  "UpdateIssueWithCollidingNames",
+				Query: UpdateIssueWithCollidingNames_Operation,
+			},
+			&variables_,
+		),
 	)
 }

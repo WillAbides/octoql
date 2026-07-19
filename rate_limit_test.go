@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -164,12 +165,12 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 
 	//nolint:govet // Test fields follow request and expected-response presentation order.
 	tests := map[string]struct {
-		body       string
-		header     http.Header
-		statusCode int
-		wantRate   bool
-		wantSecond bool
-		wantHTTP   bool
+		body              string
+		header            http.Header
+		statusCode        int
+		wantRate          bool
+		wantSecond        bool
+		wantResponseError bool
 	}{
 		"primary limit on partial GraphQL response": {
 			body: `{
@@ -180,27 +181,29 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 				"X-RateLimit-Remaining": {"0"},
 				"X-RateLimit-Resource":  {"graphql"},
 			},
-			statusCode: http.StatusOK,
-			wantRate:   true,
+			statusCode:        http.StatusOK,
+			wantRate:          true,
+			wantResponseError: true,
 		},
 		"secondary limit on GraphQL response": {
 			body: `{"errors":[{"message":"slow down"}]}`,
 			header: http.Header{
 				"Retry-After": {"30"},
 			},
-			statusCode: http.StatusOK,
-			wantRate:   true,
-			wantSecond: true,
+			statusCode:        http.StatusOK,
+			wantRate:          true,
+			wantSecond:        true,
+			wantResponseError: true,
 		},
 		"secondary limit on forbidden response": {
 			body: `{"errors":[{"message":"slow down"}]}`,
 			header: http.Header{
 				"Retry-After": {"30"},
 			},
-			statusCode: http.StatusForbidden,
-			wantRate:   true,
-			wantSecond: true,
-			wantHTTP:   true,
+			statusCode:        http.StatusForbidden,
+			wantRate:          true,
+			wantSecond:        true,
+			wantResponseError: true,
 		},
 		"secondary limit takes precedence": {
 			body: `{"errors":[{"message":"slow down"}]}`,
@@ -208,32 +211,32 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 				"Retry-After":           {"30"},
 				"X-RateLimit-Remaining": {"0"},
 			},
-			statusCode: http.StatusForbidden,
-			wantRate:   true,
-			wantSecond: true,
-			wantHTTP:   true,
+			statusCode:        http.StatusForbidden,
+			wantRate:          true,
+			wantSecond:        true,
+			wantResponseError: true,
 		},
 		"retry after service unavailable response": {
 			body: `{"errors":[{"message":"temporarily unavailable"}]}`,
 			header: http.Header{
 				"Retry-After": {"30"},
 			},
-			statusCode: http.StatusServiceUnavailable,
-			wantHTTP:   true,
+			statusCode:        http.StatusServiceUnavailable,
+			wantResponseError: true,
 		},
 		"retry after redirect response": {
 			body: `{"errors":[{"message":"redirected"}]}`,
 			header: http.Header{
 				"Retry-After": {"30"},
 			},
-			statusCode: http.StatusFound,
-			wantHTTP:   true,
+			statusCode:        http.StatusFound,
+			wantResponseError: true,
 		},
 		"arbitrary forbidden response": {
-			body:       `{"errors":[{"message":"forbidden"}]}`,
-			header:     http.Header{},
-			statusCode: http.StatusForbidden,
-			wantHTTP:   true,
+			body:              `{"errors":[{"message":"forbidden"}]}`,
+			header:            http.Header{},
+			statusCode:        http.StatusForbidden,
+			wantResponseError: true,
 		},
 		"successful response with zero remaining": {
 			body: `{"data":{"value":"complete"}}`,
@@ -242,31 +245,44 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 			},
 			statusCode: http.StatusOK,
 		},
+		"unrelated GraphQL error with zero remaining": {
+			body: `{"errors":[{"type":"FORBIDDEN","message":"field unavailable"}]}`,
+			header: http.Header{
+				"X-RateLimit-Remaining": {"0"},
+			},
+			statusCode:        http.StatusOK,
+			wantResponseError: true,
+		},
 		"malformed retry after is not secondary": {
 			body: `{"errors":[{"message":"forbidden"}]}`,
 			header: http.Header{
 				"Retry-After": {"later"},
 			},
-			statusCode: http.StatusForbidden,
-			wantHTTP:   true,
+			statusCode:        http.StatusForbidden,
+			wantResponseError: true,
 		},
 		"missing remaining is not primary": {
 			body: `{"errors":[{"message":"forbidden"}]}`,
 			header: http.Header{
 				"X-RateLimit-Limit": {"5000"},
 			},
-			statusCode: http.StatusOK,
+			statusCode:        http.StatusOK,
+			wantResponseError: true,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := rateLimitClient(test.statusCode, test.header, test.body)
-			response, err := Do[struct {
+			response, err := ResponseData(Do[struct {
 				Value string `json:"value"`
-			}](t.Context(), client, testOperation(), nil)
+			}](t.Context(), client, testOperation(), nil))
 
 			require.NotNil(t, response)
+			if !test.wantRate {
+				_, ok := errors.AsType[*RateLimitError](err)
+				assert.False(t, ok)
+			}
 			if test.wantRate {
 				rateLimitError, ok := errors.AsType[*RateLimitError](err)
 				require.True(t, ok)
@@ -275,30 +291,32 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 					wantKind = RateLimitSecondary
 				}
 				assert.Equal(t, wantKind, rateLimitError.Kind)
-				assert.Equal(t, response.HTTP.RateLimit, rateLimitError.RateLimit)
 				assert.Equal(t, time.Time{}, rateLimitError.RateLimit.Reset)
 				if test.wantSecond {
 					assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
 					assert.Equal(t, now.Add(30*time.Second), rateLimitError.RateLimit.RetryAt)
 				}
-			} else {
-				_, ok := errors.AsType[*RateLimitError](err)
-				assert.False(t, ok)
 			}
 
-			_, isHTTPError := errors.AsType[*HTTPError](err)
-			assert.Equal(t, test.wantHTTP, isHTTPError)
+			_, hasResponseError := errors.AsType[*ResponseError](err)
+			assert.Equal(t, test.wantResponseError, hasResponseError)
 			if name == "primary limit on partial GraphQL response" {
-				assert.Equal(t, "partial", response.Data.Value)
+				assert.Equal(t, "partial", response.Value)
 				_, errorsFound := errors.AsType[Errors](err)
 				assert.True(t, errorsFound)
+			}
+			if name == "successful response with zero remaining" {
+				rateLimit, known := client.RateLimit()
+				require.True(t, known)
+				assert.Zero(t, rateLimit.Remaining)
 			}
 		})
 	}
 }
 
-func TestRateLimitMetadataDoesNotAliasHeaders(t *testing.T) {
+func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
 	transportHeader := http.Header{
+		"X-GitHub-Request-ID":   {"request-rate-limit"},
 		"Retry-After":           {"30"},
 		"X-RateLimit-Remaining": {"0"},
 	}
@@ -312,18 +330,12 @@ func TestRateLimitMetadataDoesNotAliasHeaders(t *testing.T) {
 	require.NotNil(t, response)
 	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)
-	httpError, ok := errors.AsType[*HTTPError](err)
+	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 
 	transportHeader.Set("Retry-After", "99")
-	assert.Equal(t, "30", response.HTTP.Header.Get("Retry-After"))
-	assert.Equal(t, "30", httpError.HTTP.Header.Get("Retry-After"))
-	assert.Equal(t, 30*time.Second, response.HTTP.RateLimit.RetryAfter)
-	assert.Equal(t, 30*time.Second, httpError.HTTP.RateLimit.RetryAfter)
 	assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
-
-	response.HTTP.Header.Set("Retry-After", "1")
-	assert.Equal(t, "30", httpError.HTTP.Header.Get("Retry-After"))
+	assert.Equal(t, "request-rate-limit", responseError.RequestID)
 }
 
 func TestDoDoesNotClassifyTransportErrors(t *testing.T) {
@@ -340,6 +352,55 @@ func TestDoDoesNotClassifyTransportErrors(t *testing.T) {
 	assert.ErrorIs(t, err, transportError)
 	_, ok := errors.AsType[*RateLimitError](err)
 	assert.False(t, ok)
+}
+
+func TestClientRateLimitNewestObservationWins(t *testing.T) {
+	client := &Client{}
+	client.observeRateLimit(2, parsedRateLimit{
+		RateLimit: RateLimit{
+			Remaining: 20,
+			Used:      80,
+		},
+		remainingValid: true,
+	})
+	client.observeRateLimit(1, parsedRateLimit{
+		RateLimit: RateLimit{
+			Remaining: 90,
+			Used:      10,
+		},
+		remainingValid: true,
+	})
+
+	rateLimit, known := client.RateLimit()
+	require.True(t, known)
+	assert.Equal(t, 20, rateLimit.Remaining)
+	assert.Equal(t, 80, rateLimit.Used)
+}
+
+func TestClientRateLimitConcurrentAccess(t *testing.T) {
+	client := &Client{}
+	var waitGroup sync.WaitGroup
+	for observation := uint64(1); observation <= 100; observation++ {
+		waitGroup.Add(2)
+		go func() {
+			defer waitGroup.Done()
+			client.observeRateLimit(observation, parsedRateLimit{
+				RateLimit: RateLimit{
+					Remaining: int(observation),
+				},
+				remainingValid: true,
+			})
+		}()
+		go func() {
+			defer waitGroup.Done()
+			client.RateLimit()
+		}()
+	}
+	waitGroup.Wait()
+
+	rateLimit, known := client.RateLimit()
+	require.True(t, known)
+	assert.Equal(t, 100, rateLimit.Remaining)
 }
 
 func rateLimitClient(statusCode int, header http.Header, body string) *Client {

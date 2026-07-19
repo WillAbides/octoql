@@ -32,7 +32,7 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	})
 	viewerResponse, err := githubapi.Viewer(t.Context(), client)
 	require.NoError(t, err)
-	assert.Equal(t, "octocat", viewerResponse.Data.Viewer.Login)
+	assert.Equal(t, "octocat", viewerResponse.Viewer.Login)
 
 	variables := repositoryVariables()
 	data := repositoryData()
@@ -47,12 +47,12 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 		variables.After,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.FullName)
-	assert.Equal(t, time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC), response.Data.Repository.UpdatedAt)
-	assert.JSONEq(t, `["red","blue"]`, string(response.Data.Repository.PropertyValue))
-	require.Len(t, response.Data.Repository.Issues.Nodes, 1)
-	assert.Equal(t, "bug", response.Data.Repository.Issues.Nodes[0].Title)
-	assert.Equal(t, "cursor-2", response.Data.Repository.Issues.PageInfo.EndCursor)
+	assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
+	assert.Equal(t, time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC), response.Repository.UpdatedAt)
+	assert.JSONEq(t, `["red","blue"]`, string(response.Repository.PropertyValue))
+	require.Len(t, response.Repository.Issues.Nodes, 1)
+	assert.Equal(t, "bug", response.Repository.Issues.Nodes[0].Title)
+	assert.Equal(t, "cursor-2", response.Repository.Issues.PageInfo.EndCursor)
 
 	input := githubapitest.CreateRepositoryInput{
 		Name:             "created",
@@ -76,8 +76,8 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 
 	mutationResponse, err := githubapi.CreateRepository(t.Context(), client, input)
 	require.NoError(t, err)
-	assert.Equal(t, "octo-org/created", mutationResponse.Data.CreateRepository.Repository.NameWithOwner)
-	assert.Equal(t, "mutation-1", mutationResponse.Data.CreateRepository.ClientMutationId)
+	assert.Equal(t, "octo-org/created", mutationResponse.CreateRepository.Repository.NameWithOwner)
+	assert.Equal(t, "mutation-1", mutationResponse.CreateRepository.ClientMutationId)
 
 	property := json.RawMessage(`["one","two"]`)
 	handler.ExpectEchoProperty(githubapitest.EchoPropertyVariables{
@@ -88,7 +88,7 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 
 	propertyResponse, err := githubapi.EchoProperty(t.Context(), client, property)
 	require.NoError(t, err)
-	assert.JSONEq(t, string(property), string(propertyResponse.Data.EchoProperty))
+	assert.JSONEq(t, string(property), string(propertyResponse.EchoProperty))
 
 	temporalValue := time.Now()
 	handler.ExpectEchoAt(githubapitest.EchoAtVariables{
@@ -98,7 +98,7 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	})
 	temporalResponse, err := githubapi.EchoAt(t.Context(), client, temporalValue)
 	require.NoError(t, err)
-	assert.True(t, temporalValue.Equal(temporalResponse.Data.EchoAt))
+	assert.True(t, temporalValue.Equal(temporalResponse.EchoAt))
 
 	const largeInteger = int64(9_007_199_254_740_993)
 	handler.ExpectEchoAny(githubapitest.EchoAnyVariables{
@@ -160,29 +160,20 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 	)
 	require.Error(t, err)
 	require.NotNil(t, partial)
-	assert.Equal(t, "octo-org/octo-repo", partial.Data.Repository.FullName)
+	assert.Equal(t, "octo-org/octo-repo", partial.Repository.FullName)
 }
 
 func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
-	t.Run("headers status and extensions", func(t *testing.T) {
+	t.Run("successful custom status", func(t *testing.T) {
 		handler := githubapitest.NewTestHandler(t)
 		server := httptest.NewServer(handler)
 		t.Cleanup(server.Close)
 		client := octoql.NewClient(server.URL, http.DefaultClient)
 		variables := repositoryVariables()
-		headers := http.Header{
-			"X-GitHub-Request-ID": {"request-123"},
-			"X-Test":              {"original"},
-		}
-		extensions := map[string]any{"trace": "abc"}
 		handler.ExpectGetRepository(variables).Respond(
 			repositoryData(),
 			githubapitest.WithStatus(http.StatusAccepted),
-			githubapitest.WithHeaders(headers),
-			githubapitest.WithExtensions(extensions),
 		)
-		headers.Set("X-Test", "mutated")
-		extensions["trace"] = "mutated"
 
 		response, err := githubapi.GetRepository(
 			t.Context(),
@@ -193,10 +184,7 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 			variables.After,
 		)
 		require.NoError(t, err)
-		assert.Equal(t, http.StatusAccepted, response.HTTP.StatusCode)
-		assert.Equal(t, "request-123", response.HTTP.RequestID)
-		assert.Equal(t, "original", response.HTTP.Header.Get("X-Test"))
-		assert.Equal(t, "abc", response.Extensions["trace"])
+		assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
 	})
 
 	t.Run("primary rate limit at http 200", func(t *testing.T) {
@@ -222,12 +210,19 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 		rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 		require.True(t, ok)
 		assert.Equal(t, octoql.RateLimitPrimary, rateLimitError.Kind)
-		assert.Equal(t, 5000, response.HTTP.RateLimit.Limit)
-		assert.Equal(t, reset, response.HTTP.RateLimit.Reset)
-		assert.Equal(t, "graphql", response.HTTP.RateLimit.Resource)
+		assert.Equal(t, 5000, rateLimitError.RateLimit.Limit)
+		assert.Equal(t, reset, rateLimitError.RateLimit.Reset)
+		assert.Equal(t, "graphql", rateLimitError.RateLimit.Resource)
+		rateLimit, known := client.RateLimit()
+		require.True(t, known)
+		assert.Equal(t, rateLimitError.RateLimit, rateLimit)
 	})
 
-	for _, status := range []int{http.StatusOK, http.StatusForbidden} {
+	for _, status := range []int{
+		http.StatusOK,
+		http.StatusForbidden,
+		http.StatusTooManyRequests,
+	} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			handler := githubapitest.NewTestHandler(t)
 			server := httptest.NewServer(handler)
@@ -245,8 +240,10 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 			rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 			require.True(t, ok)
 			assert.Equal(t, octoql.RateLimitSecondary, rateLimitError.Kind)
-			assert.Equal(t, 30*time.Second, response.HTTP.RateLimit.RetryAfter)
-			assert.Equal(t, status, response.HTTP.StatusCode)
+			assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
+			responseError, ok := errors.AsType[*octoql.ResponseError](err)
+			require.True(t, ok)
+			assert.Equal(t, status, responseError.StatusCode)
 		})
 	}
 }
@@ -278,8 +275,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 		dynamicVariables.Value,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusCreated, dynamicResponse.HTTP.StatusCode)
-	assert.JSONEq(t, `"handled"`, string(dynamicResponse.Data.EchoProperty))
+	assert.JSONEq(t, `"handled"`, string(dynamicResponse.EchoProperty))
 	assert.JSONEq(t, string(dynamicVariables.Value), string((<-receivedVariables).Value))
 
 	repositoryVariables := githubapitest.GetNodeVariables{Id: "repository"}
@@ -291,7 +287,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	})
 	repositoryResponse, err := githubapi.GetNode(t.Context(), client, repositoryVariables.Id)
 	require.NoError(t, err)
-	repository, ok := repositoryResponse.Data.Node.(*githubapitest.GetNodeNodeRepository)
+	repository, ok := repositoryResponse.Node.(*githubapitest.GetNodeNodeRepository)
 	require.True(t, ok)
 	assert.Equal(t, "Repository", repository.Typename)
 
@@ -304,7 +300,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	})
 	otherResponse, err := githubapi.GetNode(t.Context(), client, otherVariables.Id)
 	require.NoError(t, err)
-	other, ok := otherResponse.Data.Node.(*githubapitest.GetNodeNodeOctoqlOther)
+	other, ok := otherResponse.Node.(*githubapitest.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", other.Typename)
 
@@ -326,12 +322,12 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	})
 	searchResponse, err := githubapi.Search(t.Context(), client, searchVariables.Query)
 	require.NoError(t, err)
-	require.Len(t, searchResponse.Data.Search, 3)
-	_, ok = searchResponse.Data.Search[0].(*githubapitest.SearchSearchRepository)
+	require.Len(t, searchResponse.Search, 3)
+	_, ok = searchResponse.Search[0].(*githubapitest.SearchSearchRepository)
 	assert.True(t, ok)
-	_, ok = searchResponse.Data.Search[1].(*githubapitest.SearchSearchIssue)
+	_, ok = searchResponse.Search[1].(*githubapitest.SearchSearchIssue)
 	assert.True(t, ok)
-	searchOther, ok := searchResponse.Data.Search[2].(*githubapitest.SearchSearchSearchResultItemOctoqlOther)
+	searchOther, ok := searchResponse.Search[2].(*githubapitest.SearchSearchSearchResultItemOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", searchOther.Typename)
 }

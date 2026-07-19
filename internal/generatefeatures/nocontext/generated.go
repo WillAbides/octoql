@@ -49,18 +49,20 @@ func GetRepository(
 	client_ *octoql.Client,
 	owner string,
 	name string,
-) (*octoql.Response[GetRepositoryResponse], error) {
+) (*GetRepositoryResponse, error) {
 	variables_ := __GetRepositoryInput{
 		Owner: owner,
 		Name:  name,
 	}
-	return octoql.Do[GetRepositoryResponse](
-		context.Background(),
-		client_,
-		octoql.Operation{
-			Name:  "GetRepository",
-			Query: GetRepository_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[GetRepositoryResponse](
+			context.Background(),
+			client_,
+			octoql.Operation{
+				Name:  "GetRepository",
+				Query: GetRepository_Operation,
+			},
+			&variables_,
+		),
 	)
 }

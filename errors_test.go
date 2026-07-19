@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -117,24 +116,4 @@ func TestErrorsFormattingAndInspection(t *testing.T) {
 	typedError, ok := errors.AsType[*octoql.Error](wrapped)
 	require.True(t, ok)
 	assert.Equal(t, "owner is unavailable", typedError.Message)
-}
-
-func TestHTTPErrorInspection(t *testing.T) {
-	decodeError := &json.SyntaxError{Offset: 4}
-	graphqlErrors := octoql.Errors{&octoql.Error{Message: "request rejected"}}
-	httpError := &octoql.HTTPError{
-		HTTP:   octoql.HTTPMetadata{StatusCode: http.StatusBadRequest},
-		Body:   []byte("bad"),
-		Errors: graphqlErrors,
-		Cause:  decodeError,
-	}
-	wrapped := fmt.Errorf("query failed: %w", httpError)
-
-	inspectedHTTPError, ok := errors.AsType[*octoql.HTTPError](wrapped)
-	require.True(t, ok)
-	assert.Same(t, httpError, inspectedHTTPError)
-	_, graphqlErrorsFound := errors.AsType[octoql.Errors](wrapped)
-	assert.True(t, graphqlErrorsFound)
-	_, decodeErrorFound := errors.AsType[*json.SyntaxError](wrapped)
-	assert.True(t, decodeErrorFound)
 }

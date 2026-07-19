@@ -44,21 +44,21 @@ func main() {
 
 	switch len(os.Args) {
 	case 1:
-		var viewerResp *octoql.Response[getViewerResponse]
+		var viewerResp *getViewerResponse
 		viewerResp, err = getViewer(context.Background(), graphqlClient)
 		if err != nil {
 			return
 		}
 		fmt.Println(
 			"you are",
-			viewerResp.Data.Viewer.MyName,
+			viewerResp.Viewer.MyName,
 			"created on",
-			viewerResp.Data.Viewer.CreatedAt.Format("2006-01-02"),
+			viewerResp.Viewer.CreatedAt.Format("2006-01-02"),
 		)
 
 	case 2:
 		username := os.Args[1]
-		var userResp *octoql.Response[getUserResponse]
+		var userResp *getUserResponse
 		userResp, err = getUser(context.Background(), graphqlClient, username)
 		if err != nil {
 			return
@@ -66,9 +66,9 @@ func main() {
 		fmt.Println(
 			username,
 			"is",
-			userResp.Data.User.TheirName,
+			userResp.User.TheirName,
 			"created on",
-			userResp.Data.User.CreatedAt.Format("2006-01-02"),
+			userResp.User.CreatedAt.Format("2006-01-02"),
 		)
 
 	default:

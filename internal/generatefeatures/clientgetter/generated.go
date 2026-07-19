@@ -52,7 +52,7 @@ func getRepository(
 	ctx_ customContext,
 	owner string,
 	name string,
-) (*octoql.Response[getRepositoryResponse], error) {
+) (*getRepositoryResponse, error) {
 	client_, err_ := getClient(ctx_)
 	if err_ != nil {
 		return nil, err_
@@ -61,13 +61,15 @@ func getRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	return octoql.Do[getRepositoryResponse](
-		ctx_,
-		client_,
-		octoql.Operation{
-			Name:  "getRepository",
-			Query: getRepository_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[getRepositoryResponse](
+			ctx_,
+			client_,
+			octoql.Operation{
+				Name:  "getRepository",
+				Query: getRepository_Operation,
+			},
+			&variables_,
+		),
 	)
 }

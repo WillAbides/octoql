@@ -2924,18 +2924,20 @@ fragment RepositoryOwnerDetails on RepositoryOwner {
 func GetActor(
 	client_ *octoql.Client,
 	login string,
-) (*octoql.Response[GetActorResponse], error) {
+) (*GetActorResponse, error) {
 	variables_ := __GetActorInput{
 		Login: login,
 	}
-	return octoql.Do[GetActorResponse](
-		context.Background(),
-		client_,
-		octoql.Operation{
-			Name:  "GetActor",
-			Query: GetActor_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[GetActorResponse](
+			context.Background(),
+			client_,
+			octoql.Operation{
+				Name:  "GetActor",
+				Query: GetActor_Operation,
+			},
+			&variables_,
+		),
 	)
 }
 
@@ -2967,18 +2969,20 @@ query GetNode ($id: ID!) {
 func GetNode(
 	client_ *octoql.Client,
 	id testutil.ID,
-) (*octoql.Response[GetNodeResponse], error) {
+) (*GetNodeResponse, error) {
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	return octoql.Do[GetNodeResponse](
-		context.Background(),
-		client_,
-		octoql.Operation{
-			Name:  "GetNode",
-			Query: GetNode_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[GetNodeResponse](
+			context.Background(),
+			client_,
+			octoql.Operation{
+				Name:  "GetNode",
+				Query: GetNode_Operation,
+			},
+			&variables_,
+		),
 	)
 }
 
@@ -2994,15 +2998,17 @@ query NestedNodeShapes {
 
 func NestedNodeShapes(
 	client_ *octoql.Client,
-) (*octoql.Response[NestedNodeShapesResponse], error) {
-	return octoql.Do[NestedNodeShapesResponse](
-		context.Background(),
-		client_,
-		octoql.Operation{
-			Name:  "NestedNodeShapes",
-			Query: NestedNodeShapes_Operation,
-		},
-		nil,
+) (*NestedNodeShapesResponse, error) {
+	return octoql.ResponseData(
+		octoql.Do[NestedNodeShapesResponse](
+			context.Background(),
+			client_,
+			octoql.Operation{
+				Name:  "NestedNodeShapes",
+				Query: NestedNodeShapes_Operation,
+			},
+			nil,
+		),
 	)
 }
 
@@ -3022,18 +3028,20 @@ query RecursiveRepository ($input: RecursiveInput!) {
 func RecursiveRepository(
 	client_ *octoql.Client,
 	input RecursiveInput,
-) (*octoql.Response[RecursiveRepositoryResponse], error) {
+) (*RecursiveRepositoryResponse, error) {
 	variables_ := __RecursiveRepositoryInput{
 		Input: input,
 	}
-	return octoql.Do[RecursiveRepositoryResponse](
-		context.Background(),
-		client_,
-		octoql.Operation{
-			Name:  "RecursiveRepository",
-			Query: RecursiveRepository_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[RecursiveRepositoryResponse](
+			context.Background(),
+			client_,
+			octoql.Operation{
+				Name:  "RecursiveRepository",
+				Query: RecursiveRepository_Operation,
+			},
+			&variables_,
+		),
 	)
 }
 
@@ -3064,15 +3072,17 @@ query RepositoryEventCovariance {
 
 func RepositoryEventCovariance(
 	client_ *octoql.Client,
-) (*octoql.Response[RepositoryEventCovarianceResponse], error) {
-	return octoql.Do[RepositoryEventCovarianceResponse](
-		context.Background(),
-		client_,
-		octoql.Operation{
-			Name:  "RepositoryEventCovariance",
-			Query: RepositoryEventCovariance_Operation,
-		},
-		nil,
+) (*RepositoryEventCovarianceResponse, error) {
+	return octoql.ResponseData(
+		octoql.Do[RepositoryEventCovarianceResponse](
+			context.Background(),
+			client_,
+			octoql.Operation{
+				Name:  "RepositoryEventCovariance",
+				Query: RepositoryEventCovariance_Operation,
+			},
+			nil,
+		),
 	)
 }
 
@@ -3128,20 +3138,22 @@ func SearchRepositories(
 	first int,
 	after string,
 	publishedAfter time.Time,
-) (*octoql.Response[SearchRepositoriesResponse], error) {
+) (*SearchRepositoriesResponse, error) {
 	variables_ := __SearchRepositoriesInput{
 		Query:          query,
 		First:          first,
 		After:          after,
 		PublishedAfter: publishedAfter,
 	}
-	return octoql.Do[SearchRepositoriesResponse](
-		context.Background(),
-		client_,
-		octoql.Operation{
-			Name:  "SearchRepositories",
-			Query: SearchRepositories_Operation,
-		},
-		&variables_,
+	return octoql.ResponseData(
+		octoql.Do[SearchRepositoriesResponse](
+			context.Background(),
+			client_,
+			octoql.Operation{
+				Name:  "SearchRepositories",
+				Query: SearchRepositories_Operation,
+			},
+			&variables_,
+		),
 	)
 }
