@@ -28,4 +28,5 @@ Review the recreated files, then run `go test ./generate` normally.
   output is stale. Typically `--check` should only be used in CI. Locally you
   can run `script/generate` and commit any changes.
 - `script/lint` runs Go and shell linters.
-- `script/test` runs the Go test suite.
+- `script/test` runs the Go test suite with `-shuffle=on` to detect order
+  dependencies.
