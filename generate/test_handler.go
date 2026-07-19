@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"go/format"
 	"go/token"
-	"go/types"
 	"sort"
 	"strconv"
 
@@ -256,9 +255,6 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 	})
 
 	for _, name := range testHandlerReservedNames {
-		handlerGenerator.usedAliases[name] = true
-	}
-	for _, name := range types.Universe.Names() {
 		handlerGenerator.usedAliases[name] = true
 	}
 

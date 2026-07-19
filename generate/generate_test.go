@@ -630,9 +630,6 @@ func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) 
 		"ExpectStatusQuery",
 		"DefaultStatusQuery",
 		"ResetStatusQuery",
-		"string",
-		"error",
-		"any",
 	} {
 		t.Run(packageName, func(t *testing.T) {
 			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-import-alias-")
