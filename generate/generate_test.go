@@ -352,12 +352,15 @@ query Value($input: Bound) {
 		assert.Contains(t, err.Error(), "ClientScalar")
 	})
 
-	t.Run("reachable client marshaler rejected", func(t *testing.T) {
-		config, _ := newConfig(t, scalarSchema, scalarOperation)
+	t.Run("reachable client unmarshaler rejected", func(t *testing.T) {
+		config, _ := newConfig(
+			t,
+			"scalar Bound\ntype Query { value(input: Bound): Boolean! }\n",
+			"query Value($input: Bound) { value(input: $input) }\n",
+		)
 		config.Bindings = map[string]*TypeBinding{
 			"Bound": {
 				Type:        "string",
-				Marshaler:   config.pkgPath + ".MarshalBound",
 				Unmarshaler: config.pkgPath + ".UnmarshalBound",
 			},
 		}
@@ -369,6 +372,28 @@ query Value($input: Bound) {
 		assert.Contains(t, err.Error(), "test_handler.types local cannot use")
 		assert.Contains(t, err.Error(), "generated client package")
 		assert.Contains(t, err.Error(), "UnmarshalBound")
+	})
+
+	t.Run("reachable client marshaler rejected", func(t *testing.T) {
+		config, _ := newConfig(
+			t,
+			"scalar Bound\ntype Query { value: Bound }\n",
+			"query Value { value }\n",
+		)
+		config.Bindings = map[string]*TypeBinding{
+			"Bound": {
+				Type:      "string",
+				Marshaler: config.pkgPath + ".MarshalBound",
+			},
+		}
+
+		outputs, err := Generate(config)
+
+		require.Error(t, err)
+		assert.Nil(t, outputs)
+		assert.Contains(t, err.Error(), "test_handler.types local cannot use")
+		assert.Contains(t, err.Error(), "generated client package")
+		assert.Contains(t, err.Error(), "MarshalBound")
 	})
 
 	t.Run("handler binding resolves without self import", func(t *testing.T) {
@@ -447,6 +472,59 @@ func UnmarshalHandlerScalar(data []byte, value *HandlerScalar) error {
 			`"`+config.pkgPath+`"`,
 		)
 		compileGeneratedOutputs(t, tempDir, outputs)
+	})
+
+	t.Run("colliding external import aliases are deterministic", func(t *testing.T) {
+		config, tempDir := newConfig(
+			t,
+			`
+scalar First
+scalar Second
+type Query {
+  first: First!
+  second: Second!
+}
+`,
+			`
+query Alpha { first }
+query Beta { second }
+`,
+		)
+		firstDirectory := filepath.Join(tempDir, "first", "shared")
+		secondDirectory := filepath.Join(tempDir, "second", "shared")
+		for _, directory := range []string{firstDirectory, secondDirectory} {
+			err := os.MkdirAll(directory, 0o755)
+			require.NoError(t, err)
+			err = os.WriteFile(
+				filepath.Join(directory, "value.go"),
+				[]byte("package shared\n\ntype Value string\n"),
+				0o600,
+			)
+			require.NoError(t, err)
+		}
+		firstAbsolute, err := filepath.Abs(firstDirectory)
+		require.NoError(t, err)
+		secondAbsolute, err := filepath.Abs(secondDirectory)
+		require.NoError(t, err)
+		firstPackage, err := packagePathFromModule(firstAbsolute)
+		require.NoError(t, err)
+		secondPackage, err := packagePathFromModule(secondAbsolute)
+		require.NoError(t, err)
+		config.Bindings = map[string]*TypeBinding{
+			"First":  {Type: firstPackage + ".Value"},
+			"Second": {Type: secondPackage + ".Value"},
+		}
+
+		first, err := Generate(config)
+		require.NoError(t, err)
+		second, err := Generate(config)
+		require.NoError(t, err)
+
+		assert.Equal(t, first[config.TestHandlerGenerated], second[config.TestHandlerGenerated])
+		handlerSource := string(first[config.TestHandlerGenerated])
+		assert.Contains(t, handlerSource, `"`+firstPackage+`"`)
+		assert.Contains(t, handlerSource, `shared2 "`+secondPackage+`"`)
+		compileGeneratedOutputs(t, tempDir, first)
 	})
 }
 

@@ -1,5 +1,7 @@
 package generate
 
+import "sort"
+
 func cloneTypeMap(
 	source map[string]goType,
 ) (map[string]goType, map[goType]goType, error) {
@@ -201,8 +203,13 @@ func resolveRendererReferences(g *generator) error {
 		return nil
 	}
 
-	for _, typ := range g.typeMap {
-		err := resolve(typ)
+	typeNames := make([]string, 0, len(g.typeMap))
+	for name := range g.typeMap {
+		typeNames = append(typeNames, name)
+	}
+	sort.Strings(typeNames)
+	for _, name := range typeNames {
+		err := resolve(g.typeMap[name])
 		if err != nil {
 			return err
 		}
