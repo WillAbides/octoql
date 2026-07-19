@@ -337,6 +337,246 @@ func TestGenerateLocalTestHandlerOptionalModes(t *testing.T) {
 	}
 }
 
+func TestGeneratedHandlerOptionalModeWireParity(t *testing.T) {
+	tests := []struct {
+		name                string
+		optional            string
+		optionalGenericType string
+	}{
+		{name: "value", optional: "value"},
+		{name: "pointer", optional: "pointer"},
+		{name: "pointer omitempty", optional: "pointer_omitempty"},
+		{
+			name:                "generic",
+			optional:            "generic",
+			optionalGenericType: "github.com/willabides/octoql/internal/testutil.Option",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tempRoot := filepath.Join("testdata", "tmp")
+			err := os.MkdirAll(tempRoot, 0o755)
+			require.NoError(t, err)
+			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-optional-wire-")
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, os.RemoveAll(tempDir))
+			})
+
+			schemaPath := filepath.Join(tempDir, "schema.graphql")
+			err = os.WriteFile(schemaPath, []byte(`
+input OptionalInput {
+  value: String
+  items: [String]
+}
+
+type OptionalResult {
+  value: String
+  items: [String]
+}
+
+type Query {
+  optional(input: OptionalInput): OptionalResult
+}
+`), 0o600)
+			require.NoError(t, err)
+			operationPath := filepath.Join(tempDir, "operation.graphql")
+			err = os.WriteFile(operationPath, []byte(`
+query Optional($input: OptionalInput) {
+  result: optional(input: $input) {
+    value
+    items
+  }
+}
+`), 0o600)
+			require.NoError(t, err)
+
+			clientConfig := optionalModeParityConfig(
+				tempDir,
+				"client",
+				"clienthandler",
+				TestHandlerTypesClient,
+				test.optional,
+				test.optionalGenericType,
+			)
+			localConfig := optionalModeParityConfig(
+				tempDir,
+				"localclient",
+				"localhandler",
+				TestHandlerTypesLocal,
+				test.optional,
+				test.optionalGenericType,
+			)
+			err = clientConfig.ValidateAndFillDefaults("")
+			require.NoError(t, err)
+			err = localConfig.ValidateAndFillDefaults("")
+			require.NoError(t, err)
+			clientOutputs, err := Generate(clientConfig)
+			require.NoError(t, err)
+			localOutputs, err := Generate(localConfig)
+			require.NoError(t, err)
+
+			outputs := map[string][]byte{
+				filepath.Join(tempDir, "doc.go"): []byte("package parity\n"),
+				filepath.Join(tempDir, "parity_test.go"): optionalModeParityTestSource(
+					clientConfig.testHandlerPkgPath,
+					localConfig.testHandlerPkgPath,
+				),
+			}
+			for filename, content := range clientOutputs {
+				outputs[filename] = content
+			}
+			for filename, content := range localOutputs {
+				outputs[filename] = content
+			}
+			compileGeneratedOutputs(t, tempDir, outputs)
+		})
+	}
+}
+
+func optionalModeParityConfig(
+	tempDir string,
+	clientPackage string,
+	handlerPackage string,
+	strategy TestHandlerTypeStrategy,
+	optional string,
+	optionalGenericType string,
+) *Config {
+	config := &Config{
+		Schema:               []string{filepath.Join(tempDir, "schema.graphql")},
+		Operations:           []string{filepath.Join(tempDir, "operation.graphql")},
+		Generated:            filepath.Join(tempDir, clientPackage, "generated.go"),
+		TestHandlerGenerated: filepath.Join(tempDir, handlerPackage, "generated.go"),
+		TestHandlerTypes:     strategy,
+		Package:              clientPackage,
+		ContextType:          "-",
+		Optional:             optional,
+		OptionalGenericType:  optionalGenericType,
+	}
+	return config
+}
+
+func optionalModeParityTestSource(clientHandlerPath, localHandlerPath string) []byte {
+	source := `package parity_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"testing"
+
+	clienthandler "CLIENT_HANDLER_PATH"
+	localhandler "LOCAL_HANDLER_PATH"
+)
+
+func TestOptionalModeWireParity(t *testing.T) {
+	tests := []struct {
+		name      string
+		variables string
+		response  string
+	}{
+		{name: "omitted", variables: "{}", response: "{\"result\":null}"},
+		{name: "explicit null", variables: "{\"input\":null}", response: "{\"result\":null}"},
+		{
+			name:      "populated with null list element",
+			variables: "{\"input\":{\"value\":\"x\",\"items\":[null,\"y\"]}}",
+			response:  "{\"result\":{\"value\":null,\"items\":[null,\"y\"]}}",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var clientVariables clienthandler.OptionalVariables
+			if err := json.Unmarshal([]byte(test.variables), &clientVariables); err != nil {
+				t.Fatal(err)
+			}
+			var localVariables localhandler.OptionalVariables
+			if err := json.Unmarshal([]byte(test.variables), &localVariables); err != nil {
+				t.Fatal(err)
+			}
+			clientVariablesJSON, err := json.Marshal(clientVariables)
+			if err != nil {
+				t.Fatal(err)
+			}
+			localVariablesJSON, err := json.Marshal(localVariables)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertJSONEqual(t, clientVariablesJSON, localVariablesJSON)
+
+			var clientResponse clienthandler.OptionalResponse
+			if err = json.Unmarshal([]byte(test.response), &clientResponse); err != nil {
+				t.Fatal(err)
+			}
+			var localResponse localhandler.OptionalResponse
+			if err = json.Unmarshal([]byte(test.response), &localResponse); err != nil {
+				t.Fatal(err)
+			}
+
+			clientHandler := clienthandler.NewTestHandler(t)
+			clientHandler.ExpectOptional(clientVariables).Respond(clientResponse)
+			localHandler := localhandler.NewTestHandler(t)
+			localHandler.ExpectOptional(localVariables).Respond(localResponse)
+
+			clientResult := postOptional(t, clientHandler, clientVariablesJSON)
+			localResult := postOptional(t, localHandler, localVariablesJSON)
+			if clientResult.Code != localResult.Code {
+				t.Fatalf("status codes differ: client=%d local=%d", clientResult.Code, localResult.Code)
+			}
+			if !reflect.DeepEqual(clientResult.Header(), localResult.Header()) {
+				t.Fatalf("headers differ: client=%v local=%v", clientResult.Header(), localResult.Header())
+			}
+			assertJSONEqual(t, clientResult.Body.Bytes(), localResult.Body.Bytes())
+		})
+	}
+}
+
+func postOptional(
+	t *testing.T,
+	handler http.Handler,
+	variables json.RawMessage,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{
+		"operationName": "Optional",
+		"variables":     variables,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"https://api.github.example/graphql",
+		bytes.NewReader(body),
+	)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	return response
+}
+
+func assertJSONEqual(t *testing.T, left, right []byte) {
+	t.Helper()
+	var leftValue any
+	if err := json.Unmarshal(left, &leftValue); err != nil {
+		t.Fatal(err)
+	}
+	var rightValue any
+	if err := json.Unmarshal(right, &rightValue); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(leftValue, rightValue) {
+		t.Fatalf("JSON differs: left=%s right=%s", left, right)
+	}
+}
+`
+	return []byte(strings.NewReplacer(
+		"CLIENT_HANDLER_PATH", clientHandlerPath,
+		"LOCAL_HANDLER_PATH", localHandlerPath,
+	).Replace(source))
+}
+
 func TestGenerateWithTestHandlerRendererFailureReturnsNoOutputs(t *testing.T) {
 	tempRoot := filepath.Join("testdata", "tmp")
 	err := os.MkdirAll(tempRoot, 0o755)
