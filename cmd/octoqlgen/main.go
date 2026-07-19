@@ -1,6 +1,3 @@
-// Copyright (c) 2026 octoql contributors
-// SPDX-License-Identifier: MIT
-
 // octoqlgen generates type-safe Go GraphQL clients.
 package main
 
