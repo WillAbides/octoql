@@ -39,6 +39,12 @@
   `t.Helper()` only for assertion helpers.
 - Use `testify/require` for test prerequisites and `testify/assert` for
   non-fatal checks whenever they make tests clearer.
+- Prefer fewer high-value tests centered on realistic
+  config-to-generate-to-compile-to-runtime workflows. Retain focused unit tests
+  for pure logic, destructive safety, security, concurrency and state machines,
+  and injected failures that integration tests cannot isolate clearly. Avoid
+  combinatorial option matrices when representative integration coverage and
+  focused difference checks cover the same behavior.
 - The runtime config model is generated from `octoqlgen.schema.yaml` with the
   repository-pinned `script/jsonschematogo`; do not add handwritten user config
   structs.
