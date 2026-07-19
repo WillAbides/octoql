@@ -1,0 +1,66 @@
+scalar CustomPropertyValue
+scalar DateTime
+scalar ArbitraryJSON
+
+interface Node {
+  id: ID!
+}
+
+type Repository implements Node {
+  id: ID!
+  nameWithOwner: String!
+  updatedAt: DateTime!
+  propertyValue: CustomPropertyValue!
+  issues(first: Int!, after: String): IssueConnection!
+}
+
+type Issue implements Node {
+  id: ID!
+  title: String!
+}
+
+type User implements Node {
+  id: ID!
+  login: String!
+}
+
+union SearchResultItem = Repository | Issue | User
+
+type IssueConnection {
+  nodes: [Issue!]!
+  pageInfo: PageInfo!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+input RepositorySelector {
+  owner: String!
+  name: String!
+}
+
+input CreateRepositoryInput {
+  selector: RepositorySelector!
+  propertyValue: CustomPropertyValue!
+}
+
+type Query {
+  repository(
+    owner: String!
+    name: String!
+    selector: RepositorySelector!
+    first: Int!
+    after: String
+  ): Repository
+  node(id: ID!): Node
+  search(query: String!): [SearchResultItem!]!
+  echoProperty(value: CustomPropertyValue!): CustomPropertyValue!
+  echoAt(value: DateTime!): DateTime!
+  echoAny(value: ArbitraryJSON!): ArbitraryJSON!
+}
+
+type Mutation {
+  createRepository(input: CreateRepositoryInput!): Repository!
+}

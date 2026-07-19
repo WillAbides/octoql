@@ -1,0 +1,81 @@
+query GetRepository(
+  $owner: String!
+  $name: String!
+  $selector: RepositorySelector!
+  $first: Int!
+  $after: String
+) {
+  repository(
+    owner: $owner
+    name: $name
+    selector: $selector
+    first: $first
+    after: $after
+  ) {
+    id
+    fullName: nameWithOwner
+    updatedAt
+    propertyValue
+    issues(first: $first, after: $after) {
+      nodes {
+        id
+        title
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+
+mutation CreateRepository($input: CreateRepositoryInput!) {
+  createRepository(input: $input) {
+    id
+    nameWithOwner
+    updatedAt
+    propertyValue
+    issues(first: 1) {
+      pageInfo {
+        hasNextPage
+      }
+    }
+  }
+}
+
+query GetNode($id: ID!) {
+  node(id: $id) {
+    id
+    ... on Repository {
+      nameWithOwner
+    }
+    ... on Issue {
+      title
+    }
+  }
+}
+
+query Search($query: String!) {
+  search(query: $query) {
+    ... on Repository {
+      id
+      nameWithOwner
+    }
+    ... on Issue {
+      id
+      title
+    }
+  }
+}
+
+query EchoProperty($value: CustomPropertyValue!) {
+  echoProperty(value: $value)
+}
+
+query EchoAt($value: DateTime!) {
+  echoAt(value: $value)
+}
+
+query EchoAny($value: ArbitraryJSON!) {
+  echoAny(value: $value)
+}

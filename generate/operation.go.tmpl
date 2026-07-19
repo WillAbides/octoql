@@ -1,6 +1,11 @@
 // The {{.Type}} executed by {{.Name}}.
 const {{.Name}}_Operation = `{{$.Body}}`
 
+{{if and .Config.TestHandlerGenerated .Input -}}
+// {{.Name}}Variables contains the variables accepted by {{.Name}}.
+type {{.Name}}Variables = {{.Input.GoName}}
+
+{{end -}}
 {{.Doc}}
 func {{.Name}}(
     {{if ne .Config.ContextType "-" -}}

@@ -49,10 +49,15 @@ operations:
 # The filename to which to write the generated code, relative to octoqlgen.yaml.
 generated: generated/genqlient.go
 
-# test_handler is reserved for future typed test-handler generation. It is
-# parsed and path-resolved today but does not change client generation.
+# Generate an optional typed GraphQL test handler from the same parsed operation
+# plan used for the client. The package is inferred independently from this
+# destination, including when the destination directory is new and empty.
+#
+# The generated package imports the generated client package and exposes aliases
+# for its response, input, enum, abstract variant, and OctoqlOther types. Omitting
+# test_handler generates only the client and performs no handler package work.
 # test_handler:
-#   generated: generated/testhandler.go
+#   generated: internal/githubapitest/generated.go
 
 # The package name for the output code; defaults to the package-name
 # corresponding to the setting of `generated`, above.

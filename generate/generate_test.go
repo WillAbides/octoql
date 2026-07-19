@@ -148,6 +148,476 @@ func TestGenerateDeterministic(t *testing.T) {
 	}
 }
 
+func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-plan-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Errorf("removing temporary generation directory: %v", err)
+		}
+	})
+
+	config := &Config{
+		Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+		Operations:           []string{filepath.Join(dataDir, "GraphShapes.graphql")},
+		Generated:            filepath.Join(tempDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+		ContextType:          "-",
+		Bindings:             testBindings(),
+	}
+	err = config.ValidateAndFillDefaults("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	planCount := 0
+	outputs, err := generateWith(
+		config,
+		func(config *Config) (*generationPlan, error) {
+			planCount++
+			return buildGenerationPlan(config)
+		},
+		renderClient,
+		renderTestHandler,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if planCount != 1 {
+		t.Fatalf("plan builds = %d, want 1", planCount)
+	}
+	if len(outputs) != 2 {
+		t.Fatalf("outputs = %d, want 2", len(outputs))
+	}
+	if config.testHandlerPackage != "githubapitest" {
+		t.Fatalf(
+			"test handler package = %q, want githubapitest",
+			config.testHandlerPackage,
+		)
+	}
+
+	secondOutputs, err := Generate(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for filename, content := range outputs {
+		if !bytes.Equal(content, secondOutputs[filename]) {
+			t.Fatalf("output %q is not deterministic", filename)
+		}
+	}
+
+	for filename, content := range outputs {
+		err = os.MkdirAll(filepath.Dir(filename), 0o755)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = os.WriteFile(filename, content, 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	command := exec.Command("go", "test", "./...")
+	command.Dir = tempDir
+	command.Env = append(os.Environ(), "GOWORK=off")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generated packages do not compile: %v\n%s", err, output)
+	}
+}
+
+func TestGenerateWithTestHandlerRendererFailureReturnsNoOutputs(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-error-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Errorf("removing temporary generation directory: %v", err)
+		}
+	})
+
+	config := &Config{
+		Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+		Operations:           []string{filepath.Join(dataDir, "Repository.graphql")},
+		Generated:            filepath.Join(tempDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+		ContextType:          "-",
+		Bindings:             testBindings(),
+	}
+	err = config.ValidateAndFillDefaults("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	renderErr := errors.New("handler renderer failed")
+	outputs, err := generateWith(
+		config,
+		buildGenerationPlan,
+		renderClient,
+		func(*generationPlan) ([]byte, error) {
+			return nil, renderErr
+		},
+	)
+
+	if !errors.Is(err, renderErr) {
+		t.Fatalf("error = %v, want %v", err, renderErr)
+	}
+	if outputs != nil {
+		t.Fatalf("outputs = %#v, want nil", outputs)
+	}
+}
+
+func TestGenerateWithoutTestHandlerOnlyGeneratesClient(t *testing.T) {
+	config := &Config{
+		Schema:      []string{filepath.Join(dataDir, "schema.graphql")},
+		Operations:  []string{filepath.Join(dataDir, "Repository.graphql")},
+		Generated:   "generated.go",
+		Package:     "client",
+		ContextType: "-",
+		Bindings:    testBindings(),
+	}
+	outputs, err := Generate(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outputs) != 1 {
+		t.Fatalf("outputs = %d, want 1", len(outputs))
+	}
+	if outputs[config.Generated] == nil {
+		t.Fatalf("client output %q is missing", config.Generated)
+	}
+}
+
+func TestTestHandlerConfigurationErrors(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-config-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Errorf("removing temporary generation directory: %v", err)
+		}
+	})
+	absoluteClientOutput, err := filepath.Abs(
+		filepath.Join(tempDir, "client", "generated.go"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name             string
+		handlerGenerated string
+		exportOperations string
+		packageName      string
+		wantError        string
+	}{
+		{
+			name:             "same package",
+			handlerGenerated: filepath.Join(tempDir, "client", "handler.go"),
+			wantError:        "separate package",
+		},
+		{
+			name:             "invalid package directory",
+			handlerGenerated: filepath.Join(tempDir, "bad-package-name", "handler.go"),
+			wantError:        "unable to identify test handler package",
+		},
+		{
+			name:             "client output collision",
+			handlerGenerated: filepath.Join(tempDir, "client", "generated.go"),
+			wantError:        "output paths must be different",
+		},
+		{
+			name:             "absolute client output collision",
+			handlerGenerated: absoluteClientOutput,
+			wantError:        "output paths must be different",
+		},
+		{
+			name:             "operation manifest collision",
+			handlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+			exportOperations: filepath.Join(tempDir, "githubapitest", "generated.go"),
+			wantError:        "output paths must be different",
+		},
+		{
+			name:             "main client package",
+			handlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+			packageName:      "main",
+			wantError:        "cannot import a generated client in package main",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			packageName := test.packageName
+			if packageName == "" {
+				packageName = "client"
+			}
+			config := &Config{
+				Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+				Operations:           []string{filepath.Join(dataDir, "Repository.graphql")},
+				Generated:            filepath.Join(tempDir, "client", "generated.go"),
+				TestHandlerGenerated: test.handlerGenerated,
+				ExportOperations:     test.exportOperations,
+				Package:              packageName,
+				ContextType:          "-",
+				Bindings:             testBindings(),
+			}
+
+			err := config.ValidateAndFillDefaults("")
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("error = %v, want containing %q", err, test.wantError)
+			}
+		})
+	}
+}
+
+func TestGenerateTestHandlerNameCollision(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-collision-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Errorf("removing temporary generation directory: %v", err)
+		}
+	})
+
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(schemaPath, []byte("type Query { value: String! }\n"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(
+		operationPath,
+		[]byte("# @genqlient(typename: \"TestHandler\")\nquery Value { value }\n"),
+		0o600,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := &Config{
+		Schema:               []string{schemaPath},
+		Operations:           []string{operationPath},
+		Generated:            filepath.Join(tempDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+		Package:              "client",
+		ContextType:          "-",
+	}
+	err = config.ValidateAndFillDefaults("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Generate(config)
+	if err == nil || !strings.Contains(err.Error(), "conflicting definition for TestHandler") {
+		t.Fatalf("error = %v, want test handler name collision", err)
+	}
+}
+
+func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name      string
+		schema    string
+		operation string
+		wantError string
+	}{
+		{
+			name:      "lowercase operation",
+			schema:    "type Query { viewer: String! }\n",
+			operation: "query getViewer { viewer }\n",
+			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
+		},
+		{
+			name: "enum value and expectation",
+			schema: `enum Get {
+  NODE_EXPECTATION
+}
+type Query {
+  value: Get!
+}
+`,
+			operation: "query GetNode { value }\n",
+			wantError: `generated identifier "GetNodeExpectation"`,
+		},
+		{
+			name: "client type and runtime",
+			schema: `type NewTestHandler {
+  id: ID!
+}
+type Query {
+  value: NewTestHandler!
+}
+`,
+			operation: `fragment NewTestHandler on NewTestHandler {
+  id
+}
+query Value {
+  value {
+    ...NewTestHandler
+  }
+}
+`,
+			wantError: `generated identifier "NewTestHandler"`,
+		},
+		{
+			name:   "variables alias and operation",
+			schema: "type Query { viewer(value: String!): String! }\n",
+			operation: `query Foo($value: String!) {
+  viewer(value: $value)
+}
+query FooVariables($value: String!) {
+  viewer(value: $value)
+}
+`,
+			wantError: `generated client variables alias "FooVariables"`,
+		},
+		{
+			name: "variables alias and enum values variable",
+			schema: `enum Variables {
+  VALUE
+}
+type Query {
+  viewer(value: Variables!): String!
+}
+`,
+			operation: `query All($value: Variables!) {
+  viewer(value: $value)
+}
+`,
+			wantError: `generated client variables alias "AllVariables"`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-identifiers-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				err = os.RemoveAll(tempDir)
+				if err != nil {
+					t.Errorf("removing temporary generation directory: %v", err)
+				}
+			})
+
+			schemaPath := filepath.Join(tempDir, "schema.graphql")
+			operationPath := filepath.Join(tempDir, "operation.graphql")
+			err = os.WriteFile(schemaPath, []byte(test.schema), 0o600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = os.WriteFile(operationPath, []byte(test.operation), 0o600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := &Config{
+				Schema:               []string{schemaPath},
+				Operations:           []string{operationPath},
+				Generated:            filepath.Join(tempDir, "client", "generated.go"),
+				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+				Package:              "client",
+				ContextType:          "-",
+			}
+			err = config.ValidateAndFillDefaults("")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = Generate(config)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("error = %v, want containing %q", err, test.wantError)
+			}
+		})
+	}
+}
+
+func TestGenerateTestHandlerRejectsSubscription(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-subscription-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Errorf("removing temporary generation directory: %v", err)
+		}
+	})
+
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(
+		schemaPath,
+		[]byte("type Query { value: String! }\ntype Subscription { value: String! }\n"),
+		0o600,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(
+		operationPath,
+		[]byte("subscription Value { value }\n"),
+		0o600,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := &Config{
+		Schema:               []string{schemaPath},
+		Operations:           []string{operationPath},
+		Generated:            filepath.Join(tempDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+		Package:              "client",
+		ContextType:          "-",
+	}
+	err = config.ValidateAndFillDefaults("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Generate(config)
+	if err == nil || !strings.Contains(err.Error(), "subscriptions are not supported by octoql") {
+		t.Fatalf("error = %v, want subscription rejection", err)
+	}
+}
+
 func getDefaultConfig(t *testing.T) *Config {
 	t.Helper()
 	return &Config{

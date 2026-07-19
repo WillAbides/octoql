@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"go/token"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -24,6 +26,7 @@ type Config struct {
 	Schema                          StringList
 	Operations                      StringList
 	Generated                       string
+	TestHandlerGenerated            string
 	Package                         string
 	ExportOperations                string
 	ContextType                     string
@@ -41,6 +44,9 @@ type Config struct {
 	baseDir string
 	// The package-path into which we are generating.
 	pkgPath string
+	// The package name and path for the generated test handler.
+	testHandlerPackage string
+	testHandlerPkgPath string
 }
 
 // A TypeBinding represents a Go type to which octoqlgen binds a GraphQL type.
@@ -146,8 +152,16 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName}, dir)
 	if err != nil { // e.g. not in a Go module
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
+		if moduleErr == nil && pkgNameGuess != "" {
+			return pkgNameGuess, modulePkgPath, nil
+		}
 		return pkgNameGuess, "", err
 	} else if len(pkgs) != 1 { // probably never happens?
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
+		if moduleErr == nil && pkgNameGuess != "" {
+			return pkgNameGuess, modulePkgPath, nil
+		}
 		return pkgNameGuess, "", fmt.Errorf("found %v packages in %v, expected 1", len(pkgs), dir)
 	}
 
@@ -165,12 +179,69 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 	if token.IsIdentifier(pathSuffix) {
 		pkgNameGuess = pathSuffix
 	}
+	if pkg.PkgPath == "" || pkg.PkgPath == "command-line-arguments" {
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
+		if moduleErr == nil {
+			pkg.PkgPath = modulePkgPath
+		}
+	}
 
 	if pkgNameGuess != "" {
 		return pkgNameGuess, pkg.PkgPath, nil
 	} else {
 		return "", "", fmt.Errorf("no package found in %v", dir)
 	}
+}
+
+func packagePathFromModule(directory string) (string, error) {
+	targetDirectory := directory
+	currentDirectory := directory
+	for {
+		moduleFile := filepath.Join(currentDirectory, "go.mod")
+		content, err := os.ReadFile(moduleFile)
+		if err == nil {
+			moduleName := modulePath(content)
+			if moduleName == "" {
+				return "", fmt.Errorf("go.mod in %q has no module path", currentDirectory)
+			}
+
+			relative, relativeErr := filepath.Rel(currentDirectory, targetDirectory)
+			if relativeErr != nil {
+				return "", relativeErr
+			}
+			if relative == "." {
+				return moduleName, nil
+			}
+			return path.Join(moduleName, filepath.ToSlash(relative)), nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+
+		parent := filepath.Dir(currentDirectory)
+		if parent == currentDirectory {
+			return "", fmt.Errorf("no go.mod found for %q", directory)
+		}
+		currentDirectory = parent
+	}
+}
+
+func modulePath(goMod []byte) string {
+	for line := range strings.SplitSeq(string(goMod), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 || fields[0] != "module" {
+			continue
+		}
+		if !strings.HasPrefix(fields[1], `"`) {
+			return fields[1]
+		}
+		unquoted, err := strconv.Unquote(fields[1])
+		if err == nil {
+			return unquoted
+		}
+		return ""
+	}
+	return ""
 }
 
 // ValidateAndFillDefaults ensures that the configuration is valid, and fills
@@ -190,8 +261,15 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 		c.Generated = "generated.go"
 	}
 	c.Generated = pathJoin(baseDir, c.Generated)
+	if c.TestHandlerGenerated != "" {
+		c.TestHandlerGenerated = pathJoin(baseDir, c.TestHandlerGenerated)
+	}
 	if c.ExportOperations != "" {
 		c.ExportOperations = pathJoin(baseDir, c.ExportOperations)
+	}
+	err := c.validateOutputPaths()
+	if err != nil {
+		return err
 	}
 
 	if c.ContextType == "" {
@@ -256,6 +334,46 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	// This is a no-op in some of the error cases, but it still doesn't hurt.
 	c.pkgPath = pkgPath
 
+	if c.TestHandlerGenerated != "" {
+		if c.pkgPath == "" {
+			return errorf(
+				nil,
+				"unable to generate test handler without identifying the generated client package path",
+			)
+		}
+		if c.Package == "main" {
+			return errorf(
+				nil,
+				"test handler cannot import a generated client in package main",
+			)
+		}
+
+		handlerPackage, handlerPkgPath, handlerErr := getPackageNameAndPath(c.TestHandlerGenerated)
+		if handlerErr != nil {
+			return errorf(
+				nil,
+				"unable to identify test handler package for %q: %v",
+				c.TestHandlerGenerated,
+				handlerErr,
+			)
+		}
+		if handlerPackage == "" || handlerPkgPath == "" {
+			return errorf(
+				nil,
+				"unable to identify test handler package for %q",
+				c.TestHandlerGenerated,
+			)
+		}
+		if handlerPkgPath == c.pkgPath {
+			return errorf(
+				nil,
+				"test handler must be generated in a separate package from the client",
+			)
+		}
+		c.testHandlerPackage = handlerPackage
+		c.testHandlerPkgPath = handlerPkgPath
+	}
+
 	if len(c.PackageBindings) > 0 {
 		for _, binding := range c.PackageBindings {
 			if strings.HasSuffix(binding.Package, ".go") {
@@ -312,6 +430,44 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (c *Config) validateOutputPaths() error {
+	outputs := map[string]string{}
+	for _, output := range []struct {
+		name string
+		path string
+	}{
+		{name: "generated", path: c.Generated},
+		{name: "export_operations", path: c.ExportOperations},
+		{name: "test_handler.generated", path: c.TestHandlerGenerated},
+	} {
+		if output.path == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(output.path)
+		if err != nil {
+			return errorf(
+				nil,
+				"resolving %s output path %q: %v",
+				output.name,
+				output.path,
+				err,
+			)
+		}
+		existing := outputs[absolute]
+		if existing != "" {
+			return errorf(
+				nil,
+				"%s and %s output paths must be different: %q",
+				existing,
+				output.name,
+				absolute,
+			)
+		}
+		outputs[absolute] = output.name
+	}
 	return nil
 }
 

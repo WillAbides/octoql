@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../octoqlgen.schema.yaml
+
+schema:
+  path: schema.graphql
+operations:
+  - operations.graphql
+generated: client/generated.go
+package: githubapi
+test_handler:
+  generated: githubapitest/generated.go
+bindings:
+  ArbitraryJSON:
+    type: any
