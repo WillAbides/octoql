@@ -5,10 +5,11 @@
 - `octoql` is a standalone project derived from Khan/genqlient. Preserve
   attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`.
 - The module path is `github.com/willabides/octoql`, with Go version `1.26.0`.
-- All generated-code runtime support and reusable runtime APIs belong in the
-  root `octoql` package. Do not recreate a separate `graphql` runtime package.
-  Generator implementation belongs in `internal/generate`; users invoke
-  `cmd/octoqlgen`. Do not recreate a public `generate` package.
+- Reusable runtime APIs belong in the root `octoql` package. Generated JSON
+  methods are self-contained and must not depend on shared marshal-guard types.
+  Do not add guard exports, package-local guards, or a separate `graphql`
+  runtime package. Generator implementation belongs in `internal/generate`;
+  users invoke `cmd/octoqlgen`. Do not recreate a public `generate` package.
 - Do not update `docs/CHANGELOG.md` unless a task explicitly requires it.
 - `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
