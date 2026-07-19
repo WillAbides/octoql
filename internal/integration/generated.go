@@ -13,7 +13,7 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
-// __addCommentInput is used internally by genqlient
+// __addCommentInput is used internally by octoqlgen
 type __addCommentInput struct {
 	Input server.AddCommentInput `json:"input"`
 }
@@ -21,7 +21,7 @@ type __addCommentInput struct {
 // GetInput returns __addCommentInput.Input, and is useful for accessing the field via an interface.
 func (v *__addCommentInput) GetInput() server.AddCommentInput { return v.Input }
 
-// __addStarInput is used internally by genqlient
+// __addStarInput is used internally by octoqlgen
 type __addStarInput struct {
 	Input server.AddStarInput `json:"input"`
 }
@@ -29,7 +29,7 @@ type __addStarInput struct {
 // GetInput returns __addStarInput.Input, and is useful for accessing the field via an interface.
 func (v *__addStarInput) GetInput() server.AddStarInput { return v.Input }
 
-// __getRepositoryInput is used internally by genqlient
+// __getRepositoryInput is used internally by octoqlgen
 type __getRepositoryInput struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
@@ -41,7 +41,7 @@ func (v *__getRepositoryInput) GetOwner() string { return v.Owner }
 // GetName returns __getRepositoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__getRepositoryInput) GetName() string { return v.Name }
 
-// __queryWithCustomMarshalInput is used internally by genqlient
+// __queryWithCustomMarshalInput is used internally by octoqlgen
 type __queryWithCustomMarshalInput struct {
 	Date time.Time `json:"-"`
 }
@@ -112,7 +112,7 @@ func (v *__queryWithCustomMarshalInput) __premarshalJSON() (*__premarshal__query
 	return &retval, nil
 }
 
-// __queryWithCustomMarshalOptionalInput is used internally by genqlient
+// __queryWithCustomMarshalOptionalInput is used internally by octoqlgen
 type __queryWithCustomMarshalOptionalInput struct {
 	Date  *time.Time `json:"-"`
 	Login *string    `json:"login"`
@@ -193,7 +193,7 @@ func (v *__queryWithCustomMarshalOptionalInput) __premarshalJSON() (*__premarsha
 	return &retval, nil
 }
 
-// __queryWithCustomMarshalSliceInput is used internally by genqlient
+// __queryWithCustomMarshalSliceInput is used internally by octoqlgen
 type __queryWithCustomMarshalSliceInput struct {
 	Dates []time.Time `json:"-"`
 }
@@ -276,7 +276,7 @@ func (v *__queryWithCustomMarshalSliceInput) __premarshalJSON() (*__premarshal__
 	return &retval, nil
 }
 
-// __queryWithFlattenInput is used internally by genqlient
+// __queryWithFlattenInput is used internally by octoqlgen
 type __queryWithFlattenInput struct {
 	Ids []string `json:"ids"`
 }
@@ -284,7 +284,7 @@ type __queryWithFlattenInput struct {
 // GetIds returns __queryWithFlattenInput.Ids, and is useful for accessing the field via an interface.
 func (v *__queryWithFlattenInput) GetIds() []string { return v.Ids }
 
-// __queryWithFragmentsInput is used internally by genqlient
+// __queryWithFragmentsInput is used internally by octoqlgen
 type __queryWithFragmentsInput struct {
 	Ids []string `json:"ids"`
 }
@@ -292,7 +292,7 @@ type __queryWithFragmentsInput struct {
 // GetIds returns __queryWithFragmentsInput.Ids, and is useful for accessing the field via an interface.
 func (v *__queryWithFragmentsInput) GetIds() []string { return v.Ids }
 
-// __queryWithInterfaceListFieldInput is used internally by genqlient
+// __queryWithInterfaceListFieldInput is used internally by octoqlgen
 type __queryWithInterfaceListFieldInput struct {
 	Ids []string `json:"ids"`
 }
@@ -300,7 +300,7 @@ type __queryWithInterfaceListFieldInput struct {
 // GetIds returns __queryWithInterfaceListFieldInput.Ids, and is useful for accessing the field via an interface.
 func (v *__queryWithInterfaceListFieldInput) GetIds() []string { return v.Ids }
 
-// __queryWithInterfaceListPointerFieldInput is used internally by genqlient
+// __queryWithInterfaceListPointerFieldInput is used internally by octoqlgen
 type __queryWithInterfaceListPointerFieldInput struct {
 	Ids []string `json:"ids"`
 }
@@ -308,7 +308,7 @@ type __queryWithInterfaceListPointerFieldInput struct {
 // GetIds returns __queryWithInterfaceListPointerFieldInput.Ids, and is useful for accessing the field via an interface.
 func (v *__queryWithInterfaceListPointerFieldInput) GetIds() []string { return v.Ids }
 
-// __queryWithInterfaceNoFragmentsInput is used internally by genqlient
+// __queryWithInterfaceNoFragmentsInput is used internally by octoqlgen
 type __queryWithInterfaceNoFragmentsInput struct {
 	Id string `json:"id"`
 }
@@ -316,7 +316,7 @@ type __queryWithInterfaceNoFragmentsInput struct {
 // GetId returns __queryWithInterfaceNoFragmentsInput.Id, and is useful for accessing the field via an interface.
 func (v *__queryWithInterfaceNoFragmentsInput) GetId() string { return v.Id }
 
-// __queryWithNamedFragmentsInput is used internally by genqlient
+// __queryWithNamedFragmentsInput is used internally by octoqlgen
 type __queryWithNamedFragmentsInput struct {
 	Ids []string `json:"ids"`
 }
@@ -324,7 +324,7 @@ type __queryWithNamedFragmentsInput struct {
 // GetIds returns __queryWithNamedFragmentsInput.Ids, and is useful for accessing the field via an interface.
 func (v *__queryWithNamedFragmentsInput) GetIds() []string { return v.Ids }
 
-// __queryWithOmitemptyInput is used internally by genqlient
+// __queryWithOmitemptyInput is used internally by octoqlgen
 type __queryWithOmitemptyInput struct {
 	Login string `json:"login,omitempty"`
 }
@@ -332,7 +332,7 @@ type __queryWithOmitemptyInput struct {
 // GetLogin returns __queryWithOmitemptyInput.Login, and is useful for accessing the field via an interface.
 func (v *__queryWithOmitemptyInput) GetLogin() string { return v.Login }
 
-// __queryWithSearchInput is used internally by genqlient
+// __queryWithSearchInput is used internally by octoqlgen
 type __queryWithSearchInput struct {
 	Query      string            `json:"query"`
 	SearchType server.SearchType `json:"searchType"`
@@ -344,7 +344,7 @@ func (v *__queryWithSearchInput) GetQuery() string { return v.Query }
 // GetSearchType returns __queryWithSearchInput.SearchType, and is useful for accessing the field via an interface.
 func (v *__queryWithSearchInput) GetSearchType() server.SearchType { return v.SearchType }
 
-// __queryWithVariablesInput is used internally by genqlient
+// __queryWithVariablesInput is used internally by octoqlgen
 type __queryWithVariablesInput struct {
 	Login string `json:"login"`
 }
@@ -352,7 +352,7 @@ type __queryWithVariablesInput struct {
 // GetLogin returns __queryWithVariablesInput.Login, and is useful for accessing the field via an interface.
 func (v *__queryWithVariablesInput) GetLogin() string { return v.Login }
 
-// __removeStarInput is used internally by genqlient
+// __removeStarInput is used internally by octoqlgen
 type __removeStarInput struct {
 	Input server.RemoveStarInput `json:"input"`
 }

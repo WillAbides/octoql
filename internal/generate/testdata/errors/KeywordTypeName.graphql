@@ -1,5 +1,5 @@
 query KeywordTypeName {
-  # @genqlient(typename: "type")
+  # @octoqlgen(typename: "type")
   f {
     g
   }

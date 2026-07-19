@@ -947,7 +947,7 @@ func TestGenerateTestHandlerNameCollision(t *testing.T) {
 	}
 	err = os.WriteFile(
 		operationPath,
-		[]byte("# @genqlient(typename: \"TestHandler\")\nquery Value { value }\n"),
+		[]byte("# @octoqlgen(typename: \"TestHandler\")\nquery Value { value }\n"),
 		0o600,
 	)
 	if err != nil {
@@ -1490,7 +1490,7 @@ func TestGenerateErrors(t *testing.T) {
 			case "ConflictingTypeNames.go":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid Go file testdata/errors/ConflictingTypeNames.go: testdata/errors/ConflictingTypeNames.go:3:1: expected declaration, found _"))
 			case "ConflictingTypeNames.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.schema.graphql:2: conflicting definition for T; this can indicate either a genqlient internal error, a conflict between user-specified type-names, or some very tricksy GraphQL field/type names: expected 2 fields, got 1"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.schema.graphql:2: conflicting definition for T; this can indicate either an octoqlgen internal error, a conflict between user-specified type-names, or some very tricksy GraphQL field/type names: expected 2 fields, got 1"))
 			case "DefaultInputsNoOmitPointer.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointer.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "DefaultInputsNoOmitPointerForDirective.graphql":

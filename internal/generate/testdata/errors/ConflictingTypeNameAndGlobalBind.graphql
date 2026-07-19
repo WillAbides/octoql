@@ -1,8 +1,7 @@
 query ConflictingTypeNameAndGlobalBind {
   user {
-    # @genqlient(typename: "OtherScalar")
+    # @octoqlgen(typename: "OtherScalar")
     name
   }
 }
-
 

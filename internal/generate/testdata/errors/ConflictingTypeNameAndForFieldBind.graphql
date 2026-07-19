@@ -1,7 +1,7 @@
-# @genqlient(for: "User.name", bind: "[]byte")
+# @octoqlgen(for: "User.name", bind: "[]byte")
 query ConflictingTypeNameAndGlobalBind {
   user {
-    # @genqlient(typename: "MyID")
+    # @octoqlgen(typename: "MyID")
     name
   }
 }

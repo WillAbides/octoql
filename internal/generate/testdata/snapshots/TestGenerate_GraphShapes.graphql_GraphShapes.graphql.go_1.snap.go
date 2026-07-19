@@ -2778,7 +2778,7 @@ func (v *SearchRepositoriesSearchSearchResultConnectionPageInfo) GetEndCursor() 
 	return v.EndCursor
 }
 
-// __GetActorInput is used internally by genqlient
+// __GetActorInput is used internally by octoqlgen
 type __GetActorInput struct {
 	Login string `json:"login"`
 }
@@ -2786,7 +2786,7 @@ type __GetActorInput struct {
 // GetLogin returns __GetActorInput.Login, and is useful for accessing the field via an interface.
 func (v *__GetActorInput) GetLogin() string { return v.Login }
 
-// __GetNodeInput is used internally by genqlient
+// __GetNodeInput is used internally by octoqlgen
 type __GetNodeInput struct {
 	Id testutil.ID `json:"id"`
 }
@@ -2794,7 +2794,7 @@ type __GetNodeInput struct {
 // GetId returns __GetNodeInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetNodeInput) GetId() testutil.ID { return v.Id }
 
-// __RecursiveRepositoryInput is used internally by genqlient
+// __RecursiveRepositoryInput is used internally by octoqlgen
 type __RecursiveRepositoryInput struct {
 	Input RecursiveInput `json:"input"`
 }
@@ -2802,7 +2802,7 @@ type __RecursiveRepositoryInput struct {
 // GetInput returns __RecursiveRepositoryInput.Input, and is useful for accessing the field via an interface.
 func (v *__RecursiveRepositoryInput) GetInput() RecursiveInput { return v.Input }
 
-// __SearchRepositoriesInput is used internally by genqlient
+// __SearchRepositoriesInput is used internally by octoqlgen
 type __SearchRepositoriesInput struct {
 	Query          string    `json:"query"`
 	First          int       `json:"first"`

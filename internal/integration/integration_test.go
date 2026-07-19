@@ -1,4 +1,4 @@
-// Package integration contains genqlient's integration tests, which run
+// Package integration contains octoqlgen's integration tests, which run
 // against a real server (defined in internal/integration/server/server.go).
 //
 // These are especially important for cases where we generate nontrivial logic,
@@ -20,7 +20,7 @@ import (
 )
 
 func TestGetRepository(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query getRepository($owner: String!, $name: String!) {
 		repository(owner: $owner, name: $name) {
 			id
@@ -48,7 +48,7 @@ func TestGetRepository(t *testing.T) {
 }
 
 func TestMutation(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	mutation addComment($input: AddCommentInput!) {
 		addComment(input: $input) { commentEdge { node { id body } } }
 	}`
@@ -69,7 +69,7 @@ func TestMutation(t *testing.T) {
 }
 
 func TestStarMutations(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	mutation addStar($input: AddStarInput!) {
 		addStar(input: $input) { starrable { id stargazerCount viewerHasStarred } }
 	}
@@ -98,7 +98,7 @@ func TestStarMutations(t *testing.T) {
 }
 
 func TestServerError(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query failingQuery { fail viewer { id } }`
 
 	ctx := context.Background()
@@ -127,7 +127,7 @@ func TestServerError(t *testing.T) {
 }
 
 func TestVariables(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithVariables($login: String!) { user(login: $login) { id login contributionCount } }`
 
 	ctx := context.Background()
@@ -151,7 +151,7 @@ func TestVariables(t *testing.T) {
 }
 
 func TestOmitempty(t *testing.T) {
-	_ = `# @genqlient(omitempty: true)
+	_ = `# @octoqlgen(omitempty: true)
 	query queryWithOmitempty($login: String) {
 		user(login: $login) { id login contributionCount }
 	}`
@@ -180,7 +180,7 @@ func TestOmitempty(t *testing.T) {
 }
 
 func TestCustomMarshal(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithCustomMarshal($date: Date!) {
 		usersCreatedOn(date: $date) { id login createdAt }
 	}`
@@ -211,7 +211,7 @@ func TestCustomMarshal(t *testing.T) {
 }
 
 func TestCustomMarshalSlice(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithCustomMarshalSlice($dates: [Date!]!) {
 		usersCreatedOnDates(dates: $dates) { id login createdAt }
 	}`
@@ -242,11 +242,11 @@ func TestCustomMarshalSlice(t *testing.T) {
 }
 
 func TestCustomMarshalOptional(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithCustomMarshalOptional(
-		# @genqlient(pointer: true)
+		# @octoqlgen(pointer: true)
 		$date: Date,
-		# @genqlient(pointer: true)
+		# @octoqlgen(pointer: true)
 		$login: String,
 	) {
 		userSearch(createdOn: $date, login: $login) { id login createdAt }
@@ -282,7 +282,7 @@ func TestCustomMarshalOptional(t *testing.T) {
 }
 
 func TestInterfaceNoFragments(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithInterfaceNoFragments($id: ID!) {
 		actor(id: $id) { id login }
 		viewer { id login }
@@ -348,7 +348,7 @@ func TestInterfaceNoFragments(t *testing.T) {
 }
 
 func TestInterfaceListField(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithInterfaceListField($ids: [ID!]!) {
 		actors(ids: $ids) { id login }
 	}`
@@ -394,9 +394,9 @@ func TestInterfaceListField(t *testing.T) {
 }
 
 func TestInterfaceListPointerField(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithInterfaceListPointerField($ids: [ID!]!) {
-		# @genqlient(pointer: true)
+		# @octoqlgen(pointer: true)
 		actors(ids: $ids) {
 			__typename id login
 		}
@@ -438,7 +438,7 @@ func TestInterfaceListPointerField(t *testing.T) {
 }
 
 func TestFragments(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithFragments($ids: [ID!]!) {
 		actors(ids: $ids) {
 			__typename id
@@ -521,7 +521,7 @@ func TestFragments(t *testing.T) {
 }
 
 func TestNamedFragments(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	fragment organizationFields on Organization {
 		id
 		plan { name }
@@ -627,8 +627,8 @@ func TestNamedFragments(t *testing.T) {
 }
 
 func TestFlatten(t *testing.T) {
-	_ = `# @genqlient
-	# @genqlient(flatten: true)
+	_ = `# @octoqlgen
+	# @octoqlgen(flatten: true)
 	fragment actorFields on Actor {
 		...innerActorFields
 	}
@@ -637,7 +637,7 @@ func TestFlatten(t *testing.T) {
 		id
 		login
 		... on User {
-			# @genqlient(flatten: true)
+			# @octoqlgen(flatten: true)
 			repositories {
 				...repositoriesFields
 			}
@@ -649,12 +649,12 @@ func TestFlatten(t *testing.T) {
 		name
 	}
 
-	# @genqlient(flatten: true)
+	# @octoqlgen(flatten: true)
 	fragment flattenedUserFields on User {
 		...flattenedRepositoryOwnerFields
 	}
 
-	# @genqlient(flatten: true)
+	# @octoqlgen(flatten: true)
 	fragment flattenedRepositoryOwnerFields on RepositoryOwner {
 		...innerRepositoryOwnerFields
 	}
@@ -668,7 +668,7 @@ func TestFlatten(t *testing.T) {
 			__typename id
 			...flattenedUserFields
 			... on Organization {
-				# @genqlient(flatten: true)
+				# @octoqlgen(flatten: true)
 				topContributor {
 					...actorFields
 				}
@@ -676,7 +676,7 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 
-	# @genqlient(flatten: true)
+	# @octoqlgen(flatten: true)
 	query queryWithFlatten(
 		$ids: [ID!]!,
 	) {
@@ -739,7 +739,7 @@ func TestFlatten(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
-	_ = `# @genqlient
+	_ = `# @octoqlgen
 	query queryWithSearch($query: String!, $searchType: SearchType!) {
 		search(query: $query, type: $searchType) {
 			__typename

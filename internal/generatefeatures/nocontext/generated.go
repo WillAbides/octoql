@@ -24,7 +24,7 @@ type GetRepositoryResponse struct {
 // GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
 
-// __GetRepositoryInput is used internally by genqlient
+// __GetRepositoryInput is used internally by octoqlgen
 type __GetRepositoryInput struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`

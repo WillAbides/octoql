@@ -1,6 +1,6 @@
 package generate
 
-// This file defines the data structures from which genqlient generates types,
+// This file defines the data structures from which octoqlgen generates types,
 // and the code to write them out as actual Go code.  The main entrypoint is
 // goType, which represents such a type, but convert.go also constructs each
 // of the implementing types, by traversing the GraphQL operation and schema.
@@ -32,7 +32,7 @@ type goType interface {
 	// SelectionSet returns the selection-set of the GraphQL field from which
 	// this type was generated, or nil if none is applicable (for GraphQL
 	// scalar, enum, and input types, as well as any opaque
-	// (non-genqlient-generated) type since those are validated upon creation).
+	// (non-octoqlgen-generated) type since those are validated upon creation).
 	SelectionSet() ast.SelectionSet
 
 	// Remove slice/pointer wrappers, and return the underlying (named (or
@@ -361,7 +361,7 @@ func (typ *goStructType) FlattenedFields() ([]*selector, error) {
 				// spread; either way we embed the corresponding implementation
 				// of the fragment.
 				return nil, errorf(nil,
-					"genqlient internal error: embedded field %s.%s was not a struct",
+					"octoqlgen internal error: embedded field %s.%s was not a struct",
 					typ.GoName, field.GoName)
 			}
 
@@ -454,7 +454,7 @@ func (typ *goStructType) WriteDefinition(w io.Writer, g *generator) error {
 	// same thing as interface-typed fields, except the user has defined the
 	// helper.
 	//
-	// Note that genqlient itself only uses unmarshalers for output types, and
+	// Note that octoqlgen itself only uses unmarshalers for output types, and
 	// marshalers for input types.  But we write both in case you want to write
 	// your data to JSON for some reason (say to put it in a cache).  (And we
 	// need to write both if we need to write either, because in such cases we

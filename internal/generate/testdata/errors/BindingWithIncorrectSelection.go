@@ -1,6 +1,6 @@
 package errors
 
-const _ = `# @genqlient
+const _ = `# @octoqlgen
 query GetAccountWrongFields {
   account { id }
 }

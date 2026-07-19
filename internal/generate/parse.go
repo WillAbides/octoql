@@ -204,7 +204,7 @@ func getQueriesFromGo(text string, basedir, filename string) ([]*ast.QueryDocume
 			return false
 		}
 
-		if !strings.HasPrefix(strings.TrimSpace(value), "# @genqlient") {
+		if !strings.HasPrefix(strings.TrimSpace(value), "# @octoqlgen") {
 			return true
 		}
 

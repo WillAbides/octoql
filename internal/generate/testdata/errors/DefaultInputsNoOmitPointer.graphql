@@ -1,5 +1,5 @@
 # very similar to DefaultInputsNoOmitPointerForDirective.graphql - same expected behaviour, but takes a different code path(?)
-# @genqlient(pointer: true)
+# @octoqlgen(pointer: true)
 query DefaultInputs(
   $input: InputWithDefaults!
 ) {

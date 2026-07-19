@@ -687,7 +687,7 @@ func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, er
 	return &retval, nil
 }
 
-// __CreateRepositoryInput is used internally by genqlient
+// __CreateRepositoryInput is used internally by octoqlgen
 type __CreateRepositoryInput struct {
 	Input CreateRepositoryInput `json:"input"`
 }
@@ -695,7 +695,7 @@ type __CreateRepositoryInput struct {
 // GetInput returns __CreateRepositoryInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateRepositoryInput) GetInput() CreateRepositoryInput { return v.Input }
 
-// __EchoAnyInput is used internally by genqlient
+// __EchoAnyInput is used internally by octoqlgen
 type __EchoAnyInput struct {
 	Value any `json:"value"`
 }
@@ -703,7 +703,7 @@ type __EchoAnyInput struct {
 // GetValue returns __EchoAnyInput.Value, and is useful for accessing the field via an interface.
 func (v *__EchoAnyInput) GetValue() any { return v.Value }
 
-// __EchoAtInput is used internally by genqlient
+// __EchoAtInput is used internally by octoqlgen
 type __EchoAtInput struct {
 	Value time.Time `json:"value"`
 }
@@ -711,7 +711,7 @@ type __EchoAtInput struct {
 // GetValue returns __EchoAtInput.Value, and is useful for accessing the field via an interface.
 func (v *__EchoAtInput) GetValue() time.Time { return v.Value }
 
-// __EchoPropertyInput is used internally by genqlient
+// __EchoPropertyInput is used internally by octoqlgen
 type __EchoPropertyInput struct {
 	Value json.RawMessage `json:"value"`
 }
@@ -719,7 +719,7 @@ type __EchoPropertyInput struct {
 // GetValue returns __EchoPropertyInput.Value, and is useful for accessing the field via an interface.
 func (v *__EchoPropertyInput) GetValue() json.RawMessage { return v.Value }
 
-// __GetNodeInput is used internally by genqlient
+// __GetNodeInput is used internally by octoqlgen
 type __GetNodeInput struct {
 	Id string `json:"id"`
 }
@@ -727,7 +727,7 @@ type __GetNodeInput struct {
 // GetId returns __GetNodeInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetNodeInput) GetId() string { return v.Id }
 
-// __GetRepositoryInput is used internally by genqlient
+// __GetRepositoryInput is used internally by octoqlgen
 type __GetRepositoryInput struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
@@ -747,7 +747,7 @@ func (v *__GetRepositoryInput) GetFirst() int { return v.First }
 // GetAfter returns __GetRepositoryInput.After, and is useful for accessing the field via an interface.
 func (v *__GetRepositoryInput) GetAfter() string { return v.After }
 
-// __SearchInput is used internally by genqlient
+// __SearchInput is used internally by octoqlgen
 type __SearchInput struct {
 	Query string `json:"query"`
 }

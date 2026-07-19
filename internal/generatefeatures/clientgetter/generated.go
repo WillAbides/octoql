@@ -11,7 +11,7 @@ import (
 // Check that context_type from octoqlgen.yaml implements context.Context.
 var _ context.Context = (customContext)(nil)
 
-// __getRepositoryInput is used internally by genqlient
+// __getRepositoryInput is used internally by octoqlgen
 type __getRepositoryInput struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
