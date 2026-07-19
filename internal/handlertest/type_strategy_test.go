@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -392,7 +391,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	viewerResponse, err := githubapi.Viewer(t.Context(), client)
 	require.NoError(t, err)
 	assert.Equal(t, "octocat", viewerResponse.Data.Viewer.Login)
-	requireGeneratedRequest(t, requests, "Viewer", "fragment ViewerVariables", "")
+	requireGeneratedRequest(t, requests, "Viewer", githubapi.Viewer_Operation, "")
 
 	variables := localtypes.GetRepositoryVariables{
 		Owner: "octo-org",
@@ -414,12 +413,14 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	assert.Equal(t, updatedAt, response.Data.Repository.UpdatedAt)
 	assert.JSONEq(t, `["red","blue"]`, string(response.Data.Repository.PropertyValue))
 	require.Len(t, response.Data.Repository.Issues.Nodes, 1)
+	assert.Equal(t, "I1", response.Data.Repository.Issues.Nodes[0].Id)
+	assert.Equal(t, "bug", response.Data.Repository.Issues.Nodes[0].Title)
 	assert.Equal(t, "cursor-2", response.Data.Repository.Issues.PageInfo.EndCursor)
 	requireGeneratedRequest(
 		t,
 		requests,
 		"GetRepository",
-		"query GetRepository",
+		githubapi.GetRepository_Operation,
 		`{"owner":"octo-org","name":"octo-repo","first":2,"after":"cursor-1"}`,
 	)
 
@@ -454,7 +455,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		t,
 		requests,
 		"CreateRepository",
-		"mutation CreateRepository",
+		githubapi.CreateRepository_Operation,
 		`{"input":{"name":"created","ownerId":"O1","visibility":"PRIVATE","clientMutationId":"mutation-1"}}`,
 	)
 
@@ -470,7 +471,8 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	other, ok := nodeResponse.Data.Node.(*githubapi.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", other.Typename)
-	requireGeneratedRequest(t, requests, "GetNode", "query GetNode", `{"id":"user"}`)
+	assert.Equal(t, "U1", other.Id)
+	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"user"}`)
 
 	searchVariables := localtypes.SearchVariables{Query: "octo"}
 	handler.ExpectSearch(searchVariables).Respond(localtypes.SearchResponse{
@@ -486,13 +488,18 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	searchResponse, err := githubapi.Search(t.Context(), client, searchVariables.Query)
 	require.NoError(t, err)
 	require.Len(t, searchResponse.Data.Search, 3)
-	_, ok = searchResponse.Data.Search[0].(*githubapi.SearchSearchRepository)
-	assert.True(t, ok)
-	_, ok = searchResponse.Data.Search[1].(*githubapi.SearchSearchIssue)
-	assert.True(t, ok)
-	_, ok = searchResponse.Data.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
-	assert.True(t, ok)
-	requireGeneratedRequest(t, requests, "Search", "query Search", `{"query":"octo"}`)
+	searchRepository, ok := searchResponse.Data.Search[0].(*githubapi.SearchSearchRepository)
+	require.True(t, ok)
+	assert.Equal(t, "R1", searchRepository.Id)
+	assert.Equal(t, "octo-org/octo-repo", searchRepository.NameWithOwner)
+	searchIssue, ok := searchResponse.Data.Search[1].(*githubapi.SearchSearchIssue)
+	require.True(t, ok)
+	assert.Equal(t, "I1", searchIssue.Id)
+	assert.Equal(t, "bug", searchIssue.Title)
+	searchOther, ok := searchResponse.Data.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
+	require.True(t, ok)
+	assert.Equal(t, "User", searchOther.Typename)
+	requireGeneratedRequest(t, requests, "Search", githubapi.Search_Operation, `{"query":"octo"}`)
 
 	property := json.RawMessage(`["one","two"]`)
 	handler.ExpectEchoProperty(localtypes.EchoPropertyVariables{Value: property}).
@@ -504,7 +511,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		t,
 		requests,
 		"EchoProperty",
-		"query EchoProperty",
+		githubapi.EchoProperty_Operation,
 		`{"value":["one","two"]}`,
 	)
 
@@ -517,20 +524,27 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		t,
 		requests,
 		"EchoAt",
-		"query EchoAt",
+		githubapi.EchoAt_Operation,
 		`{"value":"2026-07-19T12:00:00Z"}`,
 	)
 
 	const largeInteger = int64(9_007_199_254_740_993)
 	handler.ExpectEchoAny(localtypes.EchoAnyVariables{Value: largeInteger}).
-		Respond(localtypes.EchoAnyResponse{EchoAny: largeInteger})
-	_, err = githubapi.EchoAny(t.Context(), client, largeInteger)
+		Respond(localtypes.EchoAnyResponse{EchoAny: map[string]any{
+			"count": 42,
+			"items": []any{"one", true},
+		}})
+	arbitraryResponse, err := githubapi.EchoAny(t.Context(), client, largeInteger)
 	require.NoError(t, err)
+	arbitrary, ok := arbitraryResponse.Data.EchoAny.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, float64(42), arbitrary["count"])
+	assert.Equal(t, []any{"one", true}, arbitrary["items"])
 	requireGeneratedRequest(
 		t,
 		requests,
 		"EchoAny",
-		"query EchoAny",
+		githubapi.EchoAny_Operation,
 		`{"value":9007199254740993}`,
 	)
 
@@ -545,7 +559,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 	require.True(t, ok)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
-	requireGeneratedRequest(t, requests, "GetNode", "query GetNode", `{"id":"missing"}`)
+	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"missing"}`)
 }
 
 func TestLocalAndClientHandlerTypesAreDistinct(t *testing.T) {
@@ -606,6 +620,7 @@ func postGraphQL(
 ) *httptest.ResponseRecorder {
 	requestBody, err := json.Marshal(map[string]any{
 		"operationName": operation,
+		"query":         canonicalOperationDocument(t, operation),
 		"variables":     variables,
 	})
 	require.NoError(t, err)
@@ -631,16 +646,41 @@ func requireGeneratedRequest(
 	t *testing.T,
 	requests <-chan recordedGraphQLRequest,
 	operationName string,
-	querySubstring string,
+	expectedQuery string,
 	variables string,
 ) {
 	t.Helper()
 	recorded := <-requests
 	assert.Equal(t, operationName, recorded.OperationName)
-	assert.True(t, strings.Contains(recorded.Query, querySubstring))
+	assert.Equal(t, expectedQuery, recorded.Query)
 	if variables == "" {
 		assert.Empty(t, recorded.Variables)
 		return
 	}
 	assert.JSONEq(t, variables, string(recorded.Variables))
+}
+
+func canonicalOperationDocument(t *testing.T, operation string) string {
+	t.Helper()
+	switch operation {
+	case "CreateRepository":
+		return githubapi.CreateRepository_Operation
+	case "EchoAny":
+		return githubapi.EchoAny_Operation
+	case "EchoAt":
+		return githubapi.EchoAt_Operation
+	case "EchoProperty":
+		return githubapi.EchoProperty_Operation
+	case "GetNode":
+		return githubapi.GetNode_Operation
+	case "GetRepository":
+		return githubapi.GetRepository_Operation
+	case "Search":
+		return githubapi.Search_Operation
+	case "Viewer":
+		return githubapi.Viewer_Operation
+	default:
+		t.Fatalf("unknown operation %q", operation)
+		return ""
+	}
 }

@@ -422,6 +422,7 @@ query Optional($input: OptionalInput) {
 				filepath.Join(tempDir, "parity_test.go"): optionalModeParityTestSource(
 					clientConfig.testHandlerPkgPath,
 					localConfig.testHandlerPkgPath,
+					clientConfig.pkgPath,
 				),
 			}
 			for filename, content := range clientOutputs {
@@ -457,7 +458,11 @@ func optionalModeParityConfig(
 	return config
 }
 
-func optionalModeParityTestSource(clientHandlerPath, localHandlerPath string) []byte {
+func optionalModeParityTestSource(
+	clientHandlerPath string,
+	localHandlerPath string,
+	generatedClientPath string,
+) []byte {
 	source := `package parity_test
 
 import (
@@ -469,6 +474,7 @@ import (
 	"testing"
 
 	clienthandler "CLIENT_HANDLER_PATH"
+	generatedclient "GENERATED_CLIENT_PATH"
 	localhandler "LOCAL_HANDLER_PATH"
 )
 
@@ -517,12 +523,13 @@ func TestOptionalModeWireParity(t *testing.T) {
 			}
 
 			clientHandler := clienthandler.NewTestHandler(t)
-			clientHandler.ExpectOptional(clientVariables).Respond(clientResponse)
+			clientHandler.DefaultOptional().Respond(clientResponse)
 			localHandler := localhandler.NewTestHandler(t)
-			localHandler.ExpectOptional(localVariables).Respond(localResponse)
+			localHandler.DefaultOptional().Respond(localResponse)
 
-			clientResult := postOptional(t, clientHandler, clientVariablesJSON)
-			localResult := postOptional(t, localHandler, localVariablesJSON)
+			originalVariables := json.RawMessage(test.variables)
+			clientResult := postOptional(t, clientHandler, originalVariables)
+			localResult := postOptional(t, localHandler, originalVariables)
 			if clientResult.Code != localResult.Code {
 				t.Fatalf("status codes differ: client=%d local=%d", clientResult.Code, localResult.Code)
 			}
@@ -542,6 +549,7 @@ func postOptional(
 	t.Helper()
 	body, err := json.Marshal(map[string]any{
 		"operationName": "Optional",
+		"query":         generatedclient.Optional_Operation,
 		"variables":     variables,
 	})
 	if err != nil {
@@ -574,6 +582,7 @@ func assertJSONEqual(t *testing.T, left, right []byte) {
 `
 	return []byte(strings.NewReplacer(
 		"CLIENT_HANDLER_PATH", clientHandlerPath,
+		"GENERATED_CLIENT_PATH", generatedClientPath,
 		"LOCAL_HANDLER_PATH", localHandlerPath,
 	).Replace(source))
 }
