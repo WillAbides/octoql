@@ -417,8 +417,10 @@ func TestGenerateErrors(t *testing.T) {
 			case "ConflictingTypeNameAndForFieldBind.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndForFieldBind.graphql:5: typename and bind may not be used together"))
 			case "ConflictingTypeNameAndGlobalBind.graphql":
-				// go-snaps v0.5.23 cannot rewrite raw snapshots containing backticks.
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndGlobalBind.graphql:4: typename option conflicts with global binding for ValidScalar; use `bind: \"-\"` to override it"))
+				want := "testdata/errors/ConflictingTypeNameAndGlobalBind.graphql:4: typename option conflicts with global binding for ValidScalar; use `bind: \"-\"` to override it"
+				if got := err.Error(); got != want {
+					t.Errorf("error = %q, want %q", got, want)
+				}
 			case "ConflictingTypeNameAndLocalBind.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndLocalBind.graphql:4: typename and bind may not be used together"))
 			case "ConflictingTypeNames.go":
@@ -489,10 +491,11 @@ func matchGeneratedSnapshot(t *testing.T, filename string, content []byte) {
 
 	extension := filepath.Ext(filename)
 	snaps.WithConfig(
-		snaps.Dir("testdata/snapshots"),
-		snaps.Filename(strings.ReplaceAll(t.Name(), "/", "_")),
+		snaps.Dir(filepath.Join("testdata", "snapshots")),
+		snaps.Filename(normalizeSnapshotName(t.Name())),
 		snaps.Ext(extension),
 		snaps.Raw(),
+		snaps.Update(snapshotUpdateEnabled()),
 	).MatchStandaloneSnapshot(t, string(content))
 
 	// Generated Go remains external because this compiles the snapshot file that
@@ -504,7 +507,7 @@ func matchGeneratedSnapshot(t *testing.T, filename string, content []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := buildGoFile(strings.ReplaceAll(t.Name(), "/", "_"), snapshot); err != nil {
+	if err := buildGoFile(normalizeSnapshotName(t.Name()), snapshot); err != nil {
 		t.Error(err)
 	}
 }
@@ -513,6 +516,6 @@ func standaloneSnapshotFilename(t *testing.T, extension string) string {
 	return filepath.Join(
 		"testdata",
 		"snapshots",
-		strings.ReplaceAll(t.Name(), "/", "_")+"_1.snap"+extension,
+		normalizeSnapshotName(t.Name())+"_1.snap"+extension,
 	)
 }
