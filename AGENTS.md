@@ -16,6 +16,8 @@
 
 ## Development
 
+- Write tests first using a red/green strategy where possible. It's also useful
+  to commit the failing test first.
 - Use Kong declarative structs and `Run` methods for CLI commands. Keep parsing,
   dependency construction, and command execution separately testable.
 - Use gopls first for Go symbols, references, package APIs, renames, and
