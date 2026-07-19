@@ -1,23 +1,20 @@
-# example of genqlient
+# octoql example
 
-## Invoking the example 
-Create a [personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with no scopes.
+This package is a small generated GitHub client. Its checked-in local schema and
+generated code make it useful without network access.
 
-To run the example:
+To regenerate the client with the repository-pinned tool:
 
 ```sh
-$ GITHUB_TOKEN=<your token> go run . <username>
-you are Ben Kraft
-csilvers is Craig Silverstein
+go generate ./example
 ```
 
-## Running genqlient
+To run the live example, provide a GitHub token and login:
 
-It's already checked in to GitHub, but to regenerate `generated.go`:
 ```sh
-go generate ./...
+GITHUB_TOKEN=<token> go run ./example <login>
 ```
 
-## Generating the schema file
-
-The schema file is also checked in, but to update it, download from the [GitHub API documentation](https://docs.github.com/en/graphql/overview/public-schema).
+The example endpoint and authentication are configured in
+[`main.go`](main.go). The main [README](../README.md) documents remote schema
+materialization and the recommended gitignored `.octoql` workflow.

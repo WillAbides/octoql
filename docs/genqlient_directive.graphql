@@ -1,4 +1,4 @@
-# The quasi-directive @genqlient is used to configure genqlient on a
+# The inherited quasi-directive @genqlient configures octoqlgen on a
 # query-by-query basis.
 #
 # The syntax of the directive is just like a GraphQL directive (as defined
@@ -66,7 +66,7 @@ directive genqlient(
   #  query MyQuery(
   #    $arg: MyInput
   #  ) { ... }
-  # genqlient will generate a type
+  # octoqlgen will generate a type
   #  type MyInput struct {
   #    MyField      <type>  `json:"myField,omitempty"`
   #    MyOtherField *<type> `json:"myField"`
@@ -84,18 +84,18 @@ directive genqlient(
   # For example, given the following query:
   #  # @genqlient(omitempty: true)
   #  query MyQuery($arg: String) { ... }
-  # genqlient will generate a function
+  # octoqlgen will generate a function
   #  MyQuery(ctx context.Context, client *octoql.Client, arg string)
   #    (*octoql.Response[MyQueryResponse], error)
-  # which will pass {"arg": null} to GraphQL if arg is "", and the actual
-  # value otherwise.
+  # which will omit "arg" from the variables object if arg is "", and pass the
+  # actual value otherwise.
   #
   # Only applicable to arguments of nullable types.  Ignored for types with
   # custom marshalers (see their documentation in octoqlgen.yaml for details).
   omitempty: Boolean
 
-  # If set, this argument or field will use a pointer type in Go.  Response
-  # types always use pointers, but otherwise we typically do not.
+  # If set, this argument or field will use a pointer type in Go. Otherwise,
+  # pointer use follows the applicable optional configuration.
   #
   # This can be useful if it's a type you'll need to pass around (and want a
   # pointer to save copies) or if you wish to distinguish between the Go
@@ -109,9 +109,9 @@ directive genqlient(
   #    myInterface { myField }
   #  }
   # where you are requesting only shared fields of an interface.  By default,
-  # genqlient still generates an interface type, for consistency.  But this
+  # octoqlgen still generates an interface type, for consistency. But this
   # isn't necessary: a struct would do just fine since there are no
-  # type-specific fields.  Setting `struct: true` tells genqlient to do that.
+  # type-specific fields. Setting `struct: true` tells octoqlgen to do that.
   #
   # Note that this is only allowed when there are no fragments in play, such
   # that all fields are on the interface type.  Note that if you later add a
@@ -127,7 +127,7 @@ directive genqlient(
   #      ...MyFragment
   #    }
   #  }
-  # by default genqlient will generate these types:
+  # by default octoqlgen will generate these types:
   #  type MyQueryResponse struct {
   #    MyField MyQueryMyFieldMyType
   #  }
@@ -141,7 +141,7 @@ directive genqlient(
   #      ...MyFragment
   #    }
   #  }
-  # genqlient will simplify things:
+  # octoqlgen will simplify things:
   #  type MyQueryResponse struct {
   #    MyField MyFragment
   #  }
@@ -160,7 +160,7 @@ directive genqlient(
   #    # @genqlient(alias: "MyGreatName")
   #    myField
   #  }
-  # genqlient will generate:
+  # octoqlgen will generate:
   #  type MyQueryResponse struct {
   #    MyGreatName <type> `json:"myField"`
   #  }
@@ -172,7 +172,7 @@ directive genqlient(
   alias: String
 
   # If set, this argument or field will use the given Go type instead of a
-  # genqlient-generated type.
+  # octoqlgen-generated type.
   #
   # The value should be the fully-qualified type name to use for the field,
   # for example:
@@ -187,13 +187,13 @@ directive genqlient(
   # of datetimes.)
   #
   # Note that the type you bind to must be defined elsewhere in your code.
-  # If you want genqlient to create the type definition, use "typename"
+  # If you want octoqlgen to create the type definition, use "typename"
   # instead.
   #
   # See bindings in octoqlgen.yaml for more details; this is effectively to a
   # local version of that global setting and should be used with similar care.
   # If set to "-", overrides any such global setting and uses a
-  # genqlient-generated type.
+  # octoqlgen-generated type.
   bind: String
 
   # If set, the type of this field will have the given name in Go.
@@ -206,7 +206,7 @@ directive genqlient(
   #      id
   #    }
   #  }
-  # genqlient will generate
+  # octoqlgen will generate
   #  type Resp struct {
   #    User User
   #  }
@@ -223,7 +223,7 @@ directive genqlient(
   #      name
   #    }
   #  }
-  # will cause genqlient to generate:
+  # will cause octoqlgen to generate:
   #  type Resp struct {
   #    User User
   #  }
@@ -233,17 +233,16 @@ directive genqlient(
   #  }
   # (Compare this to @genqlient(bind: "path/to/pkg.NameType"), which does
   # something similar but depends on "NameType" being defined in some
-  # other package, rather than having genqlient define it for you.)
+  # other package, rather than having octoqlgen define it for you.)
   #
   # With great power comes great responsibility: when using typename you'll
-  # need to avoid comments; genqlient will complain if you use the same
+  # need to avoid conflicts; octoqlgen will complain if you use the same
   # type-name in multiple places unless they request the exact same fields, or
   # if your type-name conflicts with an autogenerated one (again, unless they
   # request the exact same fields).  They must even have the fields in the
   # same order.  They should also have matching @genqlient directives, although
-  # this is not currently validated (see issue #123).  Fragments are often
-  # easier to use (see the discussion of code-sharing in operations.md, and the
-  # "flatten" option above).
+  # this is not currently validated. Fragments are often easier to use; see the
+  # "flatten" option above.
   #
   # Note that unlike most directives, if applied to the entire operation,
   # typename affects the overall response type, rather than being propagated
@@ -254,14 +253,13 @@ directive genqlient(
   # `typename: "MyTypeName", bind: "-"`.
   typename: String
 
-# Multiple genqlient directives are allowed in the same location, as long as
+# Multiple @genqlient directives are allowed in the same location, as long as
 # they don't have conflicting options.
 ) repeatable on
-  # genqlient directives can go almost anywhere, although some options are only
+  # @genqlient directives can go almost anywhere, although some options are only
   # applicable in certain locations as described above.
   | QUERY
   | MUTATION
-  | SUBSCRIPTION
   | FIELD
   | FRAGMENT_DEFINITION
   | VARIABLE_DEFINITION

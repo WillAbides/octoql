@@ -43,11 +43,11 @@ schema:
 #
 # Operations are always written as a list, even when only one path is needed.
 operations:
-- genqlient.graphql
+- graphql/repository.graphql
 - "pkg/*.go"
 
 # The filename to which to write the generated code, relative to octoqlgen.yaml.
-generated: generated/genqlient.go
+generated: generated/octoql.go
 
 # Generate an optional typed GraphQL test handler from the same parsed operation
 # plan used for the client. The package is inferred independently from this
@@ -75,7 +75,7 @@ generated: generated/genqlient.go
 package: mygenerated
 
 # If set, a file at this path (relative to octoqlgen.yaml) will be generated
-# containing the exact operations that genqlient will send to the server.
+# containing the exact operations that octoql will send to the server.
 #
 # This is useful for systems which require queries to be explicitly
 # safelisted (e.g. [1]), especially for cases like queries involving fragments
@@ -112,8 +112,8 @@ context_type: context.Context
 #
 # Must be the fully-qualified name of a function which accepts a context
 # (of the type configured as ContextType (above), which defaults to
-# `context.Context`, or a function of no arguments if ContextType is set
-# to the empty string) and returns (*octoql.Client, error).  If the
+# `context.Context`, or a function of no arguments if context_type is set
+# to "-") and returns (*octoql.Client, error).  If the
 # client-getter returns an error, the helper will return the error
 # without making a query.
 client_getter: "github.com/you/yourpkg.GetClient"
@@ -222,13 +222,13 @@ bindings:
     # will be passed one argument which will be a pointer to a value of the
     # given type, and must return two values: the JSON as a `[]byte`, and an
     # error. For example, you might specify
-    #  unmarshaler: github.com/you/yourpkg.MarshalMyType
+    #  marshaler: github.com/you/yourpkg.MarshalMyType
     # and that function is defined as e.g.:
     #  func MarshalMyType(v *MyType) ([]byte, error)
     #
-    # Note that the `omitempty` option is ignored for types with custom
-    # marshalers; the custom marshaler can of course choose to map any value it
-    # wishes to `"null"` which in GraphQL has the same effect.
+    # The `omitempty` option is ignored for types with custom marshalers. A
+    # custom marshaler can encode `"null"`, but that sends an explicit GraphQL
+    # null rather than omitting the variable.
     #
     # The default is to use ordinary JSON-marshaling.
     marshaler: github.com/you/yourpkg.MarshalDateTime

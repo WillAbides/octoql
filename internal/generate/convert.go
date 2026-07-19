@@ -931,8 +931,7 @@ func (g *generator) convertSelectionSet(
 // of the given type", which is true when the given type is or implements
 // the fragment's type.  This is distinct from the rules for when a fragment
 // spread is legal, which is true when the fragment would be active for *any*
-// of the concrete types the spread-context could have (see the [GraphQL spec]
-// or docs/design.md).
+// of the concrete types the spread-context could have (see the [GraphQL spec]).
 //
 // containingTypedef is as described in convertInlineFragment, below.
 // fragmentTypedef is the definition of the fragment's type-condition, i.e. the
@@ -979,8 +978,8 @@ func fragmentMatches(containingTypedef, fragmentTypedef *ast.Definition) bool {
 // given fragment does not apply to that type, this function returns nil, nil.
 //
 // In general, we treat such fragments' fields as if they were fields of the
-// parent selection-set (except of course they are only included in types the
-// fragment matches); see docs/design.md for more.
+// parent selection-set, except they are only included in types the fragment
+// matches.
 func (g *generator) convertInlineFragment(
 	namePrefix *prefixList,
 	fragment *ast.InlineFragment,
