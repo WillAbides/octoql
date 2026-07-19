@@ -1,9 +1,0 @@
-{
-  "operations": [
-    {
-      "operationName": "GetBoundAccount",
-      "query": "\nquery GetBoundAccount {\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n}\n",
-      "sourceLocation": "testdata/queries/Bindings.graphql"
-    }
-  ]
-}

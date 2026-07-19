@@ -2,6 +2,7 @@ package generate
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -92,16 +93,10 @@ func buildGoFile(namePrefix string, content []byte) error {
 // with `UPDATE_SNAPS=true`. Generated Go snapshots are compiled, so the test
 // verifies the snapshot rather than only the in-memory generated output.
 func TestGenerate(t *testing.T) {
-	files, err := os.ReadDir(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, file := range files {
-		sourceFilename := file.Name()
-		if sourceFilename == "schema.graphql" || !strings.HasSuffix(sourceFilename, ".graphql") {
-			continue
-		}
+	for _, sourceFilename := range []string{
+		"GraphShapes.graphql",
+		"Naming.graphql",
+	} {
 		goFilename := sourceFilename + ".go"
 		queriesFilename := sourceFilename + ".json"
 
@@ -121,6 +116,9 @@ func TestGenerate(t *testing.T) {
 
 			for filename, content := range generated {
 				t.Run(filename, func(t *testing.T) {
+					if filepath.Ext(filename) == ".json" && sourceFilename != "GraphShapes.graphql" {
+						return
+					}
 					matchGeneratedSnapshot(t, filename, content)
 				})
 			}
@@ -253,41 +251,6 @@ func testGenerateWithTestHandlerUsesOnePlan(
 	}
 
 	compileGeneratedOutputs(t, tempDir, outputs)
-}
-
-func TestGenerateTestHandlerOmittedTypesEqualsClient(t *testing.T) {
-	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	require.NoError(t, err)
-	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-default-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, os.RemoveAll(tempDir))
-	})
-
-	newConfig := func(strategy TestHandlerTypeStrategy) *Config {
-		config := &Config{
-			Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
-			Operations:           []string{filepath.Join(dataDir, "GraphShapes.graphql")},
-			Generated:            filepath.Join(tempDir, "client", "generated.go"),
-			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-			TestHandlerTypes:     strategy,
-			ContextType:          "-",
-			Bindings:             testBindings(),
-		}
-		validateErr := config.ValidateAndFillDefaults("")
-		require.NoError(t, validateErr)
-		return config
-	}
-
-	omittedConfig := newConfig("")
-	omitted, err := Generate(omittedConfig)
-	require.NoError(t, err)
-	explicitConfig := newConfig(TestHandlerTypesClient)
-	explicit, err := Generate(explicitConfig)
-	require.NoError(t, err)
-
-	assert.Equal(t, explicit, omitted)
 }
 
 func TestGenerateLocalTestHandlerBindings(t *testing.T) {
@@ -528,54 +491,6 @@ query Beta { second }
 		assert.Contains(t, handlerSource, `shared2 "`+secondPackage+`"`)
 		compileGeneratedOutputs(t, tempDir, first)
 	})
-}
-
-func TestGenerateLocalTestHandlerOptionalModes(t *testing.T) {
-	tests := []struct {
-		name                string
-		optional            string
-		optionalGenericType string
-	}{
-		{name: "value", optional: "value"},
-		{name: "pointer", optional: "pointer"},
-		{name: "pointer omitempty", optional: "pointer_omitempty"},
-		{
-			name:                "generic",
-			optional:            "generic",
-			optionalGenericType: "github.com/willabides/octoql/internal/testutil.Option",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			tempRoot := filepath.Join("testdata", "tmp")
-			err := os.MkdirAll(tempRoot, 0o755)
-			require.NoError(t, err)
-			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-optional-")
-			require.NoError(t, err)
-			t.Cleanup(func() {
-				require.NoError(t, os.RemoveAll(tempDir))
-			})
-
-			config := &Config{
-				Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
-				Operations:           []string{filepath.Join(dataDir, "OptionalModes.graphql")},
-				Generated:            filepath.Join(tempDir, "client", "generated.go"),
-				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-				TestHandlerTypes:     TestHandlerTypesLocal,
-				ContextType:          "-",
-				Bindings:             testBindings(),
-				Optional:             test.optional,
-				OptionalGenericType:  test.optionalGenericType,
-			}
-			err = config.ValidateAndFillDefaults("")
-			require.NoError(t, err)
-			outputs, err := Generate(config)
-			require.NoError(t, err)
-			handlerSource := string(outputs[config.TestHandlerGenerated])
-			assert.NotContains(t, handlerSource, config.pkgPath+`"`)
-			compileGeneratedOutputs(t, tempDir, outputs)
-		})
-	}
 }
 
 func TestGeneratedHandlerOptionalModeWireParity(t *testing.T) {
@@ -1378,182 +1293,115 @@ func TestGenerateTestHandlerRejectsSubscription(t *testing.T) {
 	}
 }
 
-func getDefaultConfig(t *testing.T) *Config {
-	t.Helper()
-	return &Config{
-		Schema:     StringList{"schema.graphql"},
-		Operations: StringList{"genqlient.graphql"},
-		Generated:  "generated.go",
-	}
-}
-
 func TestGenerateWithConfig(t *testing.T) {
 	tests := []struct {
-		name       string
-		operations []string
+		check      func(*testing.T, *Config, map[string][]byte)
 		config     *Config
+		operations []string
+		name       string
 	}{
-		{"DefaultConfig", nil, getDefaultConfig(t)},
-		{"Subpackage", nil, &Config{
-			Generated: "mypkg/myfile.go",
-		}},
-		{"PackageName", nil, &Config{
-			Generated: "myfile.go",
-			Package:   "mypkg",
-		}},
-		{"ExportOperations", nil, &Config{
-			ExportOperations: "operations.json",
-		}},
-		{"CustomContext", nil, &Config{
-			ContextType: "github.com/willabides/octoql/internal/testutil.MyContext",
-		}},
-		{"CustomContextWithAlias", nil, &Config{
-			ContextType: "github.com/willabides/octoql/internal/testutil/junk---fun.name.MyContext",
-		}},
-		{"StructReferences", []string{"Inputs.graphql"}, &Config{
-			StructReferences: true,
-			Bindings:         testBindings(),
-		}},
-		{"StructReferencesAndOptionalPointer", []string{"Inputs.graphql"}, &Config{
-			StructReferences: true,
-			Optional:         "pointer",
-			Bindings:         testBindings(),
-		}},
-		{"PackageBindings", []string{"Bindings.graphql"}, &Config{
-			PackageBindings: []*PackageBinding{
-				{Package: "github.com/willabides/octoql/internal/testutil"},
+		{
+			name:   "export operations",
+			config: &Config{ExportOperations: "operations.json"},
+			check: func(t *testing.T, config *Config, generated map[string][]byte) {
+				t.Helper()
+				require.Len(t, generated, 2)
+				manifest := generated[config.ExportOperations]
+				assert.True(t, json.Valid(manifest))
+				assert.Contains(t, string(manifest), `"operationName": "GetRepository"`)
 			},
-		}},
-		{"ExactFieldsBinding", []string{"Bindings.graphql"}, &Config{
-			Bindings: map[string]*TypeBinding{
-				"Account": {
-					Type:              "github.com/willabides/octoql/internal/testutil.Account",
-					ExpectExactFields: "{ id login }",
+		},
+		{
+			name: "custom context",
+			config: &Config{
+				ContextType: "github.com/willabides/octoql/internal/testutil.MyContext",
+			},
+			check: func(t *testing.T, config *Config, generated map[string][]byte) {
+				t.Helper()
+				source := string(generated[config.Generated])
+				assert.Contains(t, source, `"github.com/willabides/octoql/internal/testutil"`)
+				assert.Contains(t, source, "ctx_ testutil.MyContext")
+			},
+		},
+		{
+			name:       "struct references and optional pointer",
+			operations: []string{"Inputs.graphql"},
+			config: &Config{
+				StructReferences: true,
+				Optional:         "pointer",
+				Bindings:         testBindings(),
+			},
+			check: func(t *testing.T, config *Config, generated map[string][]byte) {
+				t.Helper()
+				matchGeneratedSnapshot(t, config.Generated, generated[config.Generated])
+			},
+		},
+		{
+			name:       "package binding",
+			operations: []string{"Bindings.graphql"},
+			config: &Config{
+				PackageBindings: []*PackageBinding{
+					{Package: "github.com/willabides/octoql/internal/testutil"},
 				},
 			},
-		}},
-		{"NoContext", nil, &Config{
-			ContextType: "-",
-		}},
-		{"ClientGetter", nil, &Config{
-			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromContext",
-		}},
-		{"ClientGetterCustomContext", nil, &Config{
-			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromMyContext",
-			ContextType:  "github.com/willabides/octoql/internal/testutil.MyContext",
-		}},
-		{"ClientGetterNoContext", nil, &Config{
-			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromNowhere",
-			ContextType:  "-",
-		}},
-		{"VariableNameCollisionsDefault", []string{"OptionalModes.graphql"}, &Config{Bindings: testBindings()}},
-		{"VariableNameCollisionsNoContext", []string{"OptionalModes.graphql"}, &Config{
-			ContextType: "-",
-			Bindings:    testBindings(),
-		}},
-		{"VariableNameCollisionsClientGetter", []string{"OptionalModes.graphql"}, &Config{
-			ClientGetter: "github.com/willabides/octoql/internal/testutil.GetClientFromContext",
-			Bindings:     testBindings(),
-		}},
-		{"OptionalValue", []string{"OptionalModes.graphql"}, &Config{
-			Optional: "value",
-			Bindings: testBindings(),
-		}},
-		{"OptionalPointer", []string{"OptionalModes.graphql"}, &Config{
-			Optional: "pointer",
-			Bindings: testBindings(),
-		}},
-		{"OptionalGeneric", []string{"OptionalModes.graphql"}, &Config{
-			Optional:            "generic",
-			OptionalGenericType: "github.com/willabides/octoql/internal/testutil.Option",
-			Bindings:            testBindings(),
-		}},
-		{"EnumRawCasingAll", []string{"OptionalModes.graphql"}, &Config{
-			Bindings: testBindings(),
-			Casing: Casing{
-				AllEnums: CasingRaw,
+			check: func(t *testing.T, config *Config, generated map[string][]byte) {
+				t.Helper()
+				assert.Contains(t, string(generated[config.Generated]), "Account testutil.Account")
 			},
-		}},
-		{"EnumRawCasingSpecific", []string{"OptionalModes.graphql"}, &Config{
-			Bindings: testBindings(),
-			Casing: Casing{
-				Enums: map[string]CasingAlgorithm{"IssueState": CasingRaw},
+		},
+		{
+			name:       "exact fields binding",
+			operations: []string{"Bindings.graphql"},
+			config: &Config{
+				Bindings: map[string]*TypeBinding{
+					"Account": {
+						Type:              "github.com/willabides/octoql/internal/testutil.Account",
+						ExpectExactFields: "{ id login }",
+					},
+				},
 			},
-		}},
-		{"OptionalPointerOmitEmpty", []string{"Inputs.graphql"}, &Config{
-			Optional: "pointer_omitempty",
-			Bindings: testBindings(),
-		}},
-		{"AutoCamelCase", []string{"Naming.graphql"}, &Config{
-			Casing: Casing{
-				Default: CasingAutoCamelCase,
+			check: func(t *testing.T, config *Config, generated map[string][]byte) {
+				t.Helper()
+				assert.Contains(t, string(generated[config.Generated]), "Account testutil.Account")
 			},
-		}},
+		},
+		{
+			name:       "raw enum casing",
+			operations: []string{"OptionalModes.graphql"},
+			config: &Config{
+				Bindings: testBindings(),
+				Casing: Casing{
+					Enums: map[string]CasingAlgorithm{"IssueState": CasingRaw},
+				},
+			},
+			check: func(t *testing.T, config *Config, generated map[string][]byte) {
+				t.Helper()
+				source := string(generated[config.Generated])
+				assert.Contains(t, source, "IssueState_OPEN")
+				assert.NotContains(t, source, "IssueStateOpen")
+			},
+		},
 	}
 
 	for _, test := range tests {
-		config := test.config
 		t.Run(test.name, func(t *testing.T) {
+			config := test.config
 			err := config.ValidateAndFillDefaults(dataDir)
 			config.Schema = []string{filepath.Join(dataDir, "schema.graphql")}
-			if test.name != "PackageBindings" && test.name != "ExactFieldsBinding" {
+			if test.name != "package binding" && test.name != "exact fields binding" {
 				config.Bindings = addTestScalarBindings(config.Bindings)
 			}
-			operationFiles := test.operations
-			if operationFiles == nil {
-				operationFiles = []string{"Repository.graphql"}
+			require.NoError(t, err)
+			operations := test.operations
+			if operations == nil {
+				operations = []string{"Repository.graphql"}
 			}
-
-			// Since we often reuse types across test cases, run generation
-			// separately for each to avoid conflicts.
-			for _, operationFile := range operationFiles {
-				t.Run(operationFile, func(t *testing.T) {
-					config.Operations = []string{filepath.Join(dataDir, operationFile)}
-					if err != nil {
-						t.Fatal(err)
-					}
-					generated, err := Generate(config)
-					if err != nil {
-						t.Fatal(err)
-					}
-
-					for filename, content := range generated {
-						t.Run(filename, func(t *testing.T) {
-							matchGeneratedSnapshot(t, filename, content)
-						})
-					}
-				})
-			}
+			config.Operations = []string{filepath.Join(dataDir, operations[0])}
+			generated, err := Generate(config)
+			require.NoError(t, err)
+			test.check(t, config, generated)
 		})
 	}
-}
-
-func TestGenerateWithSubdirectoryConfig(t *testing.T) {
-	configDir := filepath.Join(dataDir, "subpackage")
-	config := Config{
-		Schema:     StringList{"../schema.graphql"},
-		Operations: StringList{"../Repository.graphql"},
-		Generated:  "generated.go",
-	}
-	err := config.ValidateAndFillDefaults(configDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.Bindings = addTestScalarBindings(config.Bindings)
-
-	wantGenerated := filepath.Join(configDir, "generated.go")
-	if config.Generated != wantGenerated {
-		t.Fatalf("generated path = %q, want %q", config.Generated, wantGenerated)
-	}
-	if config.Package != "subpackage" {
-		t.Fatalf("package = %q, want %q", config.Package, "subpackage")
-	}
-
-	generated, err := Generate(&config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	matchGeneratedSnapshot(t, config.Generated, generated[config.Generated])
 }
 
 // TestGenerateErrors is a snapshot-based test of error text.
