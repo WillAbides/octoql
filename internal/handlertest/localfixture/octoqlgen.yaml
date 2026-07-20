@@ -4,8 +4,7 @@ schema:
   path: ../schema.graphql
 operations:
   - ../operations.graphql
-  - lowercase.graphql
-generated: client/generated.go
+generated: ../client/generated.go
 package: githubapi
 test_handler:
   generated: githubapitest/generated.go

@@ -1045,12 +1045,11 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		schema     string
-		operation  string
-		types      TestHandlerTypeStrategy
-		wantError  string
-		wantSource []string
+		name      string
+		schema    string
+		operation string
+		types     TestHandlerTypeStrategy
+		wantError string
 	}{
 		{
 			name:      "lowercase operation with client types",
@@ -1064,10 +1063,7 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 			schema:    "type Query { viewer: String! }\n",
 			operation: "query getViewer { viewer }\n",
 			types:     TestHandlerTypesLocal,
-			wantSource: []string{
-				`case "getViewer":`,
-				"func (h *TestHandler) ExpectgetViewer(",
-			},
+			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
 		},
 		{
 			name: "enum value and expectation",
@@ -1166,21 +1162,10 @@ type Query {
 				t.Fatal(err)
 			}
 
-			outputs, err := Generate(config)
-			if test.wantError != "" {
-				if err == nil || !strings.Contains(err.Error(), test.wantError) {
-					t.Fatalf("error = %v, want containing %q", err, test.wantError)
-				}
-				return
+			_, err = Generate(config)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("error = %v, want containing %q", err, test.wantError)
 			}
-
-			require.NoError(t, err)
-			handlerSource := string(outputs[config.TestHandlerGenerated])
-			for _, source := range test.wantSource {
-				assert.Contains(t, handlerSource, source)
-			}
-			assert.NotContains(t, handlerSource, "ExpectGetViewer")
-			compileGeneratedOutputs(t, tempDir, outputs)
 		})
 	}
 }

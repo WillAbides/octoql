@@ -719,22 +719,6 @@ func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, er
 	return &retval, nil
 }
 
-// getViewerResponse is returned by getViewer on success.
-type getViewerResponse struct {
-	Viewer getViewerViewerUser `json:"viewer"`
-}
-
-// GetViewer returns getViewerResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *getViewerResponse) GetViewer() getViewerViewerUser { return v.Viewer }
-
-// getViewerViewerUser includes the requested fields of the GraphQL type User.
-type getViewerViewerUser struct {
-	Login string `json:"login"`
-}
-
-// GetLogin returns getViewerViewerUser.Login, and is useful for accessing the field via an interface.
-func (v *getViewerViewerUser) GetLogin() string { return v.Login }
-
 type testTB interface {
 	Cleanup(func())
 	Errorf(string, ...any)
@@ -1137,7 +1121,6 @@ type TestHandler struct {
 	operation5 expectationSet[GetRepositoryVariables]
 	operation6 expectationSet[SearchVariables]
 	operation7 expectationSet[struct{}]
-	operation8 expectationSet[struct{}]
 }
 
 var _ http.Handler = (*TestHandler)(nil)
@@ -1188,11 +1171,6 @@ func newTestHandler(testingTB testTB) *TestHandler {
 		operation:    "Viewer",
 		expectations: []*expectation[struct{}]{},
 	}
-	h.operation8 = expectationSet[struct{}]{
-		tb:           testingTB,
-		operation:    "getViewer",
-		expectations: []*expectation[struct{}]{},
-	}
 	testingTB.Cleanup(h.verify)
 	return h
 }
@@ -1206,7 +1184,6 @@ func (h *TestHandler) verify() {
 	h.operation5.verify()
 	h.operation6.verify()
 	h.operation7.verify()
-	h.operation8.verify()
 }
 
 func (h *TestHandler) Reset() {
@@ -1218,7 +1195,6 @@ func (h *TestHandler) Reset() {
 	h.operation5.reset()
 	h.operation6.reset()
 	h.operation7.reset()
-	h.operation8.reset()
 }
 
 func (h *TestHandler) ServeHTTP(
@@ -1575,42 +1551,6 @@ func (h *TestHandler) ServeHTTP(
 		err = result(variables, writer)
 		if err != nil {
 			h.tb.Errorf("serving Viewer response: %v", err)
-		}
-	case "getViewer":
-		var variables struct{}
-		err = decodeVariables(graphqlRequest.Variables, &variables)
-		if err != nil {
-			h.tb.Errorf("decoding getViewer variables: %v", err)
-			writeErr := writeRequestError(
-				writer,
-				http.StatusOK,
-				"decoding getViewer variables: "+err.Error(),
-			)
-			if writeErr != nil {
-				h.tb.Errorf("writing getViewer variable error response: %v", writeErr)
-			}
-			return
-		}
-
-		result, matchErr := h.operation8.match(
-			variables,
-			graphqlRequest.Variables,
-		)
-		if matchErr != nil {
-			h.tb.Errorf("%v", matchErr)
-			writeErr := writeRequestError(
-				writer,
-				http.StatusOK,
-				matchErr.Error(),
-			)
-			if writeErr != nil {
-				h.tb.Errorf("writing getViewer expectation error response: %v", writeErr)
-			}
-			return
-		}
-		err = result(variables, writer)
-		if err != nil {
-			h.tb.Errorf("serving getViewer response: %v", err)
 		}
 	default:
 		err = writeRequestError(
@@ -2506,117 +2446,6 @@ func (b *ViewerExpectation) Handle(
 			b.expected,
 			func(_ struct{}, _ http.ResponseWriter) error {
 				return fmt.Errorf("Viewer dynamic handler is nil")
-			},
-		)
-		return
-	}
-	b.set.setResult(
-		b.expected,
-		func(variables struct{}, writer http.ResponseWriter) error {
-			handler(writer)
-			return nil
-		},
-	)
-}
-
-type getViewerExpectation struct {
-	set      *expectationSet[struct{}]
-	expected *expectation[struct{}]
-	options  []ResponseOption
-}
-
-func (h *TestHandler) ExpectgetViewer(
-	options ...ExpectOption,
-) *getViewerExpectation {
-	return &getViewerExpectation{
-		set: &h.operation8,
-		expected: h.operation8.expect(
-			struct{}{},
-			options...,
-		),
-		options: []ResponseOption{},
-	}
-}
-
-func (h *TestHandler) DefaultgetViewer() *getViewerExpectation {
-	return &getViewerExpectation{
-		set:      &h.operation8,
-		expected: h.operation8.expectDefault(),
-		options:  []ResponseOption{},
-	}
-}
-
-func (h *TestHandler) ResetgetViewer() {
-	h.operation8.reset()
-}
-
-func (b *getViewerExpectation) WithOptions(
-	options ...ResponseOption,
-) *getViewerExpectation {
-	b.options = combineResponseOptions(b.options, options)
-	return b
-}
-
-func (b *getViewerExpectation) Respond(
-	data getViewerResponse,
-	options ...ResponseOption,
-) {
-	combined := combineResponseOptions(b.options, options)
-	responseConfig := buildResponseOptions(combined...)
-	b.set.setResult(
-		b.expected,
-		func(_ struct{}, writer http.ResponseWriter) error {
-			return writeGraphQLResponse(writer, &data, nil, responseConfig)
-		},
-	)
-}
-
-func (b *getViewerExpectation) RespondError(
-	graphqlError octoql.Error,
-	options ...ResponseOption,
-) {
-	combined := combineResponseOptions(b.options, options)
-	responseConfig := buildResponseOptions(combined...)
-	b.set.setResult(
-		b.expected,
-		func(_ struct{}, writer http.ResponseWriter) error {
-			return writeGraphQLResponse(
-				writer,
-				nil,
-				[]octoql.Error{graphqlError},
-				responseConfig,
-			)
-		},
-	)
-}
-
-func (b *getViewerExpectation) RespondDataAndErrors(
-	data getViewerResponse,
-	graphqlErrors ...octoql.Error,
-) {
-	responseConfig := buildResponseOptions(b.options...)
-	b.set.setResult(
-		b.expected,
-		func(_ struct{}, writer http.ResponseWriter) error {
-			return writeGraphQLResponse(
-				writer,
-				&data,
-				graphqlErrors,
-				responseConfig,
-			)
-		},
-	)
-}
-
-func (b *getViewerExpectation) Handle(
-	handler func(http.ResponseWriter),
-) {
-	if handler == nil {
-		b.set.tb.Errorf("getViewer dynamic handler must not be nil")
-		b.set.setResult(
-			b.expected,
-			func(_ struct{}, _ http.ResponseWriter) error {
-				return fmt.Errorf("getViewer dynamic handler is nil")
 			},
 		)
 		return
