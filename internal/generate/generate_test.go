@@ -1128,12 +1128,21 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 		name      string
 		schema    string
 		operation string
+		types     TestHandlerTypeStrategy
 		wantError string
 	}{
 		{
-			name:      "lowercase operation",
+			name:      "lowercase operation with client types",
 			schema:    "type Query { viewer: String! }\n",
 			operation: "query getViewer { viewer }\n",
+			types:     TestHandlerTypesClient,
+			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
+		},
+		{
+			name:      "lowercase operation with local types",
+			schema:    "type Query { viewer: String! }\n",
+			operation: "query getViewer { viewer }\n",
+			types:     TestHandlerTypesLocal,
 			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
 		},
 		{
@@ -1224,6 +1233,7 @@ type Query {
 				Operations:           []string{operationPath},
 				Generated:            filepath.Join(tempDir, "client", "generated.go"),
 				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+				TestHandlerTypes:     test.types,
 				Package:              "client",
 				ContextType:          "-",
 			}
