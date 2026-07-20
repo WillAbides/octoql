@@ -44,9 +44,8 @@ func TestDoHTTPResponses(t *testing.T) {
 			name:       "unknown top-level error type",
 			statusCode: http.StatusOK,
 			body:       `{"errors":[{"type":"A_FUTURE_GITHUB_ERROR","message":"future failure"}]}`,
-			check: func(t *testing.T, response *testData, err error) {
+			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				require.NotNil(t, response)
 				var graphqlErrors octoql.Errors
 				require.ErrorAs(t, err, &graphqlErrors)
 				require.Len(t, graphqlErrors, 1)
@@ -61,9 +60,8 @@ func TestDoHTTPResponses(t *testing.T) {
 			statusCode: http.StatusServiceUnavailable,
 			body:       `{"errors":[`,
 			requestID:  "request-invalid-json",
-			check: func(t *testing.T, response *testData, err error) {
+			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				require.NotNil(t, response)
 				responseError, ok := errors.AsType[*octoql.ResponseError](err)
 				require.True(t, ok)
 				assert.Equal(t, `{"errors":[`, string(responseError.RawBody))
@@ -77,9 +75,8 @@ func TestDoHTTPResponses(t *testing.T) {
 			statusCode: http.StatusOK,
 			body:       `{"data":`,
 			requestID:  "request-malformed",
-			check: func(t *testing.T, response *testData, err error) {
+			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				require.NotNil(t, response)
 				require.Error(t, err)
 				_, responseErrorFound := errors.AsType[*octoql.ResponseError](err)
 				assert.True(t, responseErrorFound)
@@ -94,9 +91,8 @@ func TestDoHTTPResponses(t *testing.T) {
 				"errors":[{"type":"PARTIAL","message":"decoded before data"}],
 				"data":{"repository":"not an object"}
 			}`,
-			check: func(t *testing.T, response *testData, err error) {
+			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				require.NotNil(t, response)
 				var graphqlErrors octoql.Errors
 				require.ErrorAs(t, err, &graphqlErrors)
 				require.Len(t, graphqlErrors, 1)
@@ -128,6 +124,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				"query Repository { repository { name } }",
 				nil,
 			)
+			assert.Nil(t, response)
 			test.check(t, response, err)
 
 			responseError, ok := errors.AsType[*octoql.ResponseError](err)
@@ -212,7 +209,6 @@ func TestDoFailurePhases(t *testing.T) {
 		variables         any
 		wantCause         error
 		name              string
-		wantResponse      bool
 		wantResponseError bool
 	}{
 		{
@@ -247,7 +243,6 @@ func TestDoFailurePhases(t *testing.T) {
 				&errorReadCloser{err: readError},
 			),
 			wantCause:         readError,
-			wantResponse:      true,
 			wantResponseError: true,
 		},
 		{
@@ -259,7 +254,6 @@ func TestDoFailurePhases(t *testing.T) {
 				&errorReadCloser{err: readError},
 			),
 			wantCause:         readError,
-			wantResponse:      true,
 			wantResponseError: true,
 		},
 	}
@@ -274,14 +268,13 @@ func TestDoFailurePhases(t *testing.T) {
 				test.variables,
 			)
 			require.Error(t, err)
-			assert.Equal(t, test.wantResponse, response != nil)
+			assert.Nil(t, response)
 			if test.wantCause != nil {
 				assert.ErrorIs(t, err, test.wantCause)
 			}
 			responseError, hasResponseError := errors.AsType[*octoql.ResponseError](err)
 			assert.Equal(t, test.wantResponseError, hasResponseError)
-			if test.wantResponse {
-				require.NotNil(t, response)
+			if test.wantResponseError {
 				require.NotNil(t, responseError)
 				assert.NotEmpty(t, responseError.RequestID)
 			}
@@ -318,7 +311,7 @@ func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 		validOperationQuery,
 		nil,
 	)
-	require.NotNil(t, response)
+	assert.Nil(t, response)
 	assert.ErrorIs(t, err, redirectError)
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
 	require.True(t, ok)
@@ -364,16 +357,12 @@ func doOperation[T any](
 	variables any,
 ) (*T, error) {
 	response := new(T)
-	err := client.Execute(ctx, octoql.Payload{
+	hasData, err := client.Execute(ctx, octoql.Payload{
 		OperationName: operationName,
 		Query:         query,
 		Variables:     variables,
 	}, response)
-	if err == nil {
-		return response, nil
-	}
-	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
-	if !hasResponse {
+	if !hasData {
 		return nil, err
 	}
 	return response, err

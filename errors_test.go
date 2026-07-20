@@ -117,3 +117,27 @@ func TestErrorsFormattingAndInspection(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "owner is unavailable", typedError.Message)
 }
+
+func TestPartialDataError(t *testing.T) {
+	type dataType struct {
+		Foo string
+	}
+	pde := octoql.NewPartialDataError(&dataType{Foo: "bar"}, assert.AnError)
+	assert.True(t, octoql.IsPartialDataError(pde))
+	assert.ErrorIs(t, pde, assert.AnError)
+
+	var data *dataType
+	ok := octoql.GetPartialData(pde, &data)
+	require.True(t, ok)
+	require.NotNil(t, data)
+	assert.Equal(t, "bar", data.Foo)
+
+	assert.False(t, octoql.GetPartialData(assert.AnError, &data))
+	assert.PanicsWithValue(t, "octoql: partial data destination is nil", func() {
+		octoql.GetPartialData[*dataType](pde, nil)
+	})
+	assert.Panics(t, func() {
+		var wrong dataType
+		octoql.GetPartialData(pde, &wrong)
+	})
+}

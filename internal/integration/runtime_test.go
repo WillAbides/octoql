@@ -27,10 +27,12 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 		name       string
 		body       string
 		statusCode int
+		wantData   bool
 	}{
 		{
 			name:       "success ignores top-level extensions",
 			statusCode: http.StatusOK,
+			wantData:   true,
 			header: http.Header{
 				"X-GitHub-Request-ID": {"request-123"},
 				"X-Test":              {"original"},
@@ -48,6 +50,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 		{
 			name:       "partial data and GraphQL errors",
 			statusCode: http.StatusOK,
+			wantData:   true,
 			header:     http.Header{},
 			body: `{
 				"data":{"repository":{"nameWithOwner":"octo-org/octo-repo"}},
@@ -55,6 +58,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			}`,
 			check: func(t *testing.T, response *githubclient.GetRepositoryResponse, err error) {
 				t.Helper()
+				require.NotNil(t, response)
 				assert.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)
 				graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 				require.True(t, ok)
@@ -65,6 +69,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 		{
 			name:       "primary rate limit",
 			statusCode: http.StatusOK,
+			wantData:   true,
 			header: http.Header{
 				"X-RateLimit-Remaining": {"0"},
 				"X-RateLimit-Resource":  {"graphql"},
@@ -114,7 +119,16 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			}
 			client := octoql.NewClient("https://api.github.example/graphql", httpClient)
 			response, err := githubclient.GetRepository(client, "octo-org", "octo-repo")
-			require.NotNil(t, response)
+			if err == nil {
+				assert.Equal(t, test.wantData, response != nil)
+			}
+			if err != nil {
+				assert.Nil(t, response)
+				var partial *githubclient.GetRepositoryResponse
+				hasPartial := octoql.GetPartialData(err, &partial)
+				assert.Equal(t, test.wantData, hasPartial)
+				response = partial
+			}
 			test.check(t, response, err)
 		})
 	}

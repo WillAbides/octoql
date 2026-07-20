@@ -443,7 +443,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		Extensions: map[string]any{"code": "missing"},
 	})
 	errorResponse, err := githubapi.GetNode(t.Context(), client, errorVariables.Id)
-	require.NotNil(t, errorResponse)
+	assert.Nil(t, errorResponse)
 	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 	require.True(t, ok)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])

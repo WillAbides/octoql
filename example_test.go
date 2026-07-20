@@ -62,10 +62,15 @@ func ExampleErrors_partialData() {
 
 	var graphqlErrors octoql.Errors
 	if errors.As(err, &graphqlErrors) {
-		fmt.Println(response.Repository.Name)
+		fmt.Println(response == nil)
+		var partial *exampleRepositoryResponse
+		if octoql.GetPartialData(err, &partial) {
+			fmt.Println(partial.Repository.Name)
+		}
 		fmt.Println(graphqlErrors[0].Type)
 	}
 	// Output:
+	// true
 	// octoql
 	// FORBIDDEN
 }
@@ -190,16 +195,15 @@ func executeExample[T any](
 	query string,
 ) (*T, error) {
 	response := new(T)
-	err := client.Execute(ctx, octoql.Payload{
+	hasData, err := client.Execute(ctx, octoql.Payload{
 		OperationName: operationName,
 		Query:         query,
 	}, response)
-	if err == nil {
-		return response, nil
-	}
-	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
-	if !hasResponse {
+	if !hasData {
 		return nil, err
 	}
-	return response, err
+	if err != nil {
+		return nil, octoql.NewPartialDataError(response, err)
+	}
+	return response, nil
 }

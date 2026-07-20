@@ -57,29 +57,6 @@ func TestDoIgnoresTopLevelExtensions(t *testing.T) {
 	assert.Equal(t, "octoql", response.Repository.Name)
 }
 
-func TestDoReplacesDestinationAfterSuccessfulDecode(t *testing.T) {
-	client := responseAPIClient(
-		http.StatusOK,
-		http.Header{},
-		`{"data":{"repository":{"name":"octoql"}}}`,
-	)
-	response := responseData{Count: 42}
-	response.Repository.Name = "stale"
-
-	err := client.Execute(
-		t.Context(),
-		octoql.Payload{
-			OperationName: validOperationName,
-			Query:         validOperationQuery,
-		},
-		&response,
-	)
-
-	require.NoError(t, err)
-	assert.Equal(t, "octoql", response.Repository.Name)
-	assert.Zero(t, response.Count)
-}
-
 func TestDoPointerData(t *testing.T) {
 	t.Run("object allocates inner pointer", func(t *testing.T) {
 		client := responseAPIClient(
@@ -159,33 +136,6 @@ func TestDoReturnsResponseErrorFacets(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestDoDoesNotMutateDestinationAfterFailedDataDecode(t *testing.T) {
-	body := `{"data":{"repository":{"name":"must not escape"},"count":"invalid"}}`
-	client := responseAPIClient(
-		http.StatusOK,
-		http.Header{"X-GitHub-Request-ID": {"request-decode"}},
-		body,
-	)
-
-	response := responseData{Count: 42}
-	response.Repository.Name = "preserved"
-	err := client.Execute(
-		t.Context(),
-		octoql.Payload{
-			OperationName: validOperationName,
-			Query:         validOperationQuery,
-		},
-		&response,
-	)
-
-	assert.Equal(t, "preserved", response.Repository.Name)
-	assert.Equal(t, 42, response.Count)
-
-	responseError, ok := errors.AsType[*octoql.ResponseError](err)
-	require.True(t, ok)
-	assert.Equal(t, body, string(responseError.RawBody))
-}
-
 func TestDoNonSuccessfulResponseError(t *testing.T) {
 	body := `{"errors":[{"type":"FORBIDDEN","message":"rejected"}]}`
 	client := responseAPIClient(
@@ -196,7 +146,7 @@ func TestDoNonSuccessfulResponseError(t *testing.T) {
 
 	response, err := responseAPIData[responseData](t, client)
 
-	require.NotNil(t, response)
+	assert.Nil(t, response)
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusForbidden, responseError.StatusCode)
@@ -239,8 +189,7 @@ func TestDoRejectsExtensionsOnlyResponse(t *testing.T) {
 		validOperationQuery,
 		nil,
 	)
-	require.NotNil(t, response)
-	require.NotNil(t, response)
+	assert.Nil(t, response)
 	responseError, ok := errors.AsType[*octoql.ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, body, string(responseError.RawBody))
@@ -277,7 +226,7 @@ func TestDoRejectsEmptyErrorOnlyResponse(t *testing.T) {
 				nil,
 			)
 
-			require.NotNil(t, response)
+			assert.Nil(t, response)
 			responseError, ok := errors.AsType[*octoql.ResponseError](err)
 			require.True(t, ok)
 			assert.Equal(t, test.body, string(responseError.RawBody))

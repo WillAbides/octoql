@@ -167,6 +167,7 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 		body              string
 		header            http.Header
 		statusCode        int
+		wantData          bool
 		wantRate          bool
 		wantSecond        bool
 		wantResponseError bool
@@ -181,6 +182,7 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 				"X-RateLimit-Resource":  {"graphql"},
 			},
 			statusCode:        http.StatusOK,
+			wantData:          true,
 			wantRate:          true,
 			wantResponseError: true,
 		},
@@ -243,6 +245,7 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 				"X-RateLimit-Remaining": {"0"},
 			},
 			statusCode: http.StatusOK,
+			wantData:   true,
 		},
 		"unrelated GraphQL error with zero remaining": {
 			body: `{"errors":[{"type":"FORBIDDEN","message":"field unavailable"}]}`,
@@ -277,7 +280,7 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 				Value string `json:"value"`
 			}](t, client)
 
-			require.NotNil(t, response)
+			assert.Equal(t, test.wantData, response != nil)
 			if !test.wantRate {
 				_, ok := errors.AsType[*RateLimitError](err)
 				assert.False(t, ok)
@@ -300,6 +303,7 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 			_, hasResponseError := errors.AsType[*ResponseError](err)
 			assert.Equal(t, test.wantResponseError, hasResponseError)
 			if name == "primary limit on partial GraphQL response" {
+				require.NotNil(t, response)
 				assert.Equal(t, "partial", response.Value)
 				_, errorsFound := errors.AsType[Errors](err)
 				assert.True(t, errorsFound)
@@ -326,7 +330,7 @@ func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
 	)
 
 	response, err := doRateLimitOperation[struct{}](t, client)
-	require.NotNil(t, response)
+	assert.Nil(t, response)
 	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)
 	responseError, ok := errors.AsType[*ResponseError](err)
@@ -417,7 +421,7 @@ func rateLimitClient(statusCode int, header http.Header, body string) *Client {
 
 func doRateLimitOperation[T any](t *testing.T, client *Client) (*T, error) {
 	response := new(T)
-	err := client.Execute(
+	hasData, err := client.Execute(
 		t.Context(),
 		Payload{
 			OperationName: "Viewer",
@@ -425,11 +429,7 @@ func doRateLimitOperation[T any](t *testing.T, client *Client) (*T, error) {
 		},
 		response,
 	)
-	if err == nil {
-		return response, nil
-	}
-	_, hasResponse := errors.AsType[*ResponseError](err)
-	if !hasResponse {
+	if !hasData {
 		return nil, err
 	}
 	return response, err

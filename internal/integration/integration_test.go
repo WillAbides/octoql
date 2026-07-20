@@ -108,9 +108,6 @@ func TestServerError(t *testing.T) {
 
 	for _, client := range clients {
 		response, err := failingQuery(ctx, client)
-		// As long as we get some response back, we should still return a full
-		// response -- and indeed in this case it should even have another field
-		// (which didn't err) set.
 		assert.Error(t, err)
 		t.Logf("Full error: %+v", err)
 		var gqlErrors octoql.Errors
@@ -121,8 +118,11 @@ func TestServerError(t *testing.T) {
 			assert.Len(t, gqlErrors, 1, "Expected one GraphQL error")
 			assert.Equal(t, "oh no", gqlErrors[0].Message)
 		}
-		assert.NotNil(t, response)
-		assert.Equal(t, "1", response.Viewer.Id)
+		assert.Nil(t, response)
+		var partial *failingQueryResponse
+		require.True(t, octoql.GetPartialData(err, &partial))
+		require.NotNil(t, partial)
+		assert.Equal(t, "1", partial.Viewer.Id)
 	}
 }
 

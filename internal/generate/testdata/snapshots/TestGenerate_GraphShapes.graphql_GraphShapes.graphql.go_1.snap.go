@@ -5,7 +5,6 @@ package test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -2901,15 +2900,14 @@ func __octoqlDo[T any](
 	payload octoql.Payload,
 ) (*T, error) {
 	response := new(T)
-	err := client.Execute(ctx, payload, response)
-	if err == nil {
-		return response, nil
-	}
-	_, hasResponse := errors.AsType[*octoql.ResponseError](err)
-	if !hasResponse {
+	hasData, err := client.Execute(ctx, payload, response)
+	if !hasData {
 		return nil, err
 	}
-	return response, err
+	if err != nil {
+		return nil, octoql.NewPartialDataError(response, err)
+	}
+	return response, nil
 }
 
 // The query executed by GetActor.

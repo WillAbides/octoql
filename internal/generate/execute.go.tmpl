@@ -4,13 +4,12 @@ func __octoqlDo[T any](
 	payload {{ref "github.com/willabides/octoql.Payload"}},
 ) (*T, error) {
 	response := new(T)
-	err := client.Execute(ctx, payload, response)
-	if err == nil {
-		return response, nil
-	}
-	_, hasResponse := {{ref "errors.AsType"}}[*{{ref "github.com/willabides/octoql.ResponseError"}}](err)
-	if !hasResponse {
+	hasData, err := client.Execute(ctx, payload, response)
+	if !hasData {
 		return nil, err
 	}
-	return response, err
+	if err != nil {
+		return nil, {{ref "github.com/willabides/octoql.NewPartialDataError"}}(response, err)
+	}
+	return response, nil
 }

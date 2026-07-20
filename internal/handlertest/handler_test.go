@@ -129,7 +129,7 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 	})
 
 	response, err := githubapi.GetNode(t.Context(), client, errorVariables.Id)
-	require.NotNil(t, response)
+	assert.Nil(t, response)
 	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 	require.True(t, ok)
 	require.Len(t, graphqlErrors, 1)
@@ -159,8 +159,11 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 		variables.After,
 	)
 	require.Error(t, err)
-	require.NotNil(t, partial)
-	assert.Equal(t, "octo-org/octo-repo", partial.Repository.FullName)
+	assert.Nil(t, partial)
+	var partialData *githubapi.GetRepositoryResponse
+	require.True(t, octoql.GetPartialData(err, &partialData))
+	require.NotNil(t, partialData)
+	assert.Equal(t, "octo-org/octo-repo", partialData.Repository.FullName)
 }
 
 func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
@@ -206,7 +209,7 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 		)
 
 		response, err := githubapi.GetNode(t.Context(), client, variables.Id)
-		require.NotNil(t, response)
+		assert.Nil(t, response)
 		rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 		require.True(t, ok)
 		assert.Equal(t, octoql.RateLimitPrimary, rateLimitError.Kind)
@@ -236,7 +239,7 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 			)
 
 			response, err := githubapi.GetNode(t.Context(), client, variables.Id)
-			require.NotNil(t, response)
+			assert.Nil(t, response)
 			rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 			require.True(t, ok)
 			assert.Equal(t, octoql.RateLimitSecondary, rateLimitError.Kind)

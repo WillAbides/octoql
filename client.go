@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -70,19 +69,16 @@ type Payload struct {
 // Execute runs operation and decodes its response data into response.
 //
 // Execute is a generated-code contract. Response must be a non-nil pointer.
-// Data is decoded into a same-typed
-// temporary and assigned to response only after successful JSON decoding.
+// The returned boolean reports whether the GraphQL data field decoded
+// successfully and response is usable, including when GraphQL errors are also
+// returned.
 // Every failure after the server returns an HTTP response includes
 // [ResponseError]. GraphQL errors and rate limits remain discoverable in that
 // error chain as [Errors] and [RateLimitError].
-func (client *Client) Execute(
-	ctx context.Context,
-	payload Payload,
-	response any,
-) error {
+func (client *Client) Execute(ctx context.Context, payload Payload, response any) (bool, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("encode graphql request: %w", err)
+		return false, fmt.Errorf("encode graphql request: %w", err)
 	}
 
 	request, err := http.NewRequestWithContext(
@@ -92,7 +88,7 @@ func (client *Client) Execute(
 		bytes.NewReader(body),
 	)
 	if err != nil {
-		return fmt.Errorf("create graphql request: %w", err)
+		return false, fmt.Errorf("create graphql request: %w", err)
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
@@ -105,9 +101,9 @@ func (client *Client) Execute(
 	httpResponse, sendErr := httpClient.Do(request)
 	if httpResponse == nil {
 		if sendErr == nil {
-			return errors.New("send graphql request: HTTP client returned no response")
+			return false, errors.New("send graphql request: HTTP client returned no response")
 		}
-		return fmt.Errorf("send graphql request: %w", sendErr)
+		return false, fmt.Errorf("send graphql request: %w", sendErr)
 	}
 
 	observation := client.responseObservation.Add(1)
@@ -119,56 +115,56 @@ func (client *Client) Execute(
 	if sendErr != nil {
 		cause := fmt.Errorf("send graphql request: %w", sendErr)
 		responseError := newResponseError(statusCode, requestID, nil, false, cause)
-		return classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
 	if httpResponse.Body == nil {
 		cause := errors.New("read graphql response: response body is nil")
 		responseError := newResponseError(statusCode, requestID, nil, false, cause)
-		return classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
 	body, readErr, closeErr := readAndClose(httpResponse.Body)
 	if readErr != nil {
-		cause := joinErrors(readErr, closeErr)
+		cause := errors.Join(readErr, closeErr)
 		responseError := newResponseError(statusCode, requestID, body, true, cause)
-		return classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
-	var data json.RawMessage
-	var graphqlErrors Errors
-	var decodeErr error
-	data, graphqlErrors, decodeErr = decodeResponse(body)
+	data, graphqlErrors, decodeErr := decodeResponse(body)
 
 	hasData := data != nil
 	hasErrors := len(graphqlErrors) > 0
+	hasUsableData := false
 	if hasData {
 		dataErr := decodeData(data, response)
-		decodeErr = joinErrors(decodeErr, dataErr)
+		hasUsableData = dataErr == nil
+		decodeErr = errors.Join(decodeErr, dataErr)
 	}
 
 	cause := decodeErr
 	if len(graphqlErrors) > 0 {
-		cause = joinErrors(graphqlErrors, cause)
+		var left error = graphqlErrors
+		cause = errors.Join(left, cause)
 	}
-	cause = joinErrors(cause, closeErr)
+	cause = errors.Join(cause, closeErr)
 
 	isSuccessful := isSuccessfulStatus(statusCode)
 	hasPayload := hasData || hasErrors
 	missingPayload := decodeErr == nil && !hasPayload
 	if isSuccessful && missingPayload {
 		payloadErr := errors.New("decode graphql response: response contains neither data nor errors")
-		cause = joinErrors(cause, payloadErr)
+		cause = errors.Join(cause, payloadErr)
 	}
 
 	if isSuccessful && cause == nil {
-		return nil
+		return hasUsableData, nil
 	}
 
 	hasDecodeFailure := decodeErr != nil || missingPayload
 	retainBody := !isSuccessful || hasDecodeFailure
 	responseError := newResponseError(statusCode, requestID, body, retainBody, cause)
-	return classifyRateLimit(statusCode, &rateLimit, responseError)
+	return hasUsableData, classifyRateLimit(statusCode, &rateLimit, responseError)
 }
 
 func (client *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
@@ -236,26 +232,13 @@ func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
 }
 
 func decodeData(data json.RawMessage, response any) error {
-	responseValue := reflect.ValueOf(response)
-	decoded := reflect.New(responseValue.Elem().Type())
-	err := json.Unmarshal(data, decoded.Interface())
+	err := json.Unmarshal(data, response)
 	if err != nil {
 		return fmt.Errorf("decode graphql response data: %w", err)
 	}
-	responseValue.Elem().Set(decoded.Elem())
 	return nil
 }
 
 func isSuccessfulStatus(statusCode int) bool {
-	return statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices
-}
-
-func joinErrors(left, right error) error {
-	if left == nil {
-		return right
-	}
-	if right == nil {
-		return left
-	}
-	return errors.Join(left, right)
+	return statusCode >= 200 && statusCode < 300
 }

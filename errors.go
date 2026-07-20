@@ -257,3 +257,68 @@ func newResponseError(
 		err:              err,
 	}
 }
+
+type partialDataError[T any] struct {
+	data T
+	err  error
+}
+
+func (e *partialDataError[T]) Error() string {
+	return e.err.Error()
+}
+
+func (e *partialDataError[T]) Unwrap() error {
+	return e.err
+}
+
+func (e *partialDataError[T]) partialData() any {
+	return e.data
+}
+
+type partialDataCarrier interface {
+	error
+	partialData() any
+}
+
+// IsPartialDataError reports whether err contains partial GraphQL data.
+func IsPartialDataError(err error) bool {
+	_, ok := errors.AsType[partialDataCarrier](err)
+	return ok
+}
+
+// GetPartialData extracts partial GraphQL data into dest.
+//
+// It returns false when err does not contain partial data. It panics when dest
+// is nil or has a different type from the stored partial data.
+func GetPartialData[T any](err error, dest *T) bool {
+	if dest == nil {
+		panic("octoql: partial data destination is nil")
+	}
+	carrier, ok := errors.AsType[partialDataCarrier](err)
+	if !ok {
+		return false
+	}
+	data, ok := carrier.partialData().(T)
+	if !ok {
+		panic(fmt.Sprintf(
+			"partial data destination has type %T, partial data has type %T",
+			dest,
+			carrier.partialData(),
+		))
+	}
+	*dest = data
+	return true
+}
+
+// NewPartialDataError returns an error carrying partial GraphQL data.
+//
+// This is a generated-code contract.
+func NewPartialDataError[T any](data T, err error) error {
+	if err == nil {
+		panic("NewPartialDataError called with nil error")
+	}
+	return &partialDataError[T]{
+		data: data,
+		err:  err,
+	}
+}
