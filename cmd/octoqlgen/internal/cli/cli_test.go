@@ -304,6 +304,89 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 	assert.Contains(t, err.Error(), "requires a configured remote")
 }
 
+func TestSchemaUpdateCommandDoesNotRollbackAfterSchemaPublication(t *testing.T) {
+	configWriteErr := errors.New("config write failed")
+	publishedConfigErr := errors.New("published config invalid")
+	tests := []struct {
+		name                string
+		configWriteErr      error
+		publishedConfigErr  error
+		expectedError       error
+		expectedErrorString string
+	}{
+		{
+			name:                "config publication failure",
+			configWriteErr:      configWriteErr,
+			expectedError:       configWriteErr,
+			expectedErrorString: "config update failed",
+		},
+		{
+			name:                "published config validation failure",
+			publishedConfigErr:  publishedConfigErr,
+			expectedError:       publishedConfigErr,
+			expectedErrorString: "validating published config",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			directory := t.TempDir()
+			configPath := filepath.Join(directory, "octoqlgen.yaml")
+			schemaPath := filepath.Join(directory, "schema.graphql")
+			oldSHA256 := strings.Repeat("a", 64)
+			configContent := []byte("schema:\n  path: schema.graphql\n  sha256: " +
+				oldSHA256 + "\n  source:\n    url: https://example.test/schema.graphql\n")
+			err := os.WriteFile(configPath, configContent, 0o600)
+			require.NoError(t, err)
+			canonicalConfigPath, err := canonicalPath(configPath)
+			require.NoError(t, err)
+			err = os.WriteFile(schemaPath, []byte("type Query { old: String }\n"), 0o600)
+			require.NoError(t, err)
+
+			loaded := &config.Config{
+				Schema: config.Schema{
+					Path:   schemaPath,
+					Sha256: &oldSHA256,
+					Source: new(config.Source{Url: new("https://example.test/schema.graphql")}),
+				},
+			}
+			outputWriter := &schemaUpdateOutputWriter{
+				configPath: canonicalConfigPath,
+				configErr:  test.configWriteErr,
+			}
+			loadCalls := 0
+			command := schemaUpdateCommand{
+				Config:  configPath,
+				context: t.Context(),
+				loadConfig: func(string) (*config.Config, error) {
+					loadCalls++
+					if loadCalls == 2 && test.publishedConfigErr != nil {
+						return nil, test.publishedConfigErr
+					}
+					return loaded, nil
+				},
+				resolver: &stubRemoteResolver{
+					result: schema.RemoteResult{
+						Data:     []byte("type Query { updated: String }\n"),
+						Revision: cliRevision,
+						SHA256:   cliSHA256,
+					},
+				},
+				outputWriter: outputWriter,
+				stdout:       io.Discard,
+			}
+
+			err = command.Run()
+			require.Error(t, err)
+			assert.ErrorIs(t, err, test.expectedError)
+			assert.Contains(t, err.Error(), test.expectedErrorString)
+			assert.Equal(t, []string{schemaPath, canonicalConfigPath}, outputWriter.paths)
+		})
+	}
+}
+
 func TestHelpSnapshots(t *testing.T) {
 	tests := []struct {
 		name string
@@ -480,4 +563,30 @@ func (w *stubOutputWriter) Write(path string, data []byte) error {
 	w.path = path
 	w.data = append([]byte{}, data...)
 	return w.err
+}
+
+type schemaUpdateOutputWriter struct {
+	configPath string
+	configErr  error
+	paths      []string
+}
+
+func (w *schemaUpdateOutputWriter) Write(path string, _ []byte) error {
+	w.paths = append(w.paths, path)
+	if path == w.configPath {
+		return w.configErr
+	}
+	return nil
+}
+
+type stubRemoteResolver struct {
+	err    error
+	result schema.RemoteResult
+}
+
+func (r *stubRemoteResolver) Resolve(
+	_ context.Context,
+	_ config.Source,
+) (schema.RemoteResult, error) {
+	return r.result, r.err
 }
