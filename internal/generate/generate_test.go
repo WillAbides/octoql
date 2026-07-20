@@ -736,6 +736,185 @@ query Optional($input: OptionalInput) {
 	}
 }
 
+func TestGeneratedSpecialSliceWireSemantics(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(tempRoot, "special-slice-wire-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
+
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	err = os.WriteFile(schemaPath, []byte(`
+scalar Date
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  login: String!
+}
+
+type Query {
+  dates: [[[Date]]]
+  nodes: [[[Node]]]
+}
+`), 0o600)
+	require.NoError(t, err)
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(operationPath, []byte(`
+query WireSemantics {
+  dates
+  nodes {
+    __typename
+    id
+    ... on User {
+      login
+    }
+  }
+}
+`), 0o600)
+	require.NoError(t, err)
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(tempDir, "client", "generated.go"),
+		Package:     "client",
+		ContextType: "-",
+		Bindings: map[string]*TypeBinding{
+			"Date": {
+				Type:        "time.Time",
+				Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
+				Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
+			},
+		},
+	}
+	outputs, err := Generate(config)
+	require.NoError(t, err)
+	outputs[filepath.Join(tempDir, "client", "wire_test.go")] = []byte(`package client
+
+import (
+	"encoding/json"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestSpecialSliceWireSemantics(t *testing.T) {
+	tests := []struct {
+		name string
+		wire string
+	}{
+		{
+			name: "null outer slices",
+			wire: ` + "`" + `{"dates":null,"nodes":null}` + "`" + `,
+		},
+		{
+			name: "empty outer slices",
+			wire: ` + "`" + `{"dates":[],"nodes":[]}` + "`" + `,
+		},
+		{
+			name: "null and empty nested slices",
+			wire: ` + "`" + `{"dates":[null,[],[null,[],[null,"2026-07-20"]]],"nodes":[null,[],[null,[],[null,{"__typename":"User","id":"1","login":"octo"}]]]}` + "`" + `,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var response WireSemanticsResponse
+			err := json.Unmarshal([]byte(test.wire), &response)
+			require.NoError(t, err)
+			remarshaled, err := json.Marshal(&response)
+			require.NoError(t, err)
+			require.JSONEq(t, test.wire, string(remarshaled))
+		})
+	}
+}
+`)
+	compileGeneratedOutputs(t, tempDir, outputs)
+}
+
+func TestGenerateRejectsGenericOptionalMarshalHelpers(t *testing.T) {
+	tests := []struct {
+		name      string
+		schema    string
+		operation string
+		bindings  map[string]*TypeBinding
+		wantError string
+	}{
+		{
+			name: "custom scalar in list",
+			schema: `
+scalar Date
+type Query {
+  dates: [Date]!
+}
+`,
+			operation: `query Dates { dates }`,
+			bindings: map[string]*TypeBinding{
+				"Date": {
+					Type:        "time.Time",
+					Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
+					Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
+				},
+			},
+			wantError: "optional: generic is unsupported for nullable Date because it requires generator-managed marshal/unmarshal helpers",
+		},
+		{
+			name: "abstract type",
+			schema: `
+interface Node {
+  id: ID!
+}
+type User implements Node {
+  id: ID!
+}
+type Query {
+  node: Node
+}
+`,
+			operation: `
+query NodeValue {
+  node {
+    __typename
+    id
+  }
+}
+`,
+			wantError: "optional: generic is unsupported for nullable Node because it requires generator-managed marshal/unmarshal helpers",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			schemaPath := filepath.Join(tempDir, "schema.graphql")
+			err := os.WriteFile(schemaPath, []byte(test.schema), 0o600)
+			require.NoError(t, err)
+			operationPath := filepath.Join(tempDir, "operation.graphql")
+			err = os.WriteFile(operationPath, []byte(test.operation), 0o600)
+			require.NoError(t, err)
+
+			_, err = Generate(&Config{
+				Schema:              []string{schemaPath},
+				Operations:          []string{operationPath},
+				Generated:           filepath.Join(tempDir, "generated.go"),
+				Package:             "client",
+				ContextType:         "-",
+				Optional:            "generic",
+				OptionalGenericType: "github.com/willabides/octoql/internal/testutil.Option",
+				Bindings:            test.bindings,
+			})
+			require.ErrorContains(t, err, test.wantError)
+		})
+	}
+}
+
 func optionalModeParityConfig(
 	tempDir string,
 	clientPackage string,

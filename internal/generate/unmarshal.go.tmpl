@@ -117,6 +117,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
         dst := &v.{{$field.GoName}}
         src := firstPass.{{$field.GoName}}
         {{range $i := intRange $field.GoType.SliceDepth -}}
+        if src != nil {
         *dst = make(
             {{repeat (sub $field.GoType.SliceDepth $i) "[]"}}{{if $field.GoType.IsPointer}}*{{end}}{{$field.GoType.Unwrap.Reference}},
             len(src))
@@ -143,6 +144,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
             }
         }
         {{range $i := intRange $field.GoType.SliceDepth -}}
+        }
         }
         {{end -}}
     }

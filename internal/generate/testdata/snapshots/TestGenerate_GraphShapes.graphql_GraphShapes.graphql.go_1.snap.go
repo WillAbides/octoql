@@ -1423,27 +1423,33 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.NestedNodes
 		src := firstPass.NestedNodes
-		*dst = make(
-			[][][]NestedNodeShapesNestedNodesNode,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
+		if src != nil {
 			*dst = make(
-				[][]NestedNodeShapesNestedNodesNode,
+				[][][]NestedNodeShapesNestedNodesNode,
 				len(src))
 			for i, src := range src {
 				dst := &(*dst)[i]
-				*dst = make(
-					[]NestedNodeShapesNestedNodesNode,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					if len(src) != 0 && string(src) != "null" {
-						err = __unmarshalNestedNodeShapesNestedNodesNode(
-							src, dst)
-						if err != nil {
-							return fmt.Errorf(
-								"unable to unmarshal NestedNodeShapesResponse.NestedNodes: %w", err)
+				if src != nil {
+					*dst = make(
+						[][]NestedNodeShapesNestedNodesNode,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[]NestedNodeShapesNestedNodesNode,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								if len(src) != 0 && string(src) != "null" {
+									err = __unmarshalNestedNodeShapesNestedNodesNode(
+										src, dst)
+									if err != nil {
+										return fmt.Errorf(
+											"unable to unmarshal NestedNodeShapesResponse.NestedNodes: %w", err)
+									}
+								}
+							}
 						}
 					}
 				}
@@ -1472,27 +1478,33 @@ func (v *NestedNodeShapesResponse) __premarshalJSON() (*__premarshalNestedNodeSh
 
 		dst := &retval.NestedNodes
 		src := v.NestedNodes
-		*dst = make(
-			[][][]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
+		if src != nil {
 			*dst = make(
-				[][]json.RawMessage,
+				[][][]json.RawMessage,
 				len(src))
 			for i, src := range src {
 				dst := &(*dst)[i]
-				*dst = make(
-					[]json.RawMessage,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					var err error
-					*dst, err = __marshalNestedNodeShapesNestedNodesNode(
-						&src)
-					if err != nil {
-						return nil, fmt.Errorf(
-							"unable to marshal NestedNodeShapesResponse.NestedNodes: %w", err)
+				if src != nil {
+					*dst = make(
+						[][]json.RawMessage,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[]json.RawMessage,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								var err error
+								*dst, err = __marshalNestedNodeShapesNestedNodesNode(
+									&src)
+								if err != nil {
+									return nil, fmt.Errorf(
+										"unable to marshal NestedNodeShapesResponse.NestedNodes: %w", err)
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1615,17 +1627,19 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 	{
 		dst := &v.RelatedSubjects
 		src := firstPass.RelatedSubjects
-		*dst = make(
-			[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+		if src != nil {
+			*dst = make(
+				[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+					}
 				}
 			}
 		}
@@ -1673,17 +1687,19 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) __premarshalJSON() (*__
 
 		dst := &retval.RelatedSubjects
 		src := v.RelatedSubjects
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+				}
 			}
 		}
 	}
@@ -1845,17 +1861,19 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 	{
 		dst := &v.RelatedSubjects
 		src := firstPass.RelatedSubjects
-		*dst = make(
-			[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
+		if src != nil {
+			*dst = make(
+				[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
+					}
 				}
 			}
 		}
@@ -1899,17 +1917,19 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 
 		dst := &retval.RelatedSubjects
 		src := v.RelatedSubjects
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
+				}
 			}
 		}
 	}
@@ -2354,17 +2374,19 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 	{
 		dst := &v.Nodes
 		src := firstPass.Nodes
-		*dst = make(
-			[]SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
+		if src != nil {
+			*dst = make(
+				[]SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
+					}
 				}
 			}
 		}
@@ -2393,17 +2415,19 @@ func (v *SearchRepositoriesSearchSearchResultConnection) __premarshalJSON() (*__
 
 		dst := &retval.Nodes
 		src := v.Nodes
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
+				}
 			}
 		}
 	}

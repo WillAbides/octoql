@@ -394,27 +394,33 @@ func (v *GitHubInputsVariables) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.PublishedDates
 		src := firstPass.PublishedDates
-		*dst = make(
-			[][][]time.Time,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
+		if src != nil {
 			*dst = make(
-				[][]time.Time,
+				[][][]time.Time,
 				len(src))
 			for i, src := range src {
 				dst := &(*dst)[i]
-				*dst = make(
-					[]time.Time,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					if len(src) != 0 && string(src) != "null" {
-						err = testutil.UnmarshalDate(
-							src, dst)
-						if err != nil {
-							return fmt.Errorf(
-								"unable to unmarshal GitHubInputsVariables.PublishedDates: %w", err)
+				if src != nil {
+					*dst = make(
+						[][]time.Time,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[]time.Time,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								if len(src) != 0 && string(src) != "null" {
+									err = testutil.UnmarshalDate(
+										src, dst)
+									if err != nil {
+										return fmt.Errorf(
+											"unable to unmarshal GitHubInputsVariables.PublishedDates: %w", err)
+									}
+								}
+							}
 						}
 					}
 				}
@@ -425,28 +431,34 @@ func (v *GitHubInputsVariables) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.OptionalPublishedDates
 		src := firstPass.OptionalPublishedDates
-		*dst = make(
-			[][][]*time.Time,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
+		if src != nil {
 			*dst = make(
-				[][]*time.Time,
+				[][][]*time.Time,
 				len(src))
 			for i, src := range src {
 				dst := &(*dst)[i]
-				*dst = make(
-					[]*time.Time,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					if len(src) != 0 && string(src) != "null" {
-						*dst = new(time.Time)
-						err = testutil.UnmarshalDate(
-							src, *dst)
-						if err != nil {
-							return fmt.Errorf(
-								"unable to unmarshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+				if src != nil {
+					*dst = make(
+						[][]*time.Time,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[]*time.Time,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								if len(src) != 0 && string(src) != "null" {
+									*dst = new(time.Time)
+									err = testutil.UnmarshalDate(
+										src, *dst)
+									if err != nil {
+										return fmt.Errorf(
+											"unable to unmarshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+									}
+								}
+							}
 						}
 					}
 				}
@@ -508,27 +520,33 @@ func (v *GitHubInputsVariables) __premarshalJSON() (*__premarshalGitHubInputsVar
 
 		dst := &retval.PublishedDates
 		src := v.PublishedDates
-		*dst = make(
-			[][][]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
+		if src != nil {
 			*dst = make(
-				[][]json.RawMessage,
+				[][][]json.RawMessage,
 				len(src))
 			for i, src := range src {
 				dst := &(*dst)[i]
-				*dst = make(
-					[]json.RawMessage,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					var err error
-					*dst, err = testutil.MarshalDate(
-						&src)
-					if err != nil {
-						return nil, fmt.Errorf(
-							"unable to marshal GitHubInputsVariables.PublishedDates: %w", err)
+				if src != nil {
+					*dst = make(
+						[][]json.RawMessage,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[]json.RawMessage,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								var err error
+								*dst, err = testutil.MarshalDate(
+									&src)
+								if err != nil {
+									return nil, fmt.Errorf(
+										"unable to marshal GitHubInputsVariables.PublishedDates: %w", err)
+								}
+							}
+						}
 					}
 				}
 			}
@@ -538,28 +556,34 @@ func (v *GitHubInputsVariables) __premarshalJSON() (*__premarshalGitHubInputsVar
 
 		dst := &retval.OptionalPublishedDates
 		src := v.OptionalPublishedDates
-		*dst = make(
-			[][][]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
+		if src != nil {
 			*dst = make(
-				[][]json.RawMessage,
+				[][][]json.RawMessage,
 				len(src))
 			for i, src := range src {
 				dst := &(*dst)[i]
-				*dst = make(
-					[]json.RawMessage,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					if src != nil {
-						var err error
-						*dst, err = testutil.MarshalDate(
-							src)
-						if err != nil {
-							return nil, fmt.Errorf(
-								"unable to marshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+				if src != nil {
+					*dst = make(
+						[][]json.RawMessage,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[]json.RawMessage,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								if src != nil {
+									var err error
+									*dst, err = testutil.MarshalDate(
+										src)
+									if err != nil {
+										return nil, fmt.Errorf(
+											"unable to marshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+									}
+								}
+							}
 						}
 					}
 				}

@@ -1082,17 +1082,19 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Actors
 		src := firstPass.Actors
-		*dst = make(
-			[]queryFragmentActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryFragmentActorsActor(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryFragment.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]queryFragmentActorsActor,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalqueryFragmentActorsActor(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal queryFragment.Actors: %w", err)
+					}
 				}
 			}
 		}
@@ -1119,17 +1121,19 @@ func (v *queryFragment) __premarshalJSON() (*__premarshalqueryFragment, error) {
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryFragmentActorsActor(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryFragment.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalqueryFragmentActorsActor(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryFragment.Actors: %w", err)
+				}
 			}
 		}
 	}
@@ -1700,17 +1704,19 @@ func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Dates
 		src := firstPass.Dates
-		*dst = make(
-			[]time.Time,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = testutil.UnmarshalDate(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+		if src != nil {
+			*dst = make(
+				[]time.Time,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = testutil.UnmarshalDate(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+					}
 				}
 			}
 		}
@@ -1737,17 +1743,19 @@ func (v *queryWithCustomMarshalSliceVariables) __premarshalJSON() (*__premarshal
 
 		dst := &retval.Dates
 		src := v.Dates
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = testutil.MarshalDate(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = testutil.MarshalDate(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+				}
 			}
 		}
 	}
@@ -2355,17 +2363,19 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Actors
 		src := firstPass.Actors
-		*dst = make(
-			[]queryWithFragmentsActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryWithFragmentsActorsActor(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryWithFragmentsResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]queryWithFragmentsActorsActor,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalqueryWithFragmentsActorsActor(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal queryWithFragmentsResponse.Actors: %w", err)
+					}
 				}
 			}
 		}
@@ -2392,17 +2402,19 @@ func (v *queryWithFragmentsResponse) __premarshalJSON() (*__premarshalqueryWithF
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryWithFragmentsActorsActor(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithFragmentsResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalqueryWithFragmentsActorsActor(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryWithFragmentsResponse.Actors: %w", err)
+				}
 			}
 		}
 	}
@@ -2584,17 +2596,19 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Actors
 		src := firstPass.Actors
-		*dst = make(
-			[]queryWithInterfaceListFieldActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryWithInterfaceListFieldActorsActor(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]queryWithInterfaceListFieldActorsActor,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalqueryWithInterfaceListFieldActorsActor(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+					}
 				}
 			}
 		}
@@ -2621,17 +2635,19 @@ func (v *queryWithInterfaceListFieldResponse) __premarshalJSON() (*__premarshalq
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryWithInterfaceListFieldActorsActor(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalqueryWithInterfaceListFieldActorsActor(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+				}
 			}
 		}
 	}
@@ -2815,18 +2831,20 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 	{
 		dst := &v.Actors
 		src := firstPass.Actors
-		*dst = make(
-			[]*queryWithInterfaceListPointerFieldActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				*dst = new(queryWithInterfaceListPointerFieldActorsActor)
-				err = __unmarshalqueryWithInterfaceListPointerFieldActorsActor(
-					src, *dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]*queryWithInterfaceListPointerFieldActorsActor,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					*dst = new(queryWithInterfaceListPointerFieldActorsActor)
+					err = __unmarshalqueryWithInterfaceListPointerFieldActorsActor(
+						src, *dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+					}
 				}
 			}
 		}
@@ -2853,18 +2871,20 @@ func (v *queryWithInterfaceListPointerFieldResponse) __premarshalJSON() (*__prem
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if src != nil {
-				var err error
-				*dst, err = __marshalqueryWithInterfaceListPointerFieldActorsActor(
-					src)
-				if err != nil {
-					return nil, fmt.Errorf(
-						"unable to marshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if src != nil {
+					var err error
+					*dst, err = __marshalqueryWithInterfaceListPointerFieldActorsActor(
+						src)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"unable to marshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+					}
 				}
 			}
 		}
@@ -3418,17 +3438,19 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Actors
 		src := firstPass.Actors
-		*dst = make(
-			[]queryWithNamedFragmentsActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryWithNamedFragmentsActorsActor(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryWithNamedFragmentsResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]queryWithNamedFragmentsActorsActor,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalqueryWithNamedFragmentsActorsActor(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal queryWithNamedFragmentsResponse.Actors: %w", err)
+					}
 				}
 			}
 		}
@@ -3455,17 +3477,19 @@ func (v *queryWithNamedFragmentsResponse) __premarshalJSON() (*__premarshalquery
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryWithNamedFragmentsActorsActor(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithNamedFragmentsResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalqueryWithNamedFragmentsActorsActor(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryWithNamedFragmentsResponse.Actors: %w", err)
+				}
 			}
 		}
 	}
@@ -3537,17 +3561,19 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Search
 		src := firstPass.Search
-		*dst = make(
-			[]queryWithSearchSearchSearchResultItem,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryWithSearchSearchSearchResultItem(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryWithSearchResponse.Search: %w", err)
+		if src != nil {
+			*dst = make(
+				[]queryWithSearchSearchSearchResultItem,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalqueryWithSearchSearchSearchResultItem(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal queryWithSearchResponse.Search: %w", err)
+					}
 				}
 			}
 		}
@@ -3574,17 +3600,19 @@ func (v *queryWithSearchResponse) __premarshalJSON() (*__premarshalqueryWithSear
 
 		dst := &retval.Search
 		src := v.Search
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryWithSearchSearchSearchResultItem(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithSearchResponse.Search: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalqueryWithSearchSearchSearchResultItem(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryWithSearchResponse.Search: %w", err)
+				}
 			}
 		}
 	}

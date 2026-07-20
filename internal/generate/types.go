@@ -271,6 +271,17 @@ func (f *goStructField) NeedsMarshaling() bool {
 	return ok1 || ok2
 }
 
+func requiresMarshalingHelpers(typ goType) bool {
+	switch unwrapped := typ.Unwrap().(type) {
+	case *goOpaqueType:
+		return unwrapped.Marshaler != "" || unwrapped.Unmarshaler != ""
+	case *goInterfaceType:
+		return true
+	default:
+		return false
+	}
+}
+
 // NeedsMarshaler returns true if any fields of this type need special
 // handling when (un)marshaling (see goStructField.NeedsMarshaling).
 func (t *goStructType) NeedsMarshaling() bool {

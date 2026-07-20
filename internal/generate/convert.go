@@ -312,6 +312,14 @@ func (g *generator) convertType(
 		// Note this does []*T or [][]*T, not e.g. *[][]T.  See #16.
 		goTyp = &goPointerType{goTyp}
 	} else if !typ.NonNull && g.Config.Optional == "generic" {
+		if requiresMarshalingHelpers(goTyp) {
+			return nil, errorf(
+				typ.Position,
+				"optional: generic is unsupported for nullable %s because it requires generator-managed marshal/unmarshal helpers",
+				typ.Name(),
+			)
+		}
+
 		var genericRef string
 		genericRef, err = g.ref(g.Config.OptionalGenericType)
 		if err != nil {

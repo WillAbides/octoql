@@ -466,17 +466,19 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Search
 		src := firstPass.Search
-		*dst = make(
-			[]SearchSearchSearchResultItem,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalSearchSearchSearchResultItem(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal SearchResponse.Search: %w", err)
+		if src != nil {
+			*dst = make(
+				[]SearchSearchSearchResultItem,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if len(src) != 0 && string(src) != "null" {
+					err = __unmarshalSearchSearchSearchResultItem(
+						src, dst)
+					if err != nil {
+						return fmt.Errorf(
+							"unable to unmarshal SearchResponse.Search: %w", err)
+					}
 				}
 			}
 		}
@@ -503,17 +505,19 @@ func (v *SearchResponse) __premarshalJSON() (*__premarshalSearchResponse, error)
 
 		dst := &retval.Search
 		src := v.Search
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalSearchSearchSearchResultItem(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal SearchResponse.Search: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalSearchSearchSearchResultItem(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal SearchResponse.Search: %w", err)
+				}
 			}
 		}
 	}
