@@ -1212,7 +1212,9 @@ func TestGenerateVariablelessHandlerWithVariablesResponseName(t *testing.T) {
 	require.NoError(t, err)
 	handlerSource := string(outputs[config.TestHandlerGenerated])
 	assert.NotContains(t, handlerSource, "type ViewerVariables struct")
-	assert.Contains(t, handlerSource, "func (handler *TestHandler) ExpectViewer(")
+	assert.Contains(t, handlerSource, "func (s *expectationSet[V]) expect(")
+	assert.Contains(t, handlerSource, "func (h *TestHandler) ExpectViewer(")
+	assert.Contains(t, handlerSource, "func (b *ViewerExpectation) WithOptions(")
 	compileGeneratedOutputs(t, tempDir, outputs)
 }
 

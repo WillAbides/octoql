@@ -71,7 +71,7 @@ type expectationSet[V any] struct {
 	fallback     *expectation[V]
 }
 
-func (set *expectationSet[V]) expect(
+func (s *expectationSet[V]) expect(
 	variables V,
 	options ...ExpectOption,
 ) *expectation[V] {
@@ -82,16 +82,16 @@ func (set *expectationSet[V]) expect(
 		}
 	}
 	if config.remaining < 0 {
-		set.tb.Errorf(
+		s.tb.Errorf(
 			"%s expectation count must not be negative: %d",
-			set.operation,
+			s.operation,
 			config.remaining,
 		)
 		config.remaining = 0
 	}
 	key, err := variableKey(variables)
 	if err != nil {
-		set.tb.Errorf("%s expectation variables: %v", set.operation, err)
+		s.tb.Errorf("%s expectation variables: %v", s.operation, err)
 		config.remaining = 0
 	}
 
@@ -101,44 +101,44 @@ func (set *expectationSet[V]) expect(
 		remaining:    config.remaining,
 		atLeast:      config.atLeast,
 	}
-	set.mu.Lock()
-	set.expectations = append(set.expectations, expected)
-	set.mu.Unlock()
+	s.mu.Lock()
+	s.expectations = append(s.expectations, expected)
+	s.mu.Unlock()
 	return expected
 }
 
-func (set *expectationSet[V]) expectDefault() *expectation[V] {
+func (s *expectationSet[V]) expectDefault() *expectation[V] {
 	expected := &expectation[V]{
 		atLeast: true,
 	}
-	set.mu.Lock()
-	set.fallback = expected
-	set.mu.Unlock()
+	s.mu.Lock()
+	s.fallback = expected
+	s.mu.Unlock()
 	return expected
 }
 
-func (set *expectationSet[V]) setResult(
+func (s *expectationSet[V]) setResult(
 	expected *expectation[V],
 	result operationResult[V],
 ) {
-	set.mu.Lock()
+	s.mu.Lock()
 	expected.result = result
-	set.mu.Unlock()
+	s.mu.Unlock()
 }
 
-func (set *expectationSet[V]) match(
+func (s *expectationSet[V]) match(
 	variables V,
 	rawVariables []byte,
 ) (operationResult[V], error) {
 	key, err := variableKeyJSON(rawVariables)
 	if err != nil {
-		return nil, {{ref "fmt.Errorf"}}("%s variables: %w", set.operation, err)
+		return nil, {{ref "fmt.Errorf"}}("%s variables: %w", s.operation, err)
 	}
 
-	set.mu.Lock()
-	defer set.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	for _, expected := range set.expectations {
+	for _, expected := range s.expectations {
 		if expected.remaining == 0 && !expected.atLeast {
 			continue
 		}
@@ -151,40 +151,40 @@ func (set *expectationSet[V]) match(
 		if expected.result == nil {
 			return nil, {{ref "fmt.Errorf"}}(
 				"%s expectation for variables %+v has no response",
-				set.operation,
+				s.operation,
 				variables,
 			)
 		}
 		return expected.result, nil
 	}
 
-	if set.fallback != nil {
-		if set.fallback.result == nil {
+	if s.fallback != nil {
+		if s.fallback.result == nil {
 			return nil, {{ref "fmt.Errorf"}}(
 				"%s default expectation has no response",
-				set.operation,
+				s.operation,
 			)
 		}
-		return set.fallback.result, nil
+		return s.fallback.result, nil
 	}
 
 	return nil, {{ref "fmt.Errorf"}}(
 		"no expectation found for %s variables %+v",
-		set.operation,
+		s.operation,
 		variables,
 	)
 }
 
-func (set *expectationSet[V]) reset(variables ...V) {
-	set.mu.Lock()
-	defer set.mu.Unlock()
+func (s *expectationSet[V]) reset(variables ...V) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if len(variables) == 0 {
-		for _, expected := range set.expectations {
+		for _, expected := range s.expectations {
 			expected.remaining = 0
 		}
-		set.expectations = []*expectation[V]{}
-		set.fallback = nil
+		s.expectations = []*expectation[V]{}
+		s.fallback = nil
 		return
 	}
 
@@ -192,14 +192,14 @@ func (set *expectationSet[V]) reset(variables ...V) {
 	for _, variablesToReset := range variables {
 		key, err := variableKey(variablesToReset)
 		if err != nil {
-			set.tb.Errorf("%s reset variables: %v", set.operation, err)
+			s.tb.Errorf("%s reset variables: %v", s.operation, err)
 			continue
 		}
 		keys = append(keys, key)
 	}
 
-	retained := make([]*expectation[V], 0, len(set.expectations))
-	for _, expected := range set.expectations {
+	retained := make([]*expectation[V], 0, len(s.expectations))
+	for _, expected := range s.expectations {
 		shouldReset := false
 		for _, key := range keys {
 			if expected.variablesKey == key {
@@ -214,7 +214,7 @@ func (set *expectationSet[V]) reset(variables ...V) {
 		}
 		retained = append(retained, expected)
 	}
-	set.expectations = retained
+	s.expectations = retained
 }
 
 func variableKey[V any](variables V) (string, error) {
@@ -250,15 +250,15 @@ func decodeVariables(encoded []byte, destination any) error {
 	return nil
 }
 
-func (set *expectationSet[V]) verify() {
-	set.mu.Lock()
-	defer set.mu.Unlock()
+func (s *expectationSet[V]) verify() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	for _, expected := range set.expectations {
+	for _, expected := range s.expectations {
 		if expected.remaining > 0 {
-			set.tb.Errorf(
+			s.tb.Errorf(
 				"unmet %s expectation for variables %+v: %d call(s) remaining",
-				set.operation,
+				s.operation,
 				expected.variables,
 				expected.remaining,
 			)
@@ -423,31 +423,31 @@ func NewTestHandler(testingTB {{ref "testing.TB"}}) *TestHandler {
 }
 
 func newTestHandler(testingTB testTB) *TestHandler {
-	handler := &TestHandler{tb: testingTB}
+	h := &TestHandler{tb: testingTB}
 	{{range .Operations -}}
-	handler.{{.FieldName}} = expectationSet[{{.VariablesType}}]{
+	h.{{.FieldName}} = expectationSet[{{.VariablesType}}]{
 		tb: testingTB,
 		operation: "{{.Name}}",
 		expectations: []*expectation[{{.VariablesType}}]{},
 	}
 	{{end -}}
-	testingTB.Cleanup(handler.verify)
-	return handler
+	testingTB.Cleanup(h.verify)
+	return h
 }
 
-func (handler *TestHandler) verify() {
+func (h *TestHandler) verify() {
 	{{range .Operations -}}
-	handler.{{.FieldName}}.verify()
+	h.{{.FieldName}}.verify()
 	{{end -}}
 }
 
-func (handler *TestHandler) Reset() {
+func (h *TestHandler) Reset() {
 	{{range .Operations -}}
-	handler.{{.FieldName}}.reset()
+	h.{{.FieldName}}.reset()
 	{{end -}}
 }
 
-func (handler *TestHandler) ServeHTTP(
+func (h *TestHandler) ServeHTTP(
 	writer {{ref "net/http.ResponseWriter"}},
 	request *{{ref "net/http.Request"}},
 ) {
@@ -459,7 +459,7 @@ func (handler *TestHandler) ServeHTTP(
 			"graphql requests must use POST",
 		)
 		if err != nil {
-			handler.tb.Errorf("writing method error response: %v", err)
+			h.tb.Errorf("writing method error response: %v", err)
 		}
 		return
 	}
@@ -476,7 +476,7 @@ func (handler *TestHandler) ServeHTTP(
 			"decoding graphql request: "+err.Error(),
 		)
 		if writeErr != nil {
-			handler.tb.Errorf("writing decode error response: %v", writeErr)
+			h.tb.Errorf("writing decode error response: %v", writeErr)
 		}
 		return
 	}
@@ -493,7 +493,7 @@ func (handler *TestHandler) ServeHTTP(
 			"decoding graphql request: "+err.Error(),
 		)
 		if writeErr != nil {
-			handler.tb.Errorf("writing trailing data error response: %v", writeErr)
+			h.tb.Errorf("writing trailing data error response: %v", writeErr)
 		}
 		return
 	}
@@ -505,7 +505,7 @@ func (handler *TestHandler) ServeHTTP(
 			"graphql request is missing operationName",
 		)
 		if err != nil {
-			handler.tb.Errorf("writing missing operation error response: %v", err)
+			h.tb.Errorf("writing missing operation error response: %v", err)
 		}
 		return
 	}
@@ -519,37 +519,37 @@ func (handler *TestHandler) ServeHTTP(
 		var variables {{.VariablesType}}
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding {{.Name}} variables: %v", err)
+			h.tb.Errorf("decoding {{.Name}} variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				{{ref "net/http.StatusOK"}},
 				"decoding {{.Name}} variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing {{.Name}} variable error response: %v", writeErr)
+				h.tb.Errorf("writing {{.Name}} variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.{{.FieldName}}.match(
+		result, matchErr := h.{{.FieldName}}.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				{{ref "net/http.StatusOK"}},
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing {{.Name}} expectation error response: %v", writeErr)
+				h.tb.Errorf("writing {{.Name}} expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving {{.Name}} response: %v", err)
+			h.tb.Errorf("serving {{.Name}} response: %v", err)
 		}
 	{{end -}}
 	default:
@@ -559,7 +559,7 @@ func (handler *TestHandler) ServeHTTP(
 			"unknown operation: "+graphqlRequest.OperationName,
 		)
 		if err != nil {
-			handler.tb.Errorf("writing unknown operation response: %v", err)
+			h.tb.Errorf("writing unknown operation response: %v", err)
 		}
 	}
 }
@@ -571,15 +571,15 @@ type {{.Name}}Expectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) Expect{{.Name}}(
+func (h *TestHandler) Expect{{.Name}}(
 	{{if .HasVariables -}}
 	variables {{.VariablesName}},
 	{{end -}}
 	options ...ExpectOption,
 ) *{{.Name}}Expectation {
 	return &{{.Name}}Expectation{
-		set: &handler.{{.FieldName}},
-		expected: handler.{{.FieldName}}.expect(
+		set: &h.{{.FieldName}},
+		expected: h.{{.FieldName}}.expect(
 			{{if .HasVariables}}variables{{else}}struct{}{}{{end}},
 			options...,
 		),
@@ -587,51 +587,51 @@ func (handler *TestHandler) Expect{{.Name}}(
 	}
 }
 
-func (handler *TestHandler) Default{{.Name}}() *{{.Name}}Expectation {
+func (h *TestHandler) Default{{.Name}}() *{{.Name}}Expectation {
 	return &{{.Name}}Expectation{
-		set: &handler.{{.FieldName}},
-		expected: handler.{{.FieldName}}.expectDefault(),
+		set: &h.{{.FieldName}},
+		expected: h.{{.FieldName}}.expectDefault(),
 		options: []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) Reset{{.Name}}({{if .HasVariables}}variables ...{{.VariablesName}}{{end}}) {
+func (h *TestHandler) Reset{{.Name}}({{if .HasVariables}}variables ...{{.VariablesName}}{{end}}) {
 	{{if .HasVariables -}}
-	handler.{{.FieldName}}.reset(variables...)
+	h.{{.FieldName}}.reset(variables...)
 	{{else -}}
-	handler.{{.FieldName}}.reset()
+	h.{{.FieldName}}.reset()
 	{{end -}}
 }
 
-func (builder *{{.Name}}Expectation) WithOptions(
+func (b *{{.Name}}Expectation) WithOptions(
 	options ...ResponseOption,
 ) *{{.Name}}Expectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *{{.Name}}Expectation) Respond(
+func (b *{{.Name}}Expectation) Respond(
 	data {{.ResponseName}},
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *{{.Name}}Expectation) RespondError(
+func (b *{{.Name}}Expectation) RespondError(
 	graphqlError {{ref "github.com/willabides/octoql.Error"}},
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
 			return writeGraphQLResponse(
 				writer,
@@ -643,13 +643,13 @@ func (builder *{{.Name}}Expectation) RespondError(
 	)
 }
 
-func (builder *{{.Name}}Expectation) RespondDataAndErrors(
+func (b *{{.Name}}Expectation) RespondDataAndErrors(
 	data {{.ResponseName}},
 	graphqlErrors ...{{ref "github.com/willabides/octoql.Error"}},
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
 			return writeGraphQLResponse(
 				writer,
@@ -661,21 +661,21 @@ func (builder *{{.Name}}Expectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *{{.Name}}Expectation) Handle(
+func (b *{{.Name}}Expectation) Handle(
 	handler func({{if .HasVariables}}{{.VariablesName}}, {{end}}{{ref "net/http.ResponseWriter"}}),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("{{.Name}} dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("{{.Name}} dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ {{.VariablesType}}, _ {{ref "net/http.ResponseWriter"}}) error {
 				return {{ref "fmt.Errorf"}}("{{.Name}} dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
 			handler({{if .HasVariables}}variables, {{end}}writer)
 			return nil
