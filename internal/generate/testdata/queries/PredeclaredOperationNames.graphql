@@ -1,0 +1,11 @@
+query new {
+  viewer {
+    id
+  }
+}
+
+query any {
+  viewer {
+    id
+  }
+}

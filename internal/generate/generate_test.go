@@ -96,6 +96,7 @@ func TestGenerate(t *testing.T) {
 	for _, sourceFilename := range []string{
 		"GraphShapes.graphql",
 		"Naming.graphql",
+		"PredeclaredOperationNames.graphql",
 	} {
 		goFilename := sourceFilename + ".go"
 		queriesFilename := sourceFilename + ".json"
@@ -1535,6 +1536,10 @@ func TestGenerateErrors(t *testing.T) {
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyForDirective.graphql:4: omitempty may only be used on optional arguments: OmitemptyInput.field"))
 			case "PartialDataErrorNameCollision.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "GetUserPartialDataError" conflicts with a generated GraphQL type`))
+			case "PartialDataErrorEnumValueCollision.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "FooPartialDataError" conflicts with a generated enum value`))
+			case "PartialDataErrorOperationNameCollision.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "GetUserPartialDataError" conflicts with operation "GetUserPartialDataError"`))
 			case "StructOptionOnObject.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionOnObject.graphql:3: struct is only applicable to interface-typed fields"))
 			case "StructOptionWithFragments.graphql":

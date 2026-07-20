@@ -1,0 +1,7 @@
+enum FooPartial {
+  DATA_ERROR
+}
+
+type Query {
+  status: FooPartial!
+}

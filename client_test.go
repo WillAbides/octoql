@@ -199,6 +199,23 @@ func TestDoRequest(t *testing.T) {
 	assert.NotContains(t, requestObject, "variables")
 }
 
+func TestClientExecuteNilClient(t *testing.T) {
+	var client *octoql.Client
+	var response testData
+
+	hasData, err := client.Execute(
+		t.Context(),
+		octoql.Payload{
+			OperationName: validOperationName,
+			Query:         validOperationQuery,
+		},
+		&response,
+	)
+
+	assert.False(t, hasData)
+	assert.EqualError(t, err, "octoql: client is nil")
+}
+
 func TestDoFailurePhases(t *testing.T) {
 	readError := errors.New("body read failed")
 	transportError := errors.New("transport failed")

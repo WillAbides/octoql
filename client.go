@@ -76,6 +76,9 @@ type Payload struct {
 // [ResponseError]. GraphQL errors and rate limits remain discoverable in that
 // error chain as [Errors] and [RateLimitError].
 func (client *Client) Execute(ctx context.Context, payload Payload, response any) (bool, error) {
+	if client == nil {
+		return false, errors.New("octoql: client is nil")
+	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return false, fmt.Errorf("encode graphql request: %w", err)

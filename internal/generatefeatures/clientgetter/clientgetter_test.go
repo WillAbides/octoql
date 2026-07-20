@@ -60,3 +60,14 @@ func TestClientGetterFailure(t *testing.T) {
 	_, hasPartial := errors.AsType[*getRepositoryPartialDataError](err)
 	assert.False(t, hasPartial)
 }
+
+func TestClientGetterNilClient(t *testing.T) {
+	ctx := testContext{Context: t.Context()}
+
+	response, err := getRepository(ctx, "octo-org", "octo-repo")
+
+	assert.Nil(t, response)
+	assert.EqualError(t, err, "octoql: client is nil")
+	_, hasPartial := errors.AsType[*getRepositoryPartialDataError](err)
+	assert.False(t, hasPartial)
+}
