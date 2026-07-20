@@ -69,7 +69,7 @@ func (v *getViewerViewerUser) GetMyName() string { return v.MyName }
 // GetCreatedAt returns getViewerViewerUser.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getViewerViewerUser) GetCreatedAt() time.Time { return v.CreatedAt }
 
-type __octoqlPartialDataError[T any] struct {
+type __octoqlPartialDataError[T interface{}] struct {
 	data *T
 	err  error
 }
@@ -95,13 +95,14 @@ func (err *__octoqlPartialDataError[T]) PartialData() *T {
 	return err.data
 }
 
-func __octoqlDo[T any](
+func __octoqlDo[T interface{}](
 	ctx context.Context,
 	client *octoql.Client,
 	payload octoql.Payload,
 	newPartialDataError func(*T, error) error,
 ) (*T, error) {
-	response := new(T)
+	var data T
+	response := &data
 	hasData, err := client.Execute(ctx, payload, response)
 	if !hasData {
 		return nil, err
