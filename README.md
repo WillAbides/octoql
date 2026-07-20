@@ -211,6 +211,11 @@ go tool octoqlgen schema materialize
 `schema update` fetches the current remote source, validates it, and atomically
 updates the materialized schema together with `sha256` and the GitHub revision:
 
+Concurrent schema commands are unsupported. Simultaneous invocations targeting
+the same schema or config can be last-writer-wins or result in a
+verification/materialization failure. After concurrent commands finish, rerun
+any command that failed.
+
 ```sh
 go tool octoqlgen schema update
 git diff -- octoqlgen.yaml

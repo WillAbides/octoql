@@ -304,19 +304,6 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 	assert.Contains(t, err.Error(), "requires a configured remote")
 }
 
-func TestAcquireUpdateLock(t *testing.T) {
-	t.Parallel()
-
-	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
-	unlock, err := acquireUpdateLock(configPath)
-	require.NoError(t, err)
-	defer unlock()
-
-	_, err = acquireUpdateLock(configPath)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already in progress")
-}
-
 func TestHelpSnapshots(t *testing.T) {
 	tests := []struct {
 		name string

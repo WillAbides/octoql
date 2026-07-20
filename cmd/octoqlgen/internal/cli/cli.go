@@ -197,12 +197,6 @@ func (cmd *schemaUpdateCommand) Run() error {
 	if err != nil {
 		return err
 	}
-	unlock, err := acquireUpdateLock(configPath)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-
 	rawConfig, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
@@ -292,21 +286,6 @@ func (cmd *schemaUpdateCommand) Run() error {
 		result.SHA256,
 	)
 	return err
-}
-
-func acquireUpdateLock(configPath string) (func(), error) {
-	lockPath := configPath + ".schema-update.lock"
-	err := os.Mkdir(lockPath, 0o700)
-	if errors.Is(err, os.ErrExist) {
-		return nil, errors.New("another schema update is already in progress")
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("acquiring schema update lock: %w", err)
-	}
-	return func() {
-		_ = os.Remove(lockPath)
-	}, nil
 }
 
 func canonicalPath(path string) (string, error) {
