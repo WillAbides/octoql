@@ -82,6 +82,10 @@ func decodeConfig(content []byte) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = validateRequiredFields(content, loaded)
+	if err != nil {
+		return nil, err
+	}
 	if loaded.TestHandler != nil && loaded.TestHandler.Types != nil {
 		switch *loaded.TestHandler.Types {
 		case TestHandlerTypesClient, TestHandlerTypesLocal:
@@ -94,6 +98,60 @@ func decodeConfig(content []byte) (*Config, error) {
 		}
 	}
 	return loaded, nil
+}
+
+func validateRequiredFields(content []byte, loaded *Config) error {
+	var fields map[string]any
+	err := yaml.Unmarshal(content, &fields)
+	if err != nil {
+		return err
+	}
+	_, hasSchema := fields["schema"]
+	if !hasSchema {
+		return errors.New("schema is required")
+	}
+	if loaded.Schema.Path == "" {
+		return errors.New("schema.path is required")
+	}
+	if loaded.Operations == nil {
+		return errors.New("operations is required")
+	}
+	if loaded.Generated == "" {
+		return errors.New("generated is required")
+	}
+	if loaded.TestHandler != nil && loaded.TestHandler.Generated == "" {
+		return errors.New("test_handler.generated is required")
+	}
+	for index, binding := range loaded.PackageBindings {
+		if binding.Package == "" {
+			return fmt.Errorf("package_bindings[%d].package is required", index)
+		}
+	}
+	source := loaded.Schema.Source
+	if source == nil {
+		return nil
+	}
+	if source.GithubDocs != nil {
+		if source.GithubDocs.Version == "" {
+			return errors.New("schema.source.github_docs.version is required")
+		}
+		if source.GithubDocs.Revision == "" {
+			return errors.New("schema.source.github_docs.revision is required")
+		}
+	}
+	if source.GithubRepository == nil {
+		return nil
+	}
+	if source.GithubRepository.Repository == "" {
+		return errors.New("schema.source.github_repository.repository is required")
+	}
+	if source.GithubRepository.Revision == "" {
+		return errors.New("schema.source.github_repository.revision is required")
+	}
+	if source.GithubRepository.Path == "" {
+		return errors.New("schema.source.github_repository.path is required")
+	}
+	return nil
 }
 
 func (s *Schema) SHA256Value() string {

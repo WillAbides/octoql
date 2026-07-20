@@ -116,6 +116,7 @@ func TestLoadGeneratorOptions(t *testing.T) {
 			"  source:\n" +
 			"    github_docs:\n" +
 			"      version: fpt\n" +
+			"      revision: " + testRevision + "\n" +
 			"operations:\n" +
 			"  - graphql/**/*.graphql\n" +
 			"generated: generated/client.go\n" +

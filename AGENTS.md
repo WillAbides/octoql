@@ -68,6 +68,9 @@
 - The runtime config model is generated from `octoqlgen.schema.yaml` with the
   repository-pinned `script/jsonschematogo`; do not add handwritten user config
   structs.
+- Validate required config fields before defaults or path resolution. Generation
+  outputs must not alias `octoqlgen.yaml`, schema inputs, or expanded operation
+  inputs, and manifest source paths remain relative to the config directory.
 - Typed test-handler generation is an optional renderer over the same immutable
   parsed and converted operation plan as client generation. Do not add a second
   config load, schema parse, operation parser, abstract-type analysis, or

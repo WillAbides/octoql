@@ -188,6 +188,46 @@ func TestGenerateCommandRefusesConfigOutput(t *testing.T) {
 	assert.Empty(t, materializer.request.Path)
 }
 
+func TestGenerateCommandRefusesSchemaOutputBeforeMaterialization(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, config.DefaultFilename)
+	err := os.WriteFile(
+		configPath,
+		[]byte(
+			"schema:\n"+
+				"  path: generated.go\n"+
+				"  sha256: 559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd\n"+
+				"  source:\n"+
+				"    url: https://example.test/schema.graphql\n"+
+				"operations: []\n"+
+				"generated: generated.go\n",
+		),
+		0o600,
+	)
+	require.NoError(t, err)
+
+	materializer := &stubMaterializer{}
+	command := generateCommand{
+		Config:       configPath,
+		context:      t.Context(),
+		loadConfig:   config.Load,
+		materializer: materializer,
+		generate: func(*generate.Config) (map[string][]byte, error) {
+			return nil, errors.New("generation should not run")
+		},
+		outputWriter: &recordingOutputWriter{},
+	}
+
+	err = command.Run()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "generated output path")
+	assert.Contains(t, err.Error(), "schema input path")
+	assert.Empty(t, materializer.request.Path)
+}
+
 func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 	t.Parallel()
 
