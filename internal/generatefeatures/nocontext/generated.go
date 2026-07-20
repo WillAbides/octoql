@@ -30,32 +30,6 @@ type __GetRepositoryInput struct {
 	Name  string `json:"name"`
 }
 
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
 // The query executed by GetRepository.
 const GetRepository_Operation = `
 query GetRepository ($owner: String!, $name: String!) {
@@ -67,7 +41,29 @@ query GetRepository ($owner: String!, $name: String!) {
 
 // GetRepositoryPartialDataError contains partial data returned by GetRepository.
 type GetRepositoryPartialDataError struct {
-	__octoqlPartialDataError[GetRepositoryResponse]
+	data *GetRepositoryResponse
+	err  error
+}
+
+func (err *GetRepositoryPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *GetRepositoryPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func GetRepository(
@@ -94,10 +90,8 @@ func GetRepository(
 	}
 	if err_ != nil {
 		return nil, &GetRepositoryPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil

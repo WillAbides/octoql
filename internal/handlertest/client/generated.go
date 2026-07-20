@@ -713,32 +713,6 @@ type __SearchInput struct {
 	Query string `json:"query"`
 }
 
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
 // The mutation executed by CreateRepository.
 const CreateRepository_Operation = `
 mutation CreateRepository ($input: CreateRepositoryInput!) {
@@ -763,7 +737,29 @@ type CreateRepositoryVariables = __CreateRepositoryInput
 
 // CreateRepositoryPartialDataError contains partial data returned by CreateRepository.
 type CreateRepositoryPartialDataError struct {
-	__octoqlPartialDataError[CreateRepositoryResponse]
+	data *CreateRepositoryResponse
+	err  error
+}
+
+func (err *CreateRepositoryPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *CreateRepositoryPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *CreateRepositoryPartialDataError) PartialData() *CreateRepositoryResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func CreateRepository(
@@ -789,10 +785,8 @@ func CreateRepository(
 	}
 	if err_ != nil {
 		return nil, &CreateRepositoryPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[CreateRepositoryResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -810,7 +804,29 @@ type EchoAnyVariables = __EchoAnyInput
 
 // EchoAnyPartialDataError contains partial data returned by EchoAny.
 type EchoAnyPartialDataError struct {
-	__octoqlPartialDataError[EchoAnyResponse]
+	data *EchoAnyResponse
+	err  error
+}
+
+func (err *EchoAnyPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *EchoAnyPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *EchoAnyPartialDataError) PartialData() *EchoAnyResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func EchoAny(
@@ -836,10 +852,8 @@ func EchoAny(
 	}
 	if err_ != nil {
 		return nil, &EchoAnyPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[EchoAnyResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -857,7 +871,29 @@ type EchoAtVariables = __EchoAtInput
 
 // EchoAtPartialDataError contains partial data returned by EchoAt.
 type EchoAtPartialDataError struct {
-	__octoqlPartialDataError[EchoAtResponse]
+	data *EchoAtResponse
+	err  error
+}
+
+func (err *EchoAtPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *EchoAtPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *EchoAtPartialDataError) PartialData() *EchoAtResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func EchoAt(
@@ -883,10 +919,8 @@ func EchoAt(
 	}
 	if err_ != nil {
 		return nil, &EchoAtPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[EchoAtResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -904,7 +938,29 @@ type EchoPropertyVariables = __EchoPropertyInput
 
 // EchoPropertyPartialDataError contains partial data returned by EchoProperty.
 type EchoPropertyPartialDataError struct {
-	__octoqlPartialDataError[EchoPropertyResponse]
+	data *EchoPropertyResponse
+	err  error
+}
+
+func (err *EchoPropertyPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *EchoPropertyPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *EchoPropertyPartialDataError) PartialData() *EchoPropertyResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func EchoProperty(
@@ -930,10 +986,8 @@ func EchoProperty(
 	}
 	if err_ != nil {
 		return nil, &EchoPropertyPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[EchoPropertyResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -960,7 +1014,29 @@ type GetNodeVariables = __GetNodeInput
 
 // GetNodePartialDataError contains partial data returned by GetNode.
 type GetNodePartialDataError struct {
-	__octoqlPartialDataError[GetNodeResponse]
+	data *GetNodeResponse
+	err  error
+}
+
+func (err *GetNodePartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *GetNodePartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *GetNodePartialDataError) PartialData() *GetNodeResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func GetNode(
@@ -986,10 +1062,8 @@ func GetNode(
 	}
 	if err_ != nil {
 		return nil, &GetNodePartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[GetNodeResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -1022,7 +1096,29 @@ type GetRepositoryVariables = __GetRepositoryInput
 
 // GetRepositoryPartialDataError contains partial data returned by GetRepository.
 type GetRepositoryPartialDataError struct {
-	__octoqlPartialDataError[GetRepositoryResponse]
+	data *GetRepositoryResponse
+	err  error
+}
+
+func (err *GetRepositoryPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *GetRepositoryPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func GetRepository(
@@ -1054,10 +1150,8 @@ func GetRepository(
 	}
 	if err_ != nil {
 		return nil, &GetRepositoryPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -1085,7 +1179,29 @@ type SearchVariables = __SearchInput
 
 // SearchPartialDataError contains partial data returned by Search.
 type SearchPartialDataError struct {
-	__octoqlPartialDataError[SearchResponse]
+	data *SearchResponse
+	err  error
+}
+
+func (err *SearchPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *SearchPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *SearchPartialDataError) PartialData() *SearchResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func Search(
@@ -1111,10 +1227,8 @@ func Search(
 	}
 	if err_ != nil {
 		return nil, &SearchPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[SearchResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -1135,7 +1249,29 @@ fragment ViewerVariables on User {
 
 // ViewerPartialDataError contains partial data returned by Viewer.
 type ViewerPartialDataError struct {
-	__octoqlPartialDataError[ViewerResponse]
+	data *ViewerResponse
+	err  error
+}
+
+func (err *ViewerPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *ViewerPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *ViewerPartialDataError) PartialData() *ViewerResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func Viewer(
@@ -1157,10 +1293,8 @@ func Viewer(
 	}
 	if err_ != nil {
 		return nil, &ViewerPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[ViewerResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil

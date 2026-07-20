@@ -593,11 +593,6 @@ func renderClientGenerator(g *generator) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = g.render("partial_data_error.go.tmpl", &bodyBuf, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	for _, operation := range g.Operations {
 		err = g.render("operation.go.tmpl", &bodyBuf, operation)
 		if err != nil {

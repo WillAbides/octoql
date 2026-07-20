@@ -41,32 +41,6 @@ type newViewerUser struct {
 // GetId returns newViewerUser.Id, and is useful for accessing the field via an interface.
 func (v *newViewerUser) GetId() testutil.ID { return v.Id }
 
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
 // The query executed by any.
 const any_Operation = `
 query any {
@@ -78,7 +52,29 @@ query any {
 
 // anyPartialDataError contains partial data returned by any.
 type anyPartialDataError struct {
-	__octoqlPartialDataError[anyResponse]
+	data *anyResponse
+	err  error
+}
+
+func (err *anyPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *anyPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *anyPartialDataError) PartialData() *anyResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func any(
@@ -99,10 +95,8 @@ func any(
 	}
 	if err_ != nil {
 		return nil, &anyPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[anyResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -119,7 +113,29 @@ query new {
 
 // newPartialDataError contains partial data returned by new.
 type newPartialDataError struct {
-	__octoqlPartialDataError[newResponse]
+	data *newResponse
+	err  error
+}
+
+func (err *newPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *newPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *newPartialDataError) PartialData() *newResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func new(
@@ -140,10 +156,8 @@ func new(
 	}
 	if err_ != nil {
 		return nil, &newPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[newResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil

@@ -4277,32 +4277,6 @@ func (v *userFields) __premarshalJSON() (*__premarshaluserFields, error) {
 	return &retval, nil
 }
 
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
 // The mutation executed by addComment.
 const addComment_Operation = `
 mutation addComment ($input: AddCommentInput!) {
@@ -4319,7 +4293,29 @@ mutation addComment ($input: AddCommentInput!) {
 
 // addCommentPartialDataError contains partial data returned by addComment.
 type addCommentPartialDataError struct {
-	__octoqlPartialDataError[addCommentResponse]
+	data *addCommentResponse
+	err  error
+}
+
+func (err *addCommentPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *addCommentPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *addCommentPartialDataError) PartialData() *addCommentResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func addComment(
@@ -4345,10 +4341,8 @@ func addComment(
 	}
 	if err_ != nil {
 		return nil, &addCommentPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[addCommentResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4370,7 +4364,29 @@ mutation addStar ($input: AddStarInput!) {
 
 // addStarPartialDataError contains partial data returned by addStar.
 type addStarPartialDataError struct {
-	__octoqlPartialDataError[addStarResponse]
+	data *addStarResponse
+	err  error
+}
+
+func (err *addStarPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *addStarPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *addStarPartialDataError) PartialData() *addStarResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func addStar(
@@ -4396,10 +4412,8 @@ func addStar(
 	}
 	if err_ != nil {
 		return nil, &addStarPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[addStarResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4417,7 +4431,29 @@ query failingQuery {
 
 // failingQueryPartialDataError contains partial data returned by failingQuery.
 type failingQueryPartialDataError struct {
-	__octoqlPartialDataError[failingQueryResponse]
+	data *failingQueryResponse
+	err  error
+}
+
+func (err *failingQueryPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *failingQueryPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *failingQueryPartialDataError) PartialData() *failingQueryResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func failingQuery(
@@ -4439,10 +4475,8 @@ func failingQuery(
 	}
 	if err_ != nil {
 		return nil, &failingQueryPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[failingQueryResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4465,7 +4499,29 @@ query getRepository ($owner: String!, $name: String!) {
 
 // getRepositoryPartialDataError contains partial data returned by getRepository.
 type getRepositoryPartialDataError struct {
-	__octoqlPartialDataError[getRepositoryResponse]
+	data *getRepositoryResponse
+	err  error
+}
+
+func (err *getRepositoryPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *getRepositoryPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func getRepository(
@@ -4493,10 +4549,8 @@ func getRepository(
 	}
 	if err_ != nil {
 		return nil, &getRepositoryPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[getRepositoryResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4515,7 +4569,29 @@ query queryWithCustomMarshal ($date: Date!) {
 
 // queryWithCustomMarshalPartialDataError contains partial data returned by queryWithCustomMarshal.
 type queryWithCustomMarshalPartialDataError struct {
-	__octoqlPartialDataError[queryWithCustomMarshalResponse]
+	data *queryWithCustomMarshalResponse
+	err  error
+}
+
+func (err *queryWithCustomMarshalPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithCustomMarshalPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithCustomMarshalPartialDataError) PartialData() *queryWithCustomMarshalResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithCustomMarshal(
@@ -4541,10 +4617,8 @@ func queryWithCustomMarshal(
 	}
 	if err_ != nil {
 		return nil, &queryWithCustomMarshalPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4563,7 +4637,29 @@ query queryWithCustomMarshalOptional ($date: Date, $login: String) {
 
 // queryWithCustomMarshalOptionalPartialDataError contains partial data returned by queryWithCustomMarshalOptional.
 type queryWithCustomMarshalOptionalPartialDataError struct {
-	__octoqlPartialDataError[queryWithCustomMarshalOptionalResponse]
+	data *queryWithCustomMarshalOptionalResponse
+	err  error
+}
+
+func (err *queryWithCustomMarshalOptionalPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithCustomMarshalOptionalPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithCustomMarshalOptionalPartialDataError) PartialData() *queryWithCustomMarshalOptionalResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithCustomMarshalOptional(
@@ -4591,10 +4687,8 @@ func queryWithCustomMarshalOptional(
 	}
 	if err_ != nil {
 		return nil, &queryWithCustomMarshalOptionalPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalOptionalResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4613,7 +4707,29 @@ query queryWithCustomMarshalSlice ($dates: [Date!]!) {
 
 // queryWithCustomMarshalSlicePartialDataError contains partial data returned by queryWithCustomMarshalSlice.
 type queryWithCustomMarshalSlicePartialDataError struct {
-	__octoqlPartialDataError[queryWithCustomMarshalSliceResponse]
+	data *queryWithCustomMarshalSliceResponse
+	err  error
+}
+
+func (err *queryWithCustomMarshalSlicePartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithCustomMarshalSlicePartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithCustomMarshalSlicePartialDataError) PartialData() *queryWithCustomMarshalSliceResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithCustomMarshalSlice(
@@ -4639,10 +4755,8 @@ func queryWithCustomMarshalSlice(
 	}
 	if err_ != nil {
 		return nil, &queryWithCustomMarshalSlicePartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalSliceResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4695,7 +4809,29 @@ fragment repositoriesFields on Repository {
 
 // queryWithFlattenPartialDataError contains partial data returned by queryWithFlatten.
 type queryWithFlattenPartialDataError struct {
-	__octoqlPartialDataError[queryFragment]
+	data *queryFragment
+	err  error
+}
+
+func (err *queryWithFlattenPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithFlattenPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithFlattenPartialDataError) PartialData() *queryFragment {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithFlatten(
@@ -4721,10 +4857,8 @@ func queryWithFlatten(
 	}
 	if err_ != nil {
 		return nil, &queryWithFlattenPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryFragment]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4770,7 +4904,29 @@ query queryWithFragments ($ids: [ID!]!) {
 
 // queryWithFragmentsPartialDataError contains partial data returned by queryWithFragments.
 type queryWithFragmentsPartialDataError struct {
-	__octoqlPartialDataError[queryWithFragmentsResponse]
+	data *queryWithFragmentsResponse
+	err  error
+}
+
+func (err *queryWithFragmentsPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithFragmentsPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithFragmentsPartialDataError) PartialData() *queryWithFragmentsResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithFragments(
@@ -4796,10 +4952,8 @@ func queryWithFragments(
 	}
 	if err_ != nil {
 		return nil, &queryWithFragmentsPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithFragmentsResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4818,7 +4972,29 @@ query queryWithInterfaceListField ($ids: [ID!]!) {
 
 // queryWithInterfaceListFieldPartialDataError contains partial data returned by queryWithInterfaceListField.
 type queryWithInterfaceListFieldPartialDataError struct {
-	__octoqlPartialDataError[queryWithInterfaceListFieldResponse]
+	data *queryWithInterfaceListFieldResponse
+	err  error
+}
+
+func (err *queryWithInterfaceListFieldPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithInterfaceListFieldPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithInterfaceListFieldPartialDataError) PartialData() *queryWithInterfaceListFieldResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithInterfaceListField(
@@ -4844,10 +5020,8 @@ func queryWithInterfaceListField(
 	}
 	if err_ != nil {
 		return nil, &queryWithInterfaceListFieldPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceListFieldResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4866,7 +5040,29 @@ query queryWithInterfaceListPointerField ($ids: [ID!]!) {
 
 // queryWithInterfaceListPointerFieldPartialDataError contains partial data returned by queryWithInterfaceListPointerField.
 type queryWithInterfaceListPointerFieldPartialDataError struct {
-	__octoqlPartialDataError[queryWithInterfaceListPointerFieldResponse]
+	data *queryWithInterfaceListPointerFieldResponse
+	err  error
+}
+
+func (err *queryWithInterfaceListPointerFieldPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithInterfaceListPointerFieldPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithInterfaceListPointerFieldPartialDataError) PartialData() *queryWithInterfaceListPointerFieldResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithInterfaceListPointerField(
@@ -4892,10 +5088,8 @@ func queryWithInterfaceListPointerField(
 	}
 	if err_ != nil {
 		return nil, &queryWithInterfaceListPointerFieldPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceListPointerFieldResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4918,7 +5112,29 @@ query queryWithInterfaceNoFragments ($id: ID!) {
 
 // queryWithInterfaceNoFragmentsPartialDataError contains partial data returned by queryWithInterfaceNoFragments.
 type queryWithInterfaceNoFragmentsPartialDataError struct {
-	__octoqlPartialDataError[queryWithInterfaceNoFragmentsResponse]
+	data *queryWithInterfaceNoFragmentsResponse
+	err  error
+}
+
+func (err *queryWithInterfaceNoFragmentsPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithInterfaceNoFragmentsPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithInterfaceNoFragmentsPartialDataError) PartialData() *queryWithInterfaceNoFragmentsResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithInterfaceNoFragments(
@@ -4944,10 +5160,8 @@ func queryWithInterfaceNoFragments(
 	}
 	if err_ != nil {
 		return nil, &queryWithInterfaceNoFragmentsPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceNoFragmentsResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -4994,7 +5208,29 @@ fragment moreUserFields on User {
 
 // queryWithNamedFragmentsPartialDataError contains partial data returned by queryWithNamedFragments.
 type queryWithNamedFragmentsPartialDataError struct {
-	__octoqlPartialDataError[queryWithNamedFragmentsResponse]
+	data *queryWithNamedFragmentsResponse
+	err  error
+}
+
+func (err *queryWithNamedFragmentsPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithNamedFragmentsPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithNamedFragmentsPartialDataError) PartialData() *queryWithNamedFragmentsResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithNamedFragments(
@@ -5020,10 +5256,8 @@ func queryWithNamedFragments(
 	}
 	if err_ != nil {
 		return nil, &queryWithNamedFragmentsPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithNamedFragmentsResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -5042,7 +5276,29 @@ query queryWithOmitempty ($login: String) {
 
 // queryWithOmitemptyPartialDataError contains partial data returned by queryWithOmitempty.
 type queryWithOmitemptyPartialDataError struct {
-	__octoqlPartialDataError[queryWithOmitemptyResponse]
+	data *queryWithOmitemptyResponse
+	err  error
+}
+
+func (err *queryWithOmitemptyPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithOmitemptyPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithOmitemptyPartialDataError) PartialData() *queryWithOmitemptyResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithOmitempty(
@@ -5068,10 +5324,8 @@ func queryWithOmitempty(
 	}
 	if err_ != nil {
 		return nil, &queryWithOmitemptyPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithOmitemptyResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -5106,7 +5360,29 @@ query queryWithSearch ($query: String!, $searchType: SearchType!) {
 
 // queryWithSearchPartialDataError contains partial data returned by queryWithSearch.
 type queryWithSearchPartialDataError struct {
-	__octoqlPartialDataError[queryWithSearchResponse]
+	data *queryWithSearchResponse
+	err  error
+}
+
+func (err *queryWithSearchPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithSearchPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithSearchPartialDataError) PartialData() *queryWithSearchResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithSearch(
@@ -5134,10 +5410,8 @@ func queryWithSearch(
 	}
 	if err_ != nil {
 		return nil, &queryWithSearchPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithSearchResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -5156,7 +5430,29 @@ query queryWithVariables ($login: String!) {
 
 // queryWithVariablesPartialDataError contains partial data returned by queryWithVariables.
 type queryWithVariablesPartialDataError struct {
-	__octoqlPartialDataError[queryWithVariablesResponse]
+	data *queryWithVariablesResponse
+	err  error
+}
+
+func (err *queryWithVariablesPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *queryWithVariablesPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *queryWithVariablesPartialDataError) PartialData() *queryWithVariablesResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func queryWithVariables(
@@ -5182,10 +5478,8 @@ func queryWithVariables(
 	}
 	if err_ != nil {
 		return nil, &queryWithVariablesPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[queryWithVariablesResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -5207,7 +5501,29 @@ mutation removeStar ($input: RemoveStarInput!) {
 
 // removeStarPartialDataError contains partial data returned by removeStar.
 type removeStarPartialDataError struct {
-	__octoqlPartialDataError[removeStarResponse]
+	data *removeStarResponse
+	err  error
+}
+
+func (err *removeStarPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *removeStarPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *removeStarPartialDataError) PartialData() *removeStarResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func removeStar(
@@ -5233,10 +5549,8 @@ func removeStar(
 	}
 	if err_ != nil {
 		return nil, &removeStarPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[removeStarResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil

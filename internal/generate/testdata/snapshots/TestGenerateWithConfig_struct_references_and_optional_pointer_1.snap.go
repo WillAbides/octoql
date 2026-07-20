@@ -735,32 +735,6 @@ type __UpdateIssueWithCollidingNamesInput struct {
 	Client *string `json:"client"`
 }
 
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
 // The mutation executed by CreateGitHubRepository.
 const CreateGitHubRepository_Operation = `
 mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
@@ -773,7 +747,29 @@ mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
 
 // CreateGitHubRepositoryPartialDataError contains partial data returned by CreateGitHubRepository.
 type CreateGitHubRepositoryPartialDataError struct {
-	__octoqlPartialDataError[CreateGitHubRepositoryResponse]
+	data *CreateGitHubRepositoryResponse
+	err  error
+}
+
+func (err *CreateGitHubRepositoryPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *CreateGitHubRepositoryPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *CreateGitHubRepositoryPartialDataError) PartialData() *CreateGitHubRepositoryResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func CreateGitHubRepository(
@@ -799,10 +795,8 @@ func CreateGitHubRepository(
 	}
 	if err_ != nil {
 		return nil, &CreateGitHubRepositoryPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[CreateGitHubRepositoryResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -836,7 +830,29 @@ query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $dat
 
 // GitHubInputsPartialDataError contains partial data returned by GitHubInputs.
 type GitHubInputsPartialDataError struct {
-	__octoqlPartialDataError[GitHubInputResponse]
+	data *GitHubInputResponse
+	err  error
+}
+
+func (err *GitHubInputsPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *GitHubInputsPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *GitHubInputsPartialDataError) PartialData() *GitHubInputResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func GitHubInputs(
@@ -876,10 +892,8 @@ func GitHubInputs(
 	}
 	if err_ != nil {
 		return nil, &GitHubInputsPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[GitHubInputResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -896,7 +910,29 @@ mutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $
 
 // UpdateIssueWithCollidingNamesPartialDataError contains partial data returned by UpdateIssueWithCollidingNames.
 type UpdateIssueWithCollidingNamesPartialDataError struct {
-	__octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]
+	data *UpdateIssueWithCollidingNamesResponse
+	err  error
+}
+
+func (err *UpdateIssueWithCollidingNamesPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *UpdateIssueWithCollidingNamesPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *UpdateIssueWithCollidingNamesPartialDataError) PartialData() *UpdateIssueWithCollidingNamesResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func UpdateIssueWithCollidingNames(
@@ -928,10 +964,8 @@ func UpdateIssueWithCollidingNames(
 	}
 	if err_ != nil {
 		return nil, &UpdateIssueWithCollidingNamesPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil

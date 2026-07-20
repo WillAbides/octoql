@@ -199,8 +199,13 @@ query Value(
 
 	source := string(generated[config.Generated])
 	assert.NotContains(t, source, "func __octoqlDo")
+	assert.NotContains(t, source, "__octoqlPartialDataError")
 	assert.Contains(t, source, "var response_2 ValueResponse")
 	assert.Contains(t, source, "hasData_2, err_2 := client_2.Execute(")
+	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
+	assert.Contains(t, source, "func (err *ValuePartialDataError) Error() string")
+	assert.Contains(t, source, "func (err *ValuePartialDataError) Unwrap() error")
+	assert.Contains(t, source, "func (err *ValuePartialDataError) PartialData() *ValueResponse")
 	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
 }
 

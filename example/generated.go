@@ -66,32 +66,6 @@ func (v *getViewerViewerUser) GetMyName() string { return v.MyName }
 // GetCreatedAt returns getViewerViewerUser.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getViewerViewerUser) GetCreatedAt() time.Time { return v.CreatedAt }
 
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
 // The query executed by getUser.
 const getUser_Operation = `
 query getUser ($Login: String!) {
@@ -104,7 +78,29 @@ query getUser ($Login: String!) {
 
 // getUserPartialDataError contains partial data returned by getUser.
 type getUserPartialDataError struct {
-	__octoqlPartialDataError[getUserResponse]
+	data *getUserResponse
+	err  error
+}
+
+func (err *getUserPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *getUserPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *getUserPartialDataError) PartialData() *getUserResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 // getUser gets the given user's name from their username.
@@ -131,10 +127,8 @@ func getUser(
 	}
 	if err_ != nil {
 		return nil, &getUserPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[getUserResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
@@ -152,7 +146,29 @@ query getViewer {
 
 // getViewerPartialDataError contains partial data returned by getViewer.
 type getViewerPartialDataError struct {
-	__octoqlPartialDataError[getViewerResponse]
+	data *getViewerResponse
+	err  error
+}
+
+func (err *getViewerPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *getViewerPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *getViewerPartialDataError) PartialData() *getViewerResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
 }
 
 func getViewer(
@@ -174,10 +190,8 @@ func getViewer(
 	}
 	if err_ != nil {
 		return nil, &getViewerPartialDataError{
-			__octoqlPartialDataError: __octoqlPartialDataError[getViewerResponse]{
-				data: &response_,
-				err:  err_,
-			},
+			data: &response_,
+			err:  err_,
 		}
 	}
 	return &response_, nil
