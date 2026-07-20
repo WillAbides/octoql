@@ -788,16 +788,22 @@ type User implements Node {
 type Query {
   injected: Node
   explicit: Node
+  concrete: User!
 }
 `), 0o600)
 	require.NoError(t, err)
 	operationPath := filepath.Join(tempDir, "operation.graphql")
 	err = os.WriteFile(operationPath, []byte(`
 query TypenameFields {
+  __typename
   injected {
     id
   }
   explicit {
+    __typename
+    id
+  }
+  concrete {
     __typename
     id
   }
