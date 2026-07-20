@@ -9,23 +9,6 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
-func __octoqlExecute[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var response T
-	hasData, err := client.Execute(ctx, payload, &response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(&response, err)
-	}
-	return &response, nil
-}
-
 type FirstRepository string
 
 // GitHubNamingResponse is returned by GitHubNaming on success.
@@ -141,19 +124,24 @@ func (e *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
 func GitHubNaming(
 	client *octoql.Client,
 ) (*GitHubNamingResponse, error) {
-	return __octoqlExecute[GitHubNamingResponse](
+	var response GitHubNamingResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "GitHubNaming",
 			Query:         GitHubNaming_Operation,
 			Variables:     nil,
 		},
-		func(data *GitHubNamingResponse, err error) error {
-			return &GitHubNamingPartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &GitHubNamingPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }

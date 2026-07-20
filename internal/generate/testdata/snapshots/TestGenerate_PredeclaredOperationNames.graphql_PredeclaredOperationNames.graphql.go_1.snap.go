@@ -9,23 +9,6 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
-func __octoqlExecute[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var response T
-	hasData, err := client.Execute(ctx, payload, &response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(&response, err)
-	}
-	return &response, nil
-}
-
 // anyResponse is returned by any on success.
 type anyResponse struct {
 	Viewer anyViewerUser `json:"viewer"`
@@ -91,21 +74,26 @@ func (e *anyPartialDataError) PartialData() *anyResponse {
 func any(
 	client *octoql.Client,
 ) (*anyResponse, error) {
-	return __octoqlExecute[anyResponse](
+	var response anyResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "any",
 			Query:         any_Operation,
 			Variables:     nil,
 		},
-		func(data *anyResponse, err error) error {
-			return &anyPartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &anyPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by new.
@@ -141,19 +129,24 @@ func (e *newPartialDataError) PartialData() *newResponse {
 func new(
 	client *octoql.Client,
 ) (*newResponse, error) {
-	return __octoqlExecute[newResponse](
+	var response newResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "new",
 			Query:         new_Operation,
 			Variables:     nil,
 		},
-		func(data *newResponse, err error) error {
-			return &newPartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &newPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }

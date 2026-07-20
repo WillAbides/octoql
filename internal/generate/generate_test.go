@@ -150,7 +150,7 @@ func TestGenerateDeterministic(t *testing.T) {
 	}
 }
 
-func TestGenerateUsesOneExecutorForAllOperations(t *testing.T) {
+func TestGenerateInlinesExecutionWithOperationVariableNames(t *testing.T) {
 	dir := t.TempDir()
 	schema := `
 type Query {
@@ -162,7 +162,6 @@ type Query {
     response: String!
     hasData: String!
   ): String!
-  other: String!
 }
 `
 	operation := `
@@ -183,10 +182,6 @@ query Value(
     hasData: $hasData
   )
 }
-
-query Other {
-  other
-}
 `
 	schemaPath := filepath.Join(dir, "schema.graphql")
 	operationPath := filepath.Join(dir, "operation.graphql")
@@ -204,20 +199,19 @@ query Other {
 	require.NoError(t, err)
 
 	source := string(generated[config.Generated])
-	assert.Equal(t, 1, strings.Count(source, "func __octoqlExecute["))
-	assert.Equal(t, 1, strings.Count(source, "client.Execute("))
-	assert.Contains(t, source, "return __octoqlExecute[ValueResponse](")
-	assert.Contains(t, source, "return __octoqlExecute[OtherResponse](")
+	assert.NotContains(t, source, "func __octoqlDo")
+	assert.NotContains(t, source, "__octoqlPartialDataError")
 	assert.Contains(t, source, "type ValueVariables struct")
 	assert.Contains(t, source, "vars ValueVariables,")
 	assert.Contains(t, source, "Variables:     &vars,")
 	assert.NotContains(t, source, "variables_2 := ValueVariables")
+	assert.Contains(t, source, "var response ValueResponse")
+	assert.Contains(t, source, "hasData, err := client.Execute(")
 	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialData() *ValueResponse")
-	assert.Contains(t, source, "return &ValuePartialDataError{")
-	require.NoError(t, buildGoFile("shared_execution", []byte(source)))
+	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
 }
 
 func TestGenerateQuotesOperationText(t *testing.T) {

@@ -12,23 +12,6 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
-func __octoqlExecute[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var response T
-	hasData, err := client.Execute(ctx, payload, &response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(&response, err)
-	}
-	return &response, nil
-}
-
 // ActorDetails includes the GraphQL fields of Actor requested by the fragment ActorDetails.
 //
 // ActorDetails is implemented by the following types:
@@ -2921,21 +2904,26 @@ func GetActor(
 	client *octoql.Client,
 	vars GetActorVariables,
 ) (*GetActorResponse, error) {
-	return __octoqlExecute[GetActorResponse](
+	var response GetActorResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "GetActor",
 			Query:         GetActor_Operation,
 			Variables:     &vars,
 		},
-		func(data *GetActorResponse, err error) error {
-			return &GetActorPartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &GetActorPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by GetNode.
@@ -2972,21 +2960,26 @@ func GetNode(
 	client *octoql.Client,
 	vars GetNodeVariables,
 ) (*GetNodeResponse, error) {
-	return __octoqlExecute[GetNodeResponse](
+	var response GetNodeResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "GetNode",
 			Query:         GetNode_Operation,
 			Variables:     &vars,
 		},
-		func(data *GetNodeResponse, err error) error {
-			return &GetNodePartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &GetNodePartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by NestedNodeShapes.
@@ -3022,21 +3015,26 @@ func (e *NestedNodeShapesPartialDataError) PartialData() *NestedNodeShapesRespon
 func NestedNodeShapes(
 	client *octoql.Client,
 ) (*NestedNodeShapesResponse, error) {
-	return __octoqlExecute[NestedNodeShapesResponse](
+	var response NestedNodeShapesResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "NestedNodeShapes",
 			Query:         NestedNodeShapes_Operation,
 			Variables:     nil,
 		},
-		func(data *NestedNodeShapesResponse, err error) error {
-			return &NestedNodeShapesPartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &NestedNodeShapesPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by RecursiveRepository.
@@ -3073,21 +3071,26 @@ func RecursiveRepository(
 	client *octoql.Client,
 	vars RecursiveRepositoryVariables,
 ) (*RecursiveRepositoryResponse, error) {
-	return __octoqlExecute[RecursiveRepositoryResponse](
+	var response RecursiveRepositoryResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "RecursiveRepository",
 			Query:         RecursiveRepository_Operation,
 			Variables:     &vars,
 		},
-		func(data *RecursiveRepositoryResponse, err error) error {
-			return &RecursiveRepositoryPartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &RecursiveRepositoryPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by RepositoryEventCovariance.
@@ -3123,21 +3126,26 @@ func (e *RepositoryEventCovariancePartialDataError) PartialData() *RepositoryEve
 func RepositoryEventCovariance(
 	client *octoql.Client,
 ) (*RepositoryEventCovarianceResponse, error) {
-	return __octoqlExecute[RepositoryEventCovarianceResponse](
+	var response RepositoryEventCovarianceResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "RepositoryEventCovariance",
 			Query:         RepositoryEventCovariance_Operation,
 			Variables:     nil,
 		},
-		func(data *RepositoryEventCovarianceResponse, err error) error {
-			return &RepositoryEventCovariancePartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &RepositoryEventCovariancePartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by SearchRepositories.
@@ -3174,19 +3182,24 @@ func SearchRepositories(
 	client *octoql.Client,
 	vars SearchRepositoriesVariables,
 ) (*SearchRepositoriesResponse, error) {
-	return __octoqlExecute[SearchRepositoriesResponse](
+	var response SearchRepositoriesResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client,
 		octoql.Payload{
 			OperationName: "SearchRepositories",
 			Query:         SearchRepositories_Operation,
 			Variables:     &vars,
 		},
-		func(data *SearchRepositoriesResponse, err error) error {
-			return &SearchRepositoriesPartialDataError{
-				data: data,
-				err:  err,
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &SearchRepositoriesPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }

@@ -28,8 +28,8 @@
   GraphQL `data` field is non-null and decoded successfully, partial data is
   available through the operation-specific generated partial-data error type.
 - `Client.Execute` is an exported generated-code contract, not a handwritten
-  application API. Generated clients wrap it in one package-local unexported
-  helper that preserves nil-before-response behavior.
+  application API. Generated operation helpers may call it directly while
+  preserving nil-before-response behavior.
 - Successful HTTP metadata is not attached to generated responses. Primary
   rate-limit state is an advisory, concurrency-safe `Client.RateLimit()`
   snapshot; request-specific failure metadata remains on the error chain.
