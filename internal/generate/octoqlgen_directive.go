@@ -32,11 +32,11 @@ func newOctoqlgenDirective(pos *ast.Position) *octoqlgenDirective {
 	}
 }
 
-func (dir *octoqlgenDirective) GetOmitempty() bool   { return dir.Omitempty != nil && *dir.Omitempty }
-func (dir *octoqlgenDirective) GetPointer() bool     { return dir.Pointer != nil && *dir.Pointer }
-func (dir *octoqlgenDirective) PointerIsFalse() bool { return dir.Pointer != nil && !*dir.Pointer }
-func (dir *octoqlgenDirective) GetStruct() bool      { return dir.Struct != nil && *dir.Struct }
-func (dir *octoqlgenDirective) GetFlatten() bool     { return dir.Flatten != nil && *dir.Flatten }
+func (d *octoqlgenDirective) GetOmitempty() bool   { return d.Omitempty != nil && *d.Omitempty }
+func (d *octoqlgenDirective) GetPointer() bool     { return d.Pointer != nil && *d.Pointer }
+func (d *octoqlgenDirective) PointerIsFalse() bool { return d.Pointer != nil && !*d.Pointer }
+func (d *octoqlgenDirective) GetStruct() bool      { return d.Struct != nil && *d.Struct }
+func (d *octoqlgenDirective) GetFlatten() bool     { return d.Flatten != nil && *d.Flatten }
 
 func setBool(optionName string, dst **bool, v *ast.Value, pos *ast.Position) error {
 	if *dst != nil {
@@ -79,7 +79,7 @@ func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) 
 //
 // add will be called several times.  In this case, conflicts between the
 // options are an error.
-func (dir *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Position) error {
+func (d *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Position) error {
 	if graphQLDirective.Name != "octoqlgen" {
 		// Actually we just won't get here; we only get here if the line starts
 		// with "# @octoqlgen", unless there's some sort of bug.
@@ -110,13 +110,13 @@ func (dir *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Pos
 		typeName, fieldName := forParts[0], forParts[1]
 
 		fieldDir := newOctoqlgenDirective(pos)
-		if dir.FieldDirectives[typeName] == nil {
-			dir.FieldDirectives[typeName] = make(map[string]*octoqlgenDirective)
+		if d.FieldDirectives[typeName] == nil {
+			d.FieldDirectives[typeName] = make(map[string]*octoqlgenDirective)
 		}
-		dir.FieldDirectives[typeName][fieldName] = fieldDir
+		d.FieldDirectives[typeName][fieldName] = fieldDir
 
 		// Now, the rest of the function will operate on fieldDir.
-		dir = fieldDir
+		d = fieldDir
 	}
 
 	// Now parse the rest of the arguments.
@@ -124,19 +124,19 @@ func (dir *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Pos
 		switch arg.Name {
 		// TODO(benkraft): Use reflect and struct tags?
 		case "omitempty":
-			err = setBool("omitempty", &dir.Omitempty, arg.Value, pos)
+			err = setBool("omitempty", &d.Omitempty, arg.Value, pos)
 		case "pointer":
-			err = setBool("pointer", &dir.Pointer, arg.Value, pos)
+			err = setBool("pointer", &d.Pointer, arg.Value, pos)
 		case "struct":
-			err = setBool("struct", &dir.Struct, arg.Value, pos)
+			err = setBool("struct", &d.Struct, arg.Value, pos)
 		case "flatten":
-			err = setBool("flatten", &dir.Flatten, arg.Value, pos)
+			err = setBool("flatten", &d.Flatten, arg.Value, pos)
 		case "bind":
-			err = setString("bind", &dir.Bind, arg.Value, pos)
+			err = setString("bind", &d.Bind, arg.Value, pos)
 		case "typename":
-			err = setString("typename", &dir.TypeName, arg.Value, pos)
+			err = setString("typename", &d.TypeName, arg.Value, pos)
 		case "alias":
-			err = setString("alias", &dir.Alias, arg.Value, pos)
+			err = setString("alias", &d.Alias, arg.Value, pos)
 		case "for":
 			// handled above
 		default:
@@ -150,13 +150,13 @@ func (dir *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Pos
 	return nil
 }
 
-func (dir *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) error {
+func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) error {
 	// TODO(benkraft): This function has a lot of duplicated checks, figure out
 	// how to organize them better to avoid the duplication.
-	for typeName, byField := range dir.FieldDirectives {
+	for typeName, byField := range d.FieldDirectives {
 		typ, ok := schema.Types[typeName]
 		if !ok {
-			return errorf(dir.pos, `for got invalid type-name "%s"`, typeName)
+			return errorf(d.pos, `for got invalid type-name "%s"`, typeName)
 		}
 		for fieldName, fieldDir := range byField {
 			var field *ast.FieldDefinition
@@ -188,77 +188,77 @@ func (dir *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) er
 
 	switch node := node.(type) {
 	case *ast.OperationDefinition:
-		if dir.Bind != "" {
-			return errorf(dir.pos, "bind may not be applied to the entire operation")
+		if d.Bind != "" {
+			return errorf(d.pos, "bind may not be applied to the entire operation")
 		}
 
 		// Anything else is valid on the entire operation; it will just apply
 		// to whatever it is relevant to.
 		return nil
 	case *ast.FragmentDefinition:
-		if dir.Bind != "" {
+		if d.Bind != "" {
 			// TODO(benkraft): Implement this if people find it useful.
-			return errorf(dir.pos, "bind is not implemented for named fragments")
+			return errorf(d.pos, "bind is not implemented for named fragments")
 		}
 
-		if dir.Struct != nil {
-			return errorf(dir.pos, "struct is only applicable to fields, not fragment-definitions")
+		if d.Struct != nil {
+			return errorf(d.pos, "struct is only applicable to fields, not fragment-definitions")
 		}
 
 		// Like operations, anything else will just apply to the entire
 		// fragment.
 		return nil
 	case *ast.VariableDefinition:
-		if dir.Omitempty != nil && node.Type.NonNull {
-			return errorf(dir.pos, "omitempty may only be used on optional arguments")
+		if d.Omitempty != nil && node.Type.NonNull {
+			return errorf(d.pos, "omitempty may only be used on optional arguments")
 		}
 
-		if dir.Struct != nil {
-			return errorf(dir.pos, "struct is only applicable to fields, not variable-definitions")
+		if d.Struct != nil {
+			return errorf(d.pos, "struct is only applicable to fields, not variable-definitions")
 		}
 
-		if dir.Flatten != nil {
-			return errorf(dir.pos, "flatten is only applicable to fields, not variable-definitions")
+		if d.Flatten != nil {
+			return errorf(d.pos, "flatten is only applicable to fields, not variable-definitions")
 		}
 
-		if len(dir.FieldDirectives) > 0 {
-			return errorf(dir.pos, "for is only applicable to operations and arguments")
+		if len(d.FieldDirectives) > 0 {
+			return errorf(d.pos, "for is only applicable to operations and arguments")
 		}
 
-		if dir.TypeName != "" && dir.Bind != "" && dir.Bind != "-" {
-			return errorf(dir.pos, "typename and bind may not be used together")
+		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
+			return errorf(d.pos, "typename and bind may not be used together")
 		}
 
 		return nil
 	case *ast.Field:
-		if dir.Omitempty != nil {
-			return errorf(dir.pos, "omitempty is not applicable to variables, not fields")
+		if d.Omitempty != nil {
+			return errorf(d.pos, "omitempty is not applicable to variables, not fields")
 		}
 
 		typ := schema.Types[node.Definition.Type.Name()]
-		if dir.Struct != nil {
-			if err := validateStructOption(typ, node.SelectionSet, dir.pos); err != nil {
+		if d.Struct != nil {
+			if err := validateStructOption(typ, node.SelectionSet, d.pos); err != nil {
 				return err
 			}
 		}
 
-		if dir.Flatten != nil {
-			if _, err := validateFlattenOption(typ, node.SelectionSet, dir.pos); err != nil {
+		if d.Flatten != nil {
+			if _, err := validateFlattenOption(typ, node.SelectionSet, d.pos); err != nil {
 				return err
 			}
 		}
 
-		if len(dir.FieldDirectives) > 0 {
-			return errorf(dir.pos, "for is only applicable to operations and arguments")
+		if len(d.FieldDirectives) > 0 {
+			return errorf(d.pos, "for is only applicable to operations and arguments")
 		}
 
-		if dir.TypeName != "" && dir.Bind != "" && dir.Bind != "-" {
-			return errorf(dir.pos, "typename and bind may not be used together")
+		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
+			return errorf(d.pos, "typename and bind may not be used together")
 		}
 
 		return nil
 	default:
-		return errorf(dir.pos, "invalid @octoqlgen directive location: %T", node)
+		return errorf(d.pos, "invalid @octoqlgen directive location: %T", node)
 	}
 }
 
@@ -377,7 +377,7 @@ func fillDefaultString(target *string, defaults ...string) {
 //
 // parent is as described in parsePrecedingComment.  operationDirective is the
 // directive applied to this operation or fragment.
-func (dir *octoqlgenDirective) mergeOperationDirective(
+func (d *octoqlgenDirective) mergeOperationDirective(
 	node interface{},
 	parentIfInputField *ast.Definition,
 	operationDirective *octoqlgenDirective,
@@ -399,16 +399,16 @@ func (dir *octoqlgenDirective) mergeOperationDirective(
 
 	// Now fill defaults; in general local directive wins over the "for" field
 	// directive wins over the operation directive.
-	fillDefaultBool(&dir.Omitempty, forField.Omitempty, operationDirective.Omitempty)
-	fillDefaultBool(&dir.Pointer, forField.Pointer, operationDirective.Pointer)
+	fillDefaultBool(&d.Omitempty, forField.Omitempty, operationDirective.Omitempty)
+	fillDefaultBool(&d.Pointer, forField.Pointer, operationDirective.Pointer)
 	// struct and flatten aren't settable via "for".
-	fillDefaultBool(&dir.Struct, operationDirective.Struct)
-	fillDefaultBool(&dir.Flatten, operationDirective.Flatten)
-	fillDefaultString(&dir.Bind, forField.Bind, operationDirective.Bind)
+	fillDefaultBool(&d.Struct, operationDirective.Struct)
+	fillDefaultBool(&d.Flatten, operationDirective.Flatten)
+	fillDefaultString(&d.Bind, forField.Bind, operationDirective.Bind)
 	// typename isn't settable on the operation (when set there it replies to
 	// the response-type).
-	fillDefaultString(&dir.TypeName, forField.TypeName)
-	fillDefaultString(&dir.Alias, forField.Alias, operationDirective.Alias)
+	fillDefaultString(&d.TypeName, forField.TypeName)
+	fillDefaultString(&d.Alias, forField.Alias, operationDirective.Alias)
 }
 
 // parsePrecedingComment looks at the comment right before this node, and

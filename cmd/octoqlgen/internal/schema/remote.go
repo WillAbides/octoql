@@ -151,8 +151,8 @@ type httpClientTransport struct {
 	client httpDoer
 }
 
-func (transport httpClientTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	return transport.client.Do(request)
+func (t httpClientTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	return t.client.Do(request)
 }
 
 func githubRepositoryParts(repository string) (string, string, error) {

@@ -49,22 +49,22 @@ type RateLimitError struct {
 }
 
 // Error returns a summary of the rate-limit failure.
-func (rateLimitError *RateLimitError) Error() string {
-	if rateLimitError == nil {
+func (e *RateLimitError) Error() string {
+	if e == nil {
 		return "github rate limit exceeded"
 	}
-	if rateLimitError.Err == nil {
-		return fmt.Sprintf("github %s rate limit exceeded", rateLimitError.Kind)
+	if e.Err == nil {
+		return fmt.Sprintf("github %s rate limit exceeded", e.Kind)
 	}
-	return fmt.Sprintf("github %s rate limit exceeded: %v", rateLimitError.Kind, rateLimitError.Err)
+	return fmt.Sprintf("github %s rate limit exceeded: %v", e.Kind, e.Err)
 }
 
 // Unwrap exposes the response failure and its GraphQL or processing causes.
-func (rateLimitError *RateLimitError) Unwrap() error {
-	if rateLimitError == nil {
+func (e *RateLimitError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return rateLimitError.Err
+	return e.Err
 }
 
 var rateLimitNow = time.Now
@@ -106,8 +106,8 @@ func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
 	return rateLimit
 }
 
-func (rateLimit *parsedRateLimit) primarySnapshot() RateLimit {
-	snapshot := rateLimit.RateLimit
+func (r *parsedRateLimit) primarySnapshot() RateLimit {
+	snapshot := r.RateLimit
 	snapshot.RetryAfter = 0
 	snapshot.RetryAt = time.Time{}
 	return snapshot

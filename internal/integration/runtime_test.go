@@ -17,8 +17,8 @@ import (
 
 type integrationRoundTripFunc func(*http.Request) (*http.Response, error)
 
-func (function integrationRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
-	return function(request)
+func (f integrationRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
 func TestGeneratedQueryResponseSemantics(t *testing.T) {
@@ -240,6 +240,6 @@ type integrationCloseErrorBody struct {
 	err error
 }
 
-func (body *integrationCloseErrorBody) Close() error {
-	return body.err
+func (b *integrationCloseErrorBody) Close() error {
+	return b.err
 }

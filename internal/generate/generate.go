@@ -138,19 +138,19 @@ func cloneOperations(operations []*operation, config *Config) []*operation {
 	return cloned
 }
 
-func (plan *generationPlan) newRenderer(
+func (p *generationPlan) newRenderer(
 	config *Config,
 	includePlanImports bool,
 	forbiddenImportPath string,
 ) (*generator, error) {
 	renderConfig := cloneConfig(config)
-	typeMap, clonedTypes, err := cloneTypeMap(plan.typeMap)
+	typeMap, clonedTypes, err := cloneTypeMap(p.typeMap)
 	if err != nil {
 		return nil, err
 	}
 	renderer := &generator{
 		Config:              &renderConfig,
-		Operations:          cloneOperations(plan.operations, &renderConfig),
+		Operations:          cloneOperations(p.operations, &renderConfig),
 		typeMap:             typeMap,
 		imports:             map[string]string{},
 		usedAliases:         map[string]bool{},
@@ -159,8 +159,8 @@ func (plan *generationPlan) newRenderer(
 		forbiddenImportPath: forbiddenImportPath,
 	}
 	if includePlanImports {
-		renderer.imports = maps.Clone(plan.imports)
-		renderer.usedAliases = maps.Clone(plan.usedAliases)
+		renderer.imports = maps.Clone(p.imports)
+		renderer.usedAliases = maps.Clone(p.usedAliases)
 	}
 	for _, operation := range renderer.Operations {
 		if operation.Input == nil {

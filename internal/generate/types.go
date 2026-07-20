@@ -92,35 +92,35 @@ type (
 )
 
 // Opaque types are defined by the user; pointers and slices need no definition
-func (typ *goOpaqueType) WriteDefinition(io.Writer, *generator) error { return nil }
+func (t *goOpaqueType) WriteDefinition(io.Writer, *generator) error { return nil }
 
-func (typ *goTypenameForBuiltinType) WriteDefinition(w io.Writer, g *generator) error {
-	fmt.Fprintf(w, "type %s %s", typ.GoTypeName, typ.GoBuiltinName)
+func (t *goTypenameForBuiltinType) WriteDefinition(w io.Writer, g *generator) error {
+	fmt.Fprintf(w, "type %s %s", t.GoTypeName, t.GoBuiltinName)
 	return nil
 }
-func (typ *goSliceType) WriteDefinition(io.Writer, *generator) error   { return nil }
-func (typ *goPointerType) WriteDefinition(io.Writer, *generator) error { return nil }
-func (typ *goGenericType) WriteDefinition(io.Writer, *generator) error { return nil }
+func (t *goSliceType) WriteDefinition(io.Writer, *generator) error   { return nil }
+func (t *goPointerType) WriteDefinition(io.Writer, *generator) error { return nil }
+func (t *goGenericType) WriteDefinition(io.Writer, *generator) error { return nil }
 
-func (typ *goOpaqueType) Reference() string             { return typ.GoRef }
-func (typ *goTypenameForBuiltinType) Reference() string { return typ.GoTypeName }
-func (typ *goSliceType) Reference() string              { return "[]" + typ.Elem.Reference() }
-func (typ *goPointerType) Reference() string            { return "*" + typ.Elem.Reference() }
-func (typ *goGenericType) Reference() string {
-	return fmt.Sprintf("%s[%s]", typ.GoGenericRef, typ.Elem.Reference())
+func (t *goOpaqueType) Reference() string             { return t.GoRef }
+func (t *goTypenameForBuiltinType) Reference() string { return t.GoTypeName }
+func (t *goSliceType) Reference() string              { return "[]" + t.Elem.Reference() }
+func (t *goPointerType) Reference() string            { return "*" + t.Elem.Reference() }
+func (t *goGenericType) Reference() string {
+	return fmt.Sprintf("%s[%s]", t.GoGenericRef, t.Elem.Reference())
 }
 
-func (typ *goOpaqueType) SelectionSet() ast.SelectionSet             { return nil }
-func (typ *goTypenameForBuiltinType) SelectionSet() ast.SelectionSet { return nil }
-func (typ *goSliceType) SelectionSet() ast.SelectionSet              { return typ.Elem.SelectionSet() }
-func (typ *goPointerType) SelectionSet() ast.SelectionSet            { return typ.Elem.SelectionSet() }
-func (typ *goGenericType) SelectionSet() ast.SelectionSet            { return typ.Elem.SelectionSet() }
+func (t *goOpaqueType) SelectionSet() ast.SelectionSet             { return nil }
+func (t *goTypenameForBuiltinType) SelectionSet() ast.SelectionSet { return nil }
+func (t *goSliceType) SelectionSet() ast.SelectionSet              { return t.Elem.SelectionSet() }
+func (t *goPointerType) SelectionSet() ast.SelectionSet            { return t.Elem.SelectionSet() }
+func (t *goGenericType) SelectionSet() ast.SelectionSet            { return t.Elem.SelectionSet() }
 
-func (typ *goOpaqueType) GraphQLTypeName() string             { return typ.GraphQLName }
-func (typ *goTypenameForBuiltinType) GraphQLTypeName() string { return typ.GraphQLName }
-func (typ *goSliceType) GraphQLTypeName() string              { return typ.Elem.GraphQLTypeName() }
-func (typ *goPointerType) GraphQLTypeName() string            { return typ.Elem.GraphQLTypeName() }
-func (typ *goGenericType) GraphQLTypeName() string            { return typ.Elem.GraphQLTypeName() }
+func (t *goOpaqueType) GraphQLTypeName() string             { return t.GraphQLName }
+func (t *goTypenameForBuiltinType) GraphQLTypeName() string { return t.GraphQLName }
+func (t *goSliceType) GraphQLTypeName() string              { return t.Elem.GraphQLTypeName() }
+func (t *goPointerType) GraphQLTypeName() string            { return t.Elem.GraphQLTypeName() }
+func (t *goGenericType) GraphQLTypeName() string            { return t.Elem.GraphQLTypeName() }
 
 // goEnumType represents a Go named-string type used to represent a GraphQL
 // enum.  In this case, we generate both the type (`type T string`) and also a
@@ -138,30 +138,30 @@ type goEnumValue struct {
 	Description string
 }
 
-func (typ *goEnumType) WriteDefinition(w io.Writer, g *generator) error {
+func (t *goEnumType) WriteDefinition(w io.Writer, g *generator) error {
 	// All GraphQL enums have underlying type string (in the Go sense).
-	writeDescription(w, typ.Description)
-	fmt.Fprintf(w, "type %s string\n", typ.GoName)
+	writeDescription(w, t.Description)
+	fmt.Fprintf(w, "type %s string\n", t.GoName)
 	fmt.Fprintf(w, "const (\n")
-	for _, val := range typ.Values {
+	for _, val := range t.Values {
 		writeDescription(w, val.Description)
 		fmt.Fprintf(w, "%s %s = \"%s\"\n",
-			val.GoName, typ.GoName, val.GraphQLName)
+			val.GoName, t.GoName, val.GraphQLName)
 	}
 	fmt.Fprintf(w, ")\n")
 
 	// Add slice with all enums.
-	fmt.Fprintf(w, "var All%s = []%s{\n", typ.GoName, typ.GoName)
-	for _, val := range typ.Values {
+	fmt.Fprintf(w, "var All%s = []%s{\n", t.GoName, t.GoName)
+	for _, val := range t.Values {
 		fmt.Fprintf(w, "%s,\n", val.GoName)
 	}
 	fmt.Fprintf(w, "}\n")
 	return nil
 }
 
-func (typ *goEnumType) Reference() string              { return typ.GoName }
-func (typ *goEnumType) SelectionSet() ast.SelectionSet { return nil }
-func (typ *goEnumType) GraphQLTypeName() string        { return typ.GraphQLName }
+func (t *goEnumType) Reference() string              { return t.GoName }
+func (t *goEnumType) SelectionSet() ast.SelectionSet { return nil }
+func (t *goEnumType) GraphQLTypeName() string        { return t.GraphQLName }
 
 // goStructType represents a Go struct type used to represent a GraphQL object
 // or input-object type.
@@ -184,26 +184,26 @@ type goStructField struct {
 
 // IsAbstract returns true if this field is of abstract type (i.e. GraphQL
 // union or interface; equivalently, represented by an interface in Go).
-func (field *goStructField) IsAbstract() bool {
-	_, ok := field.GoType.Unwrap().(*goInterfaceType)
+func (f *goStructField) IsAbstract() bool {
+	_, ok := f.GoType.Unwrap().(*goInterfaceType)
 	return ok
 }
 
 // IsEmbedded returns true if this field is embedded (a.k.a. anonymous), which
 // is in practice true if it corresponds to a named fragment spread in GraphQL.
-func (field *goStructField) IsEmbedded() bool {
-	return field.GoName == ""
+func (f *goStructField) IsEmbedded() bool {
+	return f.GoName == ""
 }
 
 // Selector returns the field's name, which is unqualified type-name if it's
 // embedded.
-func (field *goStructField) Selector() string {
-	if field.GoName != "" {
-		return field.GoName
+func (f *goStructField) Selector() string {
+	if f.GoName != "" {
+		return f.GoName
 	}
 	// TODO(benkraft): This assumes the type is package-local, which is always
 	// true for embedded types for us, but isn't the most robust assumption.
-	return field.GoType.Unwrap().Reference()
+	return f.GoType.Unwrap().Reference()
 }
 
 // unmarshaler returns:
@@ -212,8 +212,8 @@ func (field *goStructField) Selector() string {
 //     unqualified name)
 //   - true if we need to generate an unmarshaler at all, false if the default
 //     behavior will suffice
-func (field *goStructField) unmarshaler() (qualifiedName string, needsImport, needsUnmarshaler bool) {
-	switch typ := field.GoType.Unwrap().(type) {
+func (f *goStructField) unmarshaler() (qualifiedName string, needsImport, needsUnmarshaler bool) {
+	switch typ := f.GoType.Unwrap().(type) {
 	case *goOpaqueType:
 		if typ.Unmarshaler != "" {
 			return typ.Unmarshaler, true, true
@@ -221,13 +221,13 @@ func (field *goStructField) unmarshaler() (qualifiedName string, needsImport, ne
 	case *goInterfaceType:
 		return "__unmarshal" + typ.Reference(), false, true
 	}
-	return "encoding/json.Unmarshal", true, field.IsEmbedded()
+	return "encoding/json.Unmarshal", true, f.IsEmbedded()
 }
 
 // Unmarshaler returns the Go name of the function to use to unmarshal this
 // field (which may be "json.Unmarshal" if there's not a special one).
-func (field *goStructField) Unmarshaler(g *generator) (string, error) {
-	name, needsImport, _ := field.unmarshaler()
+func (f *goStructField) Unmarshaler(g *generator) (string, error) {
+	name, needsImport, _ := f.unmarshaler()
 	if needsImport {
 		return g.ref(name)
 	}
@@ -238,8 +238,8 @@ func (field *goStructField) Unmarshaler(g *generator) (string, error) {
 //   - the fully-qualified name of the function to use to marshal this field
 //   - true if we need to generate a marshaler at all, false if the default
 //     behavior will suffice
-func (field *goStructField) marshaler() (qualifiedName string, needsImport, needsMarshaler bool) {
-	switch typ := field.GoType.Unwrap().(type) {
+func (f *goStructField) marshaler() (qualifiedName string, needsImport, needsMarshaler bool) {
+	switch typ := f.GoType.Unwrap().(type) {
 	case *goOpaqueType:
 		if typ.Marshaler != "" {
 			return typ.Marshaler, true, true
@@ -247,13 +247,13 @@ func (field *goStructField) marshaler() (qualifiedName string, needsImport, need
 	case *goInterfaceType:
 		return "__marshal" + typ.Reference(), false, true
 	}
-	return "encoding/json.Marshal", true, field.IsEmbedded()
+	return "encoding/json.Marshal", true, f.IsEmbedded()
 }
 
 // Marshaler returns the Go name of the function to use to marshal this
 // field (which may be "json.Marshal" if there's not a special one).
-func (field *goStructField) Marshaler(g *generator) (string, error) {
-	name, needsImport, _ := field.marshaler()
+func (f *goStructField) Marshaler(g *generator) (string, error) {
+	name, needsImport, _ := f.marshaler()
 	if needsImport {
 		return g.ref(name)
 	}
@@ -265,16 +265,16 @@ func (field *goStructField) Marshaler(g *generator) (string, error) {
 // (un)marshaler.  Note if it needs one, it needs the other: even if the user
 // only specified an unmarshaler, we need to add `json:"-"` to the field, which
 // means we need to specially handling it when marshaling.
-func (field *goStructField) NeedsMarshaling() bool {
-	_, _, ok1 := field.marshaler()
-	_, _, ok2 := field.unmarshaler()
+func (f *goStructField) NeedsMarshaling() bool {
+	_, _, ok1 := f.marshaler()
+	_, _, ok2 := f.unmarshaler()
 	return ok1 || ok2
 }
 
 // NeedsMarshaler returns true if any fields of this type need special
 // handling when (un)marshaling (see goStructField.NeedsMarshaling).
-func (typ *goStructType) NeedsMarshaling() bool {
-	for _, f := range typ.Fields {
+func (t *goStructType) NeedsMarshaling() bool {
+	for _, f := range t.Fields {
 		if f.NeedsMarshaling() {
 			return true
 		}
@@ -336,12 +336,12 @@ type selector struct {
 //	[]selector{{<goStructField for QT.A.Id>, "A.Id"}}
 //
 // [Go's rules]: https://golang.org/ref/spec#Selectors
-func (typ *goStructType) FlattenedFields() ([]*selector, error) {
+func (t *goStructType) FlattenedFields() ([]*selector, error) {
 	seenJSONNames := map[string]bool{}
-	retval := make([]*selector, 0, len(typ.Fields))
+	retval := make([]*selector, 0, len(t.Fields))
 
-	queue := make([]*selector, len(typ.Fields))
-	for i, field := range typ.Fields {
+	queue := make([]*selector, len(t.Fields))
+	for i, field := range t.Fields {
 		queue[i] = &selector{field, field.Selector()}
 	}
 
@@ -362,7 +362,7 @@ func (typ *goStructType) FlattenedFields() ([]*selector, error) {
 				// of the fragment.
 				return nil, errorf(nil,
 					"octoqlgen internal error: embedded field %s.%s was not a struct",
-					typ.GoName, field.GoName)
+					t.GoName, field.GoName)
 			}
 
 			// Enqueue the embedded fields for our BFS.
@@ -385,11 +385,11 @@ func (typ *goStructType) FlattenedFields() ([]*selector, error) {
 	return retval, nil
 }
 
-func (typ *goStructType) WriteDefinition(w io.Writer, g *generator) error {
-	writeDescription(w, structDescription(typ))
+func (t *goStructType) WriteDefinition(w io.Writer, g *generator) error {
+	writeDescription(w, structDescription(t))
 
-	fmt.Fprintf(w, "type %s struct {\n", typ.GoName)
-	for _, field := range typ.Fields {
+	fmt.Fprintf(w, "type %s struct {\n", t.GoName)
+	for _, field := range t.Fields {
 		writeDescription(w, field.Description)
 		jsonTag := `"` + field.JSONName
 		if field.Omitempty {
@@ -407,7 +407,7 @@ func (typ *goStructType) WriteDefinition(w io.Writer, g *generator) error {
 	}
 	fmt.Fprintf(w, "}\n")
 
-	if !typ.IsInput {
+	if !t.IsInput {
 		// Write out getter methods for each field. These are most useful for
 		// shared fields of an interface -- the methods will be included in the
 		// interface. But they can be useful in other cases, for example where you
@@ -417,17 +417,17 @@ func (typ *goStructType) WriteDefinition(w io.Writer, g *generator) error {
 		// Note we use the *flattened* fields here, which ensures we avoid
 		// conflicts in the case where multiple embedded types include the same
 		// field.
-		flattened, err := typ.FlattenedFields()
+		flattened, err := t.FlattenedFields()
 		if err != nil {
 			return err
 		}
 		for _, field := range flattened {
 			description := fmt.Sprintf(
 				"Get%s returns %s.%s, and is useful for accessing the field via an interface.",
-				field.GoName, typ.GoName, field.GoName)
+				field.GoName, t.GoName, field.GoName)
 			writeDescription(w, description)
 			fmt.Fprintf(w, "func (v *%s) Get%s() %s { return v.%s }\n",
-				typ.GoName, field.GoName, field.GoType.Reference(), field.Selector)
+				t.GoName, field.GoName, field.GoType.Reference(), field.Selector)
 		}
 	}
 
@@ -463,12 +463,12 @@ func (typ *goStructType) WriteDefinition(w io.Writer, g *generator) error {
 	//
 	// TODO(benkraft): If/when proposal #5901 is implemented (Go 1.18 at the
 	// earliest), we may be able to do some of this a simpler way.
-	if typ.NeedsMarshaling() {
-		err := g.render("unmarshal.go.tmpl", w, typ)
+	if t.NeedsMarshaling() {
+		err := g.render("unmarshal.go.tmpl", w, t)
 		if err != nil {
 			return err
 		}
-		err = g.render("marshal.go.tmpl", w, typ)
+		err = g.render("marshal.go.tmpl", w, t)
 		if err != nil {
 			return err
 		}
@@ -476,9 +476,9 @@ func (typ *goStructType) WriteDefinition(w io.Writer, g *generator) error {
 	return nil
 }
 
-func (typ *goStructType) Reference() string              { return typ.GoName }
-func (typ *goStructType) SelectionSet() ast.SelectionSet { return typ.Selection }
-func (typ *goStructType) GraphQLTypeName() string        { return typ.GraphQLName }
+func (t *goStructType) Reference() string              { return t.GoName }
+func (t *goStructType) SelectionSet() ast.SelectionSet { return t.Selection }
+func (t *goStructType) GraphQLTypeName() string        { return t.GraphQLName }
 
 // goInterfaceType represents a Go interface type, used to represent a GraphQL
 // interface or union type.
@@ -493,14 +493,14 @@ type goInterfaceType struct {
 	descriptionInfo
 }
 
-func (typ *goInterfaceType) WriteDefinition(w io.Writer, g *generator) error {
-	writeDescription(w, interfaceDescription(typ))
+func (t *goInterfaceType) WriteDefinition(w io.Writer, g *generator) error {
+	writeDescription(w, interfaceDescription(t))
 
 	// Write the interface.
-	fmt.Fprintf(w, "type %s interface {\n", typ.GoName)
-	implementsMethodName := fmt.Sprintf("implementsGraphQLInterface%v", typ.GoName)
+	fmt.Fprintf(w, "type %s interface {\n", t.GoName)
+	implementsMethodName := fmt.Sprintf("implementsGraphQLInterface%v", t.GoName)
 	fmt.Fprintf(w, "\t%s()\n", implementsMethodName)
-	for _, sharedField := range typ.SharedFields {
+	for _, sharedField := range t.SharedFields {
 		if sharedField.GoName == "" { // embedded type
 			fmt.Fprintf(w, "\t%s\n", sharedField.GoType.Reference())
 			continue
@@ -529,55 +529,55 @@ func (typ *goInterfaceType) WriteDefinition(w io.Writer, g *generator) error {
 	fmt.Fprintf(w, "}\n")
 
 	// Now, write out the implementations.
-	for _, impl := range typ.Implementations {
+	for _, impl := range t.Implementations {
 		fmt.Fprintf(w, "func (v *%s) %s() {}\n",
 			impl.Reference(), implementsMethodName)
 	}
-	if typ.OtherImplementation != nil {
+	if t.OtherImplementation != nil {
 		fmt.Fprintf(w, "func (v *%s) %s() {}\n",
-			typ.OtherImplementation.Reference(), implementsMethodName)
+			t.OtherImplementation.Reference(), implementsMethodName)
 	}
 
 	// Finally, write the marshal- and unmarshal-helpers, which
 	// will be called by struct fields referencing this type (see
 	// goStructType.WriteDefinition).
-	err := g.render("unmarshal_helper.go.tmpl", w, typ)
+	err := g.render("unmarshal_helper.go.tmpl", w, t)
 	if err != nil {
 		return err
 	}
-	return g.render("marshal_helper.go.tmpl", w, typ)
+	return g.render("marshal_helper.go.tmpl", w, t)
 }
 
-func (typ *goInterfaceType) Reference() string              { return typ.GoName }
-func (typ *goInterfaceType) SelectionSet() ast.SelectionSet { return typ.Selection }
-func (typ *goInterfaceType) GraphQLTypeName() string        { return typ.GraphQLName }
+func (t *goInterfaceType) Reference() string              { return t.GoName }
+func (t *goInterfaceType) SelectionSet() ast.SelectionSet { return t.Selection }
+func (t *goInterfaceType) GraphQLTypeName() string        { return t.GraphQLName }
 
-func (typ *goOpaqueType) Unwrap() goType             { return typ }
-func (typ *goTypenameForBuiltinType) Unwrap() goType { return typ }
-func (typ *goSliceType) Unwrap() goType              { return typ.Elem.Unwrap() }
-func (typ *goPointerType) Unwrap() goType            { return typ.Elem.Unwrap() }
-func (typ *goGenericType) Unwrap() goType            { return typ.Elem.Unwrap() }
-func (typ *goEnumType) Unwrap() goType               { return typ }
-func (typ *goStructType) Unwrap() goType             { return typ }
-func (typ *goInterfaceType) Unwrap() goType          { return typ }
+func (t *goOpaqueType) Unwrap() goType             { return t }
+func (t *goTypenameForBuiltinType) Unwrap() goType { return t }
+func (t *goSliceType) Unwrap() goType              { return t.Elem.Unwrap() }
+func (t *goPointerType) Unwrap() goType            { return t.Elem.Unwrap() }
+func (t *goGenericType) Unwrap() goType            { return t.Elem.Unwrap() }
+func (t *goEnumType) Unwrap() goType               { return t }
+func (t *goStructType) Unwrap() goType             { return t }
+func (t *goInterfaceType) Unwrap() goType          { return t }
 
-func (typ *goOpaqueType) SliceDepth() int             { return 0 }
-func (typ *goTypenameForBuiltinType) SliceDepth() int { return 0 }
-func (typ *goSliceType) SliceDepth() int              { return typ.Elem.SliceDepth() + 1 }
-func (typ *goPointerType) SliceDepth() int            { return 0 }
-func (typ *goGenericType) SliceDepth() int            { return 0 }
-func (typ *goEnumType) SliceDepth() int               { return 0 }
-func (typ *goStructType) SliceDepth() int             { return 0 }
-func (typ *goInterfaceType) SliceDepth() int          { return 0 }
+func (t *goOpaqueType) SliceDepth() int             { return 0 }
+func (t *goTypenameForBuiltinType) SliceDepth() int { return 0 }
+func (t *goSliceType) SliceDepth() int              { return t.Elem.SliceDepth() + 1 }
+func (t *goPointerType) SliceDepth() int            { return 0 }
+func (t *goGenericType) SliceDepth() int            { return 0 }
+func (t *goEnumType) SliceDepth() int               { return 0 }
+func (t *goStructType) SliceDepth() int             { return 0 }
+func (t *goInterfaceType) SliceDepth() int          { return 0 }
 
-func (typ *goOpaqueType) IsPointer() bool             { return false }
-func (typ *goTypenameForBuiltinType) IsPointer() bool { return false }
-func (typ *goSliceType) IsPointer() bool              { return typ.Elem.IsPointer() }
-func (typ *goPointerType) IsPointer() bool            { return true }
-func (typ *goGenericType) IsPointer() bool            { return false }
-func (typ *goEnumType) IsPointer() bool               { return false }
-func (typ *goStructType) IsPointer() bool             { return false }
-func (typ *goInterfaceType) IsPointer() bool          { return false }
+func (t *goOpaqueType) IsPointer() bool             { return false }
+func (t *goTypenameForBuiltinType) IsPointer() bool { return false }
+func (t *goSliceType) IsPointer() bool              { return t.Elem.IsPointer() }
+func (t *goPointerType) IsPointer() bool            { return true }
+func (t *goGenericType) IsPointer() bool            { return false }
+func (t *goEnumType) IsPointer() bool               { return false }
+func (t *goStructType) IsPointer() bool             { return false }
+func (t *goInterfaceType) IsPointer() bool          { return false }
 
 func writeDescription(w io.Writer, desc string) {
 	if desc != "" {

@@ -21,24 +21,24 @@ type typeCloner struct {
 	cloned map[goType]goType
 }
 
-func (cloner *typeCloner) clone(typ goType) (goType, error) {
-	if cloned := cloner.cloned[typ]; cloned != nil {
+func (c *typeCloner) clone(typ goType) (goType, error) {
+	if cloned := c.cloned[typ]; cloned != nil {
 		return cloned, nil
 	}
 
 	switch source := typ.(type) {
 	case *goOpaqueType:
 		cloned := *source
-		cloner.cloned[typ] = &cloned
+		c.cloned[typ] = &cloned
 		return &cloned, nil
 	case *goTypenameForBuiltinType:
 		cloned := *source
-		cloner.cloned[typ] = &cloned
+		c.cloned[typ] = &cloned
 		return &cloned, nil
 	case *goSliceType:
 		cloned := &goSliceType{}
-		cloner.cloned[typ] = cloned
-		elem, err := cloner.clone(source.Elem)
+		c.cloned[typ] = cloned
+		elem, err := c.clone(source.Elem)
 		if err != nil {
 			return nil, err
 		}
@@ -46,8 +46,8 @@ func (cloner *typeCloner) clone(typ goType) (goType, error) {
 		return cloned, nil
 	case *goPointerType:
 		cloned := &goPointerType{}
-		cloner.cloned[typ] = cloned
-		elem, err := cloner.clone(source.Elem)
+		c.cloned[typ] = cloned
+		elem, err := c.clone(source.Elem)
 		if err != nil {
 			return nil, err
 		}
@@ -58,8 +58,8 @@ func (cloner *typeCloner) clone(typ goType) (goType, error) {
 			GoGenericRef:          source.GoGenericRef,
 			QualifiedGoGenericRef: source.QualifiedGoGenericRef,
 		}
-		cloner.cloned[typ] = cloned
-		elem, err := cloner.clone(source.Elem)
+		c.cloned[typ] = cloned
+		elem, err := c.clone(source.Elem)
 		if err != nil {
 			return nil, err
 		}
@@ -68,13 +68,13 @@ func (cloner *typeCloner) clone(typ goType) (goType, error) {
 	case *goEnumType:
 		cloned := *source
 		cloned.Values = append([]goEnumValue{}, source.Values...)
-		cloner.cloned[typ] = &cloned
+		c.cloned[typ] = &cloned
 		return &cloned, nil
 	case *goStructType:
 		cloned := *source
 		cloned.Fields = nil
-		cloner.cloned[typ] = &cloned
-		fields, err := cloner.cloneFields(source.Fields)
+		c.cloned[typ] = &cloned
+		fields, err := c.cloneFields(source.Fields)
 		if err != nil {
 			return nil, err
 		}
@@ -85,15 +85,15 @@ func (cloner *typeCloner) clone(typ goType) (goType, error) {
 		cloned.SharedFields = nil
 		cloned.Implementations = nil
 		cloned.OtherImplementation = nil
-		cloner.cloned[typ] = &cloned
-		sharedFields, err := cloner.cloneFields(source.SharedFields)
+		c.cloned[typ] = &cloned
+		sharedFields, err := c.cloneFields(source.SharedFields)
 		if err != nil {
 			return nil, err
 		}
 		cloned.SharedFields = sharedFields
 		cloned.Implementations = make([]*goStructType, 0, len(source.Implementations))
 		for _, implementation := range source.Implementations {
-			clonedType, cloneErr := cloner.clone(implementation)
+			clonedType, cloneErr := c.clone(implementation)
 			if cloneErr != nil {
 				return nil, cloneErr
 			}
@@ -108,7 +108,7 @@ func (cloner *typeCloner) clone(typ goType) (goType, error) {
 			cloned.Implementations = append(cloned.Implementations, clonedImplementation)
 		}
 		if source.OtherImplementation != nil {
-			clonedType, cloneErr := cloner.clone(source.OtherImplementation)
+			clonedType, cloneErr := c.clone(source.OtherImplementation)
 			if cloneErr != nil {
 				return nil, cloneErr
 			}
@@ -128,13 +128,13 @@ func (cloner *typeCloner) clone(typ goType) (goType, error) {
 	}
 }
 
-func (cloner *typeCloner) cloneFields(
+func (c *typeCloner) cloneFields(
 	source []*goStructField,
 ) ([]*goStructField, error) {
 	cloned := make([]*goStructField, 0, len(source))
 	for _, field := range source {
 		clonedField := *field
-		clonedType, err := cloner.clone(field.GoType)
+		clonedType, err := c.clone(field.GoType)
 		if err != nil {
 			return nil, err
 		}
