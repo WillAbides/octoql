@@ -10,8 +10,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/google/go-github/v76/github"
+	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
+	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi"
 )
 
 var fullCommitSHA = regexp.MustCompile(`^[0-9a-f]{40}$`)
@@ -110,37 +111,33 @@ func (m *Materializer) latestRevision(
 	if err != nil {
 		return "", err
 	}
-	client := github.NewClient(&http.Client{
+	client := octoql.NewClient(deps.githubGraphQLEndpoint(host), &http.Client{
 		Transport: httpClientTransport{client: deps.httpClient},
 	})
 	if token != "" {
-		client = client.WithAuthToken(token)
-	}
-	if host != "github.com" {
-		baseURL := deps.githubAPIBaseURL(host)
-		client, err = client.WithEnterpriseURLs(baseURL, baseURL)
+		err = client.SetBearerToken(token)
 		if err != nil {
-			return "", fmt.Errorf("configuring github enterprise api: %w", err)
+			return "", fmt.Errorf("configuring github graphql authentication: %w", err)
 		}
 	}
-	commits, _, err := client.Repositories.ListCommits(
-		ctx,
-		owner,
-		name,
-		&github.CommitsListOptions{
-			Path: repository.Path,
-			ListOptions: github.ListOptions{
-				PerPage: 1,
-			},
-		},
-	)
+
+	result, err := githubapi.LatestCommit(ctx, client, githubapi.LatestCommitVariables{
+		Owner: owner,
+		Name:  name,
+		Path:  repository.Path,
+	})
 	if err != nil {
 		return "", fmt.Errorf("resolving schema revision: %w", err)
 	}
-	if len(commits) == 0 {
+	if result.Repository.DefaultBranchRef.Target == nil {
 		return "", errors.New("no github commit changed the configured schema path")
 	}
-	revision := commits[0].GetSHA()
+
+	target, ok := (*result.Repository.DefaultBranchRef.Target).(*githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommit)
+	if !ok || len(target.History.Nodes) == 0 || target.History.Nodes[0] == nil {
+		return "", errors.New("no github commit changed the configured schema path")
+	}
+	revision := target.History.Nodes[0].Oid
 	if !fullCommitSHA.MatchString(revision) {
 		return "", errors.New("github commits response did not contain a full commit sha")
 	}

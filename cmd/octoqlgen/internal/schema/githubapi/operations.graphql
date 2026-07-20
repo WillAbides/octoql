@@ -1,0 +1,17 @@
+query LatestCommit($owner: String!, $name: String!, $path: String!) {
+  # @octoqlgen(pointer: false)
+  repository(owner: $owner, name: $name) {
+    # @octoqlgen(pointer: false)
+    defaultBranchRef {
+      target {
+        ... on Commit {
+          history(first: 1, path: $path) {
+            nodes {
+              oid
+            }
+          }
+        }
+      }
+    }
+  }
+}

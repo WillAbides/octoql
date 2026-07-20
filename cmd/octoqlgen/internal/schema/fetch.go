@@ -14,6 +14,8 @@ import (
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 )
 
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml
+
 type sanitizedURLDiagnostic struct {
 	cause   error
 	message string
@@ -272,4 +274,11 @@ func defaultGitHubAPIBaseURL(host string) string {
 		return "https://api.github.com"
 	}
 	return "https://" + host + "/api/v3"
+}
+
+func defaultGitHubGraphQLEndpoint(host string) string {
+	if host == "github.com" {
+		return "https://api.github.com/graphql"
+	}
+	return "https://" + host + "/api/graphql"
 }
