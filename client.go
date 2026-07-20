@@ -13,6 +13,10 @@ import (
 	"sync/atomic"
 )
 
+// DefaultResponseSizeLimit is the maximum GraphQL HTTP response body size a
+// Client accepts for decoding unless configured otherwise. It is 10 MiB.
+const DefaultResponseSizeLimit int64 = 10 * 1024 * 1024
+
 // Client executes GraphQL operations against an HTTP endpoint.
 //
 // Configure authentication and other request behavior on the supplied
@@ -24,6 +28,7 @@ type Client struct {
 	endpoint   string
 
 	responseObservation  atomic.Uint64
+	responseSizeLimit    atomic.Int64
 	rateLimitMu          sync.RWMutex
 	rateLimitObservation uint64
 }
@@ -34,10 +39,41 @@ func NewClient(endpoint string, httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	return &Client{
+	client := &Client{
 		endpoint:   endpoint,
 		httpClient: httpClient,
 	}
+	client.responseSizeLimit.Store(DefaultResponseSizeLimit)
+	return client
+}
+
+// ResponseSizeLimit returns the maximum HTTP response body size Client accepts
+// for decoding. A newly constructed Client uses [DefaultResponseSizeLimit].
+func (c *Client) ResponseSizeLimit() int64 {
+	if c == nil {
+		return 0
+	}
+
+	limit := c.responseSizeLimit.Load()
+	if limit > 0 {
+		return limit
+	}
+	return DefaultResponseSizeLimit
+}
+
+// SetResponseSizeLimit configures the maximum HTTP response body size Client
+// accepts for decoding. limit must be greater than zero. It may be called
+// concurrently with [Client.Execute].
+func (c *Client) SetResponseSizeLimit(limit int64) error {
+	if c == nil {
+		return errors.New("octoql: client is nil")
+	}
+	if limit <= 0 {
+		return errors.New("octoql: response size limit must be greater than zero")
+	}
+
+	c.responseSizeLimit.Store(limit)
+	return nil
 }
 
 // RateLimit returns the latest valid primary rate-limit snapshot observed by
@@ -117,20 +153,39 @@ func (c *Client) Execute(ctx context.Context, payload Payload, response any) (bo
 	requestID := requestIDFromHeader(httpResponse.Header)
 	if sendErr != nil {
 		cause := fmt.Errorf("send graphql request: %w", sendErr)
-		responseError := newResponseError(statusCode, requestID, nil, false, cause)
+		responseError := newResponseError(responseErrorParams{
+			statusCode: statusCode,
+			requestID:  requestID,
+			err:        cause,
+		})
 		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
 	if httpResponse.Body == nil {
 		cause := errors.New("read graphql response: response body is nil")
-		responseError := newResponseError(statusCode, requestID, nil, false, cause)
+		responseError := newResponseError(responseErrorParams{
+			statusCode: statusCode,
+			requestID:  requestID,
+			err:        cause,
+		})
 		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
-	body, readErr, closeErr := readAndClose(httpResponse.Body)
+	body, readErr, closeErr := readAndClose(
+		httpResponse.Body,
+		c.ResponseSizeLimit(),
+	)
 	if readErr != nil {
 		cause := errors.Join(readErr, closeErr)
-		responseError := newResponseError(statusCode, requestID, body, true, cause)
+		_, responseTooLarge := errors.AsType[*ResponseSizeLimitError](readErr)
+		responseError := newResponseError(responseErrorParams{
+			statusCode:    statusCode,
+			requestID:     requestID,
+			body:          body,
+			retainBody:    true,
+			bodyTruncated: responseTooLarge,
+			err:           cause,
+		})
 		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
@@ -166,7 +221,13 @@ func (c *Client) Execute(ctx context.Context, payload Payload, response any) (bo
 
 	hasDecodeFailure := decodeErr != nil || missingPayload
 	retainBody := !isSuccessful || hasDecodeFailure
-	responseError := newResponseError(statusCode, requestID, body, retainBody, cause)
+	responseError := newResponseError(responseErrorParams{
+		statusCode: statusCode,
+		requestID:  requestID,
+		body:       body,
+		retainBody: retainBody,
+		err:        cause,
+	})
 	return hasUsableData, classifyRateLimit(statusCode, &rateLimit, responseError)
 }
 
@@ -197,8 +258,18 @@ func requestIDFromHeader(header http.Header) string {
 	return ""
 }
 
-func readAndClose(body io.ReadCloser) ([]byte, error, error) {
-	payload, readErr := io.ReadAll(body)
+func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
+	payload, readErr := io.ReadAll(io.LimitReader(body, limit))
+	if readErr == nil {
+		var excess [1]byte
+		count, excessErr := io.ReadFull(body, excess[:])
+		switch {
+		case count > 0:
+			readErr = &ResponseSizeLimitError{Limit: limit}
+		case excessErr != nil && !errors.Is(excessErr, io.EOF):
+			readErr = excessErr
+		}
+	}
 	closeErr := body.Close()
 	if readErr != nil {
 		readErr = fmt.Errorf("read graphql response: %w", readErr)

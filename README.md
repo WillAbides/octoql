@@ -326,11 +326,24 @@ if ok {
 
 Every failure after receiving an HTTP response includes
 `*octoql.ResponseError`, including HTTP-200 GraphQL, read, close, protocol, and
-decode failures. It carries the status and `X-GitHub-Request-ID`. `RawBody`
-contains at most 64 KiB for non-2xx or undecodable responses;
+decode failures. It carries the status and `X-GitHub-Request-ID`. Client buffers
+and decodes at most [`octoql.DefaultResponseSizeLimit`](https://pkg.go.dev/github.com/willabides/octoql#DefaultResponseSizeLimit)
+(10 MiB) from each HTTP response. Configure a different positive limit before
+executing operations:
+
+```go
+err := client.SetResponseSizeLimit(20 * 1024 * 1024)
+if err != nil {
+	return err
+}
+```
+
+An oversized response fails before JSON decoding with
+`*octoql.ResponseSizeLimitError`; it still includes `*octoql.ResponseError` and
+any applicable `*octoql.RateLimitError` in the same error chain. `RawBody`
+contains at most 64 KiB for non-2xx, over-limit, or undecodable responses;
 `RawBodyTruncated` reports truncation. Raw response bodies may contain sensitive
-data and should not be logged indiscriminately. This bounds retained diagnostic
-data, not total response decoding; octoql reads the complete GraphQL body.
+data and should not be logged indiscriminately.
 
 Error types are independent facets of one chain, not mutually exclusive
 categories. A rate-limited response can match `*octoql.RateLimitError`,
