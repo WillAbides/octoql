@@ -79,11 +79,11 @@ func TestDoPointerData(t *testing.T) {
 		assert.Equal(t, "octoql", (*response).Repository.Name)
 	})
 
-	t.Run("null preserves nil inner pointer", func(t *testing.T) {
+	t.Run("null is not partial data", func(t *testing.T) {
 		client := responseAPIClient(
 			http.StatusOK,
 			http.Header{},
-			`{"data":null}`,
+			`{"data":null,"errors":[{"message":"no data"}]}`,
 		)
 
 		response, err := doOperation[*responseData](
@@ -94,9 +94,9 @@ func TestDoPointerData(t *testing.T) {
 			nil,
 		)
 
-		require.NoError(t, err)
-		require.NotNil(t, response)
-		assert.Nil(t, *response)
+		assert.Nil(t, response)
+		_, hasErrors := errors.AsType[octoql.Errors](err)
+		assert.True(t, hasErrors)
 	})
 }
 

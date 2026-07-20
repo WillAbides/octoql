@@ -104,6 +104,22 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				assert.Equal(t, http.StatusForbidden, responseError.StatusCode)
 			},
 		},
+		{
+			name:       "null data and GraphQL errors",
+			statusCode: http.StatusOK,
+			header:     http.Header{},
+			body: `{
+				"data":null,
+				"errors":[{"type":"NOT_FOUND","message":"repository unavailable"}]
+			}`,
+			check: func(t *testing.T, _ *githubclient.GetRepositoryResponse, err error) {
+				t.Helper()
+				_, hasErrors := errors.AsType[octoql.Errors](err)
+				assert.True(t, hasErrors)
+				_, hasPartial := errors.AsType[*githubclient.GetRepositoryPartialDataError](err)
+				assert.False(t, hasPartial)
+			},
+		},
 	}
 
 	for _, test := range tests {

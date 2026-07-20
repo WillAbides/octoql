@@ -133,7 +133,7 @@ func (client *Client) Execute(ctx context.Context, payload Payload, response any
 
 	data, graphqlErrors, decodeErr := decodeResponse(body)
 
-	hasData := data != nil
+	hasData := data != nil && !bytes.Equal(bytes.TrimSpace(data), []byte("null"))
 	hasErrors := len(graphqlErrors) > 0
 	hasUsableData := false
 	if hasData {

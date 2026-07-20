@@ -280,8 +280,9 @@ Each `*octoql.Error` retains `Type`, `Message`, `Path`, `Locations`, and its own
 available without a runtime update.
 
 Generated helpers follow the usual Go convention: the response is nil whenever
-the error is non-nil. When GitHub returns decodable partial `data` alongside
-GraphQL errors, octoql stores that data in the error for explicit extraction:
+the error is non-nil. When GitHub returns decodable, non-null partial `data`
+alongside GraphQL errors, octoql stores that data in the error for explicit
+extraction. A `data: null` response has no partial-data facet:
 
 ```go
 response, err := githubapi.GetRepository(ctx, client, owner, name, 10)
@@ -329,7 +330,7 @@ categories. A rate-limited response can match `*octoql.RateLimitError`,
 | Outcome | Generated response | Error facets |
 | --- | --- | --- |
 | Success | Non-nil concrete data | `nil` |
-| GraphQL errors with decodable data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `ResponseError`, `Errors` |
+| GraphQL errors with decodable non-null data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `ResponseError`, `Errors` |
 | Any error without decodable data | `nil` | `ResponseError` and available causes |
 | Primary or secondary rate limit with decodable data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `RateLimitError`, `ResponseError`, and possibly `Errors` |
 | Client getter, encoding, or transport failure before a response | `nil` | Wrapped underlying error; no `ResponseError` |
