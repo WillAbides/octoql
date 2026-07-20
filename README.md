@@ -209,8 +209,9 @@ go tool octoqlgen schema materialize
 ```
 
 `schema update` fetches and validates the current remote source. It atomically
-publishes the materialized schema, then atomically updates `sha256` and the
-GitHub revision in the configuration:
+publishes the materialized schema, then atomically updates the configuration
+pin: `sha256` for every remote source and the GitHub revision for GitHub-backed
+sources:
 
 The schema/config pair is not published atomically. Concurrent schema commands
 are unsupported, and a failure after schema publication, such as a failed
