@@ -3,21 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/willabides/octoql"
 )
-
-type authedTransport struct {
-	key     string
-	wrapped http.RoundTripper
-}
-
-func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("Authorization", "bearer "+t.key)
-	return t.wrapped.RoundTrip(req)
-}
 
 func main() {
 	var err error
@@ -34,13 +23,11 @@ func main() {
 		return
 	}
 
-	httpClient := http.Client{
-		Transport: &authedTransport{
-			key:     key,
-			wrapped: http.DefaultTransport,
-		},
+	graphqlClient := octoql.NewClient("https://api.github.com/graphql", nil)
+	err = graphqlClient.SetBearerToken(key)
+	if err != nil {
+		return
 	}
-	graphqlClient := octoql.NewClient("https://api.github.com/graphql", &httpClient)
 
 	switch len(os.Args) {
 	case 1:

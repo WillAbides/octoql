@@ -19,7 +19,8 @@ const DefaultResponseSizeLimit int64 = 10 * 1024 * 1024
 
 // Client executes GraphQL operations against an HTTP endpoint.
 //
-// Configure authentication and other request behavior on the supplied
+// Configure bearer authentication with [Client.SetBearerToken]. Other request
+// behavior, including other authentication schemes, belongs on the supplied
 // [http.Client] or its [http.RoundTripper]. A Client may be used concurrently
 // after construction.
 type Client struct {
@@ -27,6 +28,7 @@ type Client struct {
 	rateLimit  *RateLimit
 	endpoint   string
 
+	bearerToken          atomic.Pointer[string]
 	responseObservation  atomic.Uint64
 	responseSizeLimit    atomic.Int64
 	rateLimitMu          sync.RWMutex
@@ -45,6 +47,21 @@ func NewClient(endpoint string, httpClient *http.Client) *Client {
 	}
 	client.responseSizeLimit.Store(DefaultResponseSizeLimit)
 	return client
+}
+
+// SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
+// token must use the RFC 6750 b64token syntax. It may be called concurrently
+// with [Client.Execute] to rotate credentials.
+func (c *Client) SetBearerToken(token string) error {
+	if c == nil {
+		return errors.New("octoql: client is nil")
+	}
+	if !validBearerToken(token) {
+		return errors.New("octoql: invalid bearer token")
+	}
+
+	c.bearerToken.Store(&token)
+	return nil
 }
 
 // ResponseSizeLimit returns the maximum HTTP response body size Client accepts
@@ -131,6 +148,10 @@ func (c *Client) Execute(ctx context.Context, payload Payload, response any) (bo
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
+	bearerToken := c.bearerToken.Load()
+	if bearerToken != nil {
+		request.Header.Set("Authorization", "Bearer "+*bearerToken)
+	}
 
 	httpClient := c.httpClient
 	if httpClient == nil {
@@ -256,6 +277,42 @@ func requestIDFromHeader(header http.Header) string {
 		}
 	}
 	return ""
+}
+
+func validBearerToken(token string) bool {
+	if token == "" {
+		return false
+	}
+
+	hasTokenCharacter := false
+	padding := false
+	for i := range len(token) {
+		character := token[i]
+		if character == '=' {
+			padding = true
+			continue
+		}
+		if padding || !validBearerTokenCharacter(character) {
+			return false
+		}
+		hasTokenCharacter = true
+	}
+	return hasTokenCharacter
+}
+
+func validBearerTokenCharacter(character byte) bool {
+	switch {
+	case character >= 'a' && character <= 'z':
+		return true
+	case character >= 'A' && character <= 'Z':
+		return true
+	case character >= '0' && character <= '9':
+		return true
+	case strings.ContainsRune("-._~+/", rune(character)):
+		return true
+	default:
+		return false
+	}
 }
 
 func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
