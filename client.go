@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 )
 
-// DefaultResponseSizeLimit is the maximum GraphQL HTTP response size buffered
-// and decoded by a Client unless configured otherwise. It is 10 MiB.
+// DefaultResponseSizeLimit is the maximum GraphQL HTTP response body size a
+// Client accepts for decoding unless configured otherwise. It is 10 MiB.
 const DefaultResponseSizeLimit int64 = 10 * 1024 * 1024
 
 // Client executes GraphQL operations against an HTTP endpoint.
@@ -47,8 +47,8 @@ func NewClient(endpoint string, httpClient *http.Client) *Client {
 	return client
 }
 
-// ResponseSizeLimit returns the maximum HTTP response size Client buffers and
-// decodes. A newly constructed Client uses [DefaultResponseSizeLimit].
+// ResponseSizeLimit returns the maximum HTTP response body size Client accepts
+// for decoding. A newly constructed Client uses [DefaultResponseSizeLimit].
 func (c *Client) ResponseSizeLimit() int64 {
 	if c == nil {
 		return 0
@@ -61,9 +61,9 @@ func (c *Client) ResponseSizeLimit() int64 {
 	return DefaultResponseSizeLimit
 }
 
-// SetResponseSizeLimit configures the maximum HTTP response size Client buffers
-// and decodes. limit must be greater than zero. It may be called concurrently
-// with [Client.Execute].
+// SetResponseSizeLimit configures the maximum HTTP response body size Client
+// accepts for decoding. limit must be greater than zero. It may be called
+// concurrently with [Client.Execute].
 func (c *Client) SetResponseSizeLimit(limit int64) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
