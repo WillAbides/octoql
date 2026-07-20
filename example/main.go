@@ -59,7 +59,9 @@ func main() {
 	case 2:
 		username := os.Args[1]
 		var userResp *getUserResponse
-		userResp, err = getUser(context.Background(), graphqlClient, username)
+		userResp, err = getUser(context.Background(), graphqlClient, getUserVariables{
+			Login: username,
+		})
 		if err != nil {
 			return
 		}

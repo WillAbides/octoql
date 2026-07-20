@@ -24,8 +24,8 @@ type GetRepositoryResponse struct {
 // GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
 
-// __GetRepositoryInput is used internally by octoqlgen
-type __GetRepositoryInput struct {
+// GetRepositoryVariables contains the variables accepted by GetRepository.
+type GetRepositoryVariables struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
 }
@@ -67,32 +67,27 @@ func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
 }
 
 func GetRepository(
-	client_ *octoql.Client,
-	owner string,
-	name string,
+	client *octoql.Client,
+	vars GetRepositoryVariables,
 ) (*GetRepositoryResponse, error) {
-	variables_ := __GetRepositoryInput{
-		Owner: owner,
-		Name:  name,
-	}
-	var response_ GetRepositoryResponse
-	hasData_, err_ := client_.Execute(
+	var response GetRepositoryResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "GetRepository",
 			Query:         GetRepository_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &GetRepositoryPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }

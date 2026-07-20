@@ -25,7 +25,10 @@ func TestNoContextUsesBackground(t *testing.T) {
 	defer server.Close()
 
 	client := octoql.NewClient(server.URL, server.Client())
-	response, err := GetRepository(client, "octo-org", "octo-repo")
+	response, err := GetRepository(client, GetRepositoryVariables{
+		Owner: "octo-org",
+		Name:  "octo-repo",
+	})
 
 	require.NoError(t, err)
 	assert.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)

@@ -149,36 +149,36 @@ func TestGenerateDeterministic(t *testing.T) {
 	}
 }
 
-func TestGenerateInlinesExecutionWithCollisionFreeLocals(t *testing.T) {
+func TestGenerateInlinesExecutionWithOperationVariableNames(t *testing.T) {
 	dir := t.TempDir()
 	schema := `
 type Query {
   value(
-    ctx_: String!
-    client_: String!
-    err_: String!
-    variables_: String!
-    response_: String!
-    hasData_: String!
+    ctx: String!
+    client: String!
+    err: String!
+    vars: String!
+    response: String!
+    hasData: String!
   ): String!
 }
 `
 	operation := `
 query Value(
-  $ctx_: String!
-  $client_: String!
-  $err_: String!
-  $variables_: String!
-  $response_: String!
-  $hasData_: String!
+  $ctx: String!
+  $client: String!
+  $err: String!
+  $vars: String!
+  $response: String!
+  $hasData: String!
 ) {
   value(
-    ctx_: $ctx_
-    client_: $client_
-    err_: $err_
-    variables_: $variables_
-    response_: $response_
-    hasData_: $hasData_
+    ctx: $ctx
+    client: $client
+    err: $err
+    vars: $vars
+    response: $response
+    hasData: $hasData
   )
 }
 `
@@ -200,8 +200,12 @@ query Value(
 	source := string(generated[config.Generated])
 	assert.NotContains(t, source, "func __octoqlDo")
 	assert.NotContains(t, source, "__octoqlPartialDataError")
-	assert.Contains(t, source, "var response_2 ValueResponse")
-	assert.Contains(t, source, "hasData_2, err_2 := client_2.Execute(")
+	assert.Contains(t, source, "type ValueVariables struct")
+	assert.Contains(t, source, "vars ValueVariables,")
+	assert.Contains(t, source, "Variables:     &vars,")
+	assert.NotContains(t, source, "variables_2 := ValueVariables")
+	assert.Contains(t, source, "var response ValueResponse")
+	assert.Contains(t, source, "hasData, err := client.Execute(")
 	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
@@ -1094,7 +1098,7 @@ query FooVariables($value: String!) {
   viewer(value: $value)
 }
 `,
-			wantError: `generated client variables alias "FooVariables"`,
+			wantError: `generated variables type "FooVariables" conflicts with operation "FooVariables"`,
 		},
 		{
 			name: "variables alias and enum values variable",
@@ -1109,7 +1113,7 @@ type Query {
   viewer(value: $value)
 }
 `,
-			wantError: `generated client variables alias "AllVariables"`,
+			wantError: `generated variables type "AllVariables" conflicts with a generated enum values variable`,
 		},
 	}
 	for _, test := range tests {
@@ -1381,7 +1385,7 @@ func TestGenerateWithConfig(t *testing.T) {
 				t.Helper()
 				source := string(generated[config.Generated])
 				assert.Contains(t, source, `"github.com/willabides/octoql/internal/testutil"`)
-				assert.Contains(t, source, "ctx_ testutil.MyContext")
+				assert.Contains(t, source, "ctx testutil.MyContext")
 			},
 		},
 		{

@@ -40,7 +40,10 @@ func TestClientGetterWithCustomContext(t *testing.T) {
 		Context: t.Context(),
 		client:  octoql.NewClient(server.URL, server.Client()),
 	}
-	response, err := getRepository(ctx, "octo-org", "octo-repo")
+	response, err := getRepository(ctx, getRepositoryVariables{
+		Owner: "octo-org",
+		Name:  "octo-repo",
+	})
 
 	require.NoError(t, err)
 	assert.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)
@@ -53,7 +56,10 @@ func TestClientGetterFailure(t *testing.T) {
 		clientErr: clientErr,
 	}
 
-	response, err := getRepository(ctx, "octo-org", "octo-repo")
+	response, err := getRepository(ctx, getRepositoryVariables{
+		Owner: "octo-org",
+		Name:  "octo-repo",
+	})
 
 	assert.Nil(t, response)
 	assert.ErrorIs(t, err, clientErr)
@@ -64,7 +70,10 @@ func TestClientGetterFailure(t *testing.T) {
 func TestClientGetterNilClient(t *testing.T) {
 	ctx := testContext{Context: t.Context()}
 
-	response, err := getRepository(ctx, "octo-org", "octo-repo")
+	response, err := getRepository(ctx, getRepositoryVariables{
+		Owner: "octo-org",
+		Name:  "octo-repo",
+	})
 
 	assert.Nil(t, response)
 	assert.EqualError(t, err, "octoql: client is nil")

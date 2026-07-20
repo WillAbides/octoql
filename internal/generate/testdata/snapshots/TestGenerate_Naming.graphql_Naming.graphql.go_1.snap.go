@@ -144,26 +144,26 @@ func (e *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
 }
 
 func GitHubNaming(
-	client_ *octoql.Client,
+	client *octoql.Client,
 ) (*GitHubNamingResponse, error) {
-	var response_ GitHubNamingResponse
-	hasData_, err_ := client_.Execute(
+	var response GitHubNamingResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "GitHubNaming",
 			Query:         GitHubNaming_Operation,
 			Variables:     nil,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &GitHubNamingPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }

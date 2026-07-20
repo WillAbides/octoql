@@ -78,28 +78,28 @@ func (e *anyPartialDataError) PartialData() *anyResponse {
 }
 
 func any(
-	client_ *octoql.Client,
+	client *octoql.Client,
 ) (*anyResponse, error) {
-	var response_ anyResponse
-	hasData_, err_ := client_.Execute(
+	var response anyResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "any",
 			Query:         any_Operation,
 			Variables:     nil,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &anyPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by new.
@@ -139,26 +139,26 @@ func (e *newPartialDataError) PartialData() *newResponse {
 }
 
 func new(
-	client_ *octoql.Client,
+	client *octoql.Client,
 ) (*newResponse, error) {
-	var response_ newResponse
-	hasData_, err_ := client_.Execute(
+	var response newResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "new",
 			Query:         new_Operation,
 			Variables:     nil,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &newPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }

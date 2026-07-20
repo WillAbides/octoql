@@ -30,11 +30,19 @@ type CreateRepositoryInput = githubapi.CreateRepositoryInput
 
 type CreateRepositoryResponse = githubapi.CreateRepositoryResponse
 
+type CreateRepositoryVariables = githubapi.CreateRepositoryVariables
+
 type EchoAnyResponse = githubapi.EchoAnyResponse
+
+type EchoAnyVariables = githubapi.EchoAnyVariables
 
 type EchoAtResponse = githubapi.EchoAtResponse
 
+type EchoAtVariables = githubapi.EchoAtVariables
+
 type EchoPropertyResponse = githubapi.EchoPropertyResponse
+
+type EchoPropertyVariables = githubapi.EchoPropertyVariables
 
 type GetNodeNode = githubapi.GetNodeNode
 
@@ -46,6 +54,8 @@ type GetNodeNodeRepository = githubapi.GetNodeNodeRepository
 
 type GetNodeResponse = githubapi.GetNodeResponse
 
+type GetNodeVariables = githubapi.GetNodeVariables
+
 type GetRepositoryRepository = githubapi.GetRepositoryRepository
 
 type GetRepositoryRepositoryIssuesIssueConnection = githubapi.GetRepositoryRepositoryIssuesIssueConnection
@@ -55,6 +65,8 @@ type GetRepositoryRepositoryIssuesIssueConnectionNodesIssue = githubapi.GetRepos
 type GetRepositoryRepositoryIssuesIssueConnectionPageInfo = githubapi.GetRepositoryRepositoryIssuesIssueConnectionPageInfo
 
 type GetRepositoryResponse = githubapi.GetRepositoryResponse
+
+type GetRepositoryVariables = githubapi.GetRepositoryVariables
 
 type RepositoryVisibility = githubapi.RepositoryVisibility
 
@@ -73,25 +85,13 @@ type SearchSearchSearchResultItem = githubapi.SearchSearchSearchResultItem
 
 type SearchSearchSearchResultItemOctoqlOther = githubapi.SearchSearchSearchResultItemOctoqlOther
 
+type SearchVariables = githubapi.SearchVariables
+
 type ViewerResponse = githubapi.ViewerResponse
 
 type ViewerVariables = githubapi.ViewerVariables
 
 type ViewerViewerUser = githubapi.ViewerViewerUser
-
-type CreateRepositoryVariables = githubapi.CreateRepositoryVariables
-
-type EchoAnyVariables = githubapi.EchoAnyVariables
-
-type EchoAtVariables = githubapi.EchoAtVariables
-
-type EchoPropertyVariables = githubapi.EchoPropertyVariables
-
-type GetNodeVariables = githubapi.GetNodeVariables
-
-type GetRepositoryVariables = githubapi.GetRepositoryVariables
-
-type SearchVariables = githubapi.SearchVariables
 
 type testTB interface {
 	Cleanup(func())

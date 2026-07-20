@@ -22,16 +22,6 @@ const (
 {{end -}}
 {{end -}}
 
-{{range .Operations -}}
-{{if .HasVariables -}}
-{{if $.LocalTypes -}}
-type {{.VariablesName}} = {{.LocalVariablesName}}
-{{else -}}
-type {{.VariablesName}} = {{$.ClientPackage}}.{{.ClientVariablesName}}
-{{end -}}
-{{end}}
-{{end -}}
-
 type testTB interface {
 	Cleanup(func())
 	Errorf(string, ...any)

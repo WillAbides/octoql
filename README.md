@@ -250,9 +250,11 @@ client := octoql.NewClient("https://api.github.com/graphql", httpClient)
 response, err := githubapi.GetRepository(
 	ctx,
 	client,
-	"octo-org",
-	"octo-repo",
-	10,
+	githubapi.GetRepositoryVariables{
+		Owner: "octo-org",
+		Name:  "octo-repo",
+		First: 10,
+	},
 )
 if err != nil {
 	return err
@@ -269,7 +271,11 @@ Generated helpers return a pointer to the concrete operation response and an
 error. GraphQL data is available directly:
 
 ```go
-response, err := githubapi.GetRepository(ctx, client, owner, name, 10)
+response, err := githubapi.GetRepository(ctx, client, githubapi.GetRepositoryVariables{
+	Owner: owner,
+	Name:  name,
+	First: 10,
+})
 if err == nil {
 	fmt.Println(response.Repository.NameWithOwner)
 }
@@ -285,7 +291,11 @@ alongside GraphQL errors, octoql stores that data in the error for explicit
 extraction. A `data: null` response has no partial-data facet:
 
 ```go
-response, err := githubapi.GetRepository(ctx, client, owner, name, 10)
+response, err := githubapi.GetRepository(ctx, client, githubapi.GetRepositoryVariables{
+	Owner: owner,
+	Name:  name,
+	First: 10,
+})
 if err != nil {
 	// response is always nil here.
 	partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
@@ -475,9 +485,7 @@ client := octoql.NewClient(server.URL, server.Client())
 response, err := githubapi.GetRepository(
 	t.Context(),
 	client,
-	variables.Owner,
-	variables.Name,
-	variables.First,
+	variables,
 )
 require.NoError(t, err)
 require.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)

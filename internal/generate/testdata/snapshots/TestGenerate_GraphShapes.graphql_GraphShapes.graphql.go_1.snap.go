@@ -1040,6 +1040,11 @@ func (v *GetActorResponse) __premarshalJSON() (*__premarshalGetActorResponse, er
 	return &retval, nil
 }
 
+// GetActorVariables contains the variables accepted by GetActor.
+type GetActorVariables struct {
+	Login string `json:"login"`
+}
+
 // GetNodeNode includes the requested fields of the GraphQL interface Node.
 //
 // GetNodeNode is implemented by the following types:
@@ -1319,6 +1324,11 @@ func (v *GetNodeResponse) __premarshalJSON() (*__premarshalGetNodeResponse, erro
 	return &retval, nil
 }
 
+// GetNodeVariables contains the variables accepted by GetNode.
+type GetNodeVariables struct {
+	Id testutil.ID `json:"id"`
+}
+
 // NestedNodeShapesNestedNodesNode includes the requested fields of the GraphQL interface Node.
 //
 // NestedNodeShapesNestedNodesNode is implemented by the following types:
@@ -1532,6 +1542,11 @@ type RecursiveRepositoryResponse struct {
 
 // GetRecur returns RecursiveRepositoryResponse.Recur, and is useful for accessing the field via an interface.
 func (v *RecursiveRepositoryResponse) GetRecur() RecursiveRepositoryRecurRecursive { return v.Recur }
+
+// RecursiveRepositoryVariables contains the variables accepted by RecursiveRepository.
+type RecursiveRepositoryVariables struct {
+	Input RecursiveInput `json:"input"`
+}
 
 // RepositoryEventCovarianceLatestRepositoryEvent includes the requested fields of the GraphQL type RepositoryEvent.
 type RepositoryEventCovarianceLatestRepositoryEvent struct {
@@ -2775,41 +2790,26 @@ func (v *SearchRepositoriesSearchSearchResultConnectionPageInfo) GetEndCursor() 
 	return v.EndCursor
 }
 
-// __GetActorInput is used internally by octoqlgen
-type __GetActorInput struct {
-	Login string `json:"login"`
-}
-
-// __GetNodeInput is used internally by octoqlgen
-type __GetNodeInput struct {
-	Id testutil.ID `json:"id"`
-}
-
-// __RecursiveRepositoryInput is used internally by octoqlgen
-type __RecursiveRepositoryInput struct {
-	Input RecursiveInput `json:"input"`
-}
-
-// __SearchRepositoriesInput is used internally by octoqlgen
-type __SearchRepositoriesInput struct {
+// SearchRepositoriesVariables contains the variables accepted by SearchRepositories.
+type SearchRepositoriesVariables struct {
 	Query          string    `json:"query"`
 	First          int       `json:"first"`
 	After          string    `json:"after"`
 	PublishedAfter time.Time `json:"-"`
 }
 
-func (v *__SearchRepositoriesInput) UnmarshalJSON(b []byte) error {
+func (v *SearchRepositoriesVariables) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*__SearchRepositoriesInput
+		*SearchRepositoriesVariables
 		PublishedAfter json.RawMessage `json:"publishedAfter"`
 		octoql.NoUnmarshalJSON
 	}
-	firstPass.__SearchRepositoriesInput = v
+	firstPass.SearchRepositoriesVariables = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -2824,14 +2824,14 @@ func (v *__SearchRepositoriesInput) UnmarshalJSON(b []byte) error {
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
-					"unable to unmarshal __SearchRepositoriesInput.PublishedAfter: %w", err)
+					"unable to unmarshal SearchRepositoriesVariables.PublishedAfter: %w", err)
 			}
 		}
 	}
 	return nil
 }
 
-type __premarshal__SearchRepositoriesInput struct {
+type __premarshalSearchRepositoriesVariables struct {
 	Query string `json:"query"`
 
 	First int `json:"first"`
@@ -2841,7 +2841,7 @@ type __premarshal__SearchRepositoriesInput struct {
 	PublishedAfter json.RawMessage `json:"publishedAfter"`
 }
 
-func (v *__SearchRepositoriesInput) MarshalJSON() ([]byte, error) {
+func (v *SearchRepositoriesVariables) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -2849,8 +2849,8 @@ func (v *__SearchRepositoriesInput) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *__SearchRepositoriesInput) __premarshalJSON() (*__premarshal__SearchRepositoriesInput, error) {
-	var retval __premarshal__SearchRepositoriesInput
+func (v *SearchRepositoriesVariables) __premarshalJSON() (*__premarshalSearchRepositoriesVariables, error) {
+	var retval __premarshalSearchRepositoriesVariables
 
 	retval.Query = v.Query
 	retval.First = v.First
@@ -2864,7 +2864,7 @@ func (v *__SearchRepositoriesInput) __premarshalJSON() (*__premarshal__SearchRep
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
-				"unable to marshal __SearchRepositoriesInput.PublishedAfter: %w", err)
+				"unable to marshal SearchRepositoriesVariables.PublishedAfter: %w", err)
 		}
 	}
 	return &retval, nil
@@ -2925,32 +2925,29 @@ func (e *GetActorPartialDataError) PartialData() *GetActorResponse {
 }
 
 func GetActor(
-	client_ *octoql.Client,
-	login string,
+	client *octoql.Client,
+	vars GetActorVariables,
 ) (*GetActorResponse, error) {
-	variables_ := __GetActorInput{
-		Login: login,
-	}
-	var response_ GetActorResponse
-	hasData_, err_ := client_.Execute(
+	var response GetActorResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "GetActor",
 			Query:         GetActor_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &GetActorPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by GetNode.
@@ -3006,32 +3003,29 @@ func (e *GetNodePartialDataError) PartialData() *GetNodeResponse {
 }
 
 func GetNode(
-	client_ *octoql.Client,
-	id testutil.ID,
+	client *octoql.Client,
+	vars GetNodeVariables,
 ) (*GetNodeResponse, error) {
-	variables_ := __GetNodeInput{
-		Id: id,
-	}
-	var response_ GetNodeResponse
-	hasData_, err_ := client_.Execute(
+	var response GetNodeResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "GetNode",
 			Query:         GetNode_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &GetNodePartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by NestedNodeShapes.
@@ -3072,28 +3066,28 @@ func (e *NestedNodeShapesPartialDataError) PartialData() *NestedNodeShapesRespon
 }
 
 func NestedNodeShapes(
-	client_ *octoql.Client,
+	client *octoql.Client,
 ) (*NestedNodeShapesResponse, error) {
-	var response_ NestedNodeShapesResponse
-	hasData_, err_ := client_.Execute(
+	var response NestedNodeShapesResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "NestedNodeShapes",
 			Query:         NestedNodeShapes_Operation,
 			Variables:     nil,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &NestedNodeShapesPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by RecursiveRepository.
@@ -3137,32 +3131,29 @@ func (e *RecursiveRepositoryPartialDataError) PartialData() *RecursiveRepository
 }
 
 func RecursiveRepository(
-	client_ *octoql.Client,
-	input RecursiveInput,
+	client *octoql.Client,
+	vars RecursiveRepositoryVariables,
 ) (*RecursiveRepositoryResponse, error) {
-	variables_ := __RecursiveRepositoryInput{
-		Input: input,
-	}
-	var response_ RecursiveRepositoryResponse
-	hasData_, err_ := client_.Execute(
+	var response RecursiveRepositoryResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "RecursiveRepository",
 			Query:         RecursiveRepository_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &RecursiveRepositoryPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by RepositoryEventCovariance.
@@ -3218,28 +3209,28 @@ func (e *RepositoryEventCovariancePartialDataError) PartialData() *RepositoryEve
 }
 
 func RepositoryEventCovariance(
-	client_ *octoql.Client,
+	client *octoql.Client,
 ) (*RepositoryEventCovarianceResponse, error) {
-	var response_ RepositoryEventCovarianceResponse
-	hasData_, err_ := client_.Execute(
+	var response RepositoryEventCovarianceResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "RepositoryEventCovariance",
 			Query:         RepositoryEventCovariance_Operation,
 			Variables:     nil,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &RepositoryEventCovariancePartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by SearchRepositories.
@@ -3316,36 +3307,27 @@ func (e *SearchRepositoriesPartialDataError) PartialData() *SearchRepositoriesRe
 }
 
 func SearchRepositories(
-	client_ *octoql.Client,
-	query string,
-	first int,
-	after string,
-	publishedAfter time.Time,
+	client *octoql.Client,
+	vars SearchRepositoriesVariables,
 ) (*SearchRepositoriesResponse, error) {
-	variables_ := __SearchRepositoriesInput{
-		Query:          query,
-		First:          first,
-		After:          after,
-		PublishedAfter: publishedAfter,
-	}
-	var response_ SearchRepositoriesResponse
-	hasData_, err_ := client_.Execute(
+	var response SearchRepositoriesResponse
+	hasData, err := client.Execute(
 		context.Background(),
 		octoql.Payload{
 			OperationName: "SearchRepositories",
 			Query:         SearchRepositories_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &SearchRepositoriesPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }

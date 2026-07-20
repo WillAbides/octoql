@@ -13,296 +13,6 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
-// __addCommentInput is used internally by octoqlgen
-type __addCommentInput struct {
-	Input server.AddCommentInput `json:"input"`
-}
-
-// __addStarInput is used internally by octoqlgen
-type __addStarInput struct {
-	Input server.AddStarInput `json:"input"`
-}
-
-// __getRepositoryInput is used internally by octoqlgen
-type __getRepositoryInput struct {
-	Owner string `json:"owner"`
-	Name  string `json:"name"`
-}
-
-// __queryWithCustomMarshalInput is used internally by octoqlgen
-type __queryWithCustomMarshalInput struct {
-	Date time.Time `json:"-"`
-}
-
-func (v *__queryWithCustomMarshalInput) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*__queryWithCustomMarshalInput
-		Date json.RawMessage `json:"date"`
-		octoql.NoUnmarshalJSON
-	}
-	firstPass.__queryWithCustomMarshalInput = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Date
-		src := firstPass.Date
-		if len(src) != 0 && string(src) != "null" {
-			err = testutil.UnmarshalDate(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal __queryWithCustomMarshalInput.Date: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type __premarshal__queryWithCustomMarshalInput struct {
-	Date json.RawMessage `json:"date"`
-}
-
-func (v *__queryWithCustomMarshalInput) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *__queryWithCustomMarshalInput) __premarshalJSON() (*__premarshal__queryWithCustomMarshalInput, error) {
-	var retval __premarshal__queryWithCustomMarshalInput
-
-	{
-
-		dst := &retval.Date
-		src := v.Date
-		var err error
-		*dst, err = testutil.MarshalDate(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal __queryWithCustomMarshalInput.Date: %w", err)
-		}
-	}
-	return &retval, nil
-}
-
-// __queryWithCustomMarshalOptionalInput is used internally by octoqlgen
-type __queryWithCustomMarshalOptionalInput struct {
-	Date  *time.Time `json:"-"`
-	Login *string    `json:"login"`
-}
-
-func (v *__queryWithCustomMarshalOptionalInput) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*__queryWithCustomMarshalOptionalInput
-		Date json.RawMessage `json:"date"`
-		octoql.NoUnmarshalJSON
-	}
-	firstPass.__queryWithCustomMarshalOptionalInput = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Date
-		src := firstPass.Date
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal __queryWithCustomMarshalOptionalInput.Date: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type __premarshal__queryWithCustomMarshalOptionalInput struct {
-	Date json.RawMessage `json:"date"`
-
-	Login *string `json:"login"`
-}
-
-func (v *__queryWithCustomMarshalOptionalInput) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *__queryWithCustomMarshalOptionalInput) __premarshalJSON() (*__premarshal__queryWithCustomMarshalOptionalInput, error) {
-	var retval __premarshal__queryWithCustomMarshalOptionalInput
-
-	{
-
-		dst := &retval.Date
-		src := v.Date
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal __queryWithCustomMarshalOptionalInput.Date: %w", err)
-			}
-		}
-	}
-	retval.Login = v.Login
-	return &retval, nil
-}
-
-// __queryWithCustomMarshalSliceInput is used internally by octoqlgen
-type __queryWithCustomMarshalSliceInput struct {
-	Dates []time.Time `json:"-"`
-}
-
-func (v *__queryWithCustomMarshalSliceInput) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*__queryWithCustomMarshalSliceInput
-		Dates []json.RawMessage `json:"dates"`
-		octoql.NoUnmarshalJSON
-	}
-	firstPass.__queryWithCustomMarshalSliceInput = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Dates
-		src := firstPass.Dates
-		*dst = make(
-			[]time.Time,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = testutil.UnmarshalDate(
-					src, dst)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal __queryWithCustomMarshalSliceInput.Dates: %w", err)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-type __premarshal__queryWithCustomMarshalSliceInput struct {
-	Dates []json.RawMessage `json:"dates"`
-}
-
-func (v *__queryWithCustomMarshalSliceInput) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *__queryWithCustomMarshalSliceInput) __premarshalJSON() (*__premarshal__queryWithCustomMarshalSliceInput, error) {
-	var retval __premarshal__queryWithCustomMarshalSliceInput
-
-	{
-
-		dst := &retval.Dates
-		src := v.Dates
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = testutil.MarshalDate(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal __queryWithCustomMarshalSliceInput.Dates: %w", err)
-			}
-		}
-	}
-	return &retval, nil
-}
-
-// __queryWithFlattenInput is used internally by octoqlgen
-type __queryWithFlattenInput struct {
-	Ids []string `json:"ids"`
-}
-
-// __queryWithFragmentsInput is used internally by octoqlgen
-type __queryWithFragmentsInput struct {
-	Ids []string `json:"ids"`
-}
-
-// __queryWithInterfaceListFieldInput is used internally by octoqlgen
-type __queryWithInterfaceListFieldInput struct {
-	Ids []string `json:"ids"`
-}
-
-// __queryWithInterfaceListPointerFieldInput is used internally by octoqlgen
-type __queryWithInterfaceListPointerFieldInput struct {
-	Ids []string `json:"ids"`
-}
-
-// __queryWithInterfaceNoFragmentsInput is used internally by octoqlgen
-type __queryWithInterfaceNoFragmentsInput struct {
-	Id string `json:"id"`
-}
-
-// __queryWithNamedFragmentsInput is used internally by octoqlgen
-type __queryWithNamedFragmentsInput struct {
-	Ids []string `json:"ids"`
-}
-
-// __queryWithOmitemptyInput is used internally by octoqlgen
-type __queryWithOmitemptyInput struct {
-	Login string `json:"login,omitempty"`
-}
-
-// __queryWithSearchInput is used internally by octoqlgen
-type __queryWithSearchInput struct {
-	Query      string            `json:"query"`
-	SearchType server.SearchType `json:"searchType"`
-}
-
-// __queryWithVariablesInput is used internally by octoqlgen
-type __queryWithVariablesInput struct {
-	Login string `json:"login"`
-}
-
-// __removeStarInput is used internally by octoqlgen
-type __removeStarInput struct {
-	Input server.RemoveStarInput `json:"input"`
-}
-
 // addCommentAddCommentAddCommentPayload includes the requested fields of the GraphQL type AddCommentPayload.
 type addCommentAddCommentAddCommentPayload struct {
 	CommentEdge addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge `json:"commentEdge"`
@@ -347,6 +57,11 @@ type addCommentResponse struct {
 // GetAddComment returns addCommentResponse.AddComment, and is useful for accessing the field via an interface.
 func (v *addCommentResponse) GetAddComment() addCommentAddCommentAddCommentPayload {
 	return v.AddComment
+}
+
+// addCommentVariables contains the variables accepted by addComment.
+type addCommentVariables struct {
+	Input server.AddCommentInput `json:"input"`
 }
 
 // addStarAddStarAddStarPayload includes the requested fields of the GraphQL type AddStarPayload.
@@ -518,6 +233,11 @@ type addStarResponse struct {
 
 // GetAddStar returns addStarResponse.AddStar, and is useful for accessing the field via an interface.
 func (v *addStarResponse) GetAddStar() addStarAddStarAddStarPayload { return v.AddStar }
+
+// addStarVariables contains the variables accepted by addStar.
+type addStarVariables struct {
+	Input server.AddStarInput `json:"input"`
+}
 
 // failingQueryResponse is returned by failingQuery on success.
 type failingQueryResponse struct {
@@ -736,6 +456,12 @@ type getRepositoryResponse struct {
 
 // GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *getRepositoryResponse) GetRepository() getRepositoryRepository { return v.Repository }
+
+// getRepositoryVariables contains the variables accepted by getRepository.
+type getRepositoryVariables struct {
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
+}
 
 // innerActorFields includes the GraphQL fields of Actor requested by the fragment innerActorFields.
 //
@@ -1766,6 +1492,81 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) __premarshalJSON() (*__pr
 	return &retval, nil
 }
 
+// queryWithCustomMarshalOptionalVariables contains the variables accepted by queryWithCustomMarshalOptional.
+type queryWithCustomMarshalOptionalVariables struct {
+	Date  *time.Time `json:"-"`
+	Login *string    `json:"login"`
+}
+
+func (v *queryWithCustomMarshalOptionalVariables) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*queryWithCustomMarshalOptionalVariables
+		Date json.RawMessage `json:"date"`
+		octoql.NoUnmarshalJSON
+	}
+	firstPass.queryWithCustomMarshalOptionalVariables = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Date
+		src := firstPass.Date
+		if len(src) != 0 && string(src) != "null" {
+			*dst = new(time.Time)
+			err = testutil.UnmarshalDate(
+				src, *dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal queryWithCustomMarshalOptionalVariables.Date: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalqueryWithCustomMarshalOptionalVariables struct {
+	Date json.RawMessage `json:"date"`
+
+	Login *string `json:"login"`
+}
+
+func (v *queryWithCustomMarshalOptionalVariables) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *queryWithCustomMarshalOptionalVariables) __premarshalJSON() (*__premarshalqueryWithCustomMarshalOptionalVariables, error) {
+	var retval __premarshalqueryWithCustomMarshalOptionalVariables
+
+	{
+
+		dst := &retval.Date
+		src := v.Date
+		if src != nil {
+			var err error
+			*dst, err = testutil.MarshalDate(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryWithCustomMarshalOptionalVariables.Date: %w", err)
+			}
+		}
+	}
+	retval.Login = v.Login
+	return &retval, nil
+}
+
 // queryWithCustomMarshalResponse is returned by queryWithCustomMarshal on success.
 type queryWithCustomMarshalResponse struct {
 	UsersCreatedOn []queryWithCustomMarshalUsersCreatedOnUser `json:"usersCreatedOn"`
@@ -1873,6 +1674,86 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) __premarshalJSON() 
 	return &retval, nil
 }
 
+// queryWithCustomMarshalSliceVariables contains the variables accepted by queryWithCustomMarshalSlice.
+type queryWithCustomMarshalSliceVariables struct {
+	Dates []time.Time `json:"-"`
+}
+
+func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*queryWithCustomMarshalSliceVariables
+		Dates []json.RawMessage `json:"dates"`
+		octoql.NoUnmarshalJSON
+	}
+	firstPass.queryWithCustomMarshalSliceVariables = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Dates
+		src := firstPass.Dates
+		*dst = make(
+			[]time.Time,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = testutil.UnmarshalDate(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalqueryWithCustomMarshalSliceVariables struct {
+	Dates []json.RawMessage `json:"dates"`
+}
+
+func (v *queryWithCustomMarshalSliceVariables) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *queryWithCustomMarshalSliceVariables) __premarshalJSON() (*__premarshalqueryWithCustomMarshalSliceVariables, error) {
+	var retval __premarshalqueryWithCustomMarshalSliceVariables
+
+	{
+
+		dst := &retval.Dates
+		src := v.Dates
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = testutil.MarshalDate(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+			}
+		}
+	}
+	return &retval, nil
+}
+
 // queryWithCustomMarshalUsersCreatedOnUser includes the requested fields of the GraphQL type User.
 type queryWithCustomMarshalUsersCreatedOnUser struct {
 	Id        string    `json:"id"`
@@ -1956,6 +1837,79 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) __premarshalJSON() (*__premar
 		}
 	}
 	return &retval, nil
+}
+
+// queryWithCustomMarshalVariables contains the variables accepted by queryWithCustomMarshal.
+type queryWithCustomMarshalVariables struct {
+	Date time.Time `json:"-"`
+}
+
+func (v *queryWithCustomMarshalVariables) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*queryWithCustomMarshalVariables
+		Date json.RawMessage `json:"date"`
+		octoql.NoUnmarshalJSON
+	}
+	firstPass.queryWithCustomMarshalVariables = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Date
+		src := firstPass.Date
+		if len(src) != 0 && string(src) != "null" {
+			err = testutil.UnmarshalDate(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal queryWithCustomMarshalVariables.Date: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalqueryWithCustomMarshalVariables struct {
+	Date json.RawMessage `json:"date"`
+}
+
+func (v *queryWithCustomMarshalVariables) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *queryWithCustomMarshalVariables) __premarshalJSON() (*__premarshalqueryWithCustomMarshalVariables, error) {
+	var retval __premarshalqueryWithCustomMarshalVariables
+
+	{
+
+		dst := &retval.Date
+		src := v.Date
+		var err error
+		*dst, err = testutil.MarshalDate(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal queryWithCustomMarshalVariables.Date: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// queryWithFlattenVariables contains the variables accepted by queryWithFlatten.
+type queryWithFlattenVariables struct {
+	Ids []string `json:"ids"`
 }
 
 // queryWithFragmentsActorsActor includes the requested fields of the GraphQL interface Actor.
@@ -2455,6 +2409,11 @@ func (v *queryWithFragmentsResponse) __premarshalJSON() (*__premarshalqueryWithF
 	return &retval, nil
 }
 
+// queryWithFragmentsVariables contains the variables accepted by queryWithFragments.
+type queryWithFragmentsVariables struct {
+	Ids []string `json:"ids"`
+}
+
 // queryWithInterfaceListFieldActorsActor includes the requested fields of the GraphQL interface Actor.
 //
 // queryWithInterfaceListFieldActorsActor is implemented by the following types:
@@ -2677,6 +2636,11 @@ func (v *queryWithInterfaceListFieldResponse) __premarshalJSON() (*__premarshalq
 		}
 	}
 	return &retval, nil
+}
+
+// queryWithInterfaceListFieldVariables contains the variables accepted by queryWithInterfaceListField.
+type queryWithInterfaceListFieldVariables struct {
+	Ids []string `json:"ids"`
 }
 
 // queryWithInterfaceListPointerFieldActorsActor includes the requested fields of the GraphQL interface Actor.
@@ -2908,6 +2872,11 @@ func (v *queryWithInterfaceListPointerFieldResponse) __premarshalJSON() (*__prem
 	return &retval, nil
 }
 
+// queryWithInterfaceListPointerFieldVariables contains the variables accepted by queryWithInterfaceListPointerField.
+type queryWithInterfaceListPointerFieldVariables struct {
+	Ids []string `json:"ids"`
+}
+
 // queryWithInterfaceNoFragmentsActor includes the requested fields of the GraphQL interface Actor.
 //
 // queryWithInterfaceNoFragmentsActor is implemented by the following types:
@@ -3127,6 +3096,11 @@ func (v *queryWithInterfaceNoFragmentsResponse) __premarshalJSON() (*__premarsha
 	}
 	retval.Viewer = v.Viewer
 	return &retval, nil
+}
+
+// queryWithInterfaceNoFragmentsVariables contains the variables accepted by queryWithInterfaceNoFragments.
+type queryWithInterfaceNoFragmentsVariables struct {
+	Id string `json:"id"`
 }
 
 // queryWithInterfaceNoFragmentsViewerUser includes the requested fields of the GraphQL type User.
@@ -3498,6 +3472,11 @@ func (v *queryWithNamedFragmentsResponse) __premarshalJSON() (*__premarshalquery
 	return &retval, nil
 }
 
+// queryWithNamedFragmentsVariables contains the variables accepted by queryWithNamedFragments.
+type queryWithNamedFragmentsVariables struct {
+	Ids []string `json:"ids"`
+}
+
 // queryWithOmitemptyResponse is returned by queryWithOmitempty on success.
 type queryWithOmitemptyResponse struct {
 	User queryWithOmitemptyUser `json:"user"`
@@ -3521,6 +3500,11 @@ func (v *queryWithOmitemptyUser) GetLogin() string { return v.Login }
 
 // GetContributionCount returns queryWithOmitemptyUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *queryWithOmitemptyUser) GetContributionCount() int { return v.ContributionCount }
+
+// queryWithOmitemptyVariables contains the variables accepted by queryWithOmitempty.
+type queryWithOmitemptyVariables struct {
+	Login string `json:"login,omitempty"`
+}
 
 // queryWithSearchResponse is returned by queryWithSearch on success.
 type queryWithSearchResponse struct {
@@ -3846,6 +3830,12 @@ func (v *queryWithSearchSearchUser) GetId() string { return v.Id }
 // GetLogin returns queryWithSearchSearchUser.Login, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchUser) GetLogin() string { return v.Login }
 
+// queryWithSearchVariables contains the variables accepted by queryWithSearch.
+type queryWithSearchVariables struct {
+	Query      string            `json:"query"`
+	SearchType server.SearchType `json:"searchType"`
+}
+
 // queryWithVariablesResponse is returned by queryWithVariables on success.
 type queryWithVariablesResponse struct {
 	User queryWithVariablesUser `json:"user"`
@@ -3869,6 +3859,11 @@ func (v *queryWithVariablesUser) GetLogin() string { return v.Login }
 
 // GetContributionCount returns queryWithVariablesUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *queryWithVariablesUser) GetContributionCount() int { return v.ContributionCount }
+
+// queryWithVariablesVariables contains the variables accepted by queryWithVariables.
+type queryWithVariablesVariables struct {
+	Login string `json:"login"`
+}
 
 // removeStarRemoveStarRemoveStarPayload includes the requested fields of the GraphQL type RemoveStarPayload.
 type removeStarRemoveStarRemoveStarPayload struct {
@@ -4042,6 +4037,11 @@ type removeStarResponse struct {
 // GetRemoveStar returns removeStarResponse.RemoveStar, and is useful for accessing the field via an interface.
 func (v *removeStarResponse) GetRemoveStar() removeStarRemoveStarRemoveStarPayload {
 	return v.RemoveStar
+}
+
+// removeStarVariables contains the variables accepted by removeStar.
+type removeStarVariables struct {
+	Input server.RemoveStarInput `json:"input"`
 }
 
 // repositoriesFields includes the GraphQL fields of Repository requested by the fragment repositoriesFields.
@@ -4319,33 +4319,30 @@ func (e *addCommentPartialDataError) PartialData() *addCommentResponse {
 }
 
 func addComment(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	input server.AddCommentInput,
+	ctx context.Context,
+	client *octoql.Client,
+	vars addCommentVariables,
 ) (*addCommentResponse, error) {
-	variables_ := __addCommentInput{
-		Input: input,
-	}
-	var response_ addCommentResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response addCommentResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "addComment",
 			Query:         addComment_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &addCommentPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The mutation executed by addStar.
@@ -4390,33 +4387,30 @@ func (e *addStarPartialDataError) PartialData() *addStarResponse {
 }
 
 func addStar(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	input server.AddStarInput,
+	ctx context.Context,
+	client *octoql.Client,
+	vars addStarVariables,
 ) (*addStarResponse, error) {
-	variables_ := __addStarInput{
-		Input: input,
-	}
-	var response_ addStarResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response addStarResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "addStar",
 			Query:         addStar_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &addStarPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by failingQuery.
@@ -4457,29 +4451,29 @@ func (e *failingQueryPartialDataError) PartialData() *failingQueryResponse {
 }
 
 func failingQuery(
-	ctx_ context.Context,
-	client_ *octoql.Client,
+	ctx context.Context,
+	client *octoql.Client,
 ) (*failingQueryResponse, error) {
-	var response_ failingQueryResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response failingQueryResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "failingQuery",
 			Query:         failingQuery_Operation,
 			Variables:     nil,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &failingQueryPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by getRepository.
@@ -4525,35 +4519,30 @@ func (e *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
 }
 
 func getRepository(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	owner string,
-	name string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars getRepositoryVariables,
 ) (*getRepositoryResponse, error) {
-	variables_ := __getRepositoryInput{
-		Owner: owner,
-		Name:  name,
-	}
-	var response_ getRepositoryResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response getRepositoryResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "getRepository",
 			Query:         getRepository_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &getRepositoryPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithCustomMarshal.
@@ -4595,33 +4584,30 @@ func (e *queryWithCustomMarshalPartialDataError) PartialData() *queryWithCustomM
 }
 
 func queryWithCustomMarshal(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	date time.Time,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithCustomMarshalVariables,
 ) (*queryWithCustomMarshalResponse, error) {
-	variables_ := __queryWithCustomMarshalInput{
-		Date: date,
-	}
-	var response_ queryWithCustomMarshalResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithCustomMarshalResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithCustomMarshal",
 			Query:         queryWithCustomMarshal_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithCustomMarshalPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithCustomMarshalOptional.
@@ -4663,35 +4649,30 @@ func (e *queryWithCustomMarshalOptionalPartialDataError) PartialData() *queryWit
 }
 
 func queryWithCustomMarshalOptional(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	date *time.Time,
-	login *string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithCustomMarshalOptionalVariables,
 ) (*queryWithCustomMarshalOptionalResponse, error) {
-	variables_ := __queryWithCustomMarshalOptionalInput{
-		Date:  date,
-		Login: login,
-	}
-	var response_ queryWithCustomMarshalOptionalResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithCustomMarshalOptionalResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithCustomMarshalOptional",
 			Query:         queryWithCustomMarshalOptional_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithCustomMarshalOptionalPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithCustomMarshalSlice.
@@ -4733,33 +4714,30 @@ func (e *queryWithCustomMarshalSlicePartialDataError) PartialData() *queryWithCu
 }
 
 func queryWithCustomMarshalSlice(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	dates []time.Time,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithCustomMarshalSliceVariables,
 ) (*queryWithCustomMarshalSliceResponse, error) {
-	variables_ := __queryWithCustomMarshalSliceInput{
-		Dates: dates,
-	}
-	var response_ queryWithCustomMarshalSliceResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithCustomMarshalSliceResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithCustomMarshalSlice",
 			Query:         queryWithCustomMarshalSlice_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithCustomMarshalSlicePartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithFlatten.
@@ -4835,33 +4813,30 @@ func (e *queryWithFlattenPartialDataError) PartialData() *queryFragment {
 }
 
 func queryWithFlatten(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	ids []string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithFlattenVariables,
 ) (*queryFragment, error) {
-	variables_ := __queryWithFlattenInput{
-		Ids: ids,
-	}
-	var response_ queryFragment
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryFragment
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithFlatten",
 			Query:         queryWithFlatten_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithFlattenPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithFragments.
@@ -4930,33 +4905,30 @@ func (e *queryWithFragmentsPartialDataError) PartialData() *queryWithFragmentsRe
 }
 
 func queryWithFragments(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	ids []string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithFragmentsVariables,
 ) (*queryWithFragmentsResponse, error) {
-	variables_ := __queryWithFragmentsInput{
-		Ids: ids,
-	}
-	var response_ queryWithFragmentsResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithFragmentsResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithFragments",
 			Query:         queryWithFragments_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithFragmentsPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithInterfaceListField.
@@ -4998,33 +4970,30 @@ func (e *queryWithInterfaceListFieldPartialDataError) PartialData() *queryWithIn
 }
 
 func queryWithInterfaceListField(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	ids []string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithInterfaceListFieldVariables,
 ) (*queryWithInterfaceListFieldResponse, error) {
-	variables_ := __queryWithInterfaceListFieldInput{
-		Ids: ids,
-	}
-	var response_ queryWithInterfaceListFieldResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithInterfaceListFieldResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithInterfaceListField",
 			Query:         queryWithInterfaceListField_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithInterfaceListFieldPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithInterfaceListPointerField.
@@ -5066,33 +5035,30 @@ func (e *queryWithInterfaceListPointerFieldPartialDataError) PartialData() *quer
 }
 
 func queryWithInterfaceListPointerField(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	ids []string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithInterfaceListPointerFieldVariables,
 ) (*queryWithInterfaceListPointerFieldResponse, error) {
-	variables_ := __queryWithInterfaceListPointerFieldInput{
-		Ids: ids,
-	}
-	var response_ queryWithInterfaceListPointerFieldResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithInterfaceListPointerFieldResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithInterfaceListPointerField",
 			Query:         queryWithInterfaceListPointerField_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithInterfaceListPointerFieldPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithInterfaceNoFragments.
@@ -5138,33 +5104,30 @@ func (e *queryWithInterfaceNoFragmentsPartialDataError) PartialData() *queryWith
 }
 
 func queryWithInterfaceNoFragments(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	id string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithInterfaceNoFragmentsVariables,
 ) (*queryWithInterfaceNoFragmentsResponse, error) {
-	variables_ := __queryWithInterfaceNoFragmentsInput{
-		Id: id,
-	}
-	var response_ queryWithInterfaceNoFragmentsResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithInterfaceNoFragmentsResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithInterfaceNoFragments",
 			Query:         queryWithInterfaceNoFragments_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithInterfaceNoFragmentsPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithNamedFragments.
@@ -5234,33 +5197,30 @@ func (e *queryWithNamedFragmentsPartialDataError) PartialData() *queryWithNamedF
 }
 
 func queryWithNamedFragments(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	ids []string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithNamedFragmentsVariables,
 ) (*queryWithNamedFragmentsResponse, error) {
-	variables_ := __queryWithNamedFragmentsInput{
-		Ids: ids,
-	}
-	var response_ queryWithNamedFragmentsResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithNamedFragmentsResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithNamedFragments",
 			Query:         queryWithNamedFragments_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithNamedFragmentsPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithOmitempty.
@@ -5302,33 +5262,30 @@ func (e *queryWithOmitemptyPartialDataError) PartialData() *queryWithOmitemptyRe
 }
 
 func queryWithOmitempty(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	login string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithOmitemptyVariables,
 ) (*queryWithOmitemptyResponse, error) {
-	variables_ := __queryWithOmitemptyInput{
-		Login: login,
-	}
-	var response_ queryWithOmitemptyResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithOmitemptyResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithOmitempty",
 			Query:         queryWithOmitempty_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithOmitemptyPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithSearch.
@@ -5386,35 +5343,30 @@ func (e *queryWithSearchPartialDataError) PartialData() *queryWithSearchResponse
 }
 
 func queryWithSearch(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	query string,
-	searchType server.SearchType,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithSearchVariables,
 ) (*queryWithSearchResponse, error) {
-	variables_ := __queryWithSearchInput{
-		Query:      query,
-		SearchType: searchType,
-	}
-	var response_ queryWithSearchResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithSearchResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithSearch",
 			Query:         queryWithSearch_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithSearchPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by queryWithVariables.
@@ -5456,33 +5408,30 @@ func (e *queryWithVariablesPartialDataError) PartialData() *queryWithVariablesRe
 }
 
 func queryWithVariables(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	login string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars queryWithVariablesVariables,
 ) (*queryWithVariablesResponse, error) {
-	variables_ := __queryWithVariablesInput{
-		Login: login,
-	}
-	var response_ queryWithVariablesResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response queryWithVariablesResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "queryWithVariables",
 			Query:         queryWithVariables_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &queryWithVariablesPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The mutation executed by removeStar.
@@ -5527,31 +5476,28 @@ func (e *removeStarPartialDataError) PartialData() *removeStarResponse {
 }
 
 func removeStar(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	input server.RemoveStarInput,
+	ctx context.Context,
+	client *octoql.Client,
+	vars removeStarVariables,
 ) (*removeStarResponse, error) {
-	variables_ := __removeStarInput{
-		Input: input,
-	}
-	var response_ removeStarResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response removeStarResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "removeStar",
 			Query:         removeStar_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &removeStarPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }

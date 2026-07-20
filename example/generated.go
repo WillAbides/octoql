@@ -9,11 +9,6 @@ import (
 	"github.com/willabides/octoql"
 )
 
-// __getUserInput is used internally by octoqlgen
-type __getUserInput struct {
-	Login string `json:"Login"`
-}
-
 // getUserResponse is returned by getUser on success.
 type getUserResponse struct {
 	// Lookup a user by login.
@@ -39,6 +34,11 @@ func (v *getUserUser) GetTheirName() string { return v.TheirName }
 
 // GetCreatedAt returns getUserUser.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getUserUser) GetCreatedAt() time.Time { return v.CreatedAt }
+
+// getUserVariables contains the variables accepted by getUser.
+type getUserVariables struct {
+	Login string `json:"Login"`
+}
 
 // getViewerResponse is returned by getViewer on success.
 type getViewerResponse struct {
@@ -105,33 +105,30 @@ func (e *getUserPartialDataError) PartialData() *getUserResponse {
 
 // getUser gets the given user's name from their username.
 func getUser(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	Login string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars getUserVariables,
 ) (*getUserResponse, error) {
-	variables_ := __getUserInput{
-		Login: Login,
-	}
-	var response_ getUserResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response getUserResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "getUser",
 			Query:         getUser_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &getUserPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }
 
 // The query executed by getViewer.
@@ -172,27 +169,27 @@ func (e *getViewerPartialDataError) PartialData() *getViewerResponse {
 }
 
 func getViewer(
-	ctx_ context.Context,
-	client_ *octoql.Client,
+	ctx context.Context,
+	client *octoql.Client,
 ) (*getViewerResponse, error) {
-	var response_ getViewerResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response getViewerResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "getViewer",
 			Query:         getViewer_Operation,
 			Variables:     nil,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &getViewerPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }

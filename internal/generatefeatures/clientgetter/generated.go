@@ -11,12 +11,6 @@ import (
 // Check that context_type from octoqlgen.yaml implements context.Context.
 var _ context.Context = (customContext)(nil)
 
-// __getRepositoryInput is used internally by octoqlgen
-type __getRepositoryInput struct {
-	Owner string `json:"owner"`
-	Name  string `json:"name"`
-}
-
 // getRepositoryRepository includes the requested fields of the GraphQL type Repository.
 type getRepositoryRepository struct {
 	NameWithOwner string `json:"nameWithOwner"`
@@ -32,6 +26,12 @@ type getRepositoryResponse struct {
 
 // GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *getRepositoryResponse) GetRepository() getRepositoryRepository { return v.Repository }
+
+// getRepositoryVariables contains the variables accepted by getRepository.
+type getRepositoryVariables struct {
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
+}
 
 // The query executed by getRepository.
 const getRepository_Operation = `
@@ -70,36 +70,31 @@ func (e *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
 }
 
 func getRepository(
-	ctx_ customContext,
-	owner string,
-	name string,
+	ctx customContext,
+	vars getRepositoryVariables,
 ) (*getRepositoryResponse, error) {
-	client_, err_ := getClient(ctx_)
-	if err_ != nil {
-		return nil, err_
+	client, err := getClient(ctx)
+	if err != nil {
+		return nil, err
 	}
-	variables_ := __getRepositoryInput{
-		Owner: owner,
-		Name:  name,
-	}
-	var response_ getRepositoryResponse
-	hasData_, err_ := client_.Execute(
-		ctx_,
+	var response getRepositoryResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "getRepository",
 			Query:         getRepository_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		&response_,
+		&response,
 	)
-	if !hasData_ {
-		return nil, err_
+	if !hasData {
+		return nil, err
 	}
-	if err_ != nil {
+	if err != nil {
 		return nil, &getRepositoryPartialDataError{
-			data: &response_,
-			err:  err_,
+			data: &response,
+			err:  err,
 		}
 	}
-	return &response_, nil
+	return &response, nil
 }

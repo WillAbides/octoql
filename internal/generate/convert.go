@@ -173,8 +173,7 @@ func defaultScalarType(graphQLName string) (string, bool) {
 // convertArguments builds the type of the GraphQL arguments to the given
 // operation.
 //
-// This type is not exposed to the user; it's just used internally in the
-// unmarshaler; and it's used as a container
+// This type is used as the generated operation's variables container.
 func (g *generator) convertArguments(
 	operation *ast.OperationDefinition,
 	queryOptions *octoqlgenDirective,
@@ -182,7 +181,7 @@ func (g *generator) convertArguments(
 	if len(operation.VariableDefinitions) == 0 {
 		return nil, nil
 	}
-	name := "__" + operation.Name + "Input"
+	name := operation.Name + "Variables"
 	fields := make([]*goStructField, len(operation.VariableDefinitions))
 	for i, arg := range operation.VariableDefinitions {
 		if goKeywords[arg.Variable] {
@@ -219,7 +218,8 @@ func (g *generator) convertArguments(
 		Selection: nil,
 		IsInput:   true,
 		descriptionInfo: descriptionInfo{
-			CommentOverride: fmt.Sprintf("%s is used internally by octoqlgen", name),
+			CommentOverride: fmt.Sprintf(
+				"%s contains the variables accepted by %s.", name, operation.Name),
 			// fake name, used by addType
 			GraphQLName: name,
 		},
