@@ -92,6 +92,11 @@ func (v *CreateRepositoryResponse) GetCreateRepository() CreateRepositoryCreateR
 	return v.CreateRepository
 }
 
+// CreateRepositoryVariables contains the variables accepted by CreateRepository.
+type CreateRepositoryVariables struct {
+	Input CreateRepositoryInput `json:"input"`
+}
+
 // EchoAnyResponse is returned by EchoAny on success.
 type EchoAnyResponse struct {
 	EchoAny any `json:"echoAny"`
@@ -99,6 +104,11 @@ type EchoAnyResponse struct {
 
 // GetEchoAny returns EchoAnyResponse.EchoAny, and is useful for accessing the field via an interface.
 func (v *EchoAnyResponse) GetEchoAny() any { return v.EchoAny }
+
+// EchoAnyVariables contains the variables accepted by EchoAny.
+type EchoAnyVariables struct {
+	Value any `json:"value"`
+}
 
 // EchoAtResponse is returned by EchoAt on success.
 type EchoAtResponse struct {
@@ -108,6 +118,11 @@ type EchoAtResponse struct {
 // GetEchoAt returns EchoAtResponse.EchoAt, and is useful for accessing the field via an interface.
 func (v *EchoAtResponse) GetEchoAt() time.Time { return v.EchoAt }
 
+// EchoAtVariables contains the variables accepted by EchoAt.
+type EchoAtVariables struct {
+	Value time.Time `json:"value"`
+}
+
 // EchoPropertyResponse is returned by EchoProperty on success.
 type EchoPropertyResponse struct {
 	EchoProperty json.RawMessage `json:"echoProperty"`
@@ -115,6 +130,11 @@ type EchoPropertyResponse struct {
 
 // GetEchoProperty returns EchoPropertyResponse.EchoProperty, and is useful for accessing the field via an interface.
 func (v *EchoPropertyResponse) GetEchoProperty() json.RawMessage { return v.EchoProperty }
+
+// EchoPropertyVariables contains the variables accepted by EchoProperty.
+type EchoPropertyVariables struct {
+	Value json.RawMessage `json:"value"`
+}
 
 // GetNodeNode includes the requested fields of the GraphQL interface Node.
 //
@@ -308,6 +328,11 @@ func (v *GetNodeResponse) __premarshalJSON() (*__premarshalGetNodeResponse, erro
 	return &retval, nil
 }
 
+// GetNodeVariables contains the variables accepted by GetNode.
+type GetNodeVariables struct {
+	Id string `json:"id"`
+}
+
 // GetRepositoryRepository includes the requested fields of the GraphQL type Repository.
 type GetRepositoryRepository struct {
 	Id            string                                       `json:"id"`
@@ -385,6 +410,14 @@ type GetRepositoryResponse struct {
 
 // GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
+
+// GetRepositoryVariables contains the variables accepted by GetRepository.
+type GetRepositoryVariables struct {
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
+	First int    `json:"first"`
+	After string `json:"after"`
+}
 
 type RepositoryVisibility string
 
@@ -597,6 +630,11 @@ type SearchSearchSearchResultItemOctoqlOther struct {
 // GetTypename returns SearchSearchSearchResultItemOctoqlOther.Typename, and is useful for accessing the field via an interface.
 func (v *SearchSearchSearchResultItemOctoqlOther) GetTypename() string { return v.Typename }
 
+// SearchVariables contains the variables accepted by Search.
+type SearchVariables struct {
+	Query string `json:"query"`
+}
+
 // ViewerResponse is returned by Viewer on success.
 type ViewerResponse struct {
 	Viewer ViewerViewerUser `json:"viewer"`
@@ -675,88 +713,6 @@ func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, er
 	return &retval, nil
 }
 
-// __CreateRepositoryInput is used internally by octoqlgen
-type __CreateRepositoryInput struct {
-	Input CreateRepositoryInput `json:"input"`
-}
-
-// __EchoAnyInput is used internally by octoqlgen
-type __EchoAnyInput struct {
-	Value any `json:"value"`
-}
-
-// __EchoAtInput is used internally by octoqlgen
-type __EchoAtInput struct {
-	Value time.Time `json:"value"`
-}
-
-// __EchoPropertyInput is used internally by octoqlgen
-type __EchoPropertyInput struct {
-	Value json.RawMessage `json:"value"`
-}
-
-// __GetNodeInput is used internally by octoqlgen
-type __GetNodeInput struct {
-	Id string `json:"id"`
-}
-
-// __GetRepositoryInput is used internally by octoqlgen
-type __GetRepositoryInput struct {
-	Owner string `json:"owner"`
-	Name  string `json:"name"`
-	First int    `json:"first"`
-	After string `json:"after"`
-}
-
-// __SearchInput is used internally by octoqlgen
-type __SearchInput struct {
-	Query string `json:"query"`
-}
-
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
-}
-
 // The mutation executed by CreateRepository.
 const CreateRepository_Operation = `
 mutation CreateRepository ($input: CreateRepositoryInput!) {
@@ -776,39 +732,58 @@ mutation CreateRepository ($input: CreateRepositoryInput!) {
 }
 `
 
-// CreateRepositoryVariables contains the variables accepted by CreateRepository.
-type CreateRepositoryVariables = __CreateRepositoryInput
-
 // CreateRepositoryPartialDataError contains partial data returned by CreateRepository.
 type CreateRepositoryPartialDataError struct {
-	__octoqlPartialDataError[CreateRepositoryResponse]
+	data *CreateRepositoryResponse
+	err  error
+}
+
+func (e *CreateRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *CreateRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *CreateRepositoryPartialDataError) PartialData() *CreateRepositoryResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func CreateRepository(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	input CreateRepositoryInput,
+	ctx context.Context,
+	client *octoql.Client,
+	vars CreateRepositoryVariables,
 ) (*CreateRepositoryResponse, error) {
-	variables_ := __CreateRepositoryInput{
-		Input: input,
-	}
-	return __octoqlDo[CreateRepositoryResponse](
-		ctx_,
-		client_,
+	var response CreateRepositoryResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "CreateRepository",
 			Query:         CreateRepository_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *CreateRepositoryResponse, err error) error {
-			return &CreateRepositoryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[CreateRepositoryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &CreateRepositoryPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by EchoAny.
@@ -818,39 +793,58 @@ query EchoAny ($value: ArbitraryJSON!) {
 }
 `
 
-// EchoAnyVariables contains the variables accepted by EchoAny.
-type EchoAnyVariables = __EchoAnyInput
-
 // EchoAnyPartialDataError contains partial data returned by EchoAny.
 type EchoAnyPartialDataError struct {
-	__octoqlPartialDataError[EchoAnyResponse]
+	data *EchoAnyResponse
+	err  error
+}
+
+func (e *EchoAnyPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *EchoAnyPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *EchoAnyPartialDataError) PartialData() *EchoAnyResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func EchoAny(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	value any,
+	ctx context.Context,
+	client *octoql.Client,
+	vars EchoAnyVariables,
 ) (*EchoAnyResponse, error) {
-	variables_ := __EchoAnyInput{
-		Value: value,
-	}
-	return __octoqlDo[EchoAnyResponse](
-		ctx_,
-		client_,
+	var response EchoAnyResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "EchoAny",
 			Query:         EchoAny_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *EchoAnyResponse, err error) error {
-			return &EchoAnyPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[EchoAnyResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &EchoAnyPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by EchoAt.
@@ -860,39 +854,58 @@ query EchoAt ($value: DateTime!) {
 }
 `
 
-// EchoAtVariables contains the variables accepted by EchoAt.
-type EchoAtVariables = __EchoAtInput
-
 // EchoAtPartialDataError contains partial data returned by EchoAt.
 type EchoAtPartialDataError struct {
-	__octoqlPartialDataError[EchoAtResponse]
+	data *EchoAtResponse
+	err  error
+}
+
+func (e *EchoAtPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *EchoAtPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *EchoAtPartialDataError) PartialData() *EchoAtResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func EchoAt(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	value time.Time,
+	ctx context.Context,
+	client *octoql.Client,
+	vars EchoAtVariables,
 ) (*EchoAtResponse, error) {
-	variables_ := __EchoAtInput{
-		Value: value,
-	}
-	return __octoqlDo[EchoAtResponse](
-		ctx_,
-		client_,
+	var response EchoAtResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "EchoAt",
 			Query:         EchoAt_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *EchoAtResponse, err error) error {
-			return &EchoAtPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[EchoAtResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &EchoAtPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by EchoProperty.
@@ -902,39 +915,58 @@ query EchoProperty ($value: CustomPropertyValue!) {
 }
 `
 
-// EchoPropertyVariables contains the variables accepted by EchoProperty.
-type EchoPropertyVariables = __EchoPropertyInput
-
 // EchoPropertyPartialDataError contains partial data returned by EchoProperty.
 type EchoPropertyPartialDataError struct {
-	__octoqlPartialDataError[EchoPropertyResponse]
+	data *EchoPropertyResponse
+	err  error
+}
+
+func (e *EchoPropertyPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *EchoPropertyPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *EchoPropertyPartialDataError) PartialData() *EchoPropertyResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func EchoProperty(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	value json.RawMessage,
+	ctx context.Context,
+	client *octoql.Client,
+	vars EchoPropertyVariables,
 ) (*EchoPropertyResponse, error) {
-	variables_ := __EchoPropertyInput{
-		Value: value,
-	}
-	return __octoqlDo[EchoPropertyResponse](
-		ctx_,
-		client_,
+	var response EchoPropertyResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "EchoProperty",
 			Query:         EchoProperty_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *EchoPropertyResponse, err error) error {
-			return &EchoPropertyPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[EchoPropertyResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &EchoPropertyPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by GetNode.
@@ -953,39 +985,58 @@ query GetNode ($id: ID!) {
 }
 `
 
-// GetNodeVariables contains the variables accepted by GetNode.
-type GetNodeVariables = __GetNodeInput
-
 // GetNodePartialDataError contains partial data returned by GetNode.
 type GetNodePartialDataError struct {
-	__octoqlPartialDataError[GetNodeResponse]
+	data *GetNodeResponse
+	err  error
+}
+
+func (e *GetNodePartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *GetNodePartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *GetNodePartialDataError) PartialData() *GetNodeResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func GetNode(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	id string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars GetNodeVariables,
 ) (*GetNodeResponse, error) {
-	variables_ := __GetNodeInput{
-		Id: id,
-	}
-	return __octoqlDo[GetNodeResponse](
-		ctx_,
-		client_,
+	var response GetNodeResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "GetNode",
 			Query:         GetNode_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *GetNodeResponse, err error) error {
-			return &GetNodePartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[GetNodeResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &GetNodePartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by GetRepository.
@@ -1010,45 +1061,58 @@ query GetRepository ($owner: String!, $name: String!, $first: Int!, $after: Stri
 }
 `
 
-// GetRepositoryVariables contains the variables accepted by GetRepository.
-type GetRepositoryVariables = __GetRepositoryInput
-
 // GetRepositoryPartialDataError contains partial data returned by GetRepository.
 type GetRepositoryPartialDataError struct {
-	__octoqlPartialDataError[GetRepositoryResponse]
+	data *GetRepositoryResponse
+	err  error
+}
+
+func (e *GetRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *GetRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func GetRepository(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	owner string,
-	name string,
-	first int,
-	after string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars GetRepositoryVariables,
 ) (*GetRepositoryResponse, error) {
-	variables_ := __GetRepositoryInput{
-		Owner: owner,
-		Name:  name,
-		First: first,
-		After: after,
-	}
-	return __octoqlDo[GetRepositoryResponse](
-		ctx_,
-		client_,
+	var response GetRepositoryResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "GetRepository",
 			Query:         GetRepository_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *GetRepositoryResponse, err error) error {
-			return &GetRepositoryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &GetRepositoryPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by Search.
@@ -1068,39 +1132,58 @@ query Search ($query: String!) {
 }
 `
 
-// SearchVariables contains the variables accepted by Search.
-type SearchVariables = __SearchInput
-
 // SearchPartialDataError contains partial data returned by Search.
 type SearchPartialDataError struct {
-	__octoqlPartialDataError[SearchResponse]
+	data *SearchResponse
+	err  error
+}
+
+func (e *SearchPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *SearchPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *SearchPartialDataError) PartialData() *SearchResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func Search(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	query string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars SearchVariables,
 ) (*SearchResponse, error) {
-	variables_ := __SearchInput{
-		Query: query,
-	}
-	return __octoqlDo[SearchResponse](
-		ctx_,
-		client_,
+	var response SearchResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "Search",
 			Query:         Search_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *SearchResponse, err error) error {
-			return &SearchPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[SearchResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &SearchPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by Viewer.
@@ -1118,28 +1201,53 @@ fragment ViewerVariables on User {
 
 // ViewerPartialDataError contains partial data returned by Viewer.
 type ViewerPartialDataError struct {
-	__octoqlPartialDataError[ViewerResponse]
+	data *ViewerResponse
+	err  error
+}
+
+func (e *ViewerPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *ViewerPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *ViewerPartialDataError) PartialData() *ViewerResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func Viewer(
-	ctx_ context.Context,
-	client_ *octoql.Client,
+	ctx context.Context,
+	client *octoql.Client,
 ) (*ViewerResponse, error) {
-	return __octoqlDo[ViewerResponse](
-		ctx_,
-		client_,
+	var response ViewerResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "Viewer",
 			Query:         Viewer_Operation,
 			Variables:     nil,
 		},
-		func(data *ViewerResponse, err error) error {
-			return &ViewerPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[ViewerResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &ViewerPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }

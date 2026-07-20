@@ -34,6 +34,11 @@ func (v *CreateGitHubRepositoryResponse) GetCreateRepository() *CreateGitHubRepo
 	return v.CreateRepository
 }
 
+// CreateGitHubRepositoryVariables contains the variables accepted by CreateGitHubRepository.
+type CreateGitHubRepositoryVariables struct {
+	Input *CreateRepositoryInput `json:"input,omitempty"`
+}
+
 type CreateRepositoryInput struct {
 	Name       string                `json:"name"`
 	Visibility *RepositoryVisibility `json:"visibility"`
@@ -340,6 +345,230 @@ func (v *GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnectionN
 	return v.Id
 }
 
+// GitHubInputsVariables contains the variables accepted by GitHubInputs.
+type GitHubInputsVariables struct {
+	Repository             *RepositorySelector       `json:"repository,omitempty"`
+	Filter                 *IssueFilter              `json:"filter,omitempty"`
+	Date                   *time.Time                `json:"-"`
+	Defaults               *InputWithDefaults        `json:"defaults,omitempty"`
+	Optional               *OmitemptyInput           `json:"optional,omitempty"`
+	Structs                *UseStructReferencesInput `json:"structs,omitempty"`
+	PublishedDates         [][][]time.Time           `json:"-"`
+	OptionalPublishedDates [][][]*time.Time          `json:"-"`
+}
+
+func (v *GitHubInputsVariables) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GitHubInputsVariables
+		Date                   json.RawMessage       `json:"date"`
+		PublishedDates         [][][]json.RawMessage `json:"publishedDates"`
+		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
+		octoql.NoUnmarshalJSON
+	}
+	firstPass.GitHubInputsVariables = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Date
+		src := firstPass.Date
+		if len(src) != 0 && string(src) != "null" {
+			*dst = new(time.Time)
+			err = testutil.UnmarshalDate(
+				src, *dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GitHubInputsVariables.Date: %w", err)
+			}
+		}
+	}
+
+	{
+		dst := &v.PublishedDates
+		src := firstPass.PublishedDates
+		*dst = make(
+			[][][]time.Time,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			*dst = make(
+				[][]time.Time,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				*dst = make(
+					[]time.Time,
+					len(src))
+				for i, src := range src {
+					dst := &(*dst)[i]
+					if len(src) != 0 && string(src) != "null" {
+						err = testutil.UnmarshalDate(
+							src, dst)
+						if err != nil {
+							return fmt.Errorf(
+								"unable to unmarshal GitHubInputsVariables.PublishedDates: %w", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	{
+		dst := &v.OptionalPublishedDates
+		src := firstPass.OptionalPublishedDates
+		*dst = make(
+			[][][]*time.Time,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			*dst = make(
+				[][]*time.Time,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				*dst = make(
+					[]*time.Time,
+					len(src))
+				for i, src := range src {
+					dst := &(*dst)[i]
+					if len(src) != 0 && string(src) != "null" {
+						*dst = new(time.Time)
+						err = testutil.UnmarshalDate(
+							src, *dst)
+						if err != nil {
+							return fmt.Errorf(
+								"unable to unmarshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGitHubInputsVariables struct {
+	Repository *RepositorySelector `json:"repository,omitempty"`
+
+	Filter *IssueFilter `json:"filter,omitempty"`
+
+	Date json.RawMessage `json:"date"`
+
+	Defaults *InputWithDefaults `json:"defaults,omitempty"`
+
+	Optional *OmitemptyInput `json:"optional,omitempty"`
+
+	Structs *UseStructReferencesInput `json:"structs,omitempty"`
+
+	PublishedDates [][][]json.RawMessage `json:"publishedDates"`
+
+	OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
+}
+
+func (v *GitHubInputsVariables) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GitHubInputsVariables) __premarshalJSON() (*__premarshalGitHubInputsVariables, error) {
+	var retval __premarshalGitHubInputsVariables
+
+	retval.Repository = v.Repository
+	retval.Filter = v.Filter
+	{
+
+		dst := &retval.Date
+		src := v.Date
+		if src != nil {
+			var err error
+			*dst, err = testutil.MarshalDate(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal GitHubInputsVariables.Date: %w", err)
+			}
+		}
+	}
+	retval.Defaults = v.Defaults
+	retval.Optional = v.Optional
+	retval.Structs = v.Structs
+	{
+
+		dst := &retval.PublishedDates
+		src := v.PublishedDates
+		*dst = make(
+			[][][]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			*dst = make(
+				[][]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				*dst = make(
+					[]json.RawMessage,
+					len(src))
+				for i, src := range src {
+					dst := &(*dst)[i]
+					var err error
+					*dst, err = testutil.MarshalDate(
+						&src)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"unable to marshal GitHubInputsVariables.PublishedDates: %w", err)
+					}
+				}
+			}
+		}
+	}
+	{
+
+		dst := &retval.OptionalPublishedDates
+		src := v.OptionalPublishedDates
+		*dst = make(
+			[][][]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			*dst = make(
+				[][]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				*dst = make(
+					[]json.RawMessage,
+					len(src))
+				for i, src := range src {
+					dst := &(*dst)[i]
+					if src != nil {
+						var err error
+						*dst, err = testutil.MarshalDate(
+							src)
+						if err != nil {
+							return nil, fmt.Errorf(
+								"unable to marshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+						}
+					}
+				}
+			}
+		}
+	}
+	return &retval, nil
+}
+
 type InputWithDefaults struct {
 	RequiredLabel string  `json:"requiredLabel"`
 	OptionalLabel *string `json:"optionalLabel,omitempty"`
@@ -491,292 +720,19 @@ func (v *UpdateIssueWithCollidingNamesResponse) GetCloseIssue() *UpdateIssueWith
 	return v.CloseIssue
 }
 
-type UseStructReferencesInput struct {
-	Struct         *StructInput   `json:"struct,omitempty"`
-	NullableStruct *StructInput   `json:"nullableStruct,omitempty"`
-	List           []*StructInput `json:"list,omitempty"`
-	NullableList   []*StructInput `json:"nullableList,omitempty"`
-}
-
-// __CreateGitHubRepositoryInput is used internally by octoqlgen
-type __CreateGitHubRepositoryInput struct {
-	Input *CreateRepositoryInput `json:"input,omitempty"`
-}
-
-// __GitHubInputsInput is used internally by octoqlgen
-type __GitHubInputsInput struct {
-	Repository             *RepositorySelector       `json:"repository,omitempty"`
-	Filter                 *IssueFilter              `json:"filter,omitempty"`
-	Date                   *time.Time                `json:"-"`
-	Defaults               *InputWithDefaults        `json:"defaults,omitempty"`
-	Optional               *OmitemptyInput           `json:"optional,omitempty"`
-	Structs                *UseStructReferencesInput `json:"structs,omitempty"`
-	PublishedDates         [][][]time.Time           `json:"-"`
-	OptionalPublishedDates [][][]*time.Time          `json:"-"`
-}
-
-func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*__GitHubInputsInput
-		Date                   json.RawMessage       `json:"date"`
-		PublishedDates         [][][]json.RawMessage `json:"publishedDates"`
-		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
-		octoql.NoUnmarshalJSON
-	}
-	firstPass.__GitHubInputsInput = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Date
-		src := firstPass.Date
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal __GitHubInputsInput.Date: %w", err)
-			}
-		}
-	}
-
-	{
-		dst := &v.PublishedDates
-		src := firstPass.PublishedDates
-		*dst = make(
-			[][][]time.Time,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			*dst = make(
-				[][]time.Time,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				*dst = make(
-					[]time.Time,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					if len(src) != 0 && string(src) != "null" {
-						err = testutil.UnmarshalDate(
-							src, dst)
-						if err != nil {
-							return fmt.Errorf(
-								"unable to unmarshal __GitHubInputsInput.PublishedDates: %w", err)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	{
-		dst := &v.OptionalPublishedDates
-		src := firstPass.OptionalPublishedDates
-		*dst = make(
-			[][][]*time.Time,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			*dst = make(
-				[][]*time.Time,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				*dst = make(
-					[]*time.Time,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					if len(src) != 0 && string(src) != "null" {
-						*dst = new(time.Time)
-						err = testutil.UnmarshalDate(
-							src, *dst)
-						if err != nil {
-							return fmt.Errorf(
-								"unable to unmarshal __GitHubInputsInput.OptionalPublishedDates: %w", err)
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
-type __premarshal__GitHubInputsInput struct {
-	Repository *RepositorySelector `json:"repository,omitempty"`
-
-	Filter *IssueFilter `json:"filter,omitempty"`
-
-	Date json.RawMessage `json:"date"`
-
-	Defaults *InputWithDefaults `json:"defaults,omitempty"`
-
-	Optional *OmitemptyInput `json:"optional,omitempty"`
-
-	Structs *UseStructReferencesInput `json:"structs,omitempty"`
-
-	PublishedDates [][][]json.RawMessage `json:"publishedDates"`
-
-	OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
-}
-
-func (v *__GitHubInputsInput) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *__GitHubInputsInput) __premarshalJSON() (*__premarshal__GitHubInputsInput, error) {
-	var retval __premarshal__GitHubInputsInput
-
-	retval.Repository = v.Repository
-	retval.Filter = v.Filter
-	{
-
-		dst := &retval.Date
-		src := v.Date
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal __GitHubInputsInput.Date: %w", err)
-			}
-		}
-	}
-	retval.Defaults = v.Defaults
-	retval.Optional = v.Optional
-	retval.Structs = v.Structs
-	{
-
-		dst := &retval.PublishedDates
-		src := v.PublishedDates
-		*dst = make(
-			[][][]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			*dst = make(
-				[][]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				*dst = make(
-					[]json.RawMessage,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					var err error
-					*dst, err = testutil.MarshalDate(
-						&src)
-					if err != nil {
-						return nil, fmt.Errorf(
-							"unable to marshal __GitHubInputsInput.PublishedDates: %w", err)
-					}
-				}
-			}
-		}
-	}
-	{
-
-		dst := &retval.OptionalPublishedDates
-		src := v.OptionalPublishedDates
-		*dst = make(
-			[][][]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			*dst = make(
-				[][]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				*dst = make(
-					[]json.RawMessage,
-					len(src))
-				for i, src := range src {
-					dst := &(*dst)[i]
-					if src != nil {
-						var err error
-						*dst, err = testutil.MarshalDate(
-							src)
-						if err != nil {
-							return nil, fmt.Errorf(
-								"unable to marshal __GitHubInputsInput.OptionalPublishedDates: %w", err)
-						}
-					}
-				}
-			}
-		}
-	}
-	return &retval, nil
-}
-
-// __UpdateIssueWithCollidingNamesInput is used internally by octoqlgen
-type __UpdateIssueWithCollidingNamesInput struct {
+// UpdateIssueWithCollidingNamesVariables contains the variables accepted by UpdateIssueWithCollidingNames.
+type UpdateIssueWithCollidingNamesVariables struct {
 	Data   string  `json:"data"`
 	Req    *int    `json:"req"`
 	Resp   *int    `json:"resp"`
 	Client *string `json:"client"`
 }
 
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
+type UseStructReferencesInput struct {
+	Struct         *StructInput   `json:"struct,omitempty"`
+	NullableStruct *StructInput   `json:"nullableStruct,omitempty"`
+	List           []*StructInput `json:"list,omitempty"`
+	NullableList   []*StructInput `json:"nullableList,omitempty"`
 }
 
 // The mutation executed by CreateGitHubRepository.
@@ -791,34 +747,56 @@ mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
 
 // CreateGitHubRepositoryPartialDataError contains partial data returned by CreateGitHubRepository.
 type CreateGitHubRepositoryPartialDataError struct {
-	__octoqlPartialDataError[CreateGitHubRepositoryResponse]
+	data *CreateGitHubRepositoryResponse
+	err  error
+}
+
+func (e *CreateGitHubRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *CreateGitHubRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *CreateGitHubRepositoryPartialDataError) PartialData() *CreateGitHubRepositoryResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func CreateGitHubRepository(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	input *CreateRepositoryInput,
+	ctx context.Context,
+	client *octoql.Client,
+	vars CreateGitHubRepositoryVariables,
 ) (*CreateGitHubRepositoryResponse, error) {
-	variables_ := __CreateGitHubRepositoryInput{
-		Input: input,
-	}
-	return __octoqlDo[CreateGitHubRepositoryResponse](
-		ctx_,
-		client_,
+	var response CreateGitHubRepositoryResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "CreateGitHubRepository",
 			Query:         CreateGitHubRepository_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *CreateGitHubRepositoryResponse, err error) error {
-			return &CreateGitHubRepositoryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[CreateGitHubRepositoryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &CreateGitHubRepositoryPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by GitHubInputs.
@@ -849,48 +827,56 @@ query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $dat
 
 // GitHubInputsPartialDataError contains partial data returned by GitHubInputs.
 type GitHubInputsPartialDataError struct {
-	__octoqlPartialDataError[GitHubInputResponse]
+	data *GitHubInputResponse
+	err  error
+}
+
+func (e *GitHubInputsPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *GitHubInputsPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *GitHubInputsPartialDataError) PartialData() *GitHubInputResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func GitHubInputs(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	repository *RepositorySelector,
-	filter *IssueFilter,
-	date *time.Time,
-	defaults *InputWithDefaults,
-	optional *OmitemptyInput,
-	structs *UseStructReferencesInput,
-	publishedDates [][][]time.Time,
-	optionalPublishedDates [][][]*time.Time,
+	ctx context.Context,
+	client *octoql.Client,
+	vars GitHubInputsVariables,
 ) (*GitHubInputResponse, error) {
-	variables_ := __GitHubInputsInput{
-		Repository:             repository,
-		Filter:                 filter,
-		Date:                   date,
-		Defaults:               defaults,
-		Optional:               optional,
-		Structs:                structs,
-		PublishedDates:         publishedDates,
-		OptionalPublishedDates: optionalPublishedDates,
-	}
-	return __octoqlDo[GitHubInputResponse](
-		ctx_,
-		client_,
+	var response GitHubInputResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "GitHubInputs",
 			Query:         GitHubInputs_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *GitHubInputResponse, err error) error {
-			return &GitHubInputsPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[GitHubInputResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &GitHubInputsPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The mutation executed by UpdateIssueWithCollidingNames.
@@ -904,38 +890,54 @@ mutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $
 
 // UpdateIssueWithCollidingNamesPartialDataError contains partial data returned by UpdateIssueWithCollidingNames.
 type UpdateIssueWithCollidingNamesPartialDataError struct {
-	__octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]
+	data *UpdateIssueWithCollidingNamesResponse
+	err  error
+}
+
+func (e *UpdateIssueWithCollidingNamesPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *UpdateIssueWithCollidingNamesPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *UpdateIssueWithCollidingNamesPartialDataError) PartialData() *UpdateIssueWithCollidingNamesResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func UpdateIssueWithCollidingNames(
-	ctx_ context.Context,
-	client_ *octoql.Client,
-	data string,
-	req *int,
-	resp *int,
-	client *string,
+	ctx context.Context,
+	client *octoql.Client,
+	vars UpdateIssueWithCollidingNamesVariables,
 ) (*UpdateIssueWithCollidingNamesResponse, error) {
-	variables_ := __UpdateIssueWithCollidingNamesInput{
-		Data:   data,
-		Req:    req,
-		Resp:   resp,
-		Client: client,
-	}
-	return __octoqlDo[UpdateIssueWithCollidingNamesResponse](
-		ctx_,
-		client_,
+	var response UpdateIssueWithCollidingNamesResponse
+	hasData, err := client.Execute(
+		ctx,
 		octoql.Payload{
 			OperationName: "UpdateIssueWithCollidingNames",
 			Query:         UpdateIssueWithCollidingNames_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *UpdateIssueWithCollidingNamesResponse, err error) error {
-			return &UpdateIssueWithCollidingNamesPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &UpdateIssueWithCollidingNamesPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }

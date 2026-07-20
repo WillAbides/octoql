@@ -24,54 +24,10 @@ type GetRepositoryResponse struct {
 // GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
 
-// __GetRepositoryInput is used internally by octoqlgen
-type __GetRepositoryInput struct {
+// GetRepositoryVariables contains the variables accepted by GetRepository.
+type GetRepositoryVariables struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
-}
-
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
 }
 
 // The query executed by GetRepository.
@@ -85,33 +41,53 @@ query GetRepository ($owner: String!, $name: String!) {
 
 // GetRepositoryPartialDataError contains partial data returned by GetRepository.
 type GetRepositoryPartialDataError struct {
-	__octoqlPartialDataError[GetRepositoryResponse]
+	data *GetRepositoryResponse
+	err  error
+}
+
+func (e *GetRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *GetRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func GetRepository(
-	client_ *octoql.Client,
-	owner string,
-	name string,
+	client *octoql.Client,
+	vars GetRepositoryVariables,
 ) (*GetRepositoryResponse, error) {
-	variables_ := __GetRepositoryInput{
-		Owner: owner,
-		Name:  name,
-	}
-	return __octoqlDo[GetRepositoryResponse](
+	var response GetRepositoryResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "GetRepository",
 			Query:         GetRepository_Operation,
-			Variables:     &variables_,
+			Variables:     &vars,
 		},
-		func(data *GetRepositoryResponse, err error) error {
-			return &GetRepositoryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &GetRepositoryPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }

@@ -17,15 +17,12 @@ type testHandlerType struct {
 }
 
 type testHandlerOperation struct {
-	Name                string
-	FieldName           string
-	VariablesName       string
-	VariablesType       string
-	ClientVariablesName string
-	LocalVariablesName  string
-	ResponseName        string
-	ClientResponseName  string
-	HasVariables        bool
+	Name          string
+	FieldName     string
+	VariablesName string
+	VariablesType string
+	ResponseName  string
+	HasVariables  bool
 }
 
 type testHandlerTemplateData struct {
@@ -119,23 +116,6 @@ func validateTestHandlerNames(plan *generationPlan) error {
 		}
 	}
 
-	clientIdentifiers := make(map[string]string)
-	for name, generatedType := range plan.typeMap {
-		clientIdentifiers[name] = "generated client type"
-		enumType, ok := generatedType.(*goEnumType)
-		if !ok {
-			continue
-		}
-		clientIdentifiers["All"+enumType.GoName] = "generated enum values variable"
-		for _, enumValue := range enumType.Values {
-			clientIdentifiers[enumValue.GoName] = "generated enum value"
-		}
-	}
-	for _, operation := range plan.operations {
-		clientIdentifiers[operation.Name] = "generated operation function"
-		clientIdentifiers[operation.Name+"_Operation"] = "generated operation document"
-	}
-
 	for _, operation := range plan.operations {
 		if !token.IsExported(operation.Name) {
 			return errorf(
@@ -150,24 +130,6 @@ func validateTestHandlerNames(plan *generationPlan) error {
 				"test handler response type %q must be exported",
 				operation.ResponseName,
 			)
-		}
-
-		variablesName := operation.Name + "Variables"
-		if operation.Input != nil {
-			clientSource := clientIdentifiers[variablesName]
-			if clientSource != "" {
-				return errorf(
-					nil,
-					"generated client variables alias %q conflicts with %s",
-					variablesName,
-					clientSource,
-				)
-			}
-			clientIdentifiers[variablesName] = "generated client variables alias"
-			err := addIdentifier(variablesName, operation.Name+" variables")
-			if err != nil {
-				return err
-			}
 		}
 
 		expectationName := operation.Name + "Expectation"
@@ -265,19 +227,15 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 			handlerGenerator.usedAliases[responseName] = true
 		}
 		handlerOperation := testHandlerOperation{
-			Name:                operation.Name,
-			FieldName:           operationFieldName(index),
-			VariablesName:       operation.Name + "Variables",
-			VariablesType:       "struct{}",
-			ClientVariablesName: operation.Name + "Variables",
-			LocalVariablesName:  "",
-			ResponseName:        responseName,
-			ClientResponseName:  operation.ResponseName,
-			HasVariables:        operation.Input != nil,
+			Name:          operation.Name,
+			FieldName:     operationFieldName(index),
+			VariablesName: operation.Name + "Variables",
+			VariablesType: "struct{}",
+			ResponseName:  responseName,
+			HasVariables:  operation.Input != nil,
 		}
 		if handlerOperation.HasVariables {
 			handlerOperation.VariablesType = handlerOperation.VariablesName
-			handlerOperation.LocalVariablesName = operation.Input.GoName
 		}
 		data.Operations = append(data.Operations, handlerOperation)
 		if handlerOperation.HasVariables {

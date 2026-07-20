@@ -1,59 +1,69 @@
 // The {{.Type}} executed by {{.Name}}.
 const {{.Name}}_Operation = `{{$.Body}}`
 
-{{if and .Config.TestHandlerGenerated .Input -}}
-// {{.Name}}Variables contains the variables accepted by {{.Name}}.
-type {{.Name}}Variables = {{.Input.GoName}}
-
-{{end -}}
 // {{.Name}}PartialDataError contains partial data returned by {{.Name}}.
 type {{.Name}}PartialDataError struct {
-    __octoqlPartialDataError[{{.ResponseName}}]
+    data *{{.ResponseName}}
+    err error
+}
+
+func (e *{{.Name}}PartialDataError) Error() string {
+    if e == nil || e.err == nil {
+        return "graphql response contains partial data"
+    }
+    return e.err.Error()
+}
+
+func (e *{{.Name}}PartialDataError) Unwrap() error {
+    if e == nil {
+        return nil
+    }
+    return e.err
+}
+
+func (e *{{.Name}}PartialDataError) PartialData() *{{.ResponseName}} {
+    if e == nil {
+        return nil
+    }
+    return e.data
 }
 
 {{.Doc}}
 func {{.Name}}(
     {{if ne .Config.ContextType "-" -}}
-    {{.ContextName}} {{ref .Config.ContextType}},
+    ctx {{ref .Config.ContextType}},
     {{end}}
     {{- if not .Config.ClientGetter -}}
-    {{.ClientName}} *{{ref "github.com/willabides/octoql.Client"}},
+    client *{{ref "github.com/willabides/octoql.Client"}},
     {{end}}
     {{- if .Input -}}
-    {{- range .Input.Fields -}}
-    {{/* the GraphQL name here is the user-specified variable-name */ -}}
-    {{.GraphQLName}} {{.GoType.Reference}},
-    {{end -}}
+    vars {{.Input.GoName}},
     {{end -}}
 ) (*{{.ResponseName}}, error) {
     {{if .Config.ClientGetter -}}
-    {{.ClientName}}, {{.ErrorName}} := {{ref .Config.ClientGetter}}({{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{end}})
-    if {{.ErrorName}} != nil {
-        return nil, {{.ErrorName}}
+    client, err := {{ref .Config.ClientGetter}}({{if ne .Config.ContextType "-"}}ctx{{else}}{{end}})
+    if err != nil {
+        return nil, err
     }
     {{end -}}
-    {{if .Input -}}
-    {{.VariablesName}} := {{.Input.GoName}}{
-        {{range .Input.Fields -}}
-        {{.GoName}}: {{.GraphQLName}},
-        {{end -}}
-    }
-    {{end -}}
-    return __octoqlDo[{{.ResponseName}}](
-        {{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{ref "context.Background"}}(){{end}},
-        {{.ClientName}},
+    var response {{.ResponseName}}
+    hasData, err := client.Execute(
+        {{if ne .Config.ContextType "-"}}ctx{{else}}{{ref "context.Background"}}(){{end}},
         {{ref "github.com/willabides/octoql.Payload"}}{
             OperationName: "{{.Name}}",
             Query: {{.Name}}_Operation,
-            Variables: {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
+            Variables: {{if .Input}}&vars{{else}}nil{{end}},
         },
-        func(data *{{.ResponseName}}, err error) error {
-            return &{{.Name}}PartialDataError{
-                __octoqlPartialDataError: __octoqlPartialDataError[{{.ResponseName}}]{
-                    data: data,
-                    err: err,
-                },
-            }
-        },
+        &response,
     )
+    if !hasData {
+        return nil, err
+    }
+    if err != nil {
+        return nil, &{{.Name}}PartialDataError{
+            data: &response,
+            err: err,
+        }
+    }
+    return &response, nil
 }

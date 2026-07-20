@@ -166,7 +166,10 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				}),
 			}
 			client := octoql.NewClient("https://api.github.example/graphql", httpClient)
-			response, err := githubclient.GetRepository(client, "octo-org", "octo-repo")
+			response, err := githubclient.GetRepository(client, githubclient.GetRepositoryVariables{
+				Owner: "octo-org",
+				Name:  "octo-repo",
+			})
 			if err == nil {
 				assert.Equal(t, test.wantData, response != nil)
 			}
@@ -192,7 +195,10 @@ func TestGeneratedQueryTransportFailure(t *testing.T) {
 	}
 	client := octoql.NewClient("https://api.github.example/graphql", httpClient)
 
-	response, err := githubclient.GetRepository(client, "octo-org", "octo-repo")
+	response, err := githubclient.GetRepository(client, githubclient.GetRepositoryVariables{
+		Owner: "octo-org",
+		Name:  "octo-repo",
+	})
 
 	require.ErrorIs(t, err, transportError)
 	assert.Nil(t, response)
@@ -216,7 +222,10 @@ func TestGeneratedQueryCloseFailureWithData(t *testing.T) {
 	}
 	client := octoql.NewClient("https://api.github.example/graphql", httpClient)
 
-	response, err := githubclient.GetRepository(client, "octo-org", "partial")
+	response, err := githubclient.GetRepository(client, githubclient.GetRepositoryVariables{
+		Owner: "octo-org",
+		Name:  "partial",
+	})
 
 	assert.Nil(t, response)
 	assert.ErrorIs(t, err, closeErr)

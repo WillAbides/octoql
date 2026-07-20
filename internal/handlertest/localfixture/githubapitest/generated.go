@@ -98,6 +98,11 @@ func (v *CreateRepositoryResponse) GetCreateRepository() CreateRepositoryCreateR
 	return v.CreateRepository
 }
 
+// CreateRepositoryVariables contains the variables accepted by CreateRepository.
+type CreateRepositoryVariables struct {
+	Input CreateRepositoryInput `json:"input"`
+}
+
 // EchoAnyResponse is returned by EchoAny on success.
 type EchoAnyResponse struct {
 	EchoAny any `json:"echoAny"`
@@ -105,6 +110,11 @@ type EchoAnyResponse struct {
 
 // GetEchoAny returns EchoAnyResponse.EchoAny, and is useful for accessing the field via an interface.
 func (v *EchoAnyResponse) GetEchoAny() any { return v.EchoAny }
+
+// EchoAnyVariables contains the variables accepted by EchoAny.
+type EchoAnyVariables struct {
+	Value any `json:"value"`
+}
 
 // EchoAtResponse is returned by EchoAt on success.
 type EchoAtResponse struct {
@@ -114,6 +124,11 @@ type EchoAtResponse struct {
 // GetEchoAt returns EchoAtResponse.EchoAt, and is useful for accessing the field via an interface.
 func (v *EchoAtResponse) GetEchoAt() time.Time { return v.EchoAt }
 
+// EchoAtVariables contains the variables accepted by EchoAt.
+type EchoAtVariables struct {
+	Value time.Time `json:"value"`
+}
+
 // EchoPropertyResponse is returned by EchoProperty on success.
 type EchoPropertyResponse struct {
 	EchoProperty json.RawMessage `json:"echoProperty"`
@@ -121,6 +136,11 @@ type EchoPropertyResponse struct {
 
 // GetEchoProperty returns EchoPropertyResponse.EchoProperty, and is useful for accessing the field via an interface.
 func (v *EchoPropertyResponse) GetEchoProperty() json.RawMessage { return v.EchoProperty }
+
+// EchoPropertyVariables contains the variables accepted by EchoProperty.
+type EchoPropertyVariables struct {
+	Value json.RawMessage `json:"value"`
+}
 
 // GetNodeNode includes the requested fields of the GraphQL interface Node.
 //
@@ -314,6 +334,11 @@ func (v *GetNodeResponse) __premarshalJSON() (*__premarshalGetNodeResponse, erro
 	return &retval, nil
 }
 
+// GetNodeVariables contains the variables accepted by GetNode.
+type GetNodeVariables struct {
+	Id string `json:"id"`
+}
+
 // GetRepositoryRepository includes the requested fields of the GraphQL type Repository.
 type GetRepositoryRepository struct {
 	Id            string                                       `json:"id"`
@@ -391,6 +416,14 @@ type GetRepositoryResponse struct {
 
 // GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
+
+// GetRepositoryVariables contains the variables accepted by GetRepository.
+type GetRepositoryVariables struct {
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
+	First int    `json:"first"`
+	After string `json:"after"`
+}
 
 type RepositoryVisibility string
 
@@ -603,6 +636,11 @@ type SearchSearchSearchResultItemOctoqlOther struct {
 // GetTypename returns SearchSearchSearchResultItemOctoqlOther.Typename, and is useful for accessing the field via an interface.
 func (v *SearchSearchSearchResultItemOctoqlOther) GetTypename() string { return v.Typename }
 
+// SearchVariables contains the variables accepted by Search.
+type SearchVariables struct {
+	Query string `json:"query"`
+}
+
 // ViewerResponse is returned by Viewer on success.
 type ViewerResponse struct {
 	Viewer ViewerViewerUser `json:"viewer"`
@@ -680,58 +718,6 @@ func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, er
 	retval.Login = v.ViewerVariables.Login
 	return &retval, nil
 }
-
-// __CreateRepositoryInput is used internally by octoqlgen
-type __CreateRepositoryInput struct {
-	Input CreateRepositoryInput `json:"input"`
-}
-
-// __EchoAnyInput is used internally by octoqlgen
-type __EchoAnyInput struct {
-	Value any `json:"value"`
-}
-
-// __EchoAtInput is used internally by octoqlgen
-type __EchoAtInput struct {
-	Value time.Time `json:"value"`
-}
-
-// __EchoPropertyInput is used internally by octoqlgen
-type __EchoPropertyInput struct {
-	Value json.RawMessage `json:"value"`
-}
-
-// __GetNodeInput is used internally by octoqlgen
-type __GetNodeInput struct {
-	Id string `json:"id"`
-}
-
-// __GetRepositoryInput is used internally by octoqlgen
-type __GetRepositoryInput struct {
-	Owner string `json:"owner"`
-	Name  string `json:"name"`
-	First int    `json:"first"`
-	After string `json:"after"`
-}
-
-// __SearchInput is used internally by octoqlgen
-type __SearchInput struct {
-	Query string `json:"query"`
-}
-
-type CreateRepositoryVariables = __CreateRepositoryInput
-
-type EchoAnyVariables = __EchoAnyInput
-
-type EchoAtVariables = __EchoAtInput
-
-type EchoPropertyVariables = __EchoPropertyInput
-
-type GetNodeVariables = __GetNodeInput
-
-type GetRepositoryVariables = __GetRepositoryInput
-
-type SearchVariables = __SearchInput
 
 type testTB interface {
 	Cleanup(func())

@@ -41,10 +41,7 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	response, err := githubapi.GetRepository(
 		t.Context(),
 		client,
-		variables.Owner,
-		variables.Name,
-		variables.First,
-		variables.After,
+		variables,
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
@@ -74,7 +71,9 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 		Input: input,
 	}).Respond(mutationData)
 
-	mutationResponse, err := githubapi.CreateRepository(t.Context(), client, input)
+	mutationResponse, err := githubapi.CreateRepository(t.Context(), client, githubapitest.CreateRepositoryVariables{
+		Input: input,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, "octo-org/created", mutationResponse.CreateRepository.Repository.NameWithOwner)
 	assert.Equal(t, "mutation-1", mutationResponse.CreateRepository.ClientMutationId)
@@ -86,7 +85,9 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 		EchoProperty: property,
 	})
 
-	propertyResponse, err := githubapi.EchoProperty(t.Context(), client, property)
+	propertyResponse, err := githubapi.EchoProperty(t.Context(), client, githubapitest.EchoPropertyVariables{
+		Value: property,
+	})
 	require.NoError(t, err)
 	assert.JSONEq(t, string(property), string(propertyResponse.EchoProperty))
 
@@ -96,7 +97,9 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	}).Respond(githubapitest.EchoAtResponse{
 		EchoAt: temporalValue,
 	})
-	temporalResponse, err := githubapi.EchoAt(t.Context(), client, temporalValue)
+	temporalResponse, err := githubapi.EchoAt(t.Context(), client, githubapitest.EchoAtVariables{
+		Value: temporalValue,
+	})
 	require.NoError(t, err)
 	assert.True(t, temporalValue.Equal(temporalResponse.EchoAt))
 
@@ -106,7 +109,9 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	}).Respond(githubapitest.EchoAnyResponse{
 		EchoAny: largeInteger,
 	})
-	_, err = githubapi.EchoAny(t.Context(), client, largeInteger)
+	_, err = githubapi.EchoAny(t.Context(), client, githubapitest.EchoAnyVariables{
+		Value: largeInteger,
+	})
 	require.NoError(t, err)
 }
 
@@ -128,7 +133,7 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 		Extensions: map[string]any{"code": "missing"},
 	})
 
-	response, err := githubapi.GetNode(t.Context(), client, errorVariables.Id)
+	response, err := githubapi.GetNode(t.Context(), client, errorVariables)
 	assert.Nil(t, response)
 	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 	require.True(t, ok)
@@ -153,10 +158,7 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 	partial, err := githubapi.GetRepository(
 		t.Context(),
 		client,
-		variables.Owner,
-		variables.Name,
-		variables.First,
-		variables.After,
+		variables,
 	)
 	require.Error(t, err)
 	assert.Nil(t, partial)
@@ -183,10 +185,7 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 		response, err := githubapi.GetRepository(
 			t.Context(),
 			client,
-			variables.Owner,
-			variables.Name,
-			variables.First,
-			variables.After,
+			variables,
 		)
 		require.NoError(t, err)
 		assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
@@ -210,7 +209,7 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 			}),
 		)
 
-		response, err := githubapi.GetNode(t.Context(), client, variables.Id)
+		response, err := githubapi.GetNode(t.Context(), client, variables)
 		assert.Nil(t, response)
 		rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 		require.True(t, ok)
@@ -240,7 +239,7 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 				githubapitest.WithStatus(status),
 			)
 
-			response, err := githubapi.GetNode(t.Context(), client, variables.Id)
+			response, err := githubapi.GetNode(t.Context(), client, variables)
 			assert.Nil(t, response)
 			rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 			require.True(t, ok)
@@ -277,7 +276,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	dynamicResponse, err := githubapi.EchoProperty(
 		t.Context(),
 		client,
-		dynamicVariables.Value,
+		dynamicVariables,
 	)
 	require.NoError(t, err)
 	assert.JSONEq(t, `"handled"`, string(dynamicResponse.EchoProperty))
@@ -290,7 +289,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 			NameWithOwner: "octo-org/octo-repo",
 		},
 	})
-	repositoryResponse, err := githubapi.GetNode(t.Context(), client, repositoryVariables.Id)
+	repositoryResponse, err := githubapi.GetNode(t.Context(), client, repositoryVariables)
 	require.NoError(t, err)
 	repository, ok := repositoryResponse.Node.(*githubapitest.GetNodeNodeRepository)
 	require.True(t, ok)
@@ -303,7 +302,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 			Id:       "U1",
 		},
 	})
-	otherResponse, err := githubapi.GetNode(t.Context(), client, otherVariables.Id)
+	otherResponse, err := githubapi.GetNode(t.Context(), client, otherVariables)
 	require.NoError(t, err)
 	other, ok := otherResponse.Node.(*githubapitest.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
@@ -325,7 +324,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 			},
 		},
 	})
-	searchResponse, err := githubapi.Search(t.Context(), client, searchVariables.Query)
+	searchResponse, err := githubapi.Search(t.Context(), client, searchVariables)
 	require.NoError(t, err)
 	require.Len(t, searchResponse.Search, 3)
 	_, ok = searchResponse.Search[0].(*githubapitest.SearchSearchRepository)
@@ -358,7 +357,7 @@ func TestGeneratedHandlerConcurrentRequests(t *testing.T) {
 	errorsChannel := make(chan error, requestCount)
 	for range requestCount {
 		waitGroup.Go(func() {
-			_, err := githubapi.EchoProperty(t.Context(), client, variables.Value)
+			_, err := githubapi.EchoProperty(t.Context(), client, variables)
 			errorsChannel <- err
 		})
 	}

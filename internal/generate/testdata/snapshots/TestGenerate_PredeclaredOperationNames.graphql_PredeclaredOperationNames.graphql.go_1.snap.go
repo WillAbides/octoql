@@ -41,50 +41,6 @@ type newViewerUser struct {
 // GetId returns newViewerUser.Id, and is useful for accessing the field via an interface.
 func (v *newViewerUser) GetId() testutil.ID { return v.Id }
 
-type __octoqlPartialDataError[T interface{}] struct {
-	data *T
-	err  error
-}
-
-func (err *__octoqlPartialDataError[T]) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-func (err *__octoqlPartialDataError[T]) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-func (err *__octoqlPartialDataError[T]) PartialData() *T {
-	if err == nil {
-		return nil
-	}
-	return err.data
-}
-
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
-}
-
 // The query executed by any.
 const any_Operation = `
 query any {
@@ -96,29 +52,54 @@ query any {
 
 // anyPartialDataError contains partial data returned by any.
 type anyPartialDataError struct {
-	__octoqlPartialDataError[anyResponse]
+	data *anyResponse
+	err  error
+}
+
+func (e *anyPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *anyPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *anyPartialDataError) PartialData() *anyResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func any(
-	client_ *octoql.Client,
+	client *octoql.Client,
 ) (*anyResponse, error) {
-	return __octoqlDo[anyResponse](
+	var response anyResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "any",
 			Query:         any_Operation,
 			Variables:     nil,
 		},
-		func(data *anyResponse, err error) error {
-			return &anyPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[anyResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &anyPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }
 
 // The query executed by new.
@@ -132,27 +113,52 @@ query new {
 
 // newPartialDataError contains partial data returned by new.
 type newPartialDataError struct {
-	__octoqlPartialDataError[newResponse]
+	data *newResponse
+	err  error
+}
+
+func (e *newPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *newPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *newPartialDataError) PartialData() *newResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 func new(
-	client_ *octoql.Client,
+	client *octoql.Client,
 ) (*newResponse, error) {
-	return __octoqlDo[newResponse](
+	var response newResponse
+	hasData, err := client.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "new",
 			Query:         new_Operation,
 			Variables:     nil,
 		},
-		func(data *newResponse, err error) error {
-			return &newPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[newResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response,
 	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &newPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }

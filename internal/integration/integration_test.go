@@ -36,7 +36,10 @@ func TestGetRepository(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := getRepository(ctx, client, "octocat", "octo-repo")
+		response, err := getRepository(ctx, client, getRepositoryVariables{
+			Owner: "octocat",
+			Name:  "octo-repo",
+		})
 		require.NoError(t, err)
 
 		require.NotNil(t, response.Repository)
@@ -58,9 +61,11 @@ func TestMutation(t *testing.T) {
 	defer server.Close()
 	postClient := newRoundtripClient(server.URL)
 
-	response, err := addComment(ctx, postClient, gqlserver.AddCommentInput{
-		SubjectID: "20",
-		Body:      "Thanks for reporting!",
+	response, err := addComment(ctx, postClient, addCommentVariables{
+		Input: gqlserver.AddCommentInput{
+			SubjectID: "20",
+			Body:      "Thanks for reporting!",
+		},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, response.AddComment.CommentEdge)
@@ -82,14 +87,18 @@ func TestStarMutations(t *testing.T) {
 	defer server.Close()
 	postClient := newRoundtripClient(server.URL)
 
-	starResponse, err := addStar(ctx, postClient, gqlserver.AddStarInput{StarrableID: "10"})
+	starResponse, err := addStar(ctx, postClient, addStarVariables{
+		Input: gqlserver.AddStarInput{StarrableID: "10"},
+	})
 	require.NoError(t, err)
 	require.NotNil(t, starResponse.AddStar.Starrable)
 	assert.Equal(t, "10", starResponse.AddStar.Starrable.GetId())
 	assert.True(t, starResponse.AddStar.Starrable.GetViewerHasStarred())
 	assert.Equal(t, 43, starResponse.AddStar.Starrable.GetStargazerCount())
 
-	unstarResponse, err := removeStar(ctx, postClient, gqlserver.RemoveStarInput{StarrableID: "10"})
+	unstarResponse, err := removeStar(ctx, postClient, removeStarVariables{
+		Input: gqlserver.RemoveStarInput{StarrableID: "10"},
+	})
 	require.NoError(t, err)
 	require.NotNil(t, unstarResponse.RemoveStar.Starrable)
 	assert.Equal(t, "10", unstarResponse.RemoveStar.Starrable.GetId())
@@ -136,14 +145,18 @@ func TestVariables(t *testing.T) {
 	clients := []*octoql.Client{octoql.NewClient(server.URL, http.DefaultClient)}
 
 	for _, client := range clients {
-		response, err := queryWithVariables(ctx, client, "raven")
+		response, err := queryWithVariables(ctx, client, queryWithVariablesVariables{
+			Login: "raven",
+		})
 		require.NoError(t, err)
 
 		assert.Equal(t, "2", response.User.Id)
 		assert.Equal(t, "raven", response.User.Login)
 		assert.Equal(t, -1, response.User.ContributionCount)
 
-		response, err = queryWithVariables(ctx, client, "definitely-not-a-real-login")
+		response, err = queryWithVariables(ctx, client, queryWithVariablesVariables{
+			Login: "definitely-not-a-real-login",
+		})
 		require.NoError(t, err)
 
 		assert.Zero(t, response.User)
@@ -162,7 +175,9 @@ func TestOmitempty(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithOmitempty(ctx, client, "raven")
+		response, err := queryWithOmitempty(ctx, client, queryWithOmitemptyVariables{
+			Login: "raven",
+		})
 		require.NoError(t, err)
 
 		assert.Equal(t, "2", response.User.Id)
@@ -170,7 +185,7 @@ func TestOmitempty(t *testing.T) {
 		assert.Equal(t, -1, response.User.ContributionCount)
 
 		// should return the default viewer-like user, not the user with login ""
-		response, err = queryWithOmitempty(ctx, client, "")
+		response, err = queryWithOmitempty(ctx, client, queryWithOmitemptyVariables{})
 		require.NoError(t, err)
 
 		assert.Equal(t, "1", response.User.Id)
@@ -191,8 +206,9 @@ func TestCustomMarshal(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithCustomMarshal(ctx, client,
-			time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))
+		response, err := queryWithCustomMarshal(ctx, client, queryWithCustomMarshalVariables{
+			Date: time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC),
+		})
 		require.NoError(t, err)
 
 		assert.Len(t, response.UsersCreatedOn, 1)
@@ -203,8 +219,9 @@ func TestCustomMarshal(t *testing.T) {
 			time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 			user.CreatedAt)
 
-		response, err = queryWithCustomMarshal(ctx, client,
-			time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC))
+		response, err = queryWithCustomMarshal(ctx, client, queryWithCustomMarshalVariables{
+			Date: time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC),
+		})
 		require.NoError(t, err)
 		assert.Len(t, response.UsersCreatedOn, 0)
 	}
@@ -222,8 +239,9 @@ func TestCustomMarshalSlice(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithCustomMarshalSlice(ctx, client,
-			[]time.Time{time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)})
+		response, err := queryWithCustomMarshalSlice(ctx, client, queryWithCustomMarshalSliceVariables{
+			Dates: []time.Time{time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)},
+		})
 		require.NoError(t, err)
 
 		assert.Len(t, response.UsersCreatedOnDates, 1)
@@ -234,8 +252,9 @@ func TestCustomMarshalSlice(t *testing.T) {
 			time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 			user.CreatedAt)
 
-		response, err = queryWithCustomMarshalSlice(ctx, client,
-			[]time.Time{time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)})
+		response, err = queryWithCustomMarshalSlice(ctx, client, queryWithCustomMarshalSliceVariables{
+			Dates: []time.Time{time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)},
+		})
 		require.NoError(t, err)
 		assert.Len(t, response.UsersCreatedOnDates, 0)
 	}
@@ -259,7 +278,9 @@ func TestCustomMarshalOptional(t *testing.T) {
 
 	for _, client := range clients {
 		date := time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)
-		response, err := queryWithCustomMarshalOptional(ctx, client, &date, nil)
+		response, err := queryWithCustomMarshalOptional(ctx, client, queryWithCustomMarshalOptionalVariables{
+			Date: &date,
+		})
 		require.NoError(t, err)
 
 		assert.Len(t, response.UserSearch, 1)
@@ -271,7 +292,9 @@ func TestCustomMarshalOptional(t *testing.T) {
 			user.CreatedAt)
 
 		login := "raven"
-		response, err = queryWithCustomMarshalOptional(ctx, client, nil, &login)
+		response, err = queryWithCustomMarshalOptional(ctx, client, queryWithCustomMarshalOptionalVariables{
+			Login: &login,
+		})
 		require.NoError(t, err)
 		assert.Len(t, response.UserSearch, 1)
 		user = response.UserSearch[0]
@@ -294,7 +317,9 @@ func TestInterfaceNoFragments(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithInterfaceNoFragments(ctx, client, "1")
+		response, err := queryWithInterfaceNoFragments(ctx, client, queryWithInterfaceNoFragmentsVariables{
+			Id: "1",
+		})
 		require.NoError(t, err)
 
 		// We should get the following response:
@@ -314,7 +339,9 @@ func TestInterfaceNoFragments(t *testing.T) {
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "octocat", user.Login)
 
-		response, err = queryWithInterfaceNoFragments(ctx, client, "3")
+		response, err = queryWithInterfaceNoFragments(ctx, client, queryWithInterfaceNoFragmentsVariables{
+			Id: "3",
+		})
 		require.NoError(t, err)
 
 		// We should get the following response:
@@ -333,7 +360,9 @@ func TestInterfaceNoFragments(t *testing.T) {
 		assert.Equal(t, "3", org.Id)
 		assert.Equal(t, "octo-org", org.Login)
 
-		response, err = queryWithInterfaceNoFragments(ctx, client, "4757233945723")
+		response, err = queryWithInterfaceNoFragments(ctx, client, queryWithInterfaceNoFragmentsVariables{
+			Id: "4757233945723",
+		})
 		require.NoError(t, err)
 
 		// We should get the following response:
@@ -359,8 +388,9 @@ func TestInterfaceListField(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithInterfaceListField(ctx, client,
-			[]string{"1", "3", "12847394823"})
+		response, err := queryWithInterfaceListField(ctx, client, queryWithInterfaceListFieldVariables{
+			Ids: []string{"1", "3", "12847394823"},
+		})
 		require.NoError(t, err)
 
 		require.Len(t, response.Actors, 3)
@@ -408,8 +438,9 @@ func TestInterfaceListPointerField(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithInterfaceListPointerField(ctx, client,
-			[]string{"1", "3", "12847394823"})
+		response, err := queryWithInterfaceListPointerField(ctx, client, queryWithInterfaceListPointerFieldVariables{
+			Ids: []string{"1", "3", "12847394823"},
+		})
 		require.NoError(t, err)
 
 		require.Len(t, response.Actors, 3)
@@ -463,7 +494,9 @@ func TestFragments(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithFragments(ctx, client, []string{"1", "3", "12847394823"})
+		response, err := queryWithFragments(ctx, client, queryWithFragmentsVariables{
+			Ids: []string{"1", "3", "12847394823"},
+		})
 		require.NoError(t, err)
 
 		require.Len(t, response.Actors, 3)
@@ -558,7 +591,9 @@ func TestNamedFragments(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithNamedFragments(ctx, client, []string{"1", "3", "12847394823"})
+		response, err := queryWithNamedFragments(ctx, client, queryWithNamedFragmentsVariables{
+			Ids: []string{"1", "3", "12847394823"},
+		})
 		require.NoError(t, err)
 
 		require.Len(t, response.Actors, 3)
@@ -689,7 +724,9 @@ func TestFlatten(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithFlatten(ctx, client, []string{"1", "3", "12847394823"})
+		response, err := queryWithFlatten(ctx, client, queryWithFlattenVariables{
+			Ids: []string{"1", "3", "12847394823"},
+		})
 		require.NoError(t, err)
 
 		require.Len(t, response.Actors, 3)
@@ -757,7 +794,10 @@ func TestSearch(t *testing.T) {
 	clients := newRoundtripClients(server.URL)
 
 	for _, client := range clients {
-		response, err := queryWithSearch(ctx, client, "octo", gqlserver.SearchTypeRepository)
+		response, err := queryWithSearch(ctx, client, queryWithSearchVariables{
+			Query:      "octo",
+			SearchType: gqlserver.SearchTypeRepository,
+		})
 		require.NoError(t, err)
 		require.Len(t, response.Search, 1)
 
@@ -766,7 +806,10 @@ func TestSearch(t *testing.T) {
 		assert.Equal(t, "octo-repo", repo.Name)
 		assert.Equal(t, 42, repo.StargazerCount)
 
-		response, err = queryWithSearch(ctx, client, "bug", gqlserver.SearchTypeIssue)
+		response, err = queryWithSearch(ctx, client, queryWithSearchVariables{
+			Query:      "bug",
+			SearchType: gqlserver.SearchTypeIssue,
+		})
 		require.NoError(t, err)
 		require.Len(t, response.Search, 2)
 
@@ -780,7 +823,10 @@ func TestSearch(t *testing.T) {
 		assert.Equal(t, "Fix bug", pr.Title)
 		assert.Equal(t, gqlserver.PullRequestStateMerged, pr.PullRequestState)
 
-		response, err = queryWithSearch(ctx, client, "dependabot", gqlserver.SearchTypeUser)
+		response, err = queryWithSearch(ctx, client, queryWithSearchVariables{
+			Query:      "dependabot",
+			SearchType: gqlserver.SearchTypeUser,
+		})
 		require.NoError(t, err)
 		require.Len(t, response.Search, 1)
 
