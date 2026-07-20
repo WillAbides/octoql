@@ -51,7 +51,22 @@ func NewMaterializer() *Materializer {
 	}
 }
 
-func (m *Materializer) Materialize(ctx context.Context, request Request) ([]byte, error) {
+func (m *Materializer) Materialize(ctx context.Context, request Request) (data []byte, err error) {
+	err = ctx.Err()
+	if err != nil {
+		return nil, err
+	}
+	if request.Path != "" {
+		var release func() error
+		release, err = acquireMaterializationLock(ctx, request.Path)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			err = errors.Join(err, release())
+		}()
+	}
+
 	sourceCount := sourceVariantCount(request.Source)
 	if sourceCount > 1 {
 		return nil, errors.New("schema source must not set multiple remote source variants")
@@ -64,7 +79,7 @@ func (m *Materializer) Materialize(ctx context.Context, request Request) ([]byte
 	if request.Path != "" {
 		existing, readErr := deps.fileSystem.ReadFile(request.Path)
 		if readErr == nil {
-			err := verifyChecksum(existing, request.SHA256)
+			err = verifyChecksum(existing, request.SHA256)
 			if err != nil {
 				return nil, err
 			}
@@ -91,7 +106,7 @@ func (m *Materializer) Materialize(ctx context.Context, request Request) ([]byte
 	fetchContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	data, err := m.fetch(fetchContext, request.Source, &deps)
+	data, err = m.fetch(fetchContext, request.Source, &deps)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +133,59 @@ func (m *Materializer) Materialize(ctx context.Context, request Request) ([]byte
 		return nil, err
 	}
 	return data, nil
+}
+
+func acquireMaterializationLock(ctx context.Context, schemaPath string) (func() error, error) {
+	err := ctx.Err()
+	if err != nil {
+		return nil, err
+	}
+	release, err := AcquireSharedLock(schemaPath)
+	if err != nil {
+		return nil, err
+	}
+	pending, err := hasPendingUpdate(schemaPath)
+	if err != nil {
+		releaseErr := release()
+		return nil, errors.Join(err, releaseErr)
+	}
+	if !pending {
+		return release, nil
+	}
+
+	err = release()
+	if err != nil {
+		return nil, err
+	}
+	err = ctx.Err()
+	if err != nil {
+		return nil, err
+	}
+	release, err = AcquireExclusiveLock(schemaPath)
+	if err != nil {
+		return nil, err
+	}
+	pending, err = hasPendingUpdate(schemaPath)
+	if err != nil {
+		releaseErr := release()
+		return nil, errors.Join(err, releaseErr)
+	}
+	if pending {
+		err = RecoverPendingUpdate(schemaPath)
+		if err != nil {
+			releaseErr := release()
+			return nil, errors.Join(err, releaseErr)
+		}
+	}
+	err = release()
+	if err != nil {
+		return nil, err
+	}
+	err = ctx.Err()
+	if err != nil {
+		return nil, err
+	}
+	return AcquireSharedLock(schemaPath)
 }
 
 type dependencies struct {

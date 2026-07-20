@@ -6,15 +6,20 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"runtime/debug"
 	"strings"
+	"syscall"
 
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/cli"
 )
 
 func run(args []string, stdout, stderr io.Writer) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	return cli.Run(args, version(), &cli.Dependencies{
-		Context: context.Background(),
+		Context: ctx,
 		Stdout:  stdout,
 		Stderr:  stderr,
 	})

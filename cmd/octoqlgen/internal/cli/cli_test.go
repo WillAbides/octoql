@@ -3,7 +3,9 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -310,11 +312,66 @@ func TestAcquireUpdateLock(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
 	unlock, err := acquireUpdateLock(configPath)
 	require.NoError(t, err)
-	defer unlock()
+	t.Cleanup(func() {
+		unlockErr := unlock()
+		require.NoError(t, unlockErr)
+	})
 
 	_, err = acquireUpdateLock(configPath)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already in progress")
+}
+
+func TestSchemaUpdateCommandCancellationRestoresOriginalFiles(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	originalSchema := []byte("type Query { old: String }\n")
+	updatedSchema := []byte("type Query { viewer: String }\n")
+	originalChecksum := fmt.Sprintf("%x", sha256.Sum256(originalSchema))
+	updatedChecksum := fmt.Sprintf("%x", sha256.Sum256(updatedSchema))
+	originalConfig := []byte(fmt.Sprintf(
+		"schema:\n  path: schema.graphql\n  sha256: %s\n  source:\n    url: https://example.test/schema.graphql\n",
+		originalChecksum,
+	))
+	err := os.WriteFile(configPath, originalConfig, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(schemaPath, originalSchema, 0o600)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	command := schemaUpdateCommand{
+		Config:     configPath,
+		context:    ctx,
+		loadConfig: config.Load,
+		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
+			return schema.RemoteResult{
+				Data:   updatedSchema,
+				SHA256: updatedChecksum,
+			}, nil
+		}),
+		outputWriter: outputWriterFunc(func(path string, data []byte) error {
+			writeErr := atomicOutputWriter{}.Write(path, data)
+			if path == schemaPath {
+				cancel()
+			}
+			return writeErr
+		}),
+		stdout: io.Discard,
+	}
+
+	err = command.Run()
+	require.ErrorIs(t, err, context.Canceled)
+
+	configData, readErr := os.ReadFile(configPath)
+	require.NoError(t, readErr)
+	assert.Equal(t, originalConfig, configData)
+	schemaData, readErr := os.ReadFile(schemaPath)
+	require.NoError(t, readErr)
+	assert.Equal(t, originalSchema, schemaData)
 }
 
 func TestHelpSnapshots(t *testing.T) {
@@ -481,6 +538,18 @@ func (m *stubMaterializer) Materialize(
 ) ([]byte, error) {
 	m.request = request
 	return m.data, m.err
+}
+
+type remoteResolverFunc func(context.Context, config.Source) (schema.RemoteResult, error)
+
+func (f remoteResolverFunc) Resolve(ctx context.Context, source config.Source) (schema.RemoteResult, error) {
+	return f(ctx, source)
+}
+
+type outputWriterFunc func(string, []byte) error
+
+func (f outputWriterFunc) Write(path string, data []byte) error {
+	return f(path, data)
 }
 
 type stubOutputWriter struct {

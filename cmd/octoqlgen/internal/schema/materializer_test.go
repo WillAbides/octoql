@@ -721,6 +721,38 @@ func TestMaterializerConcurrentDifferentBytes(t *testing.T) {
 	assert.Empty(t, temporaryFiles(t, destination))
 }
 
+func TestMaterializerRecoversInterruptedSchemaUpdate(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	originalConfig := []byte("schema:\n  path: schema.graphql\n")
+	originalSchema := []byte("type Query { old: String }\n")
+	updatedSchema := []byte("type Query { new: String }\n")
+	err := os.WriteFile(configPath, originalConfig, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(schemaPath, originalSchema, 0o600)
+	require.NoError(t, err)
+	_, err = BeginUpdate(schemaPath, configPath)
+	require.NoError(t, err)
+	err = os.WriteFile(schemaPath, updatedSchema, 0o600)
+	require.NoError(t, err)
+
+	materializer := NewMaterializer()
+	data, err := materializer.Materialize(t.Context(), Request{
+		Path:   schemaPath,
+		SHA256: checksum(originalSchema),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, originalSchema, data)
+	configData, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, originalConfig, configData)
+	_, err = os.Stat(schemaPath + updateJournalSuffix)
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+}
+
 func checksum(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
