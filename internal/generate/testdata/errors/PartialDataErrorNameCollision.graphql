@@ -1,0 +1,9 @@
+query GetUser {
+  user {
+    ...GetUserPartialDataError
+  }
+}
+
+fragment GetUserPartialDataError on User {
+  id
+}

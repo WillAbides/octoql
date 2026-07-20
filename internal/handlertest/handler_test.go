@@ -164,6 +164,8 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 	require.True(t, ok)
 	require.NotNil(t, partialErr.PartialData())
 	assert.Equal(t, "octo-org/octo-repo", partialErr.PartialData().Repository.FullName)
+	_, wrongOperation := errors.AsType[*githubapi.GetNodePartialDataError](err)
+	assert.False(t, wrongOperation)
 }
 
 func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {

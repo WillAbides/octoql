@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -105,6 +106,24 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			},
 		},
 		{
+			name:       "non-2xx with decodable data",
+			statusCode: http.StatusForbidden,
+			wantData:   true,
+			header:     http.Header{},
+			body: `{
+				"data":{"repository":{"nameWithOwner":"octo-org/partial"}},
+				"errors":[{"type":"FORBIDDEN","message":"request rejected"}]
+			}`,
+			check: func(t *testing.T, response *githubclient.GetRepositoryResponse, err error) {
+				t.Helper()
+				require.NotNil(t, response)
+				assert.Equal(t, "octo-org/partial", response.Repository.NameWithOwner)
+				responseError, ok := errors.AsType[*octoql.ResponseError](err)
+				require.True(t, ok)
+				assert.Equal(t, http.StatusForbidden, responseError.StatusCode)
+			},
+		},
+		{
 			name:       "null data and GraphQL errors",
 			statusCode: http.StatusOK,
 			header:     http.Header{},
@@ -116,6 +135,19 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				t.Helper()
 				_, hasErrors := errors.AsType[octoql.Errors](err)
 				assert.True(t, hasErrors)
+				_, hasPartial := errors.AsType[*githubclient.GetRepositoryPartialDataError](err)
+				assert.False(t, hasPartial)
+			},
+		},
+		{
+			name:       "invalid generated data",
+			statusCode: http.StatusOK,
+			header:     http.Header{},
+			body:       `{"data":{"repository":"not an object"}}`,
+			check: func(t *testing.T, _ *githubclient.GetRepositoryResponse, err error) {
+				t.Helper()
+				_, hasDecodeError := errors.AsType[*json.UnmarshalTypeError](err)
+				assert.True(t, hasDecodeError)
 				_, hasPartial := errors.AsType[*githubclient.GetRepositoryPartialDataError](err)
 				assert.False(t, hasPartial)
 			},
@@ -164,4 +196,41 @@ func TestGeneratedQueryTransportFailure(t *testing.T) {
 
 	require.ErrorIs(t, err, transportError)
 	assert.Nil(t, response)
+}
+
+func TestGeneratedQueryCloseFailureWithData(t *testing.T) {
+	closeErr := errors.New("close failed")
+	httpClient := &http.Client{
+		Transport: integrationRoundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{},
+				Body: &integrationCloseErrorBody{
+					Reader: strings.NewReader(
+						`{"data":{"repository":{"nameWithOwner":"octo-org/partial"}}}`,
+					),
+					err: closeErr,
+				},
+			}, nil
+		}),
+	}
+	client := octoql.NewClient("https://api.github.example/graphql", httpClient)
+
+	response, err := githubclient.GetRepository(client, "octo-org", "partial")
+
+	assert.Nil(t, response)
+	assert.ErrorIs(t, err, closeErr)
+	partialErr, ok := errors.AsType[*githubclient.GetRepositoryPartialDataError](err)
+	require.True(t, ok)
+	require.NotNil(t, partialErr.PartialData())
+	assert.Equal(t, "octo-org/partial", partialErr.PartialData().Repository.NameWithOwner)
+}
+
+type integrationCloseErrorBody struct {
+	io.Reader
+	err error
+}
+
+func (body *integrationCloseErrorBody) Close() error {
+	return body.err
 }
