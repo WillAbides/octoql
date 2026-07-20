@@ -239,29 +239,14 @@ generate when the config has another name or location.
 
 ## Call the generated client
 
-Authentication belongs in the supplied `http.Client` or `http.RoundTripper`.
-This transport clones each request before adding a GitHub bearer token:
+Configure GitHub bearer authentication directly on the client:
 
 ```go
-type tokenTransport struct {
-	token string
-	base  http.RoundTripper
+client := octoql.NewClient("https://api.github.com/graphql", nil)
+err := client.SetBearerToken(os.Getenv("GITHUB_TOKEN"))
+if err != nil {
+	return err
 }
-
-func (transport tokenTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	clone := request.Clone(request.Context())
-	clone.Header = request.Header.Clone()
-	clone.Header.Set("Authorization", "Bearer "+transport.token)
-	return transport.base.RoundTrip(clone)
-}
-
-httpClient := &http.Client{
-	Transport: tokenTransport{
-		token: os.Getenv("GITHUB_TOKEN"),
-		base:  http.DefaultTransport,
-	},
-}
-client := octoql.NewClient("https://api.github.com/graphql", httpClient)
 
 response, err := githubapi.GetRepository(
 	ctx,
@@ -279,7 +264,12 @@ fmt.Println(response.Repository.NameWithOwner)
 ```
 
 Pass a different endpoint to `octoql.NewClient` for GHES, a proxy, or an
-`httptest.Server`. A nil HTTP client uses `http.DefaultClient`.
+`httptest.Server`. Pass nil as the HTTP client to use `http.DefaultClient`.
+
+`SetBearerToken` accepts tokens containing letters, digits, `-`, `.`, `_`, `~`,
+`+`, or `/`, with optional trailing `=` padding. For basic authentication or
+another authentication scheme, configure the `http.Client` or
+`http.RoundTripper` passed to `NewClient`.
 
 ## Runtime responses and errors
 

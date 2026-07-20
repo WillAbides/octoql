@@ -94,8 +94,9 @@
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve
   project-level attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`, and
   preserve generated `Code generated ... DO NOT EDIT.` notices.
-- Authentication belongs in the supplied `http.Client` or `http.RoundTripper`.
-  Do not add automatic retry or sleep behavior.
+- Use `Client.SetBearerToken` for OAuth 2.0 bearer authentication. Other
+  authentication schemes belong in the supplied `http.Client` or
+  `http.RoundTripper`. Do not add automatic retry or sleep behavior.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
 - Never run `script/generate --check` in a local or session worktree; it is

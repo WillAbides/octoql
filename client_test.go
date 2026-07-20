@@ -199,6 +199,76 @@ func TestDoRequest(t *testing.T) {
 	assert.NotContains(t, requestObject, "variables")
 }
 
+func TestClientBearerToken(t *testing.T) {
+	authorization := make(chan string, 2)
+	httpClient := &http.Client{
+		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			authorization <- request.Header.Get("Authorization")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{},
+				Body:       io.NopCloser(strings.NewReader(`{"data":{}}`)),
+			}, nil
+		}),
+	}
+	client := octoql.NewClient("https://github.example/api/graphql", httpClient)
+
+	err := client.SetBearerToken("github_pat_first")
+	require.NoError(t, err)
+	_, err = doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer github_pat_first", <-authorization)
+
+	err = client.SetBearerToken("github_pat_second")
+	require.NoError(t, err)
+	_, err = doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer github_pat_second", <-authorization)
+}
+
+func TestClientSetBearerTokenValidation(t *testing.T) {
+	client := octoql.NewClient("https://github.example/api/graphql", nil)
+	err := client.SetBearerToken("github_pat_valid")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		token string
+	}{
+		{name: "empty"},
+		{name: "space", token: " "},
+		{name: "padding only", token: "=="},
+		{name: "embedded space", token: "github token"},
+		{name: "embedded padding", token: "github_pat_valid=invalid"},
+		{name: "header injection", token: "github_pat_valid\ninjected"},
+		{name: "non-ASCII", token: "日本語"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := client.SetBearerToken(test.token)
+			assert.EqualError(t, err, "octoql: invalid bearer token")
+		})
+	}
+}
+
+func TestNilClientSetBearerToken(t *testing.T) {
+	var client *octoql.Client
+	err := client.SetBearerToken("github_pat_valid")
+	assert.EqualError(t, err, "octoql: client is nil")
+}
+
 func TestClientExecuteNilClient(t *testing.T) {
 	var client *octoql.Client
 	var response testData
