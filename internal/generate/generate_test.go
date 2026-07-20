@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -149,7 +150,7 @@ func TestGenerateDeterministic(t *testing.T) {
 	}
 }
 
-func TestGenerateInlinesExecutionWithOperationVariableNames(t *testing.T) {
+func TestGenerateUsesOneExecutorForAllOperations(t *testing.T) {
 	dir := t.TempDir()
 	schema := `
 type Query {
@@ -161,6 +162,7 @@ type Query {
     response: String!
     hasData: String!
   ): String!
+  other: String!
 }
 `
 	operation := `
@@ -181,6 +183,10 @@ query Value(
     hasData: $hasData
   )
 }
+
+query Other {
+  other
+}
 `
 	schemaPath := filepath.Join(dir, "schema.graphql")
 	operationPath := filepath.Join(dir, "operation.graphql")
@@ -198,19 +204,56 @@ query Value(
 	require.NoError(t, err)
 
 	source := string(generated[config.Generated])
-	assert.NotContains(t, source, "func __octoqlDo")
-	assert.NotContains(t, source, "__octoqlPartialDataError")
+	assert.Equal(t, 1, strings.Count(source, "func __octoqlExecute["))
+	assert.Equal(t, 1, strings.Count(source, "client.Execute("))
+	assert.Contains(t, source, "return __octoqlExecute[ValueResponse](")
+	assert.Contains(t, source, "return __octoqlExecute[OtherResponse](")
 	assert.Contains(t, source, "type ValueVariables struct")
 	assert.Contains(t, source, "vars ValueVariables,")
 	assert.Contains(t, source, "Variables:     &vars,")
 	assert.NotContains(t, source, "variables_2 := ValueVariables")
-	assert.Contains(t, source, "var response ValueResponse")
-	assert.Contains(t, source, "hasData, err := client.Execute(")
 	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialData() *ValueResponse")
-	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
+	assert.Contains(t, source, "return &ValuePartialDataError{")
+	require.NoError(t, buildGoFile("shared_execution", []byte(source)))
+}
+
+func TestGenerateQuotesOperationText(t *testing.T) {
+	dir := t.TempDir()
+	schema := `
+type Query {
+  echo(value: String!): String!
+}
+`
+	operation := "query Backtick {\n  echo(value: \"contains ` backtick\")\n}\n"
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
+
+	config := &Config{
+		Schema:           []string{schemaPath},
+		Operations:       []string{operationPath},
+		Generated:        filepath.Join(dir, "generated.go"),
+		ExportOperations: filepath.Join(dir, "operations.json"),
+		Package:          "backtick",
+		ContextType:      "-",
+	}
+	generated, err := Generate(config)
+	require.NoError(t, err)
+
+	var exported exportedOperations
+	require.NoError(t, json.Unmarshal(generated[config.ExportOperations], &exported))
+	require.Len(t, exported.Operations, 1)
+	assert.Contains(t, exported.Operations[0].Body, "`")
+
+	source := string(generated[config.Generated])
+	quotedBody := strconv.Quote(exported.Operations[0].Body)
+	assert.Contains(t, source, "const Backtick_Operation = "+quotedBody)
+	assert.NotContains(t, source, "const Backtick_Operation = `")
+	require.NoError(t, buildGoFile("quoted_operation", []byte(source)))
 }
 
 func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
