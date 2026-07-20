@@ -15,7 +15,6 @@ type octoqlgenDirective struct {
 	Omitempty *bool
 	Pointer   *bool
 	Struct    *bool
-	Flatten   *bool
 	Bind      string
 	TypeName  string
 	Alias     string
@@ -36,7 +35,6 @@ func (d *octoqlgenDirective) GetOmitempty() bool   { return d.Omitempty != nil &
 func (d *octoqlgenDirective) GetPointer() bool     { return d.Pointer != nil && *d.Pointer }
 func (d *octoqlgenDirective) PointerIsFalse() bool { return d.Pointer != nil && !*d.Pointer }
 func (d *octoqlgenDirective) GetStruct() bool      { return d.Struct != nil && *d.Struct }
-func (d *octoqlgenDirective) GetFlatten() bool     { return d.Flatten != nil && *d.Flatten }
 
 func setBool(optionName string, dst **bool, v *ast.Value, pos *ast.Position) error {
 	if *dst != nil {
@@ -132,8 +130,6 @@ func (d *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Posit
 			err = setBool("pointer", &d.Pointer, arg.Value, pos)
 		case "struct":
 			err = setBool("struct", &d.Struct, arg.Value, pos)
-		case "flatten":
-			err = setBool("flatten", &d.Flatten, arg.Value, pos)
 		case "bind":
 			err = setString("bind", &d.Bind, arg.Value, pos)
 		case "typename":
@@ -175,12 +171,9 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 					fieldName, typeName)
 			}
 
-			// All options except struct and flatten potentially apply.  (I
-			// mean in theory you could apply them here, but since they require
-			// per-use validation, it would be a bit tricky, and the use case
-			// is not clear.)
-			if fieldDir.Struct != nil || fieldDir.Flatten != nil {
-				return errorf(fieldDir.pos, "struct and flatten can't be used via for")
+			// Struct requires per-use validation, so it can't be applied here.
+			if fieldDir.Struct != nil {
+				return errorf(fieldDir.pos, "struct can't be used via for")
 			}
 
 			if fieldDir.TypeName != "" && fieldDir.Bind != "" && fieldDir.Bind != "-" {
@@ -220,10 +213,6 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 			return errorf(d.pos, "struct is only applicable to fields, not variable-definitions")
 		}
 
-		if d.Flatten != nil {
-			return errorf(d.pos, "flatten is only applicable to fields, not variable-definitions")
-		}
-
 		if len(d.FieldDirectives) > 0 {
 			return errorf(d.pos, "for is only applicable to operations and arguments")
 		}
@@ -241,12 +230,6 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		typ := schema.Types[node.Definition.Type.Name()]
 		if d.Struct != nil {
 			if err := validateStructOption(typ, node.SelectionSet, d.pos); err != nil {
-				return err
-			}
-		}
-
-		if d.Flatten != nil {
-			if _, err := validateFlattenOption(typ, node.SelectionSet, d.pos); err != nil {
 				return err
 			}
 		}
@@ -291,58 +274,6 @@ func validateStructOption(
 		}
 	}
 	return nil
-}
-
-func validateFlattenOption(
-	typ *ast.Definition,
-	selectionSet ast.SelectionSet,
-	pos *ast.Position,
-) (index int, err error) {
-	index = -1
-	if len(selectionSet) == 0 {
-		return -1, errorf(pos, "flatten is not allowed for leaf fields")
-	}
-
-	for i, selection := range selectionSet {
-		switch selection := selection.(type) {
-		case *ast.Field:
-			// If the field is auto-added __typename, ignore it for flattening
-			// purposes.
-			if selection.Name == "__typename" && selection.Position == nil {
-				continue
-			}
-			// Type-wise, it's no harder to implement flatten for fields, but
-			// it requires new logic in UnmarshalJSON.  We can add that if it
-			// proves useful relative to its complexity.
-			return -1, errorf(pos, "flatten is not yet supported for fields (only fragment spreads)")
-
-		case *ast.InlineFragment:
-			// Inline fragments aren't allowed. In principle there's nothing
-			// stopping us from allowing them (under the same type-match
-			// conditions as fragment spreads), but there's little value to it.
-			return -1, errorf(pos, "flatten is not allowed for selections with inline fragments")
-
-		case *ast.FragmentSpread:
-			if index != -1 {
-				return -1, errorf(pos, "flatten is not allowed for fields with multiple selections")
-			} else if !fragmentMatches(typ, selection.Definition.Definition) {
-				// We don't let you flatten
-				//  field { # type: FieldType
-				//		...Fragment # type: FragmentType
-				//	}
-				// unless FragmentType implements FieldType, because otherwise
-				// what do we do if we get back a type that doesn't implement
-				// FragmentType?
-				return -1, errorf(pos,
-					"flatten is not allowed for fields with fragment-spreads "+
-						"unless the field-type implements the fragment-type; "+
-						"field-type %s does not implement fragment-type %s",
-					typ.Name, selection.Definition.Definition.Name)
-			}
-			index = i
-		}
-	}
-	return index, nil
 }
 
 func fillDefaultBool(target **bool, defaults ...*bool) {
@@ -404,9 +335,8 @@ func (d *octoqlgenDirective) mergeOperationDirective(
 	// directive wins over the operation directive.
 	fillDefaultBool(&d.Omitempty, forField.Omitempty, operationDirective.Omitempty)
 	fillDefaultBool(&d.Pointer, forField.Pointer, operationDirective.Pointer)
-	// struct and flatten aren't settable via "for".
+	// struct isn't settable via "for".
 	fillDefaultBool(&d.Struct, operationDirective.Struct)
-	fillDefaultBool(&d.Flatten, operationDirective.Flatten)
 	fillDefaultString(&d.Bind, forField.Bind, operationDirective.Bind)
 	// typename isn't settable on the operation (when set there it replies to
 	// the response-type).

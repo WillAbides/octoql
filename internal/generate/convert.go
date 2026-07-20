@@ -112,15 +112,6 @@ func (g *generator) convertOperation(
 		return nil, err
 	}
 
-	// It's not common to use a fragment-spread for the whole query, but you
-	// can if you want two queries to return the same type!
-	if queryOptions.GetFlatten() {
-		i, err := validateFlattenOption(baseType, operation.SelectionSet, operation.Position)
-		if err == nil {
-			return fields[i].GoType, nil
-		}
-	}
-
 	goType := &goStructType{
 		GoName: name,
 		descriptionInfo: descriptionInfo{
@@ -434,18 +425,6 @@ func (g *generator) convertDefinition(
 		if err != nil {
 			return nil, err
 		}
-		if options.GetFlatten() {
-			// As with struct, flatten only applies if valid, important if you
-			// applied it to the whole query.
-			// TODO(benkraft): This is a slightly fragile way to do this;
-			// figure out a good way to do it before/while constructing the
-			// fields, rather than after.
-			i, err := validateFlattenOption(def, selectionSet, pos)
-			if err == nil {
-				return fields[i].GoType, nil
-			}
-		}
-
 		goType := &goStructType{
 			GoName:          name,
 			Fields:          fields,
@@ -529,15 +508,6 @@ func (g *generator) convertDefinition(
 		if err != nil {
 			return nil, err
 		}
-		// Flatten can only flatten if there is only one field (plus perhaps
-		// __typename), and it's shared.
-		if options.GetFlatten() {
-			fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
-			if flattenErr == nil {
-				return sharedFields[fieldIndex].GoType, nil
-			}
-		}
-
 		implementationTypes := g.schema.GetPossibleTypes(def)
 		// Make sure we generate stable output by sorting the types by name when we get them
 		sort.Slice(implementationTypes, func(i, j int) bool { return implementationTypes[i].Name < implementationTypes[j].Name })
@@ -1060,16 +1030,6 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 	if err != nil {
 		return nil, err
 	}
-	if directive.GetFlatten() {
-		// Flatten on a fragment-definition is a bit weird -- it makes one
-		// fragment effectively an alias for another -- but no reason we can't
-		// allow it.
-		fieldIndex, flattenErr := validateFlattenOption(typ, fragment.SelectionSet, fragment.Position)
-		if flattenErr == nil {
-			return fields[fieldIndex].GoType, nil
-		}
-	}
-
 	switch typ.Kind {
 	case ast.Object:
 		goType := &goStructType{
