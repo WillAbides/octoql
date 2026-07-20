@@ -82,4 +82,33 @@ jobs:
           key: ${{ runner.os }}-release-${{ hashFiles('go.*', '.github/workflows/ci.yaml', 'script/*', '.bindown.yaml', '.goreleaser.yaml') }}
           restore-keys: ${{ runner.os }}-release-
       - run: script/bindown -q install goreleaser
-      - run: bin/goreleaser build --snapshot --clean
+      - run: bin/goreleaser release --snapshot --clean
+      - name: Validate archive contents
+        shell: bash
+        run: |
+          mapfile -t archives < <(
+            jq -r '
+              .[]
+              | select(.type == "Archive")
+              | [.path, .extra.Format]
+              | @tsv
+            ' dist/artifacts.json
+          )
+          test "${#archives[@]}" -gt 0
+          for artifact in "${archives[@]}"; do
+            IFS=$'\t' read -r archive format <<< "$artifact"
+            case "$format" in
+              tar.gz | tar.xz | tar.bz2)
+                contents="$(tar -tf "$archive")"
+                ;;
+              zip)
+                contents="$(unzip -Z1 "$archive")"
+                ;;
+              *)
+                echo "unsupported archive format: $format" >&2
+                exit 1
+                ;;
+            esac
+            printf '%s\n' "$contents" | grep -Eq '(^|/)LICENSE$'
+            printf '%s\n' "$contents" | grep -Eq '(^|/)THIRD_PARTY_NOTICES\.md$'
+          done
