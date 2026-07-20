@@ -1410,7 +1410,7 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*NestedNodeShapesResponse
-		NestedNodes [][][]json.RawMessage `json:"nestedNodes"`
+		NestedNodes json.RawMessage `json:"nestedNodes"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.NestedNodeShapesResponse = v
@@ -1422,31 +1422,44 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.NestedNodes
-		src := firstPass.NestedNodes
-		if src != nil {
-			*dst = make(
-				[][][]NestedNodeShapesNestedNodesNode,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
+		raw := firstPass.NestedNodes
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src [][][]json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal NestedNodeShapesResponse.NestedNodes: %w", err)
+				}
 				if src != nil {
 					*dst = make(
-						[][]NestedNodeShapesNestedNodesNode,
+						[][][]NestedNodeShapesNestedNodesNode,
 						len(src))
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if src != nil {
 							*dst = make(
-								[]NestedNodeShapesNestedNodesNode,
+								[][]NestedNodeShapesNestedNodesNode,
 								len(src))
 							for i, src := range src {
 								dst := &(*dst)[i]
-								if len(src) != 0 && string(src) != "null" {
-									err = __unmarshalNestedNodeShapesNestedNodesNode(
-										src, dst)
-									if err != nil {
-										return fmt.Errorf(
-											"unable to unmarshal NestedNodeShapesResponse.NestedNodes: %w", err)
+								if src != nil {
+									*dst = make(
+										[]NestedNodeShapesNestedNodesNode,
+										len(src))
+									for i, src := range src {
+										dst := &(*dst)[i]
+										if len(src) != 0 && string(src) != "null" {
+											err = __unmarshalNestedNodeShapesNestedNodesNode(
+												src, dst)
+											if err != nil {
+												return fmt.Errorf(
+													"unable to unmarshal NestedNodeShapesResponse.NestedNodes: %w", err)
+											}
+										}
 									}
 								}
 							}
@@ -1600,8 +1613,8 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 
 	var firstPass struct {
 		*RepositoryEventCovarianceLatestRepositoryEvent
-		Subject         json.RawMessage   `json:"subject"`
-		RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
+		Subject         json.RawMessage `json:"subject"`
+		RelatedSubjects json.RawMessage `json:"relatedSubjects"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.RepositoryEventCovarianceLatestRepositoryEvent = v
@@ -1626,19 +1639,32 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 
 	{
 		dst := &v.RelatedSubjects
-		src := firstPass.RelatedSubjects
-		if src != nil {
-			*dst = make(
-				[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+		raw := firstPass.RelatedSubjects
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
+							}
+						}
 					}
 				}
 			}
@@ -1834,8 +1860,8 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 
 	var firstPass struct {
 		*RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther
-		Subject         json.RawMessage   `json:"subject"`
-		RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
+		Subject         json.RawMessage `json:"subject"`
+		RelatedSubjects json.RawMessage `json:"relatedSubjects"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther = v
@@ -1860,19 +1886,32 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 
 	{
 		dst := &v.RelatedSubjects
-		src := firstPass.RelatedSubjects
-		if src != nil {
-			*dst = make(
-				[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
+		raw := firstPass.RelatedSubjects
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
+							}
+						}
 					}
 				}
 			}
@@ -2361,7 +2400,7 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 
 	var firstPass struct {
 		*SearchRepositoriesSearchSearchResultConnection
-		Nodes []json.RawMessage `json:"nodes"`
+		Nodes json.RawMessage `json:"nodes"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.SearchRepositoriesSearchSearchResultConnection = v
@@ -2373,19 +2412,32 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 
 	{
 		dst := &v.Nodes
-		src := firstPass.Nodes
-		if src != nil {
-			*dst = make(
-				[]SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
+		raw := firstPass.Nodes
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
+							}
+						}
 					}
 				}
 			}

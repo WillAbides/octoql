@@ -835,6 +835,44 @@ func TestSpecialSliceWireSemantics(t *testing.T) {
 		})
 	}
 }
+
+func TestSpecialSliceWireSemanticsReusedDestination(t *testing.T) {
+	const populated = ` + "`" + `{"dates":[[["2026-07-20"]]],"nodes":[[[{"__typename":"User","id":"1","login":"octo"}]]]}` + "`" + `
+	tests := []struct {
+		name   string
+		update string
+		want   string
+	}{
+		{
+			name:   "present null clears slices",
+			update: ` + "`" + `{"dates":null,"nodes":null}` + "`" + `,
+			want:   ` + "`" + `{"dates":null,"nodes":null}` + "`" + `,
+		},
+		{
+			name:   "present arrays replace slices",
+			update: ` + "`" + `{"dates":[],"nodes":[]}` + "`" + `,
+			want:   ` + "`" + `{"dates":[],"nodes":[]}` + "`" + `,
+		},
+		{
+			name:   "omitted fields retain slices",
+			update: ` + "`" + `{}` + "`" + `,
+			want:   populated,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var response WireSemanticsResponse
+			err := json.Unmarshal([]byte(populated), &response)
+			require.NoError(t, err)
+			err = json.Unmarshal([]byte(test.update), &response)
+			require.NoError(t, err)
+			remarshaled, err := json.Marshal(&response)
+			require.NoError(t, err)
+			require.JSONEq(t, test.want, string(remarshaled))
+		})
+	}
+}
 `)
 	compileGeneratedOutputs(t, tempDir, outputs)
 }

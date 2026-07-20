@@ -1069,7 +1069,7 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryFragment
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryFragment = v
@@ -1081,19 +1081,32 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		if src != nil {
-			*dst = make(
-				[]queryFragmentActorsActor,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = __unmarshalqueryFragmentActorsActor(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal queryFragment.Actors: %w", err)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryFragment.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]queryFragmentActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalqueryFragmentActorsActor(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryFragment.Actors: %w", err)
+							}
+						}
 					}
 				}
 			}
@@ -1691,7 +1704,7 @@ func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithCustomMarshalSliceVariables
-		Dates []json.RawMessage `json:"dates"`
+		Dates json.RawMessage `json:"dates"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalSliceVariables = v
@@ -1703,19 +1716,32 @@ func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Dates
-		src := firstPass.Dates
-		if src != nil {
-			*dst = make(
-				[]time.Time,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = testutil.UnmarshalDate(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+		raw := firstPass.Dates
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]time.Time,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = testutil.UnmarshalDate(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+							}
+						}
 					}
 				}
 			}
@@ -2350,7 +2376,7 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithFragmentsResponse
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithFragmentsResponse = v
@@ -2362,19 +2388,32 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		if src != nil {
-			*dst = make(
-				[]queryWithFragmentsActorsActor,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = __unmarshalqueryWithFragmentsActorsActor(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal queryWithFragmentsResponse.Actors: %w", err)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryWithFragmentsResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]queryWithFragmentsActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalqueryWithFragmentsActorsActor(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithFragmentsResponse.Actors: %w", err)
+							}
+						}
 					}
 				}
 			}
@@ -2583,7 +2622,7 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithInterfaceListFieldResponse
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceListFieldResponse = v
@@ -2595,19 +2634,32 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		if src != nil {
-			*dst = make(
-				[]queryWithInterfaceListFieldActorsActor,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = __unmarshalqueryWithInterfaceListFieldActorsActor(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]queryWithInterfaceListFieldActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalqueryWithInterfaceListFieldActorsActor(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+							}
+						}
 					}
 				}
 			}
@@ -2818,7 +2870,7 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 
 	var firstPass struct {
 		*queryWithInterfaceListPointerFieldResponse
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceListPointerFieldResponse = v
@@ -2830,20 +2882,33 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		if src != nil {
-			*dst = make(
-				[]*queryWithInterfaceListPointerFieldActorsActor,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					*dst = new(queryWithInterfaceListPointerFieldActorsActor)
-					err = __unmarshalqueryWithInterfaceListPointerFieldActorsActor(
-						src, *dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]*queryWithInterfaceListPointerFieldActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							*dst = new(queryWithInterfaceListPointerFieldActorsActor)
+							err = __unmarshalqueryWithInterfaceListPointerFieldActorsActor(
+								src, *dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+							}
+						}
 					}
 				}
 			}
@@ -3425,7 +3490,7 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithNamedFragmentsResponse
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithNamedFragmentsResponse = v
@@ -3437,19 +3502,32 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		if src != nil {
-			*dst = make(
-				[]queryWithNamedFragmentsActorsActor,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = __unmarshalqueryWithNamedFragmentsActorsActor(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal queryWithNamedFragmentsResponse.Actors: %w", err)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryWithNamedFragmentsResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]queryWithNamedFragmentsActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalqueryWithNamedFragmentsActorsActor(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithNamedFragmentsResponse.Actors: %w", err)
+							}
+						}
 					}
 				}
 			}
@@ -3548,7 +3626,7 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithSearchResponse
-		Search []json.RawMessage `json:"search"`
+		Search json.RawMessage `json:"search"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithSearchResponse = v
@@ -3560,19 +3638,32 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Search
-		src := firstPass.Search
-		if src != nil {
-			*dst = make(
-				[]queryWithSearchSearchSearchResultItem,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if len(src) != 0 && string(src) != "null" {
-					err = __unmarshalqueryWithSearchSearchSearchResultItem(
-						src, dst)
-					if err != nil {
-						return fmt.Errorf(
-							"unable to unmarshal queryWithSearchResponse.Search: %w", err)
+		raw := firstPass.Search
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryWithSearchResponse.Search: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]queryWithSearchSearchSearchResultItem,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalqueryWithSearchSearchSearchResultItem(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithSearchResponse.Search: %w", err)
+							}
+						}
 					}
 				}
 			}

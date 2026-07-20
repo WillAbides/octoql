@@ -365,9 +365,9 @@ func (v *GitHubInputsVariables) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GitHubInputsVariables
-		Date                   json.RawMessage       `json:"date"`
-		PublishedDates         [][][]json.RawMessage `json:"publishedDates"`
-		OptionalPublishedDates [][][]json.RawMessage `json:"optionalPublishedDates"`
+		Date                   json.RawMessage `json:"date"`
+		PublishedDates         json.RawMessage `json:"publishedDates"`
+		OptionalPublishedDates json.RawMessage `json:"optionalPublishedDates"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.GitHubInputsVariables = v
@@ -393,31 +393,44 @@ func (v *GitHubInputsVariables) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.PublishedDates
-		src := firstPass.PublishedDates
-		if src != nil {
-			*dst = make(
-				[][][]time.Time,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
+		raw := firstPass.PublishedDates
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src [][][]json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal GitHubInputsVariables.PublishedDates: %w", err)
+				}
 				if src != nil {
 					*dst = make(
-						[][]time.Time,
+						[][][]time.Time,
 						len(src))
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if src != nil {
 							*dst = make(
-								[]time.Time,
+								[][]time.Time,
 								len(src))
 							for i, src := range src {
 								dst := &(*dst)[i]
-								if len(src) != 0 && string(src) != "null" {
-									err = testutil.UnmarshalDate(
-										src, dst)
-									if err != nil {
-										return fmt.Errorf(
-											"unable to unmarshal GitHubInputsVariables.PublishedDates: %w", err)
+								if src != nil {
+									*dst = make(
+										[]time.Time,
+										len(src))
+									for i, src := range src {
+										dst := &(*dst)[i]
+										if len(src) != 0 && string(src) != "null" {
+											err = testutil.UnmarshalDate(
+												src, dst)
+											if err != nil {
+												return fmt.Errorf(
+													"unable to unmarshal GitHubInputsVariables.PublishedDates: %w", err)
+											}
+										}
 									}
 								}
 							}
@@ -430,32 +443,45 @@ func (v *GitHubInputsVariables) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.OptionalPublishedDates
-		src := firstPass.OptionalPublishedDates
-		if src != nil {
-			*dst = make(
-				[][][]*time.Time,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
+		raw := firstPass.OptionalPublishedDates
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src [][][]json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+				}
 				if src != nil {
 					*dst = make(
-						[][]*time.Time,
+						[][][]*time.Time,
 						len(src))
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if src != nil {
 							*dst = make(
-								[]*time.Time,
+								[][]*time.Time,
 								len(src))
 							for i, src := range src {
 								dst := &(*dst)[i]
-								if len(src) != 0 && string(src) != "null" {
-									*dst = new(time.Time)
-									err = testutil.UnmarshalDate(
-										src, *dst)
-									if err != nil {
-										return fmt.Errorf(
-											"unable to unmarshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+								if src != nil {
+									*dst = make(
+										[]*time.Time,
+										len(src))
+									for i, src := range src {
+										dst := &(*dst)[i]
+										if len(src) != 0 && string(src) != "null" {
+											*dst = new(time.Time)
+											err = testutil.UnmarshalDate(
+												src, *dst)
+											if err != nil {
+												return fmt.Errorf(
+													"unable to unmarshal GitHubInputsVariables.OptionalPublishedDates: %w", err)
+											}
+										}
 									}
 								}
 							}

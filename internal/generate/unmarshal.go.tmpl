@@ -45,7 +45,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
         *{{.GoName}}
         {{range .Fields -}}
         {{if and .NeedsMarshaling (not .IsEmbedded) -}}
-        {{.GoName}} {{repeat .GoType.SliceDepth "[]"}}{{ref "encoding/json.RawMessage"}} `json:"{{.JSONName}}"`
+        {{.GoName}} {{ref "encoding/json.RawMessage"}} `json:"{{.JSONName}}"`
         {{end -}}
         {{end -}}
         {{/* TODO(benkraft): In principle you might have a field-name that
@@ -83,8 +83,10 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
          a slice field.  So what we do is basically, for each field of type
          `[][]...[]MyType`:
 
-            dst := &v.MyField      // *[][]...[]MyType
-            src := firstPass.MyField  // [][]...[]json.RawMessage
+            dst := &v.MyField         // *[][]...[]MyType
+            raw := firstPass.MyField  // json.RawMessage
+            var src [][]...[]json.RawMessage
+            json.Unmarshal(raw, &src)
 
             // repeat the following three lines n times; each time, inside
             // the loop we have one less layer of slice on src and dst
@@ -115,7 +117,22 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
     */}}
     {
         dst := &v.{{$field.GoName}}
+        {{if $field.GoType.SliceDepth -}}
+        raw := firstPass.{{$field.GoName}}
+        if len(raw) != 0 {
+            if string(raw) == "null" {
+                *dst = nil
+            }
+            if string(raw) != "null" {
+                var src {{repeat $field.GoType.SliceDepth "[]"}}{{ref "encoding/json.RawMessage"}}
+                err = {{ref "encoding/json.Unmarshal"}}(raw, &src)
+                if err != nil {
+                    return fmt.Errorf(
+                        "unable to unmarshal {{$.GoName}}.{{$field.GoName}}: %w", err)
+                }
+        {{else -}}
         src := firstPass.{{$field.GoName}}
+        {{end -}}
         {{range $i := intRange $field.GoType.SliceDepth -}}
         if src != nil {
         *dst = make(
@@ -145,6 +162,10 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
         }
         {{range $i := intRange $field.GoType.SliceDepth -}}
         }
+        }
+        {{end -}}
+        {{if $field.GoType.SliceDepth -}}
+            }
         }
         {{end -}}
     }
