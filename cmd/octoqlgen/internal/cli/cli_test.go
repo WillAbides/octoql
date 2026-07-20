@@ -225,6 +225,42 @@ func TestAtomicOutputWriter(t *testing.T) {
 	assert.Empty(t, tempFiles)
 }
 
+func TestAtomicOutputWriterDoesNotFollowLateSchemaSymlink(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	destination := filepath.Join(directory, "schema.graphql")
+	target := filepath.Join(directory, "target.graphql")
+	err := os.WriteFile(destination, []byte("original"), 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(target, []byte("target"), 0o600)
+	require.NoError(t, err)
+	destination, err = schema.ResolveSchemaPath(destination)
+	require.NoError(t, err)
+
+	writer := atomicOutputWriter{
+		beforeSchemaRename: func() error {
+			removeErr := os.Remove(destination)
+			if removeErr != nil {
+				return removeErr
+			}
+			return os.Symlink(target, destination)
+		},
+	}
+	err = writer.WriteSchema(destination, []byte("updated"))
+	require.NoError(t, err)
+
+	targetData, err := os.ReadFile(target)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("target"), targetData)
+	destinationData, err := os.ReadFile(destination)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("updated"), destinationData)
+	info, err := os.Lstat(destination)
+	require.NoError(t, err)
+	assert.Zero(t, info.Mode()&os.ModeSymlink)
+}
+
 func TestInitCommandRun(t *testing.T) {
 	t.Parallel()
 
@@ -295,10 +331,9 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 	err := os.WriteFile(configPath, []byte("schema:\n  path: schema.graphql\n"), 0o600)
 	require.NoError(t, err)
 	command := schemaUpdateCommand{
-		Config:     configPath,
-		context:    t.Context(),
-		loadConfig: config.Load,
-		stdout:     io.Discard,
+		Config:  configPath,
+		context: t.Context(),
+		stdout:  io.Discard,
 	}
 
 	err = command.Run()
@@ -344,9 +379,8 @@ func TestSchemaUpdateCommandCancellationRestoresOriginalFiles(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	command := schemaUpdateCommand{
-		Config:     configPath,
-		context:    ctx,
-		loadConfig: config.Load,
+		Config:  configPath,
+		context: ctx,
 		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
 			return schema.RemoteResult{
 				Data:   updatedSchema,
@@ -397,6 +431,12 @@ func TestSchemaUpdateCommandRejectsSchemaPathChangeAfterLock(t *testing.T) {
 	require.NoError(t, err)
 	err = os.WriteFile(reloadedSchemaPath, reloadedSchema, 0o600)
 	require.NoError(t, err)
+	transaction, err := schema.BeginUpdate(initialSchemaPath, configPath)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		rollbackErr := transaction.Rollback()
+		require.NoError(t, rollbackErr)
+	})
 
 	loadCalls := 0
 	resolved := false
@@ -405,7 +445,7 @@ func TestSchemaUpdateCommandRejectsSchemaPathChangeAfterLock(t *testing.T) {
 	command := schemaUpdateCommand{
 		Config:  configPath,
 		context: t.Context(),
-		loadConfig: func(string) (*config.Config, error) {
+		parseConfig: func(string, []byte) (*config.Config, error) {
 			loadCalls++
 			if loadCalls == 1 {
 				return &config.Config{
@@ -416,13 +456,15 @@ func TestSchemaUpdateCommandRejectsSchemaPathChangeAfterLock(t *testing.T) {
 					},
 				}, nil
 			}
-			return &config.Config{
-				Schema: config.Schema{
-					Path:   reloadedSchemaPath,
-					Sha256: new(reloadedChecksum),
-					Source: &source,
-				},
-			}, nil
+			reloadedConfig := []byte(fmt.Sprintf(
+				"schema:\n  path: reloaded.graphql\n  sha256: %s\n  source:\n    url: https://example.test/schema.graphql\n",
+				reloadedChecksum,
+			))
+			writeErr := os.WriteFile(configPath, reloadedConfig, 0o600)
+			if writeErr != nil {
+				return nil, writeErr
+			}
+			return config.LoadBytes(configPath, reloadedConfig)
 		},
 		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
 			resolved = true
@@ -440,6 +482,9 @@ func TestSchemaUpdateCommandRejectsSchemaPathChangeAfterLock(t *testing.T) {
 	assert.Contains(t, err.Error(), "schema path changed while acquiring update lock")
 	assert.False(t, resolved)
 	assert.Empty(t, outputWriter.path)
+	reloadedConfig, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(reloadedConfig), "reloaded.graphql")
 }
 
 func TestSchemaUpdateCommandRejectsSchemaSymlink(t *testing.T) {
@@ -464,9 +509,8 @@ func TestSchemaUpdateCommandRejectsSchemaSymlink(t *testing.T) {
 
 	resolved := false
 	command := schemaUpdateCommand{
-		Config:     configPath,
-		context:    t.Context(),
-		loadConfig: config.Load,
+		Config:  configPath,
+		context: t.Context(),
 		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
 			resolved = true
 			return schema.RemoteResult{}, nil
@@ -507,9 +551,8 @@ func TestSchemaUpdateCommandRejectsSchemaSymlinkInsertedBeforePublication(t *tes
 	require.NoError(t, err)
 
 	command := schemaUpdateCommand{
-		Config:     configPath,
-		context:    t.Context(),
-		loadConfig: config.Load,
+		Config:  configPath,
+		context: t.Context(),
 		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
 			return schema.RemoteResult{
 				Data:   updatedSchema,
@@ -531,7 +574,7 @@ func TestSchemaUpdateCommandRejectsSchemaSymlinkInsertedBeforePublication(t *tes
 	assert.Zero(t, info.Mode()&os.ModeSymlink)
 }
 
-func TestSchemaUpdateCommandRollsBackChangedPublishedConfig(t *testing.T) {
+func TestSchemaUpdateCommandPreservesChangedPublishedConfig(t *testing.T) {
 	t.Parallel()
 
 	directory := t.TempDir()
@@ -562,9 +605,8 @@ func TestSchemaUpdateCommandRollsBackChangedPublishedConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	command := schemaUpdateCommand{
-		Config:     configPath,
-		context:    t.Context(),
-		loadConfig: config.Load,
+		Config:  configPath,
+		context: t.Context(),
 		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
 			return schema.RemoteResult{
 				Data:   updatedSchema,
@@ -589,7 +631,7 @@ func TestSchemaUpdateCommandRollsBackChangedPublishedConfig(t *testing.T) {
 	assert.Contains(t, err.Error(), "published config changed before commit")
 	configData, err := os.ReadFile(configPath)
 	require.NoError(t, err)
-	assert.Equal(t, originalConfig, configData)
+	assert.Equal(t, replacementConfig, configData)
 	schemaData, err := os.ReadFile(schemaPath)
 	require.NoError(t, err)
 	assert.Equal(t, originalSchema, schemaData)
@@ -629,9 +671,9 @@ func TestSchemaUpdateCommandUsesCanonicalConfigAfterAliasRetarget(t *testing.T) 
 	command := schemaUpdateCommand{
 		Config:  configAliasPath,
 		context: t.Context(),
-		loadConfig: func(path string) (*config.Config, error) {
+		parseConfig: func(path string, content []byte) (*config.Config, error) {
 			loadCalls++
-			if loadCalls == 3 {
+			if loadCalls == 2 {
 				removeErr := os.Remove(configAliasPath)
 				if removeErr != nil {
 					return nil, removeErr
@@ -641,7 +683,7 @@ func TestSchemaUpdateCommandUsesCanonicalConfigAfterAliasRetarget(t *testing.T) 
 					return nil, symlinkErr
 				}
 			}
-			return config.Load(path)
+			return config.LoadBytes(path, content)
 		},
 		resolver: remoteResolverFunc(func(_ context.Context, source config.Source) (schema.RemoteResult, error) {
 			resolverSource = *source.Url
@@ -660,6 +702,67 @@ func TestSchemaUpdateCommandUsesCanonicalConfigAfterAliasRetarget(t *testing.T) 
 	configBData, err := os.ReadFile(configBPath)
 	require.NoError(t, err)
 	assert.Equal(t, configB, configBData)
+}
+
+func TestSchemaUpdateCommandRejectsConfigSourceChangeAfterCapture(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	originalSchema := []byte("type Query { old: String }\n")
+	updatedSchema := []byte("type Query { updated: String }\n")
+	originalChecksum := fmt.Sprintf("%x", sha256.Sum256(originalSchema))
+	updatedChecksum := fmt.Sprintf("%x", sha256.Sum256(updatedSchema))
+	configA := []byte(fmt.Sprintf(
+		"schema:\n  path: schema.graphql\n  sha256: %s\n  source:\n    url: https://schemas.example.test/a\n",
+		originalChecksum,
+	))
+	configB := []byte(fmt.Sprintf(
+		"schema:\n  path: schema.graphql\n  sha256: %s\n  source:\n    url: https://schemas.example.test/b\n",
+		originalChecksum,
+	))
+	err := os.WriteFile(configPath, configA, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(schemaPath, originalSchema, 0o600)
+	require.NoError(t, err)
+
+	parseCalls := 0
+	resolverSource := ""
+	command := schemaUpdateCommand{
+		Config:  configPath,
+		context: t.Context(),
+		parseConfig: func(path string, content []byte) (*config.Config, error) {
+			parseCalls++
+			if parseCalls == 3 {
+				writeErr := os.WriteFile(configPath, configB, 0o600)
+				if writeErr != nil {
+					return nil, writeErr
+				}
+			}
+			return config.LoadBytes(path, content)
+		},
+		resolver: remoteResolverFunc(func(_ context.Context, source config.Source) (schema.RemoteResult, error) {
+			resolverSource = *source.Url
+			return schema.RemoteResult{
+				Data:   updatedSchema,
+				SHA256: updatedChecksum,
+			}, nil
+		}),
+		outputWriter: atomicOutputWriter{},
+		stdout:       io.Discard,
+	}
+
+	err = command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "config or schema changed while updating")
+	assert.Equal(t, "https://schemas.example.test/a", resolverSource)
+	configData, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, configB, configData)
+	schemaData, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	assert.Equal(t, originalSchema, schemaData)
 }
 
 func TestHelpSnapshots(t *testing.T) {

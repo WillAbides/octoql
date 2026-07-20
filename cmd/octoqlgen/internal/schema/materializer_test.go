@@ -784,7 +784,7 @@ func TestMaterializerRecoversInterruptedSchemaUpdate(t *testing.T) {
 	require.NoError(t, err)
 	err = os.WriteFile(schemaPath, originalSchema, 0o600)
 	require.NoError(t, err)
-	_, err = BeginUpdate(schemaPath, configPath)
+	transaction, err := BeginUpdate(schemaPath, configPath)
 	require.NoError(t, err)
 	err = os.WriteFile(schemaPath, updatedSchema, 0o600)
 	require.NoError(t, err)
@@ -799,7 +799,7 @@ func TestMaterializerRecoversInterruptedSchemaUpdate(t *testing.T) {
 	configData, err := os.ReadFile(configPath)
 	require.NoError(t, err)
 	assert.Equal(t, originalConfig, configData)
-	_, err = os.Stat(schemaPath + updateJournalSuffix)
+	_, err = os.Stat(transaction.journalPath)
 	assert.ErrorIs(t, err, fs.ErrNotExist)
 }
 

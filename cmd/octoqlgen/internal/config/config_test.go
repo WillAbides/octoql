@@ -201,6 +201,34 @@ func TestLoadDoesNotValidateAgainstSchema(t *testing.T) {
 	assert.Empty(t, loaded.TestHandlerGeneratedPath())
 }
 
+func TestLoadBytesDoesNotRereadConfig(t *testing.T) {
+	t.Parallel()
+
+	filename := filepath.Join(t.TempDir(), DefaultFilename)
+	configA := []byte(
+		"schema:\n" +
+			"  path: schema.graphql\n" +
+			"  source:\n" +
+			"    url: https://schemas.example.test/a\n",
+	)
+	configB := []byte(
+		"schema:\n" +
+			"  path: schema.graphql\n" +
+			"  source:\n" +
+			"    url: https://schemas.example.test/b\n",
+	)
+	err := os.WriteFile(filename, configA, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(filename, configB, 0o600)
+	require.NoError(t, err)
+
+	loaded, err := LoadBytes(filename, configA)
+	require.NoError(t, err)
+	require.NotNil(t, loaded.Schema.Source)
+	require.NotNil(t, loaded.Schema.Source.Url)
+	assert.Equal(t, "https://schemas.example.test/a", *loaded.Schema.Source.Url)
+}
+
 func TestUpdatePinPreservesUnrelatedFormatting(t *testing.T) {
 	t.Parallel()
 

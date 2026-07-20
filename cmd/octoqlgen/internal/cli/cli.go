@@ -180,7 +180,7 @@ func createFileNoReplace(destination string, data []byte) (err error) {
 
 type schemaUpdateCommand struct {
 	context      context.Context
-	loadConfig   func(string) (*config.Config, error)
+	parseConfig  func(string, []byte) (*config.Config, error)
 	resolver     remoteResolver
 	outputWriter outputWriter
 	stdout       io.Writer
@@ -201,7 +201,18 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	initialConfig, err := cmd.loadConfig(configPath)
+	unlockConfig, err := acquireConfigUpdateLock(configPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, unlockConfig())
+	}()
+	rawConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
+	}
+	initialConfig, err := cmd.parseConfigBytes(configPath, rawConfig)
 	if err != nil {
 		return err
 	}
@@ -217,12 +228,17 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 		err = errors.Join(err, unlock())
 	}()
 
-	loaded, err := cmd.loadConfig(configPath)
+	rawConfig, err = os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
+	}
+	lockedConfig, err := cmd.parseConfigBytes(configPath, rawConfig)
 	if err != nil {
 		return err
 	}
-	if !schema.SameLockIdentity(lockedSchemaPath, loaded.SchemaPath()) {
-		return errors.New("schema path changed while acquiring update lock")
+	err = validateSchemaTarget(lockedSchemaPath, lockedConfig.SchemaPath())
+	if err != nil {
+		return err
 	}
 	err = schema.RecoverPendingUpdate(lockedSchemaPath)
 	if err != nil {
@@ -232,11 +248,11 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	rawConfig, err := os.ReadFile(configPath)
+	rawConfig, err = os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
 	}
-	loaded, err = cmd.loadConfig(configPath)
+	loaded, err := cmd.parseConfigBytes(configPath, rawConfig)
 	if err != nil {
 		return err
 	}
@@ -310,6 +326,10 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return rollback(fmt.Errorf("publishing updated schema: %w", err))
 	}
+	err = transaction.MarkSchemaPublished()
+	if err != nil {
+		return rollback(fmt.Errorf("recording schema publication: %w", err))
+	}
 	err = checkContext(cmd.context)
 	if err != nil {
 		return rollback(err)
@@ -321,20 +341,28 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if !bytes.Equal(currentConfig, rawConfig) {
 		return rollback(errors.New("config changed while updating schema"))
 	}
+	err = transaction.BeginConfigPublication(updatedConfig)
+	if err != nil {
+		return rollback(fmt.Errorf("recording config publication: %w", err))
+	}
 	err = cmd.outputWriter.Write(configPath, updatedConfig)
 	if err != nil {
 		return rollback(fmt.Errorf("config update failed: %w", err))
 	}
-	published, err := cmd.loadConfig(configPath)
+	err = transaction.MarkConfigPublished()
+	if err != nil {
+		return rollback(fmt.Errorf("recording config publication: %w", err))
+	}
+	publishedConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		return rollback(fmt.Errorf("reading published config: %w", err))
+	}
+	published, err := cmd.parseConfigBytes(configPath, publishedConfig)
 	if err != nil {
 		return rollback(fmt.Errorf("validating published config: %w", err))
 	}
 	if !schema.SameLockIdentity(lockedSchemaPath, published.SchemaPath()) {
 		return rollback(errors.New("published config changed before commit"))
-	}
-	publishedConfig, err := os.ReadFile(configPath)
-	if err != nil {
-		return rollback(fmt.Errorf("reading published config: %w", err))
 	}
 	if !bytes.Equal(publishedConfig, updatedConfig) {
 		return rollback(errors.New("published config changed before commit"))
@@ -356,6 +384,16 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 		result.SHA256,
 	)
 	return err
+}
+
+func (cmd *schemaUpdateCommand) parseConfigBytes(
+	path string,
+	content []byte,
+) (*config.Config, error) {
+	if cmd.parseConfig != nil {
+		return cmd.parseConfig(path, content)
+	}
+	return config.LoadBytes(path, content)
 }
 
 func checkContext(ctx context.Context) error {
@@ -389,6 +427,14 @@ func validateSchemaTarget(lockedSchemaPath, configuredSchemaPath string) error {
 
 func acquireUpdateLock(schemaPath string) (func() error, error) {
 	return schema.AcquireExclusiveLock(schemaPath)
+}
+
+func acquireConfigUpdateLock(configPath string) (func() error, error) {
+	unlock, err := schema.AcquireExclusiveLock(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("acquiring config update lock: %w", err)
+	}
+	return unlock, nil
 }
 
 func canonicalPath(path string) (string, error) {
@@ -611,7 +657,7 @@ func newCommandTree(dependencies *Dependencies) *commandTree {
 			},
 			Update: schemaUpdateCommand{
 				context:      dependencies.Context,
-				loadConfig:   dependencies.LoadConfig,
+				parseConfig:  config.LoadBytes,
 				resolver:     dependencies.RemoteResolver,
 				outputWriter: dependencies.OutputWriter,
 				stdout:       dependencies.Stdout,
@@ -662,14 +708,16 @@ func (d *Dependencies) setDefaults() {
 	}
 }
 
-type atomicOutputWriter struct{}
-
-func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
-	return writeOutputAtomically(destination, data, false)
+type atomicOutputWriter struct {
+	beforeSchemaRename func() error
 }
 
-func (atomicOutputWriter) WriteSchema(destination string, data []byte) (err error) {
-	return writeOutputAtomically(destination, data, true)
+func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
+	return writeOutputAtomically(destination, data, false, nil)
+}
+
+func (writer atomicOutputWriter) WriteSchema(destination string, data []byte) (err error) {
+	return writeOutputAtomically(destination, data, true, writer.beforeSchemaRename)
 }
 
 func writeSchemaOutput(writer outputWriter, destination string, data []byte) error {
@@ -684,7 +732,12 @@ func writeSchemaOutput(writer outputWriter, destination string, data []byte) err
 	return writer.Write(destination, data)
 }
 
-func writeOutputAtomically(destination string, data []byte, rejectSymlink bool) (err error) {
+func writeOutputAtomically(
+	destination string,
+	data []byte,
+	rejectSymlink bool,
+	beforeRename func() error,
+) (err error) {
 	directory := filepath.Dir(destination)
 	err = os.MkdirAll(directory, 0o755)
 	if err != nil {
@@ -746,7 +799,16 @@ func writeOutputAtomically(destination string, data []byte, rejectSymlink bool) 
 			return err
 		}
 	}
-	err = os.Rename(temp.Name(), destination)
+	if beforeRename != nil {
+		err = beforeRename()
+		if err != nil {
+			return err
+		}
+	}
+	// A late final-component symlink cannot redirect this write: Rename
+	// replaces the directory entry instead of following it. Its insertion is
+	// still not reliably observable between the validation above and Rename.
+	err = renameOutputAtomically(temp.Name(), destination)
 	if err != nil {
 		return fmt.Errorf("publishing output file: %w", err)
 	}

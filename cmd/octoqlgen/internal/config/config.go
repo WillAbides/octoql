@@ -35,12 +35,27 @@ func Load(filename string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading config file %q: %w", filename, err)
 	}
-
-	loaded, err := Parse(content)
+	loaded, err := LoadBytes(absoluteFilename, content)
 	if err != nil {
 		return nil, fmt.Errorf("decoding config file %q: %w", filename, err)
 	}
+	return loaded, nil
+}
 
+// LoadBytes decodes configuration bytes using filename to resolve relative
+// paths without rereading the file.
+func LoadBytes(filename string, content []byte) (*Config, error) {
+	if filename == "" {
+		filename = DefaultFilename
+	}
+	absoluteFilename, err := filepath.Abs(filename)
+	if err != nil {
+		return nil, fmt.Errorf("resolving config path: %w", err)
+	}
+	loaded, err := Parse(content)
+	if err != nil {
+		return nil, err
+	}
 	loaded.resolvePaths(filepath.Dir(absoluteFilename))
 	return loaded, nil
 }
