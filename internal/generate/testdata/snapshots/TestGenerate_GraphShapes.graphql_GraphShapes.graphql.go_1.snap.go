@@ -12,6 +12,23 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+func __octoqlExecute[T interface{}](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	var response T
+	hasData, err := client.Execute(ctx, payload, &response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(&response, err)
+	}
+	return &response, nil
+}
+
 // ActorDetails includes the GraphQL fields of Actor requested by the fragment ActorDetails.
 //
 // ActorDetails is implemented by the following types:
@@ -2871,31 +2888,7 @@ func (v *SearchRepositoriesVariables) __premarshalJSON() (*__premarshalSearchRep
 }
 
 // The query executed by GetActor.
-const GetActor_Operation = `
-query GetActor ($login: String!) {
-	actor(login: $login) {
-		__typename
-		... ActorDetails
-	}
-	repositoryOwner(login: $login) {
-		__typename
-		... RepositoryOwnerDetails
-	}
-}
-fragment ActorDetails on Actor {
-	id
-	login
-}
-fragment RepositoryOwnerDetails on RepositoryOwner {
-	id
-	login
-	repositories(first: 5) {
-		nodes {
-			nameWithOwner
-		}
-	}
-}
-`
+const GetActor_Operation = "\nquery GetActor ($login: String!) {\n\tactor(login: $login) {\n\t\t__typename\n\t\t... ActorDetails\n\t}\n\trepositoryOwner(login: $login) {\n\t\t__typename\n\t\t... RepositoryOwnerDetails\n\t}\n}\nfragment ActorDetails on Actor {\n\tid\n\tlogin\n}\nfragment RepositoryOwnerDetails on RepositoryOwner {\n\tid\n\tlogin\n\trepositories(first: 5) {\n\t\tnodes {\n\t\t\tnameWithOwner\n\t\t}\n\t}\n}\n"
 
 // GetActorPartialDataError contains partial data returned by GetActor.
 type GetActorPartialDataError struct {
@@ -2928,52 +2921,25 @@ func GetActor(
 	client *octoql.Client,
 	vars GetActorVariables,
 ) (*GetActorResponse, error) {
-	var response GetActorResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[GetActorResponse](
 		context.Background(),
+		client,
 		octoql.Payload{
 			OperationName: "GetActor",
 			Query:         GetActor_Operation,
 			Variables:     &vars,
 		},
-		&response,
+		func(data *GetActorResponse, err error) error {
+			return &GetActorPartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &GetActorPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }
 
 // The query executed by GetNode.
-const GetNode_Operation = `
-query GetNode ($id: ID!) {
-	node(id: $id) {
-		__typename
-		id
-		... on User {
-			login
-		}
-		... on Organization {
-			login
-		}
-		... on Repository {
-			nameWithOwner
-		}
-		... on Issue {
-			title
-		}
-		... on PullRequest {
-			title
-		}
-	}
-}
-`
+const GetNode_Operation = "\nquery GetNode ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t\t... on Organization {\n\t\t\tlogin\n\t\t}\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t}\n\t\t... on PullRequest {\n\t\t\ttitle\n\t\t}\n\t}\n}\n"
 
 // GetNodePartialDataError contains partial data returned by GetNode.
 type GetNodePartialDataError struct {
@@ -3006,37 +2972,25 @@ func GetNode(
 	client *octoql.Client,
 	vars GetNodeVariables,
 ) (*GetNodeResponse, error) {
-	var response GetNodeResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[GetNodeResponse](
 		context.Background(),
+		client,
 		octoql.Payload{
 			OperationName: "GetNode",
 			Query:         GetNode_Operation,
 			Variables:     &vars,
 		},
-		&response,
+		func(data *GetNodeResponse, err error) error {
+			return &GetNodePartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &GetNodePartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }
 
 // The query executed by NestedNodeShapes.
-const NestedNodeShapes_Operation = `
-query NestedNodeShapes {
-	nestedNodes {
-		__typename
-		id
-	}
-}
-`
+const NestedNodeShapes_Operation = "\nquery NestedNodeShapes {\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t}\n}\n"
 
 // NestedNodeShapesPartialDataError contains partial data returned by NestedNodeShapes.
 type NestedNodeShapesPartialDataError struct {
@@ -3068,40 +3022,25 @@ func (e *NestedNodeShapesPartialDataError) PartialData() *NestedNodeShapesRespon
 func NestedNodeShapes(
 	client *octoql.Client,
 ) (*NestedNodeShapesResponse, error) {
-	var response NestedNodeShapesResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[NestedNodeShapesResponse](
 		context.Background(),
+		client,
 		octoql.Payload{
 			OperationName: "NestedNodeShapes",
 			Query:         NestedNodeShapes_Operation,
 			Variables:     nil,
 		},
-		&response,
+		func(data *NestedNodeShapesResponse, err error) error {
+			return &NestedNodeShapesPartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &NestedNodeShapesPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }
 
 // The query executed by RecursiveRepository.
-const RecursiveRepository_Operation = `
-query RecursiveRepository ($input: RecursiveInput!) {
-	recur(input: $input) {
-		next {
-			next {
-				id
-			}
-		}
-	}
-}
-`
+const RecursiveRepository_Operation = "\nquery RecursiveRepository ($input: RecursiveInput!) {\n\trecur(input: $input) {\n\t\tnext {\n\t\t\tnext {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // RecursiveRepositoryPartialDataError contains partial data returned by RecursiveRepository.
 type RecursiveRepositoryPartialDataError struct {
@@ -3134,52 +3073,25 @@ func RecursiveRepository(
 	client *octoql.Client,
 	vars RecursiveRepositoryVariables,
 ) (*RecursiveRepositoryResponse, error) {
-	var response RecursiveRepositoryResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[RecursiveRepositoryResponse](
 		context.Background(),
+		client,
 		octoql.Payload{
 			OperationName: "RecursiveRepository",
 			Query:         RecursiveRepository_Operation,
 			Variables:     &vars,
 		},
-		&response,
+		func(data *RecursiveRepositoryResponse, err error) error {
+			return &RecursiveRepositoryPartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &RecursiveRepositoryPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }
 
 // The query executed by RepositoryEventCovariance.
-const RepositoryEventCovariance_Operation = `
-query RepositoryEventCovariance {
-	latestRepositoryEvent {
-		__typename
-		subject {
-			__typename
-			id
-		}
-		relatedSubjects {
-			__typename
-			id
-		}
-		... on RepositoryEvent {
-			repositorySubject: subject {
-				nameWithOwner
-			}
-			relatedRepositories: relatedSubjects {
-				nameWithOwner
-			}
-		}
-	}
-}
-`
+const RepositoryEventCovariance_Operation = "\nquery RepositoryEventCovariance {\n\tlatestRepositoryEvent {\n\t\t__typename\n\t\tsubject {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\trelatedSubjects {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\t... on RepositoryEvent {\n\t\t\trepositorySubject: subject {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t\trelatedRepositories: relatedSubjects {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // RepositoryEventCovariancePartialDataError contains partial data returned by RepositoryEventCovariance.
 type RepositoryEventCovariancePartialDataError struct {
@@ -3211,73 +3123,25 @@ func (e *RepositoryEventCovariancePartialDataError) PartialData() *RepositoryEve
 func RepositoryEventCovariance(
 	client *octoql.Client,
 ) (*RepositoryEventCovarianceResponse, error) {
-	var response RepositoryEventCovarianceResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[RepositoryEventCovarianceResponse](
 		context.Background(),
+		client,
 		octoql.Payload{
 			OperationName: "RepositoryEventCovariance",
 			Query:         RepositoryEventCovariance_Operation,
 			Variables:     nil,
 		},
-		&response,
+		func(data *RepositoryEventCovarianceResponse, err error) error {
+			return &RepositoryEventCovariancePartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &RepositoryEventCovariancePartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }
 
 // The query executed by SearchRepositories.
-const SearchRepositories_Operation = `
-query SearchRepositories ($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {
-	search(query: $query, type: REPOSITORY, first: $first, after: $after) {
-		nodes {
-			__typename
-			... on Repository {
-				repoName: nameWithOwner
-				owner {
-					__typename
-					login
-				}
-				parent {
-					nameWithOwner
-				}
-			}
-			... on Issue {
-				issueTitle: title
-				repository {
-					nameWithOwner
-				}
-			}
-			... on PullRequest {
-				pullRequestTitle: title
-				mergeCommit {
-					oid
-					parents {
-						oid
-					}
-				}
-			}
-		}
-		pageInfo {
-			hasNextPage
-			endCursor
-		}
-	}
-	latestRelease(publishedAfter: $publishedAfter) {
-		name
-		publishedAt
-	}
-	getJSON
-	getComplexJSON
-}
-`
+const SearchRepositories_Operation = "\nquery SearchRepositories ($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {\n\tsearch(query: $query, type: REPOSITORY, first: $first, after: $after) {\n\t\tnodes {\n\t\t\t__typename\n\t\t\t... on Repository {\n\t\t\t\trepoName: nameWithOwner\n\t\t\t\towner {\n\t\t\t\t\t__typename\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\tparent {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on Issue {\n\t\t\t\tissueTitle: title\n\t\t\t\trepository {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on PullRequest {\n\t\t\t\tpullRequestTitle: title\n\t\t\t\tmergeCommit {\n\t\t\t\t\toid\n\t\t\t\t\tparents {\n\t\t\t\t\t\toid\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tpageInfo {\n\t\t\thasNextPage\n\t\t\tendCursor\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $publishedAfter) {\n\t\tname\n\t\tpublishedAt\n\t}\n\tgetJSON\n\tgetComplexJSON\n}\n"
 
 // SearchRepositoriesPartialDataError contains partial data returned by SearchRepositories.
 type SearchRepositoriesPartialDataError struct {
@@ -3310,24 +3174,19 @@ func SearchRepositories(
 	client *octoql.Client,
 	vars SearchRepositoriesVariables,
 ) (*SearchRepositoriesResponse, error) {
-	var response SearchRepositoriesResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[SearchRepositoriesResponse](
 		context.Background(),
+		client,
 		octoql.Payload{
 			OperationName: "SearchRepositories",
 			Query:         SearchRepositories_Operation,
 			Variables:     &vars,
 		},
-		&response,
+		func(data *SearchRepositoriesResponse, err error) error {
+			return &SearchRepositoriesPartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &SearchRepositoriesPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }

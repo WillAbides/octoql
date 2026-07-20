@@ -12,6 +12,23 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+func __octoqlExecute[T interface{}](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	var response T
+	hasData, err := client.Execute(ctx, payload, &response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(&response, err)
+	}
+	return &response, nil
+}
+
 // CreateGitHubRepositoryCreateRepository includes the requested fields of the GraphQL type Repository.
 type CreateGitHubRepositoryCreateRepository struct {
 	Id            testutil.ID `json:"id"`
@@ -736,14 +753,7 @@ type UseStructReferencesInput struct {
 }
 
 // The mutation executed by CreateGitHubRepository.
-const CreateGitHubRepository_Operation = `
-mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
-	createRepository(input: $input) {
-		id
-		nameWithOwner
-	}
-}
-`
+const CreateGitHubRepository_Operation = "\nmutation CreateGitHubRepository ($input: CreateRepositoryInput!) {\n\tcreateRepository(input: $input) {\n\t\tid\n\t\tnameWithOwner\n\t}\n}\n"
 
 // CreateGitHubRepositoryPartialDataError contains partial data returned by CreateGitHubRepository.
 type CreateGitHubRepositoryPartialDataError struct {
@@ -777,53 +787,25 @@ func CreateGitHubRepository(
 	client *octoql.Client,
 	vars CreateGitHubRepositoryVariables,
 ) (*CreateGitHubRepositoryResponse, error) {
-	var response CreateGitHubRepositoryResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[CreateGitHubRepositoryResponse](
 		ctx,
+		client,
 		octoql.Payload{
 			OperationName: "CreateGitHubRepository",
 			Query:         CreateGitHubRepository_Operation,
 			Variables:     &vars,
 		},
-		&response,
+		func(data *CreateGitHubRepositoryResponse, err error) error {
+			return &CreateGitHubRepositoryPartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &CreateGitHubRepositoryPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }
 
 // The query executed by GitHubInputs.
-const GitHubInputs_Operation = `
-query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!, $publishedDates: [[[Date!]!]!]!, $optionalPublishedDates: [[[Date!]!]!]) {
-	repositoryBySelector(input: $repository) {
-		id
-		issues(filter: $filter) {
-			nodes {
-				id
-			}
-		}
-	}
-	latestRelease(publishedAfter: $date) {
-		publishedAt
-	}
-	default(input: $defaults)
-	omitempty(input: $optional)
-	useStructReferencesInput(input: $structs)
-	releasesPublishedOn(dates: $publishedDates) {
-		publishedAt
-	}
-	releasesPublishedOnOptional(dates: $optionalPublishedDates) {
-		publishedAt
-	}
-}
-`
+const GitHubInputs_Operation = "\nquery GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!, $publishedDates: [[[Date!]!]!]!, $optionalPublishedDates: [[[Date!]!]!]) {\n\trepositoryBySelector(input: $repository) {\n\t\tid\n\t\tissues(filter: $filter) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $date) {\n\t\tpublishedAt\n\t}\n\tdefault(input: $defaults)\n\tomitempty(input: $optional)\n\tuseStructReferencesInput(input: $structs)\n\treleasesPublishedOn(dates: $publishedDates) {\n\t\tpublishedAt\n\t}\n\treleasesPublishedOnOptional(dates: $optionalPublishedDates) {\n\t\tpublishedAt\n\t}\n}\n"
 
 // GitHubInputsPartialDataError contains partial data returned by GitHubInputs.
 type GitHubInputsPartialDataError struct {
@@ -857,36 +839,25 @@ func GitHubInputs(
 	client *octoql.Client,
 	vars GitHubInputsVariables,
 ) (*GitHubInputResponse, error) {
-	var response GitHubInputResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[GitHubInputResponse](
 		ctx,
+		client,
 		octoql.Payload{
 			OperationName: "GitHubInputs",
 			Query:         GitHubInputs_Operation,
 			Variables:     &vars,
 		},
-		&response,
+		func(data *GitHubInputResponse, err error) error {
+			return &GitHubInputsPartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &GitHubInputsPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }
 
 // The mutation executed by UpdateIssueWithCollidingNames.
-const UpdateIssueWithCollidingNames_Operation = `
-mutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $client: String) {
-	closeIssue(data: $data, req: $req, resp: $resp, client: $client) {
-		id
-	}
-}
-`
+const UpdateIssueWithCollidingNames_Operation = "\nmutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $client: String) {\n\tcloseIssue(data: $data, req: $req, resp: $resp, client: $client) {\n\t\tid\n\t}\n}\n"
 
 // UpdateIssueWithCollidingNamesPartialDataError contains partial data returned by UpdateIssueWithCollidingNames.
 type UpdateIssueWithCollidingNamesPartialDataError struct {
@@ -920,24 +891,19 @@ func UpdateIssueWithCollidingNames(
 	client *octoql.Client,
 	vars UpdateIssueWithCollidingNamesVariables,
 ) (*UpdateIssueWithCollidingNamesResponse, error) {
-	var response UpdateIssueWithCollidingNamesResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[UpdateIssueWithCollidingNamesResponse](
 		ctx,
+		client,
 		octoql.Payload{
 			OperationName: "UpdateIssueWithCollidingNames",
 			Query:         UpdateIssueWithCollidingNames_Operation,
 			Variables:     &vars,
 		},
-		&response,
+		func(data *UpdateIssueWithCollidingNamesResponse, err error) error {
+			return &UpdateIssueWithCollidingNamesPartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &UpdateIssueWithCollidingNamesPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }

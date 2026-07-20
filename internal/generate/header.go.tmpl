@@ -10,7 +10,7 @@ var _ {{ref "context.Context"}} = ({{ref .Config.ContextType}})(nil)
 {{end}}
 
 {{if .Operations -}}
-func __octoqlExecute[T any](
+func __octoqlExecute[T interface{}](
     ctx {{ref "context.Context"}},
     client *{{ref "github.com/willabides/octoql.Client"}},
     payload {{ref "github.com/willabides/octoql.Payload"}},

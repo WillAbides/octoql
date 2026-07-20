@@ -9,6 +9,23 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+func __octoqlExecute[T interface{}](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	var response T
+	hasData, err := client.Execute(ctx, payload, &response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(&response, err)
+	}
+	return &response, nil
+}
+
 type FirstRepository string
 
 // GitHubNamingResponse is returned by GitHubNaming on success.
@@ -92,29 +109,7 @@ func (v *GitHubNamingResponseSnake_case_type) GetName() string { return v.Name }
 type SecondRepository string
 
 // The query executed by GitHubNaming.
-const GitHubNaming_Operation = `
-query GitHubNaming {
-	account {
-		id
-		login
-	}
-	first: repository(owner: "octo", name: "one") {
-		nameWithOwner
-	}
-	second: repository(owner: "octo", name: "two") {
-		nameWithOwner
-	}
-	snake_case_type {
-		id
-		name
-	}
-	object {
-		snake_case_field {
-			id
-		}
-	}
-}
-`
+const GitHubNaming_Operation = "\nquery GitHubNaming {\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n\tfirst: repository(owner: \"octo\", name: \"one\") {\n\t\tnameWithOwner\n\t}\n\tsecond: repository(owner: \"octo\", name: \"two\") {\n\t\tnameWithOwner\n\t}\n\tsnake_case_type {\n\t\tid\n\t\tname\n\t}\n\tobject {\n\t\tsnake_case_field {\n\t\t\tid\n\t\t}\n\t}\n}\n"
 
 // GitHubNamingPartialDataError contains partial data returned by GitHubNaming.
 type GitHubNamingPartialDataError struct {
@@ -146,24 +141,19 @@ func (e *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
 func GitHubNaming(
 	client *octoql.Client,
 ) (*GitHubNamingResponse, error) {
-	var response GitHubNamingResponse
-	hasData, err := client.Execute(
+	return __octoqlExecute[GitHubNamingResponse](
 		context.Background(),
+		client,
 		octoql.Payload{
 			OperationName: "GitHubNaming",
 			Query:         GitHubNaming_Operation,
 			Variables:     nil,
 		},
-		&response,
+		func(data *GitHubNamingResponse, err error) error {
+			return &GitHubNamingPartialDataError{
+				data: data,
+				err:  err,
+			}
+		},
 	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &GitHubNamingPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
 }
