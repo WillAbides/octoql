@@ -45,25 +45,25 @@ type GetRepositoryPartialDataError struct {
 	err  error
 }
 
-func (err *GetRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *GetRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *GetRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *GetRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
-	if err == nil {
+func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func GetRepository(

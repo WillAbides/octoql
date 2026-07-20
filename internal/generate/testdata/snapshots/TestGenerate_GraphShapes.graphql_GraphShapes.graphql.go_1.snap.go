@@ -2903,25 +2903,25 @@ type GetActorPartialDataError struct {
 	err  error
 }
 
-func (err *GetActorPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *GetActorPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *GetActorPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *GetActorPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *GetActorPartialDataError) PartialData() *GetActorResponse {
-	if err == nil {
+func (e *GetActorPartialDataError) PartialData() *GetActorResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func GetActor(
@@ -2984,25 +2984,25 @@ type GetNodePartialDataError struct {
 	err  error
 }
 
-func (err *GetNodePartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *GetNodePartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *GetNodePartialDataError) Unwrap() error {
-	if err == nil {
+func (e *GetNodePartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *GetNodePartialDataError) PartialData() *GetNodeResponse {
-	if err == nil {
+func (e *GetNodePartialDataError) PartialData() *GetNodeResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func GetNode(
@@ -3050,25 +3050,25 @@ type NestedNodeShapesPartialDataError struct {
 	err  error
 }
 
-func (err *NestedNodeShapesPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *NestedNodeShapesPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *NestedNodeShapesPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *NestedNodeShapesPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *NestedNodeShapesPartialDataError) PartialData() *NestedNodeShapesResponse {
-	if err == nil {
+func (e *NestedNodeShapesPartialDataError) PartialData() *NestedNodeShapesResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func NestedNodeShapes(
@@ -3115,25 +3115,25 @@ type RecursiveRepositoryPartialDataError struct {
 	err  error
 }
 
-func (err *RecursiveRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *RecursiveRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *RecursiveRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *RecursiveRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *RecursiveRepositoryPartialDataError) PartialData() *RecursiveRepositoryResponse {
-	if err == nil {
+func (e *RecursiveRepositoryPartialDataError) PartialData() *RecursiveRepositoryResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func RecursiveRepository(
@@ -3196,25 +3196,25 @@ type RepositoryEventCovariancePartialDataError struct {
 	err  error
 }
 
-func (err *RepositoryEventCovariancePartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *RepositoryEventCovariancePartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *RepositoryEventCovariancePartialDataError) Unwrap() error {
-	if err == nil {
+func (e *RepositoryEventCovariancePartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *RepositoryEventCovariancePartialDataError) PartialData() *RepositoryEventCovarianceResponse {
-	if err == nil {
+func (e *RepositoryEventCovariancePartialDataError) PartialData() *RepositoryEventCovarianceResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func RepositoryEventCovariance(
@@ -3294,25 +3294,25 @@ type SearchRepositoriesPartialDataError struct {
 	err  error
 }
 
-func (err *SearchRepositoriesPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *SearchRepositoriesPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *SearchRepositoriesPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *SearchRepositoriesPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *SearchRepositoriesPartialDataError) PartialData() *SearchRepositoriesResponse {
-	if err == nil {
+func (e *SearchRepositoriesPartialDataError) PartialData() *SearchRepositoriesResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func SearchRepositories(

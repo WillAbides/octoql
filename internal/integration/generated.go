@@ -4297,25 +4297,25 @@ type addCommentPartialDataError struct {
 	err  error
 }
 
-func (err *addCommentPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *addCommentPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *addCommentPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *addCommentPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *addCommentPartialDataError) PartialData() *addCommentResponse {
-	if err == nil {
+func (e *addCommentPartialDataError) PartialData() *addCommentResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func addComment(
@@ -4368,25 +4368,25 @@ type addStarPartialDataError struct {
 	err  error
 }
 
-func (err *addStarPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *addStarPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *addStarPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *addStarPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *addStarPartialDataError) PartialData() *addStarResponse {
-	if err == nil {
+func (e *addStarPartialDataError) PartialData() *addStarResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func addStar(
@@ -4435,25 +4435,25 @@ type failingQueryPartialDataError struct {
 	err  error
 }
 
-func (err *failingQueryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *failingQueryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *failingQueryPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *failingQueryPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *failingQueryPartialDataError) PartialData() *failingQueryResponse {
-	if err == nil {
+func (e *failingQueryPartialDataError) PartialData() *failingQueryResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func failingQuery(
@@ -4503,25 +4503,25 @@ type getRepositoryPartialDataError struct {
 	err  error
 }
 
-func (err *getRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *getRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *getRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *getRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
-	if err == nil {
+func (e *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func getRepository(
@@ -4573,25 +4573,25 @@ type queryWithCustomMarshalPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithCustomMarshalPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithCustomMarshalPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithCustomMarshalPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithCustomMarshalPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithCustomMarshalPartialDataError) PartialData() *queryWithCustomMarshalResponse {
-	if err == nil {
+func (e *queryWithCustomMarshalPartialDataError) PartialData() *queryWithCustomMarshalResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithCustomMarshal(
@@ -4641,25 +4641,25 @@ type queryWithCustomMarshalOptionalPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithCustomMarshalOptionalPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithCustomMarshalOptionalPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithCustomMarshalOptionalPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithCustomMarshalOptionalPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithCustomMarshalOptionalPartialDataError) PartialData() *queryWithCustomMarshalOptionalResponse {
-	if err == nil {
+func (e *queryWithCustomMarshalOptionalPartialDataError) PartialData() *queryWithCustomMarshalOptionalResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithCustomMarshalOptional(
@@ -4711,25 +4711,25 @@ type queryWithCustomMarshalSlicePartialDataError struct {
 	err  error
 }
 
-func (err *queryWithCustomMarshalSlicePartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithCustomMarshalSlicePartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithCustomMarshalSlicePartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithCustomMarshalSlicePartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithCustomMarshalSlicePartialDataError) PartialData() *queryWithCustomMarshalSliceResponse {
-	if err == nil {
+func (e *queryWithCustomMarshalSlicePartialDataError) PartialData() *queryWithCustomMarshalSliceResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithCustomMarshalSlice(
@@ -4813,25 +4813,25 @@ type queryWithFlattenPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithFlattenPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithFlattenPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithFlattenPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithFlattenPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithFlattenPartialDataError) PartialData() *queryFragment {
-	if err == nil {
+func (e *queryWithFlattenPartialDataError) PartialData() *queryFragment {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithFlatten(
@@ -4908,25 +4908,25 @@ type queryWithFragmentsPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithFragmentsPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithFragmentsPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithFragmentsPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithFragmentsPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithFragmentsPartialDataError) PartialData() *queryWithFragmentsResponse {
-	if err == nil {
+func (e *queryWithFragmentsPartialDataError) PartialData() *queryWithFragmentsResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithFragments(
@@ -4976,25 +4976,25 @@ type queryWithInterfaceListFieldPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithInterfaceListFieldPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithInterfaceListFieldPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithInterfaceListFieldPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithInterfaceListFieldPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithInterfaceListFieldPartialDataError) PartialData() *queryWithInterfaceListFieldResponse {
-	if err == nil {
+func (e *queryWithInterfaceListFieldPartialDataError) PartialData() *queryWithInterfaceListFieldResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithInterfaceListField(
@@ -5044,25 +5044,25 @@ type queryWithInterfaceListPointerFieldPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithInterfaceListPointerFieldPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithInterfaceListPointerFieldPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithInterfaceListPointerFieldPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithInterfaceListPointerFieldPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithInterfaceListPointerFieldPartialDataError) PartialData() *queryWithInterfaceListPointerFieldResponse {
-	if err == nil {
+func (e *queryWithInterfaceListPointerFieldPartialDataError) PartialData() *queryWithInterfaceListPointerFieldResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithInterfaceListPointerField(
@@ -5116,25 +5116,25 @@ type queryWithInterfaceNoFragmentsPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithInterfaceNoFragmentsPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithInterfaceNoFragmentsPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithInterfaceNoFragmentsPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithInterfaceNoFragmentsPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithInterfaceNoFragmentsPartialDataError) PartialData() *queryWithInterfaceNoFragmentsResponse {
-	if err == nil {
+func (e *queryWithInterfaceNoFragmentsPartialDataError) PartialData() *queryWithInterfaceNoFragmentsResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithInterfaceNoFragments(
@@ -5212,25 +5212,25 @@ type queryWithNamedFragmentsPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithNamedFragmentsPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithNamedFragmentsPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithNamedFragmentsPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithNamedFragmentsPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithNamedFragmentsPartialDataError) PartialData() *queryWithNamedFragmentsResponse {
-	if err == nil {
+func (e *queryWithNamedFragmentsPartialDataError) PartialData() *queryWithNamedFragmentsResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithNamedFragments(
@@ -5280,25 +5280,25 @@ type queryWithOmitemptyPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithOmitemptyPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithOmitemptyPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithOmitemptyPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithOmitemptyPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithOmitemptyPartialDataError) PartialData() *queryWithOmitemptyResponse {
-	if err == nil {
+func (e *queryWithOmitemptyPartialDataError) PartialData() *queryWithOmitemptyResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithOmitempty(
@@ -5364,25 +5364,25 @@ type queryWithSearchPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithSearchPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithSearchPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithSearchPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithSearchPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithSearchPartialDataError) PartialData() *queryWithSearchResponse {
-	if err == nil {
+func (e *queryWithSearchPartialDataError) PartialData() *queryWithSearchResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithSearch(
@@ -5434,25 +5434,25 @@ type queryWithVariablesPartialDataError struct {
 	err  error
 }
 
-func (err *queryWithVariablesPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *queryWithVariablesPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *queryWithVariablesPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *queryWithVariablesPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *queryWithVariablesPartialDataError) PartialData() *queryWithVariablesResponse {
-	if err == nil {
+func (e *queryWithVariablesPartialDataError) PartialData() *queryWithVariablesResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func queryWithVariables(
@@ -5505,25 +5505,25 @@ type removeStarPartialDataError struct {
 	err  error
 }
 
-func (err *removeStarPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *removeStarPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *removeStarPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *removeStarPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *removeStarPartialDataError) PartialData() *removeStarResponse {
-	if err == nil {
+func (e *removeStarPartialDataError) PartialData() *removeStarResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func removeStar(

@@ -56,25 +56,25 @@ type anyPartialDataError struct {
 	err  error
 }
 
-func (err *anyPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *anyPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *anyPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *anyPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *anyPartialDataError) PartialData() *anyResponse {
-	if err == nil {
+func (e *anyPartialDataError) PartialData() *anyResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func any(
@@ -117,25 +117,25 @@ type newPartialDataError struct {
 	err  error
 }
 
-func (err *newPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *newPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *newPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *newPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *newPartialDataError) PartialData() *newResponse {
-	if err == nil {
+func (e *newPartialDataError) PartialData() *newResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func new(

@@ -122,25 +122,25 @@ type GitHubNamingPartialDataError struct {
 	err  error
 }
 
-func (err *GitHubNamingPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *GitHubNamingPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *GitHubNamingPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *GitHubNamingPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
-	if err == nil {
+func (e *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func GitHubNaming(

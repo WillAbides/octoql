@@ -741,25 +741,25 @@ type CreateRepositoryPartialDataError struct {
 	err  error
 }
 
-func (err *CreateRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *CreateRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *CreateRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *CreateRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *CreateRepositoryPartialDataError) PartialData() *CreateRepositoryResponse {
-	if err == nil {
+func (e *CreateRepositoryPartialDataError) PartialData() *CreateRepositoryResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func CreateRepository(
@@ -808,25 +808,25 @@ type EchoAnyPartialDataError struct {
 	err  error
 }
 
-func (err *EchoAnyPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *EchoAnyPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *EchoAnyPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *EchoAnyPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *EchoAnyPartialDataError) PartialData() *EchoAnyResponse {
-	if err == nil {
+func (e *EchoAnyPartialDataError) PartialData() *EchoAnyResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func EchoAny(
@@ -875,25 +875,25 @@ type EchoAtPartialDataError struct {
 	err  error
 }
 
-func (err *EchoAtPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *EchoAtPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *EchoAtPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *EchoAtPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *EchoAtPartialDataError) PartialData() *EchoAtResponse {
-	if err == nil {
+func (e *EchoAtPartialDataError) PartialData() *EchoAtResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func EchoAt(
@@ -942,25 +942,25 @@ type EchoPropertyPartialDataError struct {
 	err  error
 }
 
-func (err *EchoPropertyPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *EchoPropertyPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *EchoPropertyPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *EchoPropertyPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *EchoPropertyPartialDataError) PartialData() *EchoPropertyResponse {
-	if err == nil {
+func (e *EchoPropertyPartialDataError) PartialData() *EchoPropertyResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func EchoProperty(
@@ -1018,25 +1018,25 @@ type GetNodePartialDataError struct {
 	err  error
 }
 
-func (err *GetNodePartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *GetNodePartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *GetNodePartialDataError) Unwrap() error {
-	if err == nil {
+func (e *GetNodePartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *GetNodePartialDataError) PartialData() *GetNodeResponse {
-	if err == nil {
+func (e *GetNodePartialDataError) PartialData() *GetNodeResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func GetNode(
@@ -1100,25 +1100,25 @@ type GetRepositoryPartialDataError struct {
 	err  error
 }
 
-func (err *GetRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *GetRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *GetRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *GetRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
-	if err == nil {
+func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func GetRepository(
@@ -1183,25 +1183,25 @@ type SearchPartialDataError struct {
 	err  error
 }
 
-func (err *SearchPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *SearchPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *SearchPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *SearchPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *SearchPartialDataError) PartialData() *SearchResponse {
-	if err == nil {
+func (e *SearchPartialDataError) PartialData() *SearchResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func Search(
@@ -1253,25 +1253,25 @@ type ViewerPartialDataError struct {
 	err  error
 }
 
-func (err *ViewerPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *ViewerPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *ViewerPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *ViewerPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *ViewerPartialDataError) PartialData() *ViewerResponse {
-	if err == nil {
+func (e *ViewerPartialDataError) PartialData() *ViewerResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func Viewer(

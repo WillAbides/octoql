@@ -82,25 +82,25 @@ type getUserPartialDataError struct {
 	err  error
 }
 
-func (err *getUserPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *getUserPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *getUserPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *getUserPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *getUserPartialDataError) PartialData() *getUserResponse {
-	if err == nil {
+func (e *getUserPartialDataError) PartialData() *getUserResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 // getUser gets the given user's name from their username.
@@ -150,25 +150,25 @@ type getViewerPartialDataError struct {
 	err  error
 }
 
-func (err *getViewerPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *getViewerPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *getViewerPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *getViewerPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *getViewerPartialDataError) PartialData() *getViewerResponse {
-	if err == nil {
+func (e *getViewerPartialDataError) PartialData() *getViewerResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func getViewer(

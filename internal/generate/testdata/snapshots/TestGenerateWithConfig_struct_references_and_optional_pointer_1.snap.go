@@ -751,25 +751,25 @@ type CreateGitHubRepositoryPartialDataError struct {
 	err  error
 }
 
-func (err *CreateGitHubRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *CreateGitHubRepositoryPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *CreateGitHubRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *CreateGitHubRepositoryPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *CreateGitHubRepositoryPartialDataError) PartialData() *CreateGitHubRepositoryResponse {
-	if err == nil {
+func (e *CreateGitHubRepositoryPartialDataError) PartialData() *CreateGitHubRepositoryResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func CreateGitHubRepository(
@@ -834,25 +834,25 @@ type GitHubInputsPartialDataError struct {
 	err  error
 }
 
-func (err *GitHubInputsPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *GitHubInputsPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *GitHubInputsPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *GitHubInputsPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *GitHubInputsPartialDataError) PartialData() *GitHubInputResponse {
-	if err == nil {
+func (e *GitHubInputsPartialDataError) PartialData() *GitHubInputResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func GitHubInputs(
@@ -914,25 +914,25 @@ type UpdateIssueWithCollidingNamesPartialDataError struct {
 	err  error
 }
 
-func (err *UpdateIssueWithCollidingNamesPartialDataError) Error() string {
-	if err == nil || err.err == nil {
+func (e *UpdateIssueWithCollidingNamesPartialDataError) Error() string {
+	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
-	return err.err.Error()
+	return e.err.Error()
 }
 
-func (err *UpdateIssueWithCollidingNamesPartialDataError) Unwrap() error {
-	if err == nil {
+func (e *UpdateIssueWithCollidingNamesPartialDataError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return err.err
+	return e.err
 }
 
-func (err *UpdateIssueWithCollidingNamesPartialDataError) PartialData() *UpdateIssueWithCollidingNamesResponse {
-	if err == nil {
+func (e *UpdateIssueWithCollidingNamesPartialDataError) PartialData() *UpdateIssueWithCollidingNamesResponse {
+	if e == nil {
 		return nil
 	}
-	return err.data
+	return e.data
 }
 
 func UpdateIssueWithCollidingNames(

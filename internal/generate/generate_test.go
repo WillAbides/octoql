@@ -203,9 +203,9 @@ query Value(
 	assert.Contains(t, source, "var response_2 ValueResponse")
 	assert.Contains(t, source, "hasData_2, err_2 := client_2.Execute(")
 	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
-	assert.Contains(t, source, "func (err *ValuePartialDataError) Error() string")
-	assert.Contains(t, source, "func (err *ValuePartialDataError) Unwrap() error")
-	assert.Contains(t, source, "func (err *ValuePartialDataError) PartialData() *ValueResponse")
+	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
+	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
+	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialData() *ValueResponse")
 	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
 }
 
