@@ -109,11 +109,14 @@ func (d *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Posit
 		}
 		typeName, fieldName := forParts[0], forParts[1]
 
-		fieldDir := newOctoqlgenDirective(pos)
 		if d.FieldDirectives[typeName] == nil {
 			d.FieldDirectives[typeName] = make(map[string]*octoqlgenDirective)
 		}
-		d.FieldDirectives[typeName][fieldName] = fieldDir
+		fieldDir := d.FieldDirectives[typeName][fieldName]
+		if fieldDir == nil {
+			fieldDir = newOctoqlgenDirective(pos)
+			d.FieldDirectives[typeName][fieldName] = fieldDir
+		}
 
 		// Now, the rest of the function will operate on fieldDir.
 		d = fieldDir
