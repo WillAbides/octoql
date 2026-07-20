@@ -205,7 +205,8 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	unlock, err := acquireUpdateLock(initialConfig.SchemaPath())
+	lockedSchemaPath := initialConfig.SchemaPath()
+	unlock, err := acquireUpdateLock(lockedSchemaPath)
 	if err != nil {
 		return err
 	}
@@ -213,7 +214,14 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 		err = errors.Join(err, unlock())
 	}()
 
-	err = schema.RecoverPendingUpdate(initialConfig.SchemaPath())
+	loaded, err := cmd.loadConfig(userConfigPath)
+	if err != nil {
+		return err
+	}
+	if !schema.SameLockIdentity(lockedSchemaPath, loaded.SchemaPath()) {
+		return errors.New("schema path changed while acquiring update lock")
+	}
+	err = schema.RecoverPendingUpdate(lockedSchemaPath)
 	if err != nil {
 		return err
 	}
@@ -225,9 +233,12 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
 	}
-	loaded, err := cmd.loadConfig(userConfigPath)
+	loaded, err = cmd.loadConfig(userConfigPath)
 	if err != nil {
 		return err
+	}
+	if !schema.SameLockIdentity(lockedSchemaPath, loaded.SchemaPath()) {
+		return errors.New("schema path changed while acquiring update lock")
 	}
 	source := loaded.Schema.SourceValue()
 	if !hasRemoteSource(source) {

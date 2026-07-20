@@ -374,6 +374,74 @@ func TestSchemaUpdateCommandCancellationRestoresOriginalFiles(t *testing.T) {
 	assert.Equal(t, originalSchema, schemaData)
 }
 
+func TestSchemaUpdateCommandRejectsSchemaPathChangeAfterLock(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	initialSchemaPath := filepath.Join(directory, "initial.graphql")
+	reloadedSchemaPath := filepath.Join(directory, "reloaded.graphql")
+	initialSchema := []byte("type Query { initial: String }\n")
+	reloadedSchema := []byte("type Query { reloaded: String }\n")
+	updatedSchema := []byte("type Query { updated: String }\n")
+	initialChecksum := fmt.Sprintf("%x", sha256.Sum256(initialSchema))
+	reloadedChecksum := fmt.Sprintf("%x", sha256.Sum256(reloadedSchema))
+	updatedChecksum := fmt.Sprintf("%x", sha256.Sum256(updatedSchema))
+	configData := []byte(fmt.Sprintf(
+		"schema:\n  path: initial.graphql\n  sha256: %s\n  source:\n    url: https://example.test/schema.graphql\n",
+		initialChecksum,
+	))
+	err := os.WriteFile(configPath, configData, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(initialSchemaPath, initialSchema, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(reloadedSchemaPath, reloadedSchema, 0o600)
+	require.NoError(t, err)
+
+	loadCalls := 0
+	resolved := false
+	source := config.Source{Url: new("https://example.test/schema.graphql")}
+	outputWriter := &stubOutputWriter{}
+	command := schemaUpdateCommand{
+		Config:  configPath,
+		context: t.Context(),
+		loadConfig: func(string) (*config.Config, error) {
+			loadCalls++
+			if loadCalls == 1 {
+				return &config.Config{
+					Schema: config.Schema{
+						Path:   initialSchemaPath,
+						Sha256: new(initialChecksum),
+						Source: &source,
+					},
+				}, nil
+			}
+			return &config.Config{
+				Schema: config.Schema{
+					Path:   reloadedSchemaPath,
+					Sha256: new(reloadedChecksum),
+					Source: &source,
+				},
+			}, nil
+		},
+		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
+			resolved = true
+			return schema.RemoteResult{
+				Data:   updatedSchema,
+				SHA256: updatedChecksum,
+			}, nil
+		}),
+		outputWriter: outputWriter,
+		stdout:       io.Discard,
+	}
+
+	err = command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "schema path changed while acquiring update lock")
+	assert.False(t, resolved)
+	assert.Empty(t, outputWriter.path)
+}
+
 func TestHelpSnapshots(t *testing.T) {
 	tests := []struct {
 		name string

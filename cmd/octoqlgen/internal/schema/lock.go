@@ -20,6 +20,11 @@ func AcquireExclusiveLock(path string) (func() error, error) {
 	return acquireLock(path, true)
 }
 
+// SameLockIdentity reports whether two paths are serialized by the same lock.
+func SameLockIdentity(left, right string) bool {
+	return lockPath(left) == lockPath(right)
+}
+
 func acquireLock(path string, exclusive bool) (func() error, error) {
 	filename := lockPath(path)
 	err := os.MkdirAll(filepath.Dir(filename), 0o700)
