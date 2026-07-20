@@ -94,8 +94,9 @@ directive octoqlgen(
   # custom marshalers (see their documentation in octoqlgen.yaml for details).
   omitempty: Boolean
 
-  # If set, this argument or field will use a pointer type in Go. Otherwise,
-  # pointer use follows the applicable optional configuration.
+  # Nullable named values and nullable list elements use pointer types in Go
+  # by default. Set this to false on a specific argument or field to opt out.
+  # The omitempty setting remains independent of pointer selection.
   #
   # This can be useful if it's a type you'll need to pass around (and want a
   # pointer to save copies) or if you wish to distinguish between the Go
