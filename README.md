@@ -212,9 +212,12 @@ go tool octoqlgen schema materialize
 updates the materialized schema together with `sha256` and the GitHub revision:
 
 Concurrent schema commands are unsupported. Simultaneous invocations targeting
-the same schema or config can be last-writer-wins or result in a
-verification/materialization failure. After concurrent commands finish, rerun
-any command that failed.
+the same schema or config can be last-writer-wins, leave an incoherent
+schema/config pair even when all commands succeed, or result in a
+verification/materialization failure. After concurrent activity finishes, run
+one `schema update` serially to establish a coherent schema/config pair, even
+if every concurrent command reported success. Then rerun any command that
+failed.
 
 ```sh
 go tool octoqlgen schema update
