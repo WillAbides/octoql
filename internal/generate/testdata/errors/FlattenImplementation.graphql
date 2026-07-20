@@ -1,7 +1,0 @@
-fragment F on T { f }
-query FlattenImplementation {
-  # @octoqlgen(flatten: true)
-  i {
-    ...F
-  }
-}

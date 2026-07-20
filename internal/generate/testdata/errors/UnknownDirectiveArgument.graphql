@@ -1,4 +1,4 @@
-query FlattenField {
+query UnknownDirectiveArgument {
   # @octoqlgen(flatten: true)
   t {
     f

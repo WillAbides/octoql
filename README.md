@@ -127,7 +127,7 @@ query GetViewer {
 ```
 
 Use the `@octoqlgen` comment quasi-directive for per-operation options such
-as `pointer`, `omitempty`, `flatten`, `bind`, and `typename`. See the
+as `pointer`, `omitempty`, `bind`, and `typename`. See the
 [directive reference](docs/octoqlgen_directive.graphql). It is written in a
 comment because server-defined GraphQL directives cannot configure the client
 generator.
