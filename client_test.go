@@ -402,11 +402,11 @@ type errorReadCloser struct {
 	err error
 }
 
-func (body *errorReadCloser) Read([]byte) (int, error) {
-	return 0, body.err
+func (b *errorReadCloser) Read([]byte) (int, error) {
+	return 0, b.err
 }
 
-func (body *errorReadCloser) Close() error {
+func (b *errorReadCloser) Close() error {
 	return nil
 }
 
@@ -415,6 +415,6 @@ type closeErrorReadCloser struct {
 	err error
 }
 
-func (body *closeErrorReadCloser) Close() error {
-	return body.err
+func (b *closeErrorReadCloser) Close() error {
+	return b.err
 }

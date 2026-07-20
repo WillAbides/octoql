@@ -46,17 +46,17 @@ func NewClient(endpoint string, httpClient *http.Client) *Client {
 //
 // The snapshot is advisory: other clients and processes can consume the same
 // GitHub rate-limit budget after it is observed.
-func (client *Client) RateLimit() (RateLimit, bool) {
-	if client == nil {
+func (c *Client) RateLimit() (RateLimit, bool) {
+	if c == nil {
 		return RateLimit{}, false
 	}
 
-	client.rateLimitMu.RLock()
-	defer client.rateLimitMu.RUnlock()
-	if client.rateLimit == nil {
+	c.rateLimitMu.RLock()
+	defer c.rateLimitMu.RUnlock()
+	if c.rateLimit == nil {
 		return RateLimit{}, false
 	}
-	return *client.rateLimit, true
+	return *c.rateLimit, true
 }
 
 // Payload is the GraphQL request body used by generated clients.
@@ -75,8 +75,8 @@ type Payload struct {
 // Every failure after the server returns an HTTP response includes
 // [ResponseError]. GraphQL errors and rate limits remain discoverable in that
 // error chain as [Errors] and [RateLimitError].
-func (client *Client) Execute(ctx context.Context, payload Payload, response any) (bool, error) {
-	if client == nil {
+func (c *Client) Execute(ctx context.Context, payload Payload, response any) (bool, error) {
+	if c == nil {
 		return false, errors.New("octoql: client is nil")
 	}
 	body, err := json.Marshal(payload)
@@ -87,7 +87,7 @@ func (client *Client) Execute(ctx context.Context, payload Payload, response any
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		client.endpoint,
+		c.endpoint,
 		bytes.NewReader(body),
 	)
 	if err != nil {
@@ -96,7 +96,7 @@ func (client *Client) Execute(ctx context.Context, payload Payload, response any
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
 
-	httpClient := client.httpClient
+	httpClient := c.httpClient
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
@@ -109,9 +109,9 @@ func (client *Client) Execute(ctx context.Context, payload Payload, response any
 		return false, fmt.Errorf("send graphql request: %w", sendErr)
 	}
 
-	observation := client.responseObservation.Add(1)
+	observation := c.responseObservation.Add(1)
 	rateLimit := rateLimitFromHeader(httpResponse.Header, rateLimitNow())
-	client.observeRateLimit(observation, &rateLimit)
+	c.observeRateLimit(observation, &rateLimit)
 
 	statusCode := httpResponse.StatusCode
 	requestID := requestIDFromHeader(httpResponse.Header)
@@ -170,22 +170,22 @@ func (client *Client) Execute(ctx context.Context, payload Payload, response any
 	return hasUsableData, classifyRateLimit(statusCode, &rateLimit, responseError)
 }
 
-func (client *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
-	if client == nil || parsed == nil || !parsed.remainingValid {
+func (c *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
+	if c == nil || parsed == nil || !parsed.remainingValid {
 		return
 	}
 
 	rateLimit := parsed.primarySnapshot()
-	client.rateLimitMu.Lock()
-	defer client.rateLimitMu.Unlock()
+	c.rateLimitMu.Lock()
+	defer c.rateLimitMu.Unlock()
 
-	hasNewerObservation := client.rateLimit != nil &&
-		client.rateLimitObservation >= observation
+	hasNewerObservation := c.rateLimit != nil &&
+		c.rateLimitObservation >= observation
 	if hasNewerObservation {
 		return
 	}
-	client.rateLimit = &rateLimit
-	client.rateLimitObservation = observation
+	c.rateLimit = &rateLimit
+	c.rateLimitObservation = observation
 }
 
 func requestIDFromHeader(header http.Header) string {

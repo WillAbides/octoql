@@ -17,8 +17,8 @@ import (
 
 type rateLimitRoundTripFunc func(*http.Request) (*http.Response, error)
 
-func (function rateLimitRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
-	return function(request)
+func (f rateLimitRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
 func TestRateLimitFromHeader(t *testing.T) {

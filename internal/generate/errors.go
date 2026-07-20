@@ -18,9 +18,9 @@ type errorPos struct {
 	line, col int
 }
 
-func (pos *errorPos) String() string {
-	filename, lineOffset := splitFilename(pos.filename)
-	line := lineOffset + pos.line
+func (p *errorPos) String() string {
+	filename, lineOffset := splitFilename(p.filename)
+	line := lineOffset + p.line
 	if line != 0 {
 		return fmt.Sprintf("%v:%v", filename, line)
 	} else {
@@ -47,16 +47,16 @@ func splitFilename(filename string) (name string, lineOffset int) {
 	return split[0], offset - 1
 }
 
-func (err *octoqlgenError) Error() string {
-	if err.pos != nil {
-		return err.pos.String() + ": " + err.msg
+func (e *octoqlgenError) Error() string {
+	if e.pos != nil {
+		return e.pos.String() + ": " + e.msg
 	} else {
-		return err.msg
+		return e.msg
 	}
 }
 
-func (err *octoqlgenError) Unwrap() error {
-	return err.wrapped
+func (e *octoqlgenError) Unwrap() error {
+	return e.wrapped
 }
 
 func errorf(pos *ast.Position, msg string, args ...interface{}) error {

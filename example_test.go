@@ -28,10 +28,10 @@ type exampleViewerPartialDataError struct {
 	err  error
 }
 
-func (err *exampleViewerPartialDataError) Error() string { return err.err.Error() }
-func (err *exampleViewerPartialDataError) Unwrap() error { return err.err }
-func (err *exampleViewerPartialDataError) PartialData() *exampleViewerResponse {
-	return err.data
+func (e *exampleViewerPartialDataError) Error() string { return e.err.Error() }
+func (e *exampleViewerPartialDataError) Unwrap() error { return e.err }
+func (e *exampleViewerPartialDataError) PartialData() *exampleViewerResponse {
+	return e.data
 }
 
 type exampleRepositoryPartialDataError struct {
@@ -39,10 +39,10 @@ type exampleRepositoryPartialDataError struct {
 	err  error
 }
 
-func (err *exampleRepositoryPartialDataError) Error() string { return err.err.Error() }
-func (err *exampleRepositoryPartialDataError) Unwrap() error { return err.err }
-func (err *exampleRepositoryPartialDataError) PartialData() *exampleRepositoryResponse {
-	return err.data
+func (e *exampleRepositoryPartialDataError) Error() string { return e.err.Error() }
+func (e *exampleRepositoryPartialDataError) Unwrap() error { return e.err }
+func (e *exampleRepositoryPartialDataError) PartialData() *exampleRepositoryResponse {
+	return e.data
 }
 
 func ExampleNewClient() {

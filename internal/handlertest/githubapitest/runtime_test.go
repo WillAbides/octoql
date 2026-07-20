@@ -21,31 +21,31 @@ type fakeTB struct {
 	mu       sync.Mutex
 }
 
-func (fake *fakeTB) Cleanup(cleanup func()) {
-	fake.mu.Lock()
-	fake.cleanups = append(fake.cleanups, cleanup)
-	fake.mu.Unlock()
+func (f *fakeTB) Cleanup(cleanup func()) {
+	f.mu.Lock()
+	f.cleanups = append(f.cleanups, cleanup)
+	f.mu.Unlock()
 }
 
-func (fake *fakeTB) Errorf(format string, args ...any) {
-	fake.mu.Lock()
-	fake.errors = append(fake.errors, fmt.Sprintf(format, args...))
-	fake.mu.Unlock()
+func (f *fakeTB) Errorf(format string, args ...any) {
+	f.mu.Lock()
+	f.errors = append(f.errors, fmt.Sprintf(format, args...))
+	f.mu.Unlock()
 }
 
-func (fake *fakeTB) runCleanups() {
-	fake.mu.Lock()
-	cleanups := slices.Clone(fake.cleanups)
-	fake.mu.Unlock()
+func (f *fakeTB) runCleanups() {
+	f.mu.Lock()
+	cleanups := slices.Clone(f.cleanups)
+	f.mu.Unlock()
 	for _, cleanup := range slices.Backward(cleanups) {
 		cleanup()
 	}
 }
 
-func (fake *fakeTB) errorMessages() []string {
-	fake.mu.Lock()
-	defer fake.mu.Unlock()
-	return append([]string{}, fake.errors...)
+func (f *fakeTB) errorMessages() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string{}, f.errors...)
 }
 
 func TestExpectationCountsDefaultsAndFIFO(t *testing.T) {

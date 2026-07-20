@@ -57,8 +57,8 @@ const (
 	TestHandlerTypesLocal  TestHandlerTypeStrategy = "local"
 )
 
-func (strategy TestHandlerTypeStrategy) validate() error {
-	switch strategy {
+func (s TestHandlerTypeStrategy) validate() error {
+	switch s {
 	case TestHandlerTypesClient, TestHandlerTypesLocal:
 		return nil
 	default:
@@ -88,12 +88,12 @@ const (
 	CasingAutoCamelCase CasingAlgorithm = "auto_camel_case"
 )
 
-func (algo CasingAlgorithm) validate() error {
-	switch algo {
+func (a CasingAlgorithm) validate() error {
+	switch a {
 	case CasingDefault, CasingRaw, CasingAutoCamelCase:
 		return nil
 	default:
-		return errorf(nil, "unknown casing algorithm: %s", algo)
+		return errorf(nil, "unknown casing algorithm: %s", a)
 	}
 }
 
@@ -104,18 +104,18 @@ type Casing struct {
 	Enums    map[string]CasingAlgorithm
 }
 
-func (casing *Casing) validate() error {
-	if casing.Default != "" {
-		if err := casing.Default.validate(); err != nil {
+func (c *Casing) validate() error {
+	if c.Default != "" {
+		if err := c.Default.validate(); err != nil {
 			return err
 		}
 	}
-	if casing.AllEnums != "" {
-		if err := casing.AllEnums.validate(); err != nil {
+	if c.AllEnums != "" {
+		if err := c.AllEnums.validate(); err != nil {
 			return err
 		}
 	}
-	for _, algo := range casing.Enums {
+	for _, algo := range c.Enums {
 		if err := algo.validate(); err != nil {
 			return err
 		}
@@ -123,21 +123,21 @@ func (casing *Casing) validate() error {
 	return nil
 }
 
-func (casing *Casing) getDefault() CasingAlgorithm {
-	if casing.Default != "" {
-		return casing.Default
+func (c *Casing) getDefault() CasingAlgorithm {
+	if c.Default != "" {
+		return c.Default
 	}
 	return CasingDefault
 }
 
-func (casing *Casing) forEnum(graphQLTypeName string) CasingAlgorithm {
-	if specificConfig, ok := casing.Enums[graphQLTypeName]; ok {
+func (c *Casing) forEnum(graphQLTypeName string) CasingAlgorithm {
+	if specificConfig, ok := c.Enums[graphQLTypeName]; ok {
 		return specificConfig
 	}
-	if casing.AllEnums != "" {
-		return casing.AllEnums
+	if c.AllEnums != "" {
+		return c.AllEnums
 	}
-	return casing.getDefault()
+	return c.getDefault()
 }
 
 // pathJoin is like filepath.Join but 1) it only takes two arguments,

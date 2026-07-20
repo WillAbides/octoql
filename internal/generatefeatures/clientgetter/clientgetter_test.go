@@ -19,8 +19,8 @@ type testContext struct {
 	clientErr error
 }
 
-func (ctx testContext) OctoqlClient() (*octoql.Client, error) {
-	return ctx.client, ctx.clientErr
+func (tc testContext) OctoqlClient() (*octoql.Client, error) {
+	return tc.client, tc.clientErr
 }
 
 func TestClientGetterWithCustomContext(t *testing.T) {

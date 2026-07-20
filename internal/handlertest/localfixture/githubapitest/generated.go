@@ -768,7 +768,7 @@ type expectationSet[V any] struct {
 	fallback     *expectation[V]
 }
 
-func (set *expectationSet[V]) expect(
+func (s *expectationSet[V]) expect(
 	variables V,
 	options ...ExpectOption,
 ) *expectation[V] {
@@ -779,16 +779,16 @@ func (set *expectationSet[V]) expect(
 		}
 	}
 	if config.remaining < 0 {
-		set.tb.Errorf(
+		s.tb.Errorf(
 			"%s expectation count must not be negative: %d",
-			set.operation,
+			s.operation,
 			config.remaining,
 		)
 		config.remaining = 0
 	}
 	key, err := variableKey(variables)
 	if err != nil {
-		set.tb.Errorf("%s expectation variables: %v", set.operation, err)
+		s.tb.Errorf("%s expectation variables: %v", s.operation, err)
 		config.remaining = 0
 	}
 
@@ -798,44 +798,44 @@ func (set *expectationSet[V]) expect(
 		remaining:    config.remaining,
 		atLeast:      config.atLeast,
 	}
-	set.mu.Lock()
-	set.expectations = append(set.expectations, expected)
-	set.mu.Unlock()
+	s.mu.Lock()
+	s.expectations = append(s.expectations, expected)
+	s.mu.Unlock()
 	return expected
 }
 
-func (set *expectationSet[V]) expectDefault() *expectation[V] {
+func (s *expectationSet[V]) expectDefault() *expectation[V] {
 	expected := &expectation[V]{
 		atLeast: true,
 	}
-	set.mu.Lock()
-	set.fallback = expected
-	set.mu.Unlock()
+	s.mu.Lock()
+	s.fallback = expected
+	s.mu.Unlock()
 	return expected
 }
 
-func (set *expectationSet[V]) setResult(
+func (s *expectationSet[V]) setResult(
 	expected *expectation[V],
 	result operationResult[V],
 ) {
-	set.mu.Lock()
+	s.mu.Lock()
 	expected.result = result
-	set.mu.Unlock()
+	s.mu.Unlock()
 }
 
-func (set *expectationSet[V]) match(
+func (s *expectationSet[V]) match(
 	variables V,
 	rawVariables []byte,
 ) (operationResult[V], error) {
 	key, err := variableKeyJSON(rawVariables)
 	if err != nil {
-		return nil, fmt.Errorf("%s variables: %w", set.operation, err)
+		return nil, fmt.Errorf("%s variables: %w", s.operation, err)
 	}
 
-	set.mu.Lock()
-	defer set.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	for _, expected := range set.expectations {
+	for _, expected := range s.expectations {
 		if expected.remaining == 0 && !expected.atLeast {
 			continue
 		}
@@ -848,40 +848,40 @@ func (set *expectationSet[V]) match(
 		if expected.result == nil {
 			return nil, fmt.Errorf(
 				"%s expectation for variables %+v has no response",
-				set.operation,
+				s.operation,
 				variables,
 			)
 		}
 		return expected.result, nil
 	}
 
-	if set.fallback != nil {
-		if set.fallback.result == nil {
+	if s.fallback != nil {
+		if s.fallback.result == nil {
 			return nil, fmt.Errorf(
 				"%s default expectation has no response",
-				set.operation,
+				s.operation,
 			)
 		}
-		return set.fallback.result, nil
+		return s.fallback.result, nil
 	}
 
 	return nil, fmt.Errorf(
 		"no expectation found for %s variables %+v",
-		set.operation,
+		s.operation,
 		variables,
 	)
 }
 
-func (set *expectationSet[V]) reset(variables ...V) {
-	set.mu.Lock()
-	defer set.mu.Unlock()
+func (s *expectationSet[V]) reset(variables ...V) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if len(variables) == 0 {
-		for _, expected := range set.expectations {
+		for _, expected := range s.expectations {
 			expected.remaining = 0
 		}
-		set.expectations = []*expectation[V]{}
-		set.fallback = nil
+		s.expectations = []*expectation[V]{}
+		s.fallback = nil
 		return
 	}
 
@@ -889,14 +889,14 @@ func (set *expectationSet[V]) reset(variables ...V) {
 	for _, variablesToReset := range variables {
 		key, err := variableKey(variablesToReset)
 		if err != nil {
-			set.tb.Errorf("%s reset variables: %v", set.operation, err)
+			s.tb.Errorf("%s reset variables: %v", s.operation, err)
 			continue
 		}
 		keys = append(keys, key)
 	}
 
-	retained := make([]*expectation[V], 0, len(set.expectations))
-	for _, expected := range set.expectations {
+	retained := make([]*expectation[V], 0, len(s.expectations))
+	for _, expected := range s.expectations {
 		shouldReset := false
 		for _, key := range keys {
 			if expected.variablesKey == key {
@@ -911,7 +911,7 @@ func (set *expectationSet[V]) reset(variables ...V) {
 		}
 		retained = append(retained, expected)
 	}
-	set.expectations = retained
+	s.expectations = retained
 }
 
 func variableKey[V any](variables V) (string, error) {
@@ -947,15 +947,15 @@ func decodeVariables(encoded []byte, destination any) error {
 	return nil
 }
 
-func (set *expectationSet[V]) verify() {
-	set.mu.Lock()
-	defer set.mu.Unlock()
+func (s *expectationSet[V]) verify() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	for _, expected := range set.expectations {
+	for _, expected := range s.expectations {
 		if expected.remaining > 0 {
-			set.tb.Errorf(
+			s.tb.Errorf(
 				"unmet %s expectation for variables %+v: %d call(s) remaining",
-				set.operation,
+				s.operation,
 				expected.variables,
 				expected.remaining,
 			)
@@ -1125,74 +1125,74 @@ func NewTestHandler(testingTB testing.TB) *TestHandler {
 }
 
 func newTestHandler(testingTB testTB) *TestHandler {
-	handler := &TestHandler{tb: testingTB}
-	handler.operation0 = expectationSet[CreateRepositoryVariables]{
+	h := &TestHandler{tb: testingTB}
+	h.operation0 = expectationSet[CreateRepositoryVariables]{
 		tb:           testingTB,
 		operation:    "CreateRepository",
 		expectations: []*expectation[CreateRepositoryVariables]{},
 	}
-	handler.operation1 = expectationSet[EchoAnyVariables]{
+	h.operation1 = expectationSet[EchoAnyVariables]{
 		tb:           testingTB,
 		operation:    "EchoAny",
 		expectations: []*expectation[EchoAnyVariables]{},
 	}
-	handler.operation2 = expectationSet[EchoAtVariables]{
+	h.operation2 = expectationSet[EchoAtVariables]{
 		tb:           testingTB,
 		operation:    "EchoAt",
 		expectations: []*expectation[EchoAtVariables]{},
 	}
-	handler.operation3 = expectationSet[EchoPropertyVariables]{
+	h.operation3 = expectationSet[EchoPropertyVariables]{
 		tb:           testingTB,
 		operation:    "EchoProperty",
 		expectations: []*expectation[EchoPropertyVariables]{},
 	}
-	handler.operation4 = expectationSet[GetNodeVariables]{
+	h.operation4 = expectationSet[GetNodeVariables]{
 		tb:           testingTB,
 		operation:    "GetNode",
 		expectations: []*expectation[GetNodeVariables]{},
 	}
-	handler.operation5 = expectationSet[GetRepositoryVariables]{
+	h.operation5 = expectationSet[GetRepositoryVariables]{
 		tb:           testingTB,
 		operation:    "GetRepository",
 		expectations: []*expectation[GetRepositoryVariables]{},
 	}
-	handler.operation6 = expectationSet[SearchVariables]{
+	h.operation6 = expectationSet[SearchVariables]{
 		tb:           testingTB,
 		operation:    "Search",
 		expectations: []*expectation[SearchVariables]{},
 	}
-	handler.operation7 = expectationSet[struct{}]{
+	h.operation7 = expectationSet[struct{}]{
 		tb:           testingTB,
 		operation:    "Viewer",
 		expectations: []*expectation[struct{}]{},
 	}
-	testingTB.Cleanup(handler.verify)
-	return handler
+	testingTB.Cleanup(h.verify)
+	return h
 }
 
-func (handler *TestHandler) verify() {
-	handler.operation0.verify()
-	handler.operation1.verify()
-	handler.operation2.verify()
-	handler.operation3.verify()
-	handler.operation4.verify()
-	handler.operation5.verify()
-	handler.operation6.verify()
-	handler.operation7.verify()
+func (h *TestHandler) verify() {
+	h.operation0.verify()
+	h.operation1.verify()
+	h.operation2.verify()
+	h.operation3.verify()
+	h.operation4.verify()
+	h.operation5.verify()
+	h.operation6.verify()
+	h.operation7.verify()
 }
 
-func (handler *TestHandler) Reset() {
-	handler.operation0.reset()
-	handler.operation1.reset()
-	handler.operation2.reset()
-	handler.operation3.reset()
-	handler.operation4.reset()
-	handler.operation5.reset()
-	handler.operation6.reset()
-	handler.operation7.reset()
+func (h *TestHandler) Reset() {
+	h.operation0.reset()
+	h.operation1.reset()
+	h.operation2.reset()
+	h.operation3.reset()
+	h.operation4.reset()
+	h.operation5.reset()
+	h.operation6.reset()
+	h.operation7.reset()
 }
 
-func (handler *TestHandler) ServeHTTP(
+func (h *TestHandler) ServeHTTP(
 	writer http.ResponseWriter,
 	request *http.Request,
 ) {
@@ -1204,7 +1204,7 @@ func (handler *TestHandler) ServeHTTP(
 			"graphql requests must use POST",
 		)
 		if err != nil {
-			handler.tb.Errorf("writing method error response: %v", err)
+			h.tb.Errorf("writing method error response: %v", err)
 		}
 		return
 	}
@@ -1221,7 +1221,7 @@ func (handler *TestHandler) ServeHTTP(
 			"decoding graphql request: "+err.Error(),
 		)
 		if writeErr != nil {
-			handler.tb.Errorf("writing decode error response: %v", writeErr)
+			h.tb.Errorf("writing decode error response: %v", writeErr)
 		}
 		return
 	}
@@ -1238,7 +1238,7 @@ func (handler *TestHandler) ServeHTTP(
 			"decoding graphql request: "+err.Error(),
 		)
 		if writeErr != nil {
-			handler.tb.Errorf("writing trailing data error response: %v", writeErr)
+			h.tb.Errorf("writing trailing data error response: %v", writeErr)
 		}
 		return
 	}
@@ -1250,7 +1250,7 @@ func (handler *TestHandler) ServeHTTP(
 			"graphql request is missing operationName",
 		)
 		if err != nil {
-			handler.tb.Errorf("writing missing operation error response: %v", err)
+			h.tb.Errorf("writing missing operation error response: %v", err)
 		}
 		return
 	}
@@ -1263,289 +1263,289 @@ func (handler *TestHandler) ServeHTTP(
 		var variables CreateRepositoryVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding CreateRepository variables: %v", err)
+			h.tb.Errorf("decoding CreateRepository variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				"decoding CreateRepository variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing CreateRepository variable error response: %v", writeErr)
+				h.tb.Errorf("writing CreateRepository variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.operation0.match(
+		result, matchErr := h.operation0.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing CreateRepository expectation error response: %v", writeErr)
+				h.tb.Errorf("writing CreateRepository expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving CreateRepository response: %v", err)
+			h.tb.Errorf("serving CreateRepository response: %v", err)
 		}
 	case "EchoAny":
 		var variables EchoAnyVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding EchoAny variables: %v", err)
+			h.tb.Errorf("decoding EchoAny variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				"decoding EchoAny variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing EchoAny variable error response: %v", writeErr)
+				h.tb.Errorf("writing EchoAny variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.operation1.match(
+		result, matchErr := h.operation1.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing EchoAny expectation error response: %v", writeErr)
+				h.tb.Errorf("writing EchoAny expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving EchoAny response: %v", err)
+			h.tb.Errorf("serving EchoAny response: %v", err)
 		}
 	case "EchoAt":
 		var variables EchoAtVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding EchoAt variables: %v", err)
+			h.tb.Errorf("decoding EchoAt variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				"decoding EchoAt variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing EchoAt variable error response: %v", writeErr)
+				h.tb.Errorf("writing EchoAt variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.operation2.match(
+		result, matchErr := h.operation2.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing EchoAt expectation error response: %v", writeErr)
+				h.tb.Errorf("writing EchoAt expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving EchoAt response: %v", err)
+			h.tb.Errorf("serving EchoAt response: %v", err)
 		}
 	case "EchoProperty":
 		var variables EchoPropertyVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding EchoProperty variables: %v", err)
+			h.tb.Errorf("decoding EchoProperty variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				"decoding EchoProperty variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing EchoProperty variable error response: %v", writeErr)
+				h.tb.Errorf("writing EchoProperty variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.operation3.match(
+		result, matchErr := h.operation3.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing EchoProperty expectation error response: %v", writeErr)
+				h.tb.Errorf("writing EchoProperty expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving EchoProperty response: %v", err)
+			h.tb.Errorf("serving EchoProperty response: %v", err)
 		}
 	case "GetNode":
 		var variables GetNodeVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding GetNode variables: %v", err)
+			h.tb.Errorf("decoding GetNode variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				"decoding GetNode variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing GetNode variable error response: %v", writeErr)
+				h.tb.Errorf("writing GetNode variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.operation4.match(
+		result, matchErr := h.operation4.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing GetNode expectation error response: %v", writeErr)
+				h.tb.Errorf("writing GetNode expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving GetNode response: %v", err)
+			h.tb.Errorf("serving GetNode response: %v", err)
 		}
 	case "GetRepository":
 		var variables GetRepositoryVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding GetRepository variables: %v", err)
+			h.tb.Errorf("decoding GetRepository variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				"decoding GetRepository variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing GetRepository variable error response: %v", writeErr)
+				h.tb.Errorf("writing GetRepository variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.operation5.match(
+		result, matchErr := h.operation5.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing GetRepository expectation error response: %v", writeErr)
+				h.tb.Errorf("writing GetRepository expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving GetRepository response: %v", err)
+			h.tb.Errorf("serving GetRepository response: %v", err)
 		}
 	case "Search":
 		var variables SearchVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding Search variables: %v", err)
+			h.tb.Errorf("decoding Search variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				"decoding Search variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing Search variable error response: %v", writeErr)
+				h.tb.Errorf("writing Search variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.operation6.match(
+		result, matchErr := h.operation6.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing Search expectation error response: %v", writeErr)
+				h.tb.Errorf("writing Search expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving Search response: %v", err)
+			h.tb.Errorf("serving Search response: %v", err)
 		}
 	case "Viewer":
 		var variables struct{}
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
-			handler.tb.Errorf("decoding Viewer variables: %v", err)
+			h.tb.Errorf("decoding Viewer variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				"decoding Viewer variables: "+err.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing Viewer variable error response: %v", writeErr)
+				h.tb.Errorf("writing Viewer variable error response: %v", writeErr)
 			}
 			return
 		}
 
-		result, matchErr := handler.operation7.match(
+		result, matchErr := h.operation7.match(
 			variables,
 			graphqlRequest.Variables,
 		)
 		if matchErr != nil {
-			handler.tb.Errorf("%v", matchErr)
+			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
 				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
-				handler.tb.Errorf("writing Viewer expectation error response: %v", writeErr)
+				h.tb.Errorf("writing Viewer expectation error response: %v", writeErr)
 			}
 			return
 		}
 		err = result(variables, writer)
 		if err != nil {
-			handler.tb.Errorf("serving Viewer response: %v", err)
+			h.tb.Errorf("serving Viewer response: %v", err)
 		}
 	default:
 		err = writeRequestError(
@@ -1554,7 +1554,7 @@ func (handler *TestHandler) ServeHTTP(
 			"unknown operation: "+graphqlRequest.OperationName,
 		)
 		if err != nil {
-			handler.tb.Errorf("writing unknown operation response: %v", err)
+			h.tb.Errorf("writing unknown operation response: %v", err)
 		}
 	}
 }
@@ -1565,13 +1565,13 @@ type CreateRepositoryExpectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) ExpectCreateRepository(
+func (h *TestHandler) ExpectCreateRepository(
 	variables CreateRepositoryVariables,
 	options ...ExpectOption,
 ) *CreateRepositoryExpectation {
 	return &CreateRepositoryExpectation{
-		set: &handler.operation0,
-		expected: handler.operation0.expect(
+		set: &h.operation0,
+		expected: h.operation0.expect(
 			variables,
 			options...,
 		),
@@ -1579,47 +1579,47 @@ func (handler *TestHandler) ExpectCreateRepository(
 	}
 }
 
-func (handler *TestHandler) DefaultCreateRepository() *CreateRepositoryExpectation {
+func (h *TestHandler) DefaultCreateRepository() *CreateRepositoryExpectation {
 	return &CreateRepositoryExpectation{
-		set:      &handler.operation0,
-		expected: handler.operation0.expectDefault(),
+		set:      &h.operation0,
+		expected: h.operation0.expectDefault(),
 		options:  []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) ResetCreateRepository(variables ...CreateRepositoryVariables) {
-	handler.operation0.reset(variables...)
+func (h *TestHandler) ResetCreateRepository(variables ...CreateRepositoryVariables) {
+	h.operation0.reset(variables...)
 }
 
-func (builder *CreateRepositoryExpectation) WithOptions(
+func (b *CreateRepositoryExpectation) WithOptions(
 	options ...ResponseOption,
 ) *CreateRepositoryExpectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *CreateRepositoryExpectation) Respond(
+func (b *CreateRepositoryExpectation) Respond(
 	data CreateRepositoryResponse,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ CreateRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *CreateRepositoryExpectation) RespondError(
+func (b *CreateRepositoryExpectation) RespondError(
 	graphqlError octoql.Error,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ CreateRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -1631,13 +1631,13 @@ func (builder *CreateRepositoryExpectation) RespondError(
 	)
 }
 
-func (builder *CreateRepositoryExpectation) RespondDataAndErrors(
+func (b *CreateRepositoryExpectation) RespondDataAndErrors(
 	data CreateRepositoryResponse,
 	graphqlErrors ...octoql.Error,
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ CreateRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -1649,21 +1649,21 @@ func (builder *CreateRepositoryExpectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *CreateRepositoryExpectation) Handle(
+func (b *CreateRepositoryExpectation) Handle(
 	handler func(CreateRepositoryVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("CreateRepository dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("CreateRepository dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ CreateRepositoryVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("CreateRepository dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables CreateRepositoryVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
@@ -1677,13 +1677,13 @@ type EchoAnyExpectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) ExpectEchoAny(
+func (h *TestHandler) ExpectEchoAny(
 	variables EchoAnyVariables,
 	options ...ExpectOption,
 ) *EchoAnyExpectation {
 	return &EchoAnyExpectation{
-		set: &handler.operation1,
-		expected: handler.operation1.expect(
+		set: &h.operation1,
+		expected: h.operation1.expect(
 			variables,
 			options...,
 		),
@@ -1691,47 +1691,47 @@ func (handler *TestHandler) ExpectEchoAny(
 	}
 }
 
-func (handler *TestHandler) DefaultEchoAny() *EchoAnyExpectation {
+func (h *TestHandler) DefaultEchoAny() *EchoAnyExpectation {
 	return &EchoAnyExpectation{
-		set:      &handler.operation1,
-		expected: handler.operation1.expectDefault(),
+		set:      &h.operation1,
+		expected: h.operation1.expectDefault(),
 		options:  []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) ResetEchoAny(variables ...EchoAnyVariables) {
-	handler.operation1.reset(variables...)
+func (h *TestHandler) ResetEchoAny(variables ...EchoAnyVariables) {
+	h.operation1.reset(variables...)
 }
 
-func (builder *EchoAnyExpectation) WithOptions(
+func (b *EchoAnyExpectation) WithOptions(
 	options ...ResponseOption,
 ) *EchoAnyExpectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *EchoAnyExpectation) Respond(
+func (b *EchoAnyExpectation) Respond(
 	data EchoAnyResponse,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ EchoAnyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *EchoAnyExpectation) RespondError(
+func (b *EchoAnyExpectation) RespondError(
 	graphqlError octoql.Error,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ EchoAnyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -1743,13 +1743,13 @@ func (builder *EchoAnyExpectation) RespondError(
 	)
 }
 
-func (builder *EchoAnyExpectation) RespondDataAndErrors(
+func (b *EchoAnyExpectation) RespondDataAndErrors(
 	data EchoAnyResponse,
 	graphqlErrors ...octoql.Error,
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ EchoAnyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -1761,21 +1761,21 @@ func (builder *EchoAnyExpectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *EchoAnyExpectation) Handle(
+func (b *EchoAnyExpectation) Handle(
 	handler func(EchoAnyVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("EchoAny dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("EchoAny dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ EchoAnyVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("EchoAny dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables EchoAnyVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
@@ -1789,13 +1789,13 @@ type EchoAtExpectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) ExpectEchoAt(
+func (h *TestHandler) ExpectEchoAt(
 	variables EchoAtVariables,
 	options ...ExpectOption,
 ) *EchoAtExpectation {
 	return &EchoAtExpectation{
-		set: &handler.operation2,
-		expected: handler.operation2.expect(
+		set: &h.operation2,
+		expected: h.operation2.expect(
 			variables,
 			options...,
 		),
@@ -1803,47 +1803,47 @@ func (handler *TestHandler) ExpectEchoAt(
 	}
 }
 
-func (handler *TestHandler) DefaultEchoAt() *EchoAtExpectation {
+func (h *TestHandler) DefaultEchoAt() *EchoAtExpectation {
 	return &EchoAtExpectation{
-		set:      &handler.operation2,
-		expected: handler.operation2.expectDefault(),
+		set:      &h.operation2,
+		expected: h.operation2.expectDefault(),
 		options:  []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) ResetEchoAt(variables ...EchoAtVariables) {
-	handler.operation2.reset(variables...)
+func (h *TestHandler) ResetEchoAt(variables ...EchoAtVariables) {
+	h.operation2.reset(variables...)
 }
 
-func (builder *EchoAtExpectation) WithOptions(
+func (b *EchoAtExpectation) WithOptions(
 	options ...ResponseOption,
 ) *EchoAtExpectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *EchoAtExpectation) Respond(
+func (b *EchoAtExpectation) Respond(
 	data EchoAtResponse,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ EchoAtVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *EchoAtExpectation) RespondError(
+func (b *EchoAtExpectation) RespondError(
 	graphqlError octoql.Error,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ EchoAtVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -1855,13 +1855,13 @@ func (builder *EchoAtExpectation) RespondError(
 	)
 }
 
-func (builder *EchoAtExpectation) RespondDataAndErrors(
+func (b *EchoAtExpectation) RespondDataAndErrors(
 	data EchoAtResponse,
 	graphqlErrors ...octoql.Error,
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ EchoAtVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -1873,21 +1873,21 @@ func (builder *EchoAtExpectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *EchoAtExpectation) Handle(
+func (b *EchoAtExpectation) Handle(
 	handler func(EchoAtVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("EchoAt dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("EchoAt dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ EchoAtVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("EchoAt dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables EchoAtVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
@@ -1901,13 +1901,13 @@ type EchoPropertyExpectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) ExpectEchoProperty(
+func (h *TestHandler) ExpectEchoProperty(
 	variables EchoPropertyVariables,
 	options ...ExpectOption,
 ) *EchoPropertyExpectation {
 	return &EchoPropertyExpectation{
-		set: &handler.operation3,
-		expected: handler.operation3.expect(
+		set: &h.operation3,
+		expected: h.operation3.expect(
 			variables,
 			options...,
 		),
@@ -1915,47 +1915,47 @@ func (handler *TestHandler) ExpectEchoProperty(
 	}
 }
 
-func (handler *TestHandler) DefaultEchoProperty() *EchoPropertyExpectation {
+func (h *TestHandler) DefaultEchoProperty() *EchoPropertyExpectation {
 	return &EchoPropertyExpectation{
-		set:      &handler.operation3,
-		expected: handler.operation3.expectDefault(),
+		set:      &h.operation3,
+		expected: h.operation3.expectDefault(),
 		options:  []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) ResetEchoProperty(variables ...EchoPropertyVariables) {
-	handler.operation3.reset(variables...)
+func (h *TestHandler) ResetEchoProperty(variables ...EchoPropertyVariables) {
+	h.operation3.reset(variables...)
 }
 
-func (builder *EchoPropertyExpectation) WithOptions(
+func (b *EchoPropertyExpectation) WithOptions(
 	options ...ResponseOption,
 ) *EchoPropertyExpectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *EchoPropertyExpectation) Respond(
+func (b *EchoPropertyExpectation) Respond(
 	data EchoPropertyResponse,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ EchoPropertyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *EchoPropertyExpectation) RespondError(
+func (b *EchoPropertyExpectation) RespondError(
 	graphqlError octoql.Error,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ EchoPropertyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -1967,13 +1967,13 @@ func (builder *EchoPropertyExpectation) RespondError(
 	)
 }
 
-func (builder *EchoPropertyExpectation) RespondDataAndErrors(
+func (b *EchoPropertyExpectation) RespondDataAndErrors(
 	data EchoPropertyResponse,
 	graphqlErrors ...octoql.Error,
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ EchoPropertyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -1985,21 +1985,21 @@ func (builder *EchoPropertyExpectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *EchoPropertyExpectation) Handle(
+func (b *EchoPropertyExpectation) Handle(
 	handler func(EchoPropertyVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("EchoProperty dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("EchoProperty dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ EchoPropertyVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("EchoProperty dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables EchoPropertyVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
@@ -2013,13 +2013,13 @@ type GetNodeExpectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) ExpectGetNode(
+func (h *TestHandler) ExpectGetNode(
 	variables GetNodeVariables,
 	options ...ExpectOption,
 ) *GetNodeExpectation {
 	return &GetNodeExpectation{
-		set: &handler.operation4,
-		expected: handler.operation4.expect(
+		set: &h.operation4,
+		expected: h.operation4.expect(
 			variables,
 			options...,
 		),
@@ -2027,47 +2027,47 @@ func (handler *TestHandler) ExpectGetNode(
 	}
 }
 
-func (handler *TestHandler) DefaultGetNode() *GetNodeExpectation {
+func (h *TestHandler) DefaultGetNode() *GetNodeExpectation {
 	return &GetNodeExpectation{
-		set:      &handler.operation4,
-		expected: handler.operation4.expectDefault(),
+		set:      &h.operation4,
+		expected: h.operation4.expectDefault(),
 		options:  []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) ResetGetNode(variables ...GetNodeVariables) {
-	handler.operation4.reset(variables...)
+func (h *TestHandler) ResetGetNode(variables ...GetNodeVariables) {
+	h.operation4.reset(variables...)
 }
 
-func (builder *GetNodeExpectation) WithOptions(
+func (b *GetNodeExpectation) WithOptions(
 	options ...ResponseOption,
 ) *GetNodeExpectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *GetNodeExpectation) Respond(
+func (b *GetNodeExpectation) Respond(
 	data GetNodeResponse,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ GetNodeVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *GetNodeExpectation) RespondError(
+func (b *GetNodeExpectation) RespondError(
 	graphqlError octoql.Error,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ GetNodeVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -2079,13 +2079,13 @@ func (builder *GetNodeExpectation) RespondError(
 	)
 }
 
-func (builder *GetNodeExpectation) RespondDataAndErrors(
+func (b *GetNodeExpectation) RespondDataAndErrors(
 	data GetNodeResponse,
 	graphqlErrors ...octoql.Error,
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ GetNodeVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -2097,21 +2097,21 @@ func (builder *GetNodeExpectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *GetNodeExpectation) Handle(
+func (b *GetNodeExpectation) Handle(
 	handler func(GetNodeVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("GetNode dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("GetNode dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ GetNodeVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("GetNode dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables GetNodeVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
@@ -2125,13 +2125,13 @@ type GetRepositoryExpectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) ExpectGetRepository(
+func (h *TestHandler) ExpectGetRepository(
 	variables GetRepositoryVariables,
 	options ...ExpectOption,
 ) *GetRepositoryExpectation {
 	return &GetRepositoryExpectation{
-		set: &handler.operation5,
-		expected: handler.operation5.expect(
+		set: &h.operation5,
+		expected: h.operation5.expect(
 			variables,
 			options...,
 		),
@@ -2139,47 +2139,47 @@ func (handler *TestHandler) ExpectGetRepository(
 	}
 }
 
-func (handler *TestHandler) DefaultGetRepository() *GetRepositoryExpectation {
+func (h *TestHandler) DefaultGetRepository() *GetRepositoryExpectation {
 	return &GetRepositoryExpectation{
-		set:      &handler.operation5,
-		expected: handler.operation5.expectDefault(),
+		set:      &h.operation5,
+		expected: h.operation5.expectDefault(),
 		options:  []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) ResetGetRepository(variables ...GetRepositoryVariables) {
-	handler.operation5.reset(variables...)
+func (h *TestHandler) ResetGetRepository(variables ...GetRepositoryVariables) {
+	h.operation5.reset(variables...)
 }
 
-func (builder *GetRepositoryExpectation) WithOptions(
+func (b *GetRepositoryExpectation) WithOptions(
 	options ...ResponseOption,
 ) *GetRepositoryExpectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *GetRepositoryExpectation) Respond(
+func (b *GetRepositoryExpectation) Respond(
 	data GetRepositoryResponse,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ GetRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *GetRepositoryExpectation) RespondError(
+func (b *GetRepositoryExpectation) RespondError(
 	graphqlError octoql.Error,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ GetRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -2191,13 +2191,13 @@ func (builder *GetRepositoryExpectation) RespondError(
 	)
 }
 
-func (builder *GetRepositoryExpectation) RespondDataAndErrors(
+func (b *GetRepositoryExpectation) RespondDataAndErrors(
 	data GetRepositoryResponse,
 	graphqlErrors ...octoql.Error,
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ GetRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -2209,21 +2209,21 @@ func (builder *GetRepositoryExpectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *GetRepositoryExpectation) Handle(
+func (b *GetRepositoryExpectation) Handle(
 	handler func(GetRepositoryVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("GetRepository dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("GetRepository dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ GetRepositoryVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("GetRepository dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables GetRepositoryVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
@@ -2237,13 +2237,13 @@ type SearchExpectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) ExpectSearch(
+func (h *TestHandler) ExpectSearch(
 	variables SearchVariables,
 	options ...ExpectOption,
 ) *SearchExpectation {
 	return &SearchExpectation{
-		set: &handler.operation6,
-		expected: handler.operation6.expect(
+		set: &h.operation6,
+		expected: h.operation6.expect(
 			variables,
 			options...,
 		),
@@ -2251,47 +2251,47 @@ func (handler *TestHandler) ExpectSearch(
 	}
 }
 
-func (handler *TestHandler) DefaultSearch() *SearchExpectation {
+func (h *TestHandler) DefaultSearch() *SearchExpectation {
 	return &SearchExpectation{
-		set:      &handler.operation6,
-		expected: handler.operation6.expectDefault(),
+		set:      &h.operation6,
+		expected: h.operation6.expectDefault(),
 		options:  []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) ResetSearch(variables ...SearchVariables) {
-	handler.operation6.reset(variables...)
+func (h *TestHandler) ResetSearch(variables ...SearchVariables) {
+	h.operation6.reset(variables...)
 }
 
-func (builder *SearchExpectation) WithOptions(
+func (b *SearchExpectation) WithOptions(
 	options ...ResponseOption,
 ) *SearchExpectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *SearchExpectation) Respond(
+func (b *SearchExpectation) Respond(
 	data SearchResponse,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ SearchVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *SearchExpectation) RespondError(
+func (b *SearchExpectation) RespondError(
 	graphqlError octoql.Error,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ SearchVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -2303,13 +2303,13 @@ func (builder *SearchExpectation) RespondError(
 	)
 }
 
-func (builder *SearchExpectation) RespondDataAndErrors(
+func (b *SearchExpectation) RespondDataAndErrors(
 	data SearchResponse,
 	graphqlErrors ...octoql.Error,
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ SearchVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -2321,21 +2321,21 @@ func (builder *SearchExpectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *SearchExpectation) Handle(
+func (b *SearchExpectation) Handle(
 	handler func(SearchVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("Search dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("Search dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ SearchVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("Search dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables SearchVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
@@ -2349,12 +2349,12 @@ type ViewerExpectation struct {
 	options  []ResponseOption
 }
 
-func (handler *TestHandler) ExpectViewer(
+func (h *TestHandler) ExpectViewer(
 	options ...ExpectOption,
 ) *ViewerExpectation {
 	return &ViewerExpectation{
-		set: &handler.operation7,
-		expected: handler.operation7.expect(
+		set: &h.operation7,
+		expected: h.operation7.expect(
 			struct{}{},
 			options...,
 		),
@@ -2362,47 +2362,47 @@ func (handler *TestHandler) ExpectViewer(
 	}
 }
 
-func (handler *TestHandler) DefaultViewer() *ViewerExpectation {
+func (h *TestHandler) DefaultViewer() *ViewerExpectation {
 	return &ViewerExpectation{
-		set:      &handler.operation7,
-		expected: handler.operation7.expectDefault(),
+		set:      &h.operation7,
+		expected: h.operation7.expectDefault(),
 		options:  []ResponseOption{},
 	}
 }
 
-func (handler *TestHandler) ResetViewer() {
-	handler.operation7.reset()
+func (h *TestHandler) ResetViewer() {
+	h.operation7.reset()
 }
 
-func (builder *ViewerExpectation) WithOptions(
+func (b *ViewerExpectation) WithOptions(
 	options ...ResponseOption,
 ) *ViewerExpectation {
-	builder.options = combineResponseOptions(builder.options, options)
-	return builder
+	b.options = combineResponseOptions(b.options, options)
+	return b
 }
 
-func (builder *ViewerExpectation) Respond(
+func (b *ViewerExpectation) Respond(
 	data ViewerResponse,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ struct{}, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
-func (builder *ViewerExpectation) RespondError(
+func (b *ViewerExpectation) RespondError(
 	graphqlError octoql.Error,
 	options ...ResponseOption,
 ) {
-	combined := combineResponseOptions(builder.options, options)
+	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(_ struct{}, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -2414,13 +2414,13 @@ func (builder *ViewerExpectation) RespondError(
 	)
 }
 
-func (builder *ViewerExpectation) RespondDataAndErrors(
+func (b *ViewerExpectation) RespondDataAndErrors(
 	data ViewerResponse,
 	graphqlErrors ...octoql.Error,
 ) {
-	responseConfig := buildResponseOptions(builder.options...)
-	builder.set.setResult(
-		builder.expected,
+	responseConfig := buildResponseOptions(b.options...)
+	b.set.setResult(
+		b.expected,
 		func(_ struct{}, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
@@ -2432,21 +2432,21 @@ func (builder *ViewerExpectation) RespondDataAndErrors(
 	)
 }
 
-func (builder *ViewerExpectation) Handle(
+func (b *ViewerExpectation) Handle(
 	handler func(http.ResponseWriter),
 ) {
 	if handler == nil {
-		builder.set.tb.Errorf("Viewer dynamic handler must not be nil")
-		builder.set.setResult(
-			builder.expected,
+		b.set.tb.Errorf("Viewer dynamic handler must not be nil")
+		b.set.setResult(
+			b.expected,
 			func(_ struct{}, _ http.ResponseWriter) error {
 				return fmt.Errorf("Viewer dynamic handler is nil")
 			},
 		)
 		return
 	}
-	builder.set.setResult(
-		builder.expected,
+	b.set.setResult(
+		b.expected,
 		func(variables struct{}, writer http.ResponseWriter) error {
 			handler(writer)
 			return nil

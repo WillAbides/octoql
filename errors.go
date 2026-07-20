@@ -53,13 +53,13 @@ type ResponseError struct {
 }
 
 // MarshalJSON encodes string and integer path segments in GraphQL wire format.
-func (path Path) MarshalJSON() ([]byte, error) {
-	if path == nil {
+func (p Path) MarshalJSON() ([]byte, error) {
+	if p == nil {
 		return []byte("null"), nil
 	}
 
-	segments := make([]json.RawMessage, len(path))
-	for index, segment := range path {
+	segments := make([]json.RawMessage, len(p))
+	for index, segment := range p {
 		var encoded []byte
 		var err error
 		switch value := segment.(type) {
@@ -88,8 +88,8 @@ func (path Path) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON decodes GraphQL string and integer path segments.
-func (path *Path) UnmarshalJSON(data []byte) error {
-	if path == nil {
+func (p *Path) UnmarshalJSON(data []byte) error {
+	if p == nil {
 		return errors.New("decode graphql path: nil destination")
 	}
 
@@ -99,7 +99,7 @@ func (path *Path) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("decode graphql path: %w", err)
 	}
 	if rawSegments == nil {
-		*path = nil
+		*p = nil
 		return nil
 	}
 
@@ -130,14 +130,14 @@ func (path *Path) UnmarshalJSON(data []byte) error {
 		segments[index] = listIndex
 	}
 
-	*path = segments
+	*p = segments
 	return nil
 }
 
 // String formats a path using dotted fields and bracketed list indexes.
-func (path Path) String() string {
+func (p Path) String() string {
 	var result strings.Builder
-	for _, segment := range path {
+	for _, segment := range p {
 		switch value := segment.(type) {
 		case string:
 			if result.Len() > 0 {
@@ -159,16 +159,16 @@ func (path Path) String() string {
 }
 
 // Error returns the GraphQL error message and response path.
-func (graphqlError *Error) Error() string {
-	if graphqlError == nil {
+func (e *Error) Error() string {
+	if e == nil {
 		return "<nil>"
 	}
 
-	message := graphqlError.Message
+	message := e.Message
 	if message == "" {
 		message = "graphql error"
 	}
-	path := graphqlError.Path.String()
+	path := e.Path.String()
 	if path == "" {
 		return message
 	}
@@ -176,13 +176,13 @@ func (graphqlError *Error) Error() string {
 }
 
 // Error returns a stable summary of all GraphQL errors.
-func (graphqlErrors Errors) Error() string {
-	if len(graphqlErrors) == 0 {
+func (e Errors) Error() string {
+	if len(e) == 0 {
 		return "graphql request failed"
 	}
 
-	messages := make([]string, 0, len(graphqlErrors))
-	for _, graphqlError := range graphqlErrors {
+	messages := make([]string, 0, len(e))
+	for _, graphqlError := range e {
 		messages = append(messages, graphqlError.Error())
 	}
 	if len(messages) == 1 {
@@ -193,9 +193,9 @@ func (graphqlErrors Errors) Error() string {
 
 // Unwrap exposes individual GraphQL errors to [errors.Is], [errors.As], and
 // [errors.AsType].
-func (graphqlErrors Errors) Unwrap() []error {
-	unwrapped := make([]error, 0, len(graphqlErrors))
-	for _, graphqlError := range graphqlErrors {
+func (e Errors) Unwrap() []error {
+	unwrapped := make([]error, 0, len(e))
+	for _, graphqlError := range e {
 		if graphqlError != nil {
 			unwrapped = append(unwrapped, graphqlError)
 		}
@@ -204,31 +204,31 @@ func (graphqlErrors Errors) Unwrap() []error {
 }
 
 // Error returns a stable summary of the failed response.
-func (responseError *ResponseError) Error() string {
-	if responseError == nil {
+func (e *ResponseError) Error() string {
+	if e == nil {
 		return "graphql response failed"
 	}
 
 	message := "graphql response failed"
-	if !isSuccessfulStatus(responseError.StatusCode) {
+	if !isSuccessfulStatus(e.StatusCode) {
 		message = fmt.Sprintf(
 			"graphql response failed with status %d",
-			responseError.StatusCode,
+			e.StatusCode,
 		)
 	}
-	if responseError.err != nil {
-		return message + ": " + responseError.err.Error()
+	if e.err != nil {
+		return message + ": " + e.err.Error()
 	}
 	return message
 }
 
 // Unwrap exposes decoded GraphQL errors and response processing failures to
 // [errors.Is], [errors.As], and [errors.AsType].
-func (responseError *ResponseError) Unwrap() error {
-	if responseError == nil {
+func (e *ResponseError) Unwrap() error {
+	if e == nil {
 		return nil
 	}
-	return responseError.err
+	return e.err
 }
 
 func newResponseError(

@@ -46,14 +46,14 @@ type Option[V any] struct {
 	ok    bool
 }
 
-func (value Option[V]) MarshalJSON() ([]byte, error) {
-	if value.ok {
-		return json.Marshal(value.value)
+func (o Option[V]) MarshalJSON() ([]byte, error) {
+	if o.ok {
+		return json.Marshal(o.value)
 	}
 	return json.Marshal((*V)(nil))
 }
 
-func (value *Option[V]) UnmarshalJSON(data []byte) error {
+func (o *Option[V]) UnmarshalJSON(data []byte) error {
 	v := (*V)(nil)
 
 	err := json.Unmarshal(data, &v)
@@ -62,8 +62,8 @@ func (value *Option[V]) UnmarshalJSON(data []byte) error {
 	}
 
 	if v != nil {
-		value.value = *v
-		value.ok = true
+		o.value = *v
+		o.ok = true
 	}
 
 	return nil

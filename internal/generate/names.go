@@ -180,8 +180,8 @@ func makeLongTypeName(prefix *prefixList, typeName string, algorithm CasingAlgor
 	return joinPrefixList(&prefixList{typeName, prefix})
 }
 
-func (casing *Casing) enumValueName(goTypeName string, enum *ast.Definition, val *ast.EnumValueDefinition) string {
-	switch algo := casing.forEnum(enum.Name); algo {
+func (c *Casing) enumValueName(goTypeName string, enum *ast.Definition, val *ast.EnumValueDefinition) string {
+	switch algo := c.forEnum(enum.Name); algo {
 	case CasingDefault:
 		return goTypeName + goConstName(val.Name)
 	case CasingRaw:
