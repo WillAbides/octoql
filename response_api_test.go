@@ -174,6 +174,61 @@ func TestResponseErrorBoundsRawBody(t *testing.T) {
 	assert.NotContains(t, responseError.Error(), body)
 }
 
+func TestClientResponseSizeLimit(t *testing.T) {
+	const responseSizeLimit int64 = 64
+
+	client := responseAPIClient(
+		http.StatusOK,
+		http.Header{
+			"Retry-After":           {"30"},
+			"X-GitHub-Request-ID":   {"request-too-large"},
+			"X-RateLimit-Remaining": {"0"},
+		},
+		`{"data":{"repository":{"name":"`+
+			strings.Repeat("x", int(responseSizeLimit))+
+			`"}}}`,
+	)
+
+	assert.Equal(t, octoql.DefaultResponseSizeLimit, client.ResponseSizeLimit())
+	err := client.SetResponseSizeLimit(responseSizeLimit)
+	require.NoError(t, err)
+	assert.Equal(t, responseSizeLimit, client.ResponseSizeLimit())
+
+	response, err := responseAPIData[responseData](t, client)
+
+	require.Error(t, err)
+	assert.Nil(t, response)
+
+	limitError, ok := errors.AsType[*octoql.ResponseSizeLimitError](err)
+	require.True(t, ok)
+	assert.Equal(t, responseSizeLimit, limitError.Limit)
+
+	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	require.True(t, ok)
+	assert.Equal(t, http.StatusOK, responseError.StatusCode)
+	assert.Equal(t, "request-too-large", responseError.RequestID)
+	assert.Len(t, responseError.RawBody, int(responseSizeLimit))
+	assert.True(t, responseError.RawBodyTruncated)
+
+	rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
+	require.True(t, ok)
+	assert.Equal(t, octoql.RateLimitSecondary, rateLimitError.Kind)
+
+	rateLimit, known := client.RateLimit()
+	require.True(t, known)
+	assert.Zero(t, rateLimit.Remaining)
+}
+
+func TestClientSetResponseSizeLimitRejectsNonpositiveValues(t *testing.T) {
+	client := octoql.NewClient("https://api.github.com/graphql", nil)
+
+	for _, limit := range []int64{0, -1} {
+		err := client.SetResponseSizeLimit(limit)
+		assert.EqualError(t, err, "octoql: response size limit must be greater than zero")
+		assert.Equal(t, octoql.DefaultResponseSizeLimit, client.ResponseSizeLimit())
+	}
+}
+
 func TestDoRejectsExtensionsOnlyResponse(t *testing.T) {
 	body := `{"extensions":{"trace":"abc"}}`
 	client := responseAPIClient(

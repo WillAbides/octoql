@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -79,6 +83,33 @@ func buildGoFile(namePrefix string, content []byte) error {
 		return fmt.Errorf("generated code does not compile: %w", err)
 	}
 	return nil
+}
+
+func generatedStringConstant(t *testing.T, source []byte, name string) string {
+	t.Helper()
+
+	file, err := parser.ParseFile(token.NewFileSet(), "generated.go", source, 0)
+	require.NoError(t, err)
+	for _, declaration := range file.Decls {
+		genericDeclaration, ok := declaration.(*ast.GenDecl)
+		if !ok || genericDeclaration.Tok != token.CONST {
+			continue
+		}
+		for _, specification := range genericDeclaration.Specs {
+			valueSpecification, ok := specification.(*ast.ValueSpec)
+			if !ok || len(valueSpecification.Names) != 1 || valueSpecification.Names[0].Name != name {
+				continue
+			}
+			require.Len(t, valueSpecification.Values, 1)
+			literal, ok := valueSpecification.Values[0].(*ast.BasicLit)
+			require.True(t, ok)
+			value, err := strconv.Unquote(literal.Value)
+			require.NoError(t, err)
+			return value
+		}
+	}
+	require.FailNow(t, "generated string constant not found", name)
+	return ""
 }
 
 // TestGenerate is a snapshot-based test of code-generation.
@@ -211,6 +242,55 @@ query Value(
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialData() *ValueResponse")
 	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
+}
+
+func TestGenerateQuotesOperationText(t *testing.T) {
+	dir := t.TempDir()
+	schema := `
+type Query {
+  echo(value: String!): String!
+}
+`
+	operationText := "query Ordinary {\n  echo(value: \"ordinary\")\n}\n" +
+		"query Backtick {\n  echo(value: \"contains ` backtick\")\n}\n"
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(operationText), 0o600))
+
+	config := &Config{
+		Schema:           []string{schemaPath},
+		Operations:       []string{operationPath},
+		Generated:        filepath.Join(dir, "generated.go"),
+		ExportOperations: filepath.Join(dir, "operations.json"),
+		Package:          "backtick",
+		ContextType:      "-",
+	}
+	generated, err := Generate(config)
+	require.NoError(t, err)
+
+	var exported exportedOperations
+	require.NoError(t, json.Unmarshal(generated[config.ExportOperations], &exported))
+	require.Len(t, exported.Operations, 2)
+	exportedByName := make(map[string]*operation, len(exported.Operations))
+	for _, exportedOperation := range exported.Operations {
+		exportedByName[exportedOperation.Name] = exportedOperation
+	}
+	ordinary, ok := exportedByName["Ordinary"]
+	require.True(t, ok)
+	backtick, ok := exportedByName["Backtick"]
+	require.True(t, ok)
+	assert.NotContains(t, ordinary.Body, "`")
+	assert.Contains(t, backtick.Body, "`")
+
+	source := string(generated[config.Generated])
+	assert.Contains(t, source, "const Ordinary_Operation = "+strconv.Quote(ordinary.Body))
+	assert.Contains(t, source, "const Backtick_Operation = "+strconv.Quote(backtick.Body))
+	assert.NotContains(t, source, "const Ordinary_Operation = `")
+	assert.NotContains(t, source, "const Backtick_Operation = `")
+	assert.Equal(t, ordinary.Body, generatedStringConstant(t, generated[config.Generated], "Ordinary_Operation"))
+	assert.Equal(t, backtick.Body, generatedStringConstant(t, generated[config.Generated], "Backtick_Operation"))
+	require.NoError(t, buildGoFile("operation_literals", []byte(source)))
 }
 
 func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
@@ -1048,12 +1128,21 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 		name      string
 		schema    string
 		operation string
+		types     TestHandlerTypeStrategy
 		wantError string
 	}{
 		{
-			name:      "lowercase operation",
+			name:      "lowercase operation with client types",
 			schema:    "type Query { viewer: String! }\n",
 			operation: "query getViewer { viewer }\n",
+			types:     TestHandlerTypesClient,
+			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
+		},
+		{
+			name:      "lowercase operation with local types",
+			schema:    "type Query { viewer: String! }\n",
+			operation: "query getViewer { viewer }\n",
+			types:     TestHandlerTypesLocal,
 			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
 		},
 		{
@@ -1144,6 +1233,7 @@ type Query {
 				Operations:           []string{operationPath},
 				Generated:            filepath.Join(tempDir, "client", "generated.go"),
 				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+				TestHandlerTypes:     test.types,
 				Package:              "client",
 				ContextType:          "-",
 			}

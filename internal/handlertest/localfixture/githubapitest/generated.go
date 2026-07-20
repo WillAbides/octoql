@@ -982,14 +982,19 @@ func WithStatus(status int) ResponseOption {
 }
 
 func WithHeader(name string, values ...string) ResponseOption {
+	canonicalName := http.CanonicalHeaderKey(name)
 	clonedValues := append([]string{}, values...)
 	return func(options *responseOptions) {
-		options.header[name] = append([]string{}, clonedValues...)
+		options.header[canonicalName] = append([]string{}, clonedValues...)
 	}
 }
 
 func WithHeaders(header http.Header) ResponseOption {
-	clonedHeader := header.Clone()
+	clonedHeader := http.Header{}
+	for name, values := range header {
+		canonicalName := http.CanonicalHeaderKey(name)
+		clonedHeader[canonicalName] = append(clonedHeader[canonicalName], values...)
+	}
 	return func(options *responseOptions) {
 		for name, values := range clonedHeader {
 			options.header[name] = append([]string{}, values...)

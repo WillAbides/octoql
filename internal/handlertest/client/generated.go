@@ -714,23 +714,7 @@ func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, er
 }
 
 // The mutation executed by CreateRepository.
-const CreateRepository_Operation = `
-mutation CreateRepository ($input: CreateRepositoryInput!) {
-	createRepository(input: $input) {
-		repository {
-			id
-			nameWithOwner
-			updatedAt
-			issues(first: 1) {
-				pageInfo {
-					hasNextPage
-				}
-			}
-		}
-		clientMutationId
-	}
-}
-`
+const CreateRepository_Operation = "\nmutation CreateRepository ($input: CreateRepositoryInput!) {\n\tcreateRepository(input: $input) {\n\t\trepository {\n\t\t\tid\n\t\t\tnameWithOwner\n\t\t\tupdatedAt\n\t\t\tissues(first: 1) {\n\t\t\t\tpageInfo {\n\t\t\t\t\thasNextPage\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tclientMutationId\n\t}\n}\n"
 
 // CreateRepositoryPartialDataError contains partial data returned by CreateRepository.
 type CreateRepositoryPartialDataError struct {
@@ -787,11 +771,7 @@ func CreateRepository(
 }
 
 // The query executed by EchoAny.
-const EchoAny_Operation = `
-query EchoAny ($value: ArbitraryJSON!) {
-	echoAny(value: $value)
-}
-`
+const EchoAny_Operation = "\nquery EchoAny ($value: ArbitraryJSON!) {\n\techoAny(value: $value)\n}\n"
 
 // EchoAnyPartialDataError contains partial data returned by EchoAny.
 type EchoAnyPartialDataError struct {
@@ -848,11 +828,7 @@ func EchoAny(
 }
 
 // The query executed by EchoAt.
-const EchoAt_Operation = `
-query EchoAt ($value: DateTime!) {
-	echoAt(value: $value)
-}
-`
+const EchoAt_Operation = "\nquery EchoAt ($value: DateTime!) {\n\techoAt(value: $value)\n}\n"
 
 // EchoAtPartialDataError contains partial data returned by EchoAt.
 type EchoAtPartialDataError struct {
@@ -909,11 +885,7 @@ func EchoAt(
 }
 
 // The query executed by EchoProperty.
-const EchoProperty_Operation = `
-query EchoProperty ($value: CustomPropertyValue!) {
-	echoProperty(value: $value)
-}
-`
+const EchoProperty_Operation = "\nquery EchoProperty ($value: CustomPropertyValue!) {\n\techoProperty(value: $value)\n}\n"
 
 // EchoPropertyPartialDataError contains partial data returned by EchoProperty.
 type EchoPropertyPartialDataError struct {
@@ -970,20 +942,7 @@ func EchoProperty(
 }
 
 // The query executed by GetNode.
-const GetNode_Operation = `
-query GetNode ($id: ID!) {
-	node(id: $id) {
-		__typename
-		id
-		... on Repository {
-			nameWithOwner
-		}
-		... on Issue {
-			title
-		}
-	}
-}
-`
+const GetNode_Operation = "\nquery GetNode ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t}\n\t}\n}\n"
 
 // GetNodePartialDataError contains partial data returned by GetNode.
 type GetNodePartialDataError struct {
@@ -1040,26 +999,7 @@ func GetNode(
 }
 
 // The query executed by GetRepository.
-const GetRepository_Operation = `
-query GetRepository ($owner: String!, $name: String!, $first: Int!, $after: String) {
-	repository(owner: $owner, name: $name, first: $first, after: $after) {
-		id
-		fullName: nameWithOwner
-		updatedAt
-		propertyValue
-		issues(first: $first, after: $after) {
-			nodes {
-				id
-				title
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
-			}
-		}
-	}
-}
-`
+const GetRepository_Operation = "\nquery GetRepository ($owner: String!, $name: String!, $first: Int!, $after: String) {\n\trepository(owner: $owner, name: $name, first: $first, after: $after) {\n\t\tid\n\t\tfullName: nameWithOwner\n\t\tupdatedAt\n\t\tpropertyValue\n\t\tissues(first: $first, after: $after) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t}\n\t\t\tpageInfo {\n\t\t\t\thasNextPage\n\t\t\t\tendCursor\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // GetRepositoryPartialDataError contains partial data returned by GetRepository.
 type GetRepositoryPartialDataError struct {
@@ -1116,21 +1056,7 @@ func GetRepository(
 }
 
 // The query executed by Search.
-const Search_Operation = `
-query Search ($query: String!) {
-	search(query: $query) {
-		__typename
-		... on Repository {
-			id
-			nameWithOwner
-		}
-		... on Issue {
-			id
-			title
-		}
-	}
-}
-`
+const Search_Operation = "\nquery Search ($query: String!) {\n\tsearch(query: $query) {\n\t\t__typename\n\t\t... on Repository {\n\t\t\tid\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\tid\n\t\t\ttitle\n\t\t}\n\t}\n}\n"
 
 // SearchPartialDataError contains partial data returned by Search.
 type SearchPartialDataError struct {
@@ -1187,17 +1113,7 @@ func Search(
 }
 
 // The query executed by Viewer.
-const Viewer_Operation = `
-query Viewer {
-	viewer {
-		... ViewerVariables
-	}
-}
-fragment ViewerVariables on User {
-	id
-	login
-}
-`
+const Viewer_Operation = "\nquery Viewer {\n\tviewer {\n\t\t... ViewerVariables\n\t}\n}\nfragment ViewerVariables on User {\n\tid\n\tlogin\n}\n"
 
 // ViewerPartialDataError contains partial data returned by Viewer.
 type ViewerPartialDataError struct {

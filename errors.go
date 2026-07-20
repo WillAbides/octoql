@@ -43,13 +43,28 @@ type ResponseError struct {
 	StatusCode int
 	// RequestID is GitHub's X-GitHub-Request-ID value, when present.
 	RequestID string
-	// RawBody contains at most the first 64 KiB of a non-successful or
-	// undecodable response. It is omitted for ordinary GraphQL errors.
+	// RawBody contains at most the first 64 KiB of a non-successful, over-limit,
+	// or undecodable response. It is omitted for ordinary GraphQL errors.
 	RawBody []byte
 	// RawBodyTruncated reports whether RawBody omits trailing response bytes.
 	RawBodyTruncated bool
 
 	err error
+}
+
+// ResponseSizeLimitError reports that a GraphQL HTTP response exceeded Client's
+// configured response-size limit.
+type ResponseSizeLimitError struct {
+	// Limit is the configured maximum response size in bytes.
+	Limit int64
+}
+
+// Error reports that the response exceeded its configured limit.
+func (e *ResponseSizeLimitError) Error() string {
+	if e == nil {
+		return "graphql response exceeds its size limit"
+	}
+	return fmt.Sprintf("graphql response exceeds %d-byte limit", e.Limit)
 }
 
 // MarshalJSON encodes string and integer path segments in GraphQL wire format.
@@ -231,17 +246,21 @@ func (e *ResponseError) Unwrap() error {
 	return e.err
 }
 
-func newResponseError(
-	statusCode int,
-	requestID string,
-	body []byte,
-	retainBody bool,
-	err error,
-) *ResponseError {
+type responseErrorParams struct {
+	statusCode    int
+	requestID     string
+	body          []byte
+	retainBody    bool
+	bodyTruncated bool
+	err           error
+}
+
+func newResponseError(params responseErrorParams) *ResponseError {
 	var rawBody []byte
-	var isTruncated bool
-	if retainBody {
-		rawBody = body
+	isTruncated := false
+	if params.retainBody {
+		rawBody = params.body
+		isTruncated = params.bodyTruncated
 		if len(rawBody) > maxResponseErrorRawBody {
 			rawBody = rawBody[:maxResponseErrorRawBody]
 			isTruncated = true
@@ -250,10 +269,10 @@ func newResponseError(
 	}
 
 	return &ResponseError{
-		StatusCode:       statusCode,
-		RequestID:        requestID,
+		StatusCode:       params.statusCode,
+		RequestID:        params.requestID,
 		RawBody:          rawBody,
 		RawBodyTruncated: isTruncated,
-		err:              err,
+		err:              params.err,
 	}
 }

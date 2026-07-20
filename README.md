@@ -329,11 +329,24 @@ if ok {
 
 Every failure after receiving an HTTP response includes
 `*octoql.ResponseError`, including HTTP-200 GraphQL, read, close, protocol, and
-decode failures. It carries the status and `X-GitHub-Request-ID`. `RawBody`
-contains at most 64 KiB for non-2xx or undecodable responses;
+decode failures. It carries the status and `X-GitHub-Request-ID`. Client buffers
+and decodes at most [`octoql.DefaultResponseSizeLimit`](https://pkg.go.dev/github.com/willabides/octoql#DefaultResponseSizeLimit)
+(10 MiB) from each HTTP response. Configure a different positive limit before
+executing operations:
+
+```go
+err := client.SetResponseSizeLimit(20 * 1024 * 1024)
+if err != nil {
+	return err
+}
+```
+
+An oversized response fails before JSON decoding with
+`*octoql.ResponseSizeLimitError`; it still includes `*octoql.ResponseError` and
+any applicable `*octoql.RateLimitError` in the same error chain. `RawBody`
+contains at most 64 KiB for non-2xx, over-limit, or undecodable responses;
 `RawBodyTruncated` reports truncation. Raw response bodies may contain sensitive
-data and should not be logged indiscriminately. This bounds retained diagnostic
-data, not total response decoding; octoql reads the complete GraphQL body.
+data and should not be logged indiscriminately.
 
 Error types are independent facets of one chain, not mutually exclusive
 categories. A rate-limited response can match `*octoql.RateLimitError`,
@@ -464,7 +477,13 @@ Local handler values are intentionally not assignable to client types. Local
 mode also rejects reachable bindings or marshal helpers owned by the generated
 client package because those references would recreate the dependency.
 
-After `go tool octoqlgen generate`, each uppercase query or mutation has
+When `test_handler` is configured, every query or mutation name must begin
+with an uppercase letter. This applies to both `types: client` and
+`types: local`; the strategy changes type ownership, not the generated handler
+API's exported naming rule. Client types also need the restriction because the
+separate handler package aliases generated client types.
+
+After `go tool octoqlgen generate`, each handler operation has matching
 `Expect<Operation>`, `Default<Operation>`, and `Reset<Operation>` methods:
 
 ```go
