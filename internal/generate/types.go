@@ -55,7 +55,6 @@ var (
 	_ goType = (*goEnumType)(nil)
 	_ goType = (*goStructType)(nil)
 	_ goType = (*goInterfaceType)(nil)
-	_ goType = (*goGenericType)(nil)
 )
 
 type (
@@ -82,13 +81,6 @@ type (
 	// user (perhaps to handle nulls explicitly, or to avoid copying large
 	// structures).
 	goPointerType struct{ Elem goType }
-	// goGenericType represent the Go type GoGenericRef[Elem], used when requested by the
-	// user to box nullable data without using pointers or sentinel values
-	goGenericType struct {
-		GoGenericRef          string
-		QualifiedGoGenericRef string
-		Elem                  goType
-	}
 )
 
 // Opaque types are defined by the user; pointers and slices need no definition
@@ -100,27 +92,21 @@ func (t *goTypenameForBuiltinType) WriteDefinition(w io.Writer, g *generator) er
 }
 func (t *goSliceType) WriteDefinition(io.Writer, *generator) error   { return nil }
 func (t *goPointerType) WriteDefinition(io.Writer, *generator) error { return nil }
-func (t *goGenericType) WriteDefinition(io.Writer, *generator) error { return nil }
 
 func (t *goOpaqueType) Reference() string             { return t.GoRef }
 func (t *goTypenameForBuiltinType) Reference() string { return t.GoTypeName }
 func (t *goSliceType) Reference() string              { return "[]" + t.Elem.Reference() }
 func (t *goPointerType) Reference() string            { return "*" + t.Elem.Reference() }
-func (t *goGenericType) Reference() string {
-	return fmt.Sprintf("%s[%s]", t.GoGenericRef, t.Elem.Reference())
-}
 
 func (t *goOpaqueType) SelectionSet() ast.SelectionSet             { return nil }
 func (t *goTypenameForBuiltinType) SelectionSet() ast.SelectionSet { return nil }
 func (t *goSliceType) SelectionSet() ast.SelectionSet              { return t.Elem.SelectionSet() }
 func (t *goPointerType) SelectionSet() ast.SelectionSet            { return t.Elem.SelectionSet() }
-func (t *goGenericType) SelectionSet() ast.SelectionSet            { return t.Elem.SelectionSet() }
 
 func (t *goOpaqueType) GraphQLTypeName() string             { return t.GraphQLName }
 func (t *goTypenameForBuiltinType) GraphQLTypeName() string { return t.GraphQLName }
 func (t *goSliceType) GraphQLTypeName() string              { return t.Elem.GraphQLTypeName() }
 func (t *goPointerType) GraphQLTypeName() string            { return t.Elem.GraphQLTypeName() }
-func (t *goGenericType) GraphQLTypeName() string            { return t.Elem.GraphQLTypeName() }
 
 // goEnumType represents a Go named-string type used to represent a GraphQL
 // enum.  In this case, we generate both the type (`type T string`) and also a
@@ -269,17 +255,6 @@ func (f *goStructField) NeedsMarshaling() bool {
 	_, _, ok1 := f.marshaler()
 	_, _, ok2 := f.unmarshaler()
 	return ok1 || ok2
-}
-
-func requiresMarshalingHelpers(typ goType) bool {
-	switch unwrapped := typ.Unwrap().(type) {
-	case *goOpaqueType:
-		return unwrapped.Marshaler != "" || unwrapped.Unmarshaler != ""
-	case *goInterfaceType:
-		return true
-	default:
-		return false
-	}
 }
 
 // NeedsMarshaler returns true if any fields of this type need special
@@ -567,7 +542,6 @@ func (t *goOpaqueType) Unwrap() goType             { return t }
 func (t *goTypenameForBuiltinType) Unwrap() goType { return t }
 func (t *goSliceType) Unwrap() goType              { return t.Elem.Unwrap() }
 func (t *goPointerType) Unwrap() goType            { return t.Elem.Unwrap() }
-func (t *goGenericType) Unwrap() goType            { return t.Elem.Unwrap() }
 func (t *goEnumType) Unwrap() goType               { return t }
 func (t *goStructType) Unwrap() goType             { return t }
 func (t *goInterfaceType) Unwrap() goType          { return t }
@@ -576,7 +550,6 @@ func (t *goOpaqueType) SliceDepth() int             { return 0 }
 func (t *goTypenameForBuiltinType) SliceDepth() int { return 0 }
 func (t *goSliceType) SliceDepth() int              { return t.Elem.SliceDepth() + 1 }
 func (t *goPointerType) SliceDepth() int            { return 0 }
-func (t *goGenericType) SliceDepth() int            { return 0 }
 func (t *goEnumType) SliceDepth() int               { return 0 }
 func (t *goStructType) SliceDepth() int             { return 0 }
 func (t *goInterfaceType) SliceDepth() int          { return 0 }
@@ -585,7 +558,6 @@ func (t *goOpaqueType) IsPointer() bool             { return false }
 func (t *goTypenameForBuiltinType) IsPointer() bool { return false }
 func (t *goSliceType) IsPointer() bool              { return t.Elem.IsPointer() }
 func (t *goPointerType) IsPointer() bool            { return true }
-func (t *goGenericType) IsPointer() bool            { return false }
 func (t *goEnumType) IsPointer() bool               { return false }
 func (t *goStructType) IsPointer() bool             { return false }
 func (t *goInterfaceType) IsPointer() bool          { return false }

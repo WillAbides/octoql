@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 )
 
@@ -39,32 +38,4 @@ func UnmarshalDate(b []byte, t *time.Time) error {
 	var err error
 	*t, err = time.Parse(`"`+dateFormat+`"`, string(b))
 	return err
-}
-
-type Option[V any] struct {
-	value V
-	ok    bool
-}
-
-func (o Option[V]) MarshalJSON() ([]byte, error) {
-	if o.ok {
-		return json.Marshal(o.value)
-	}
-	return json.Marshal((*V)(nil))
-}
-
-func (o *Option[V]) UnmarshalJSON(data []byte) error {
-	v := (*V)(nil)
-
-	err := json.Unmarshal(data, &v)
-	if err != nil {
-		return err
-	}
-
-	if v != nil {
-		o.value = *v
-		o.ok = true
-	}
-
-	return nil
 }

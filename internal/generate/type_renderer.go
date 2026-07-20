@@ -53,18 +53,6 @@ func (c *typeCloner) clone(typ goType) (goType, error) {
 		}
 		cloned.Elem = elem
 		return cloned, nil
-	case *goGenericType:
-		cloned := &goGenericType{
-			GoGenericRef:          source.GoGenericRef,
-			QualifiedGoGenericRef: source.QualifiedGoGenericRef,
-		}
-		c.cloned[typ] = cloned
-		elem, err := c.clone(source.Elem)
-		if err != nil {
-			return nil, err
-		}
-		cloned.Elem = elem
-		return cloned, nil
 	case *goEnumType:
 		cloned := *source
 		cloned.Values = append([]goEnumValue{}, source.Values...)
@@ -166,15 +154,6 @@ func resolveRendererReferences(g *generator) error {
 		case *goSliceType:
 			return resolve(current.Elem)
 		case *goPointerType:
-			return resolve(current.Elem)
-		case *goGenericType:
-			if current.QualifiedGoGenericRef != "" {
-				resolved, err := g.ref(current.QualifiedGoGenericRef)
-				if err != nil {
-					return err
-				}
-				current.GoGenericRef = resolved
-			}
 			return resolve(current.Elem)
 		case *goStructType:
 			for _, field := range current.Fields {

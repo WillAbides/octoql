@@ -53,6 +53,16 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 			wantError: `unknown field "use_extensions"`,
 		},
 		{
+			name:      "removed optional mode",
+			content:   validConfigYAML() + "optional: pointer\n",
+			wantError: `unknown field "optional"`,
+		},
+		{
+			name:      "removed optional generic type",
+			content:   validConfigYAML() + "optional_generic_type: example.com/optional.Value\n",
+			wantError: `unknown field "optional_generic_type"`,
+		},
+		{
 			name:      "subscription setting",
 			content:   validConfigYAML() + "subscriptions: true\n",
 			wantError: `unknown field "subscriptions"`,
@@ -136,8 +146,6 @@ func TestLoadGeneratorOptions(t *testing.T) {
 			"  all_enums: raw\n" +
 			"  enums:\n" +
 			"    IssueState: default\n" +
-			"optional: generic\n" +
-			"optional_generic_type: github.com/example/optional.Value\n" +
 			"use_struct_references: true\n" +
 			"omit_unreferenced_implementations: false\n" +
 			"test_handler:\n" +

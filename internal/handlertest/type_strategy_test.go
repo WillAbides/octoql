@@ -62,7 +62,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					Owner: "octo-org",
 					Name:  "octo-repo",
 					First: 2,
-					After: "cursor-1",
+					After: ptr("cursor-1"),
 				}).Respond(
 					clientRepositoryResponse(updatedAt),
 					clienttypes.WithStatus(http.StatusAccepted),
@@ -84,7 +84,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					Owner: "octo-org",
 					Name:  "octo-repo",
 					First: 2,
-					After: "cursor-1",
+					After: ptr("cursor-1"),
 				}).Respond(
 					localRepositoryResponse(updatedAt),
 					localtypes.WithStatus(http.StatusAccepted),
@@ -117,18 +117,18 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 				handler.ExpectCreateRepository(clienttypes.CreateRepositoryVariables{
 					Input: clienttypes.CreateRepositoryInput{
 						Name:             "created",
-						OwnerId:          "O1",
-						Visibility:       clienttypes.RepositoryVisibilityPrivate,
-						ClientMutationId: "mutation-1",
+						OwnerId:          ptr("O1"),
+						Visibility:       ptr(clienttypes.RepositoryVisibilityPrivate),
+						ClientMutationId: ptr("mutation-1"),
 					},
 				}).Respond(clienttypes.CreateRepositoryResponse{
 					CreateRepository: clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
-						Repository: clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+						Repository: ptr(clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
 							Id:            "R2",
 							NameWithOwner: "octo-org/created",
 							UpdatedAt:     updatedAt,
-						},
-						ClientMutationId: "mutation-1",
+						}),
+						ClientMutationId: ptr("mutation-1"),
 					},
 				})
 			},
@@ -136,18 +136,18 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 				handler.ExpectCreateRepository(localtypes.CreateRepositoryVariables{
 					Input: localtypes.CreateRepositoryInput{
 						Name:             "created",
-						OwnerId:          "O1",
-						Visibility:       localtypes.RepositoryVisibilityPrivate,
-						ClientMutationId: "mutation-1",
+						OwnerId:          ptr("O1"),
+						Visibility:       ptr(localtypes.RepositoryVisibilityPrivate),
+						ClientMutationId: ptr("mutation-1"),
 					},
 				}).Respond(localtypes.CreateRepositoryResponse{
 					CreateRepository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
-						Repository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+						Repository: ptr(localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
 							Id:            "R2",
 							NameWithOwner: "octo-org/created",
 							UpdatedAt:     updatedAt,
-						},
-						ClientMutationId: "mutation-1",
+						}),
+						ClientMutationId: ptr("mutation-1"),
 					},
 				})
 			},
@@ -157,21 +157,23 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			operation: "GetNode",
 			variables: map[string]any{"id": "user"},
 			configureClient: func(handler *clienttypes.TestHandler) {
+				node := clienttypes.GetNodeNode(&clienttypes.GetNodeNodeOctoqlOther{
+					Typename: ptr("User"),
+					Id:       "U1",
+				})
 				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "user"}).
 					Respond(clienttypes.GetNodeResponse{
-						Node: &clienttypes.GetNodeNodeOctoqlOther{
-							Typename: "User",
-							Id:       "U1",
-						},
+						Node: &node,
 					})
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
+				node := localtypes.GetNodeNode(&localtypes.GetNodeNodeOctoqlOther{
+					Typename: ptr("User"),
+					Id:       "U1",
+				})
 				handler.ExpectGetNode(localtypes.GetNodeVariables{Id: "user"}).
 					Respond(localtypes.GetNodeResponse{
-						Node: &localtypes.GetNodeNodeOctoqlOther{
-							Typename: "User",
-							Id:       "U1",
-						},
+						Node: &node,
 					})
 			},
 		},
@@ -189,7 +191,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 							},
 							&clienttypes.SearchSearchIssue{Id: "I1", Title: "bug"},
 							&clienttypes.SearchSearchSearchResultItemOctoqlOther{
-								Typename: "User",
+								Typename: ptr("User"),
 							},
 						},
 					})
@@ -204,7 +206,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 							},
 							&localtypes.SearchSearchIssue{Id: "I1", Title: "bug"},
 							&localtypes.SearchSearchSearchResultItemOctoqlOther{
-								Typename: "User",
+								Typename: ptr("User"),
 							},
 						},
 					})
@@ -252,12 +254,13 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					Owner: "octo-org",
 					Name:  "partial",
 					First: 1,
+					After: ptr(""),
 				}).RespondDataAndErrors(
 					clienttypes.GetRepositoryResponse{
-						Repository: clienttypes.GetRepositoryRepository{
+						Repository: ptr(clienttypes.GetRepositoryRepository{
 							Id:       "R1",
 							FullName: "octo-org/partial",
-						},
+						}),
 					},
 					octoql.Error{
 						Type:       "FORBIDDEN",
@@ -272,12 +275,13 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					Owner: "octo-org",
 					Name:  "partial",
 					First: 1,
+					After: ptr(""),
 				}).RespondDataAndErrors(
 					localtypes.GetRepositoryResponse{
-						Repository: localtypes.GetRepositoryRepository{
+						Repository: ptr(localtypes.GetRepositoryRepository{
 							Id:       "R1",
 							FullName: "octo-org/partial",
-						},
+						}),
 					},
 					octoql.Error{
 						Type:       "FORBIDDEN",
@@ -351,7 +355,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		Owner: "octo-org",
 		Name:  "octo-repo",
 		First: 2,
-		After: "cursor-1",
+		After: ptr("cursor-1"),
 	}
 	handler.ExpectGetRepository(variables).Respond(localRepositoryResponse(updatedAt))
 	response, err := githubapi.GetRepository(
@@ -365,13 +369,14 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+	require.NotNil(t, response.Repository)
 	assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
 	assert.Equal(t, updatedAt, response.Repository.UpdatedAt)
 	assert.JSONEq(t, `["red","blue"]`, string(response.Repository.PropertyValue))
 	require.Len(t, response.Repository.Issues.Nodes, 1)
 	assert.Equal(t, "I1", response.Repository.Issues.Nodes[0].Id)
 	assert.Equal(t, "bug", response.Repository.Issues.Nodes[0].Title)
-	assert.Equal(t, "cursor-2", response.Repository.Issues.PageInfo.EndCursor)
+	assert.Equal(t, "cursor-2", requirePtrValue(t, response.Repository.Issues.PageInfo.EndCursor))
 	requireGeneratedRequest(
 		t,
 		requests,
@@ -381,19 +386,21 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	)
 
 	nodeVariables := localtypes.GetNodeVariables{Id: "user"}
+	localNode := localtypes.GetNodeNode(&localtypes.GetNodeNodeOctoqlOther{
+		Typename: ptr("User"),
+		Id:       "U1",
+	})
 	handler.ExpectGetNode(nodeVariables).Respond(localtypes.GetNodeResponse{
-		Node: &localtypes.GetNodeNodeOctoqlOther{
-			Typename: "User",
-			Id:       "U1",
-		},
+		Node: &localNode,
 	})
 	nodeResponse, err := githubapi.GetNode(t.Context(), client, githubapi.GetNodeVariables{
 		Id: nodeVariables.Id,
 	})
 	require.NoError(t, err)
-	other, ok := nodeResponse.Node.(*githubapi.GetNodeNodeOctoqlOther)
+	require.NotNil(t, nodeResponse.Node)
+	other, ok := (*nodeResponse.Node).(*githubapi.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
-	assert.Equal(t, "User", other.Typename)
+	assert.Equal(t, "User", requirePtrValue(t, other.Typename))
 	assert.Equal(t, "U1", other.Id)
 	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"user"}`)
 
@@ -405,7 +412,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 				NameWithOwner: "octo-org/octo-repo",
 			},
 			&localtypes.SearchSearchIssue{Id: "I1", Title: "bug"},
-			&localtypes.SearchSearchSearchResultItemOctoqlOther{Typename: "User"},
+			&localtypes.SearchSearchSearchResultItemOctoqlOther{Typename: ptr("User")},
 		},
 	})
 	searchResponse, err := githubapi.Search(t.Context(), client, githubapi.SearchVariables{
@@ -418,7 +425,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	assert.Equal(t, "octo-org/octo-repo", searchRepository.NameWithOwner)
 	searchOther, ok := searchResponse.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
 	require.True(t, ok)
-	assert.Equal(t, "User", searchOther.Typename)
+	assert.Equal(t, "User", requirePtrValue(t, searchOther.Typename))
 	requireGeneratedRequest(t, requests, "Search", githubapi.Search_Operation, `{"query":"octo"}`)
 
 	property := json.RawMessage(`["one","two"]`)
@@ -500,7 +507,7 @@ func TestLocalAndClientHandlerTypesAreDistinct(t *testing.T) {
 
 func clientRepositoryResponse(updatedAt time.Time) clienttypes.GetRepositoryResponse {
 	return clienttypes.GetRepositoryResponse{
-		Repository: clienttypes.GetRepositoryRepository{
+		Repository: ptr(clienttypes.GetRepositoryRepository{
 			Id:            "R1",
 			FullName:      "octo-org/octo-repo",
 			UpdatedAt:     updatedAt,
@@ -512,16 +519,16 @@ func clientRepositoryResponse(updatedAt time.Time) clienttypes.GetRepositoryResp
 				}},
 				PageInfo: clienttypes.GetRepositoryRepositoryIssuesIssueConnectionPageInfo{
 					HasNextPage: true,
-					EndCursor:   "cursor-2",
+					EndCursor:   ptr("cursor-2"),
 				},
 			},
-		},
+		}),
 	}
 }
 
 func localRepositoryResponse(updatedAt time.Time) localtypes.GetRepositoryResponse {
 	return localtypes.GetRepositoryResponse{
-		Repository: localtypes.GetRepositoryRepository{
+		Repository: ptr(localtypes.GetRepositoryRepository{
 			Id:            "R1",
 			FullName:      "octo-org/octo-repo",
 			UpdatedAt:     updatedAt,
@@ -533,10 +540,10 @@ func localRepositoryResponse(updatedAt time.Time) localtypes.GetRepositoryRespon
 				}},
 				PageInfo: localtypes.GetRepositoryRepositoryIssuesIssueConnectionPageInfo{
 					HasNextPage: true,
-					EndCursor:   "cursor-2",
+					EndCursor:   ptr("cursor-2"),
 				},
 			},
-		},
+		}),
 	}
 }
 

@@ -21,8 +21,6 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	packageName := "githubapi"
 	contextType := "github.com/example/context.Type"
 	clientGetter := "github.com/example/client.Get"
-	optional := "generic"
-	optionalGenericType := "github.com/example/optional.Value"
 	useStructReferences := true
 	omitUnreferencedImplementations := false
 	bindingType := "github.com/example/scalar.DateTime"
@@ -60,8 +58,6 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 			AllEnums: &allEnumsCasing,
 			Enums:    &enumCasing,
 		},
-		Optional:                        &optional,
-		OptionalGenericType:             &optionalGenericType,
 		UseStructReferences:             &useStructReferences,
 		OmitUnreferencedImplementations: &omitUnreferencedImplementations,
 		TestHandler: &config.TestHandler{
@@ -81,8 +77,6 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	assert.Equal(t, exportOperations, actual.ExportOperations)
 	assert.Equal(t, contextType, actual.ContextType)
 	assert.Equal(t, clientGetter, actual.ClientGetter)
-	assert.Equal(t, optional, actual.Optional)
-	assert.Equal(t, optionalGenericType, actual.OptionalGenericType)
 	assert.True(t, actual.StructReferences)
 	require.NotNil(t, actual.OmitUnreferencedImplementations)
 	assert.False(t, *actual.OmitUnreferencedImplementations)

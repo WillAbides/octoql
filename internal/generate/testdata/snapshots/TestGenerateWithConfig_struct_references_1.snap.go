@@ -114,6 +114,9 @@ func (v *GitHubInputResponseLatestRelease) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.PublishedAt
 		src := firstPass.PublishedAt
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(
@@ -190,6 +193,9 @@ func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) UnmarshalJSON(b 
 	{
 		dst := &v.PublishedAt
 		src := firstPass.PublishedAt
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(
@@ -266,6 +272,9 @@ func (v *GitHubInputResponseReleasesPublishedOnRelease) UnmarshalJSON(b []byte) 
 	{
 		dst := &v.PublishedAt
 		src := firstPass.PublishedAt
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(
@@ -380,6 +389,9 @@ func (v *GitHubInputsVariables) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Date
 		src := firstPass.Date
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(
@@ -677,6 +689,9 @@ func (v *RepositorySelector) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.CreatedAfter
 		src := firstPass.CreatedAfter
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(

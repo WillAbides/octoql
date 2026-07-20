@@ -132,6 +132,11 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
                 }
         {{else -}}
         src := firstPass.{{$field.GoName}}
+        {{if $field.GoType.IsPointer -}}
+        if len(src) != 0 && string(src) == "null" {
+            *dst = nil
+        }
+        {{end -}}
         {{end -}}
         {{range $i := intRange $field.GoType.SliceDepth -}}
         if src != nil {

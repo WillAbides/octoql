@@ -638,34 +638,18 @@ query Beta { second }
 	})
 }
 
-func TestGeneratedHandlerOptionalModeWireParity(t *testing.T) {
-	tests := []struct {
-		name                string
-		optional            string
-		optionalGenericType string
-	}{
-		{name: "value", optional: "value"},
-		{name: "pointer", optional: "pointer"},
-		{name: "pointer omitempty", optional: "pointer_omitempty"},
-		{
-			name:                "generic",
-			optional:            "generic",
-			optionalGenericType: "github.com/willabides/octoql/internal/testutil.Option",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			tempRoot := filepath.Join("testdata", "tmp")
-			err := os.MkdirAll(tempRoot, 0o755)
-			require.NoError(t, err)
-			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-optional-wire-")
-			require.NoError(t, err)
-			t.Cleanup(func() {
-				require.NoError(t, os.RemoveAll(tempDir))
-			})
+func TestGeneratedHandlerPointerDefaultWireParity(t *testing.T) {
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-pointer-default-wire-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tempDir))
+	})
 
-			schemaPath := filepath.Join(tempDir, "schema.graphql")
-			err = os.WriteFile(schemaPath, []byte(`
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	err = os.WriteFile(schemaPath, []byte(`
 input OptionalInput {
   value: String
   items: [String]
@@ -680,9 +664,9 @@ type Query {
   optional(input: OptionalInput): OptionalResult
 }
 `), 0o600)
-			require.NoError(t, err)
-			operationPath := filepath.Join(tempDir, "operation.graphql")
-			err = os.WriteFile(operationPath, []byte(`
+	require.NoError(t, err)
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(operationPath, []byte(`
 query Optional($input: OptionalInput) {
   result: optional(input: $input) {
     value
@@ -690,50 +674,103 @@ query Optional($input: OptionalInput) {
   }
 }
 `), 0o600)
-			require.NoError(t, err)
+	require.NoError(t, err)
 
-			clientConfig := optionalModeParityConfig(
-				tempDir,
-				"client",
-				"clienthandler",
-				TestHandlerTypesClient,
-				test.optional,
-				test.optionalGenericType,
-			)
-			localConfig := optionalModeParityConfig(
-				tempDir,
-				"localclient",
-				"localhandler",
-				TestHandlerTypesLocal,
-				test.optional,
-				test.optionalGenericType,
-			)
-			err = clientConfig.ValidateAndFillDefaults("")
-			require.NoError(t, err)
-			err = localConfig.ValidateAndFillDefaults("")
-			require.NoError(t, err)
-			clientOutputs, err := Generate(clientConfig)
-			require.NoError(t, err)
-			localOutputs, err := Generate(localConfig)
-			require.NoError(t, err)
+	clientConfig := pointerDefaultParityConfig(
+		tempDir,
+		"client",
+		"clienthandler",
+		TestHandlerTypesClient,
+	)
+	localConfig := pointerDefaultParityConfig(
+		tempDir,
+		"localclient",
+		"localhandler",
+		TestHandlerTypesLocal,
+	)
+	err = clientConfig.ValidateAndFillDefaults("")
+	require.NoError(t, err)
+	err = localConfig.ValidateAndFillDefaults("")
+	require.NoError(t, err)
+	clientOutputs, err := Generate(clientConfig)
+	require.NoError(t, err)
+	localOutputs, err := Generate(localConfig)
+	require.NoError(t, err)
 
-			outputs := map[string][]byte{
-				filepath.Join(tempDir, "doc.go"): []byte("package parity\n"),
-				filepath.Join(tempDir, "parity_test.go"): optionalModeParityTestSource(
-					clientConfig.testHandlerPkgPath,
-					localConfig.testHandlerPkgPath,
-					clientConfig.pkgPath,
-				),
-			}
-			for filename, content := range clientOutputs {
-				outputs[filename] = content
-			}
-			for filename, content := range localOutputs {
-				outputs[filename] = content
-			}
-			compileGeneratedOutputs(t, tempDir, outputs)
-		})
+	outputs := map[string][]byte{
+		filepath.Join(tempDir, "doc.go"): []byte("package parity\n"),
+		filepath.Join(tempDir, "parity_test.go"): pointerDefaultParityTestSource(
+			clientConfig.testHandlerPkgPath,
+			localConfig.testHandlerPkgPath,
+			clientConfig.pkgPath,
+		),
 	}
+	for filename, content := range clientOutputs {
+		outputs[filename] = content
+	}
+	for filename, content := range localOutputs {
+		outputs[filename] = content
+	}
+	compileGeneratedOutputs(t, tempDir, outputs)
+}
+
+func TestGeneratedNullableValuesDefaultToPointers(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	err := os.WriteFile(schemaPath, []byte(`
+input PointerInput {
+  defaultInput: String
+  overrideInput: String
+  items: [String]
+}
+
+type PointerResult {
+  defaultOutput: String
+  overrideOutput: String
+  items: [String]
+}
+
+type Query {
+  pointer(input: PointerInput, overrideVariable: String): PointerResult
+}
+`), 0o600)
+	require.NoError(t, err)
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(operationPath, []byte(`
+query PointerDefaults(
+  $input: PointerInput
+  # @octoqlgen(pointer: false)
+  $overrideVariable: String
+) {
+  result: pointer(input: $input, overrideVariable: $overrideVariable) {
+    defaultOutput
+    # @octoqlgen(pointer: false)
+    overrideOutput
+    items
+  }
+}
+`), 0o600)
+	require.NoError(t, err)
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(tempDir, "generated.go"),
+		Package:     "pointerdefaults",
+		ContextType: "-",
+	}
+	outputs, err := Generate(config)
+	require.NoError(t, err)
+	source := string(outputs[config.Generated])
+	assert.Regexp(t, `DefaultInput\s+\*string`, source)
+	assert.Regexp(t, `OverrideInput\s+\*string`, source)
+	assert.Regexp(t, `Items\s+\[\]\*string`, source)
+	assert.Regexp(t, `Input\s+\*PointerInput`, source)
+	assert.Regexp(t, `OverrideVariable\s+string`, source)
+	assert.Regexp(t, `Result\s+\*`, source)
+	assert.Regexp(t, `DefaultOutput\s+\*string`, source)
+	assert.Regexp(t, `OverrideOutput\s+string`, source)
+	require.NoError(t, buildGoFile("pointer-defaults", outputs[config.Generated]))
 }
 
 func TestGeneratedSpecialSliceWireSemantics(t *testing.T) {
@@ -760,7 +797,9 @@ type User implements Node {
 }
 
 type Query {
+  date: Date
   dates: [[[Date]]]
+  node: Node
   nodes: [[[Node]]]
 }
 `), 0o600)
@@ -768,7 +807,15 @@ type Query {
 	operationPath := filepath.Join(tempDir, "operation.graphql")
 	err = os.WriteFile(operationPath, []byte(`
 query WireSemantics {
+  date
   dates
+  node {
+    __typename
+    id
+    ... on User {
+      login
+    }
+  }
   nodes {
     __typename
     id
@@ -812,15 +859,15 @@ func TestSpecialSliceWireSemantics(t *testing.T) {
 	}{
 		{
 			name: "null outer slices",
-			wire: ` + "`" + `{"dates":null,"nodes":null}` + "`" + `,
+			wire: ` + "`" + `{"date":null,"dates":null,"node":null,"nodes":null}` + "`" + `,
 		},
 		{
 			name: "empty outer slices",
-			wire: ` + "`" + `{"dates":[],"nodes":[]}` + "`" + `,
+			wire: ` + "`" + `{"date":"2026-07-20","dates":[],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[]}` + "`" + `,
 		},
 		{
 			name: "null and empty nested slices",
-			wire: ` + "`" + `{"dates":[null,[],[null,[],[null,"2026-07-20"]]],"nodes":[null,[],[null,[],[null,{"__typename":"User","id":"1","login":"octo"}]]]}` + "`" + `,
+			wire: ` + "`" + `{"date":null,"dates":[null,[],[null,[],[null,"2026-07-20"]]],"node":null,"nodes":[null,[],[null,[],[null,{"__typename":"User","id":"1","login":"octo"}]]]}` + "`" + `,
 		},
 	}
 
@@ -837,21 +884,21 @@ func TestSpecialSliceWireSemantics(t *testing.T) {
 }
 
 func TestSpecialSliceWireSemanticsReusedDestination(t *testing.T) {
-	const populated = ` + "`" + `{"dates":[[["2026-07-20"]]],"nodes":[[[{"__typename":"User","id":"1","login":"octo"}]]]}` + "`" + `
+	const populated = ` + "`" + `{"date":"2026-07-20","dates":[[["2026-07-20"]]],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[[[{"__typename":"User","id":"1","login":"octo"}]]]}` + "`" + `
 	tests := []struct {
 		name   string
 		update string
 		want   string
 	}{
 		{
-			name:   "present null clears slices",
-			update: ` + "`" + `{"dates":null,"nodes":null}` + "`" + `,
-			want:   ` + "`" + `{"dates":null,"nodes":null}` + "`" + `,
+			name:   "present null clears special values",
+			update: ` + "`" + `{"date":null,"dates":null,"node":null,"nodes":null}` + "`" + `,
+			want:   ` + "`" + `{"date":null,"dates":null,"node":null,"nodes":null}` + "`" + `,
 		},
 		{
 			name:   "present arrays replace slices",
 			update: ` + "`" + `{"dates":[],"nodes":[]}` + "`" + `,
-			want:   ` + "`" + `{"dates":[],"nodes":[]}` + "`" + `,
+			want:   ` + "`" + `{"date":"2026-07-20","dates":[],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[]}` + "`" + `,
 		},
 		{
 			name:   "omitted fields retain slices",
@@ -877,89 +924,11 @@ func TestSpecialSliceWireSemanticsReusedDestination(t *testing.T) {
 	compileGeneratedOutputs(t, tempDir, outputs)
 }
 
-func TestGenerateRejectsGenericOptionalMarshalHelpers(t *testing.T) {
-	tests := []struct {
-		name      string
-		schema    string
-		operation string
-		bindings  map[string]*TypeBinding
-		wantError string
-	}{
-		{
-			name: "custom scalar in list",
-			schema: `
-scalar Date
-type Query {
-  dates: [Date]!
-}
-`,
-			operation: `query Dates { dates }`,
-			bindings: map[string]*TypeBinding{
-				"Date": {
-					Type:        "time.Time",
-					Marshaler:   "github.com/willabides/octoql/internal/testutil.MarshalDate",
-					Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
-				},
-			},
-			wantError: "optional: generic is unsupported for nullable Date because it requires generator-managed marshal/unmarshal helpers",
-		},
-		{
-			name: "abstract type",
-			schema: `
-interface Node {
-  id: ID!
-}
-type User implements Node {
-  id: ID!
-}
-type Query {
-  node: Node
-}
-`,
-			operation: `
-query NodeValue {
-  node {
-    __typename
-    id
-  }
-}
-`,
-			wantError: "optional: generic is unsupported for nullable Node because it requires generator-managed marshal/unmarshal helpers",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			tempDir := t.TempDir()
-			schemaPath := filepath.Join(tempDir, "schema.graphql")
-			err := os.WriteFile(schemaPath, []byte(test.schema), 0o600)
-			require.NoError(t, err)
-			operationPath := filepath.Join(tempDir, "operation.graphql")
-			err = os.WriteFile(operationPath, []byte(test.operation), 0o600)
-			require.NoError(t, err)
-
-			_, err = Generate(&Config{
-				Schema:              []string{schemaPath},
-				Operations:          []string{operationPath},
-				Generated:           filepath.Join(tempDir, "generated.go"),
-				Package:             "client",
-				ContextType:         "-",
-				Optional:            "generic",
-				OptionalGenericType: "github.com/willabides/octoql/internal/testutil.Option",
-				Bindings:            test.bindings,
-			})
-			require.ErrorContains(t, err, test.wantError)
-		})
-	}
-}
-
-func optionalModeParityConfig(
+func pointerDefaultParityConfig(
 	tempDir string,
 	clientPackage string,
 	handlerPackage string,
 	strategy TestHandlerTypeStrategy,
-	optional string,
-	optionalGenericType string,
 ) *Config {
 	config := &Config{
 		Schema:               []string{filepath.Join(tempDir, "schema.graphql")},
@@ -969,13 +938,11 @@ func optionalModeParityConfig(
 		TestHandlerTypes:     strategy,
 		Package:              clientPackage,
 		ContextType:          "-",
-		Optional:             optional,
-		OptionalGenericType:  optionalGenericType,
 	}
 	return config
 }
 
-func optionalModeParityTestSource(
+func pointerDefaultParityTestSource(
 	clientHandlerPath string,
 	localHandlerPath string,
 	generatedClientPath string,
@@ -995,7 +962,7 @@ import (
 	localhandler "LOCAL_HANDLER_PATH"
 )
 
-func TestOptionalModeWireParity(t *testing.T) {
+func TestPointerDefaultWireParity(t *testing.T) {
 	tests := []struct {
 		name      string
 		variables string
@@ -1698,11 +1665,10 @@ func TestGenerateWithConfig(t *testing.T) {
 			},
 		},
 		{
-			name:       "struct references and optional pointer",
+			name:       "struct references",
 			operations: []string{"Inputs.graphql"},
 			config: &Config{
 				StructReferences: true,
-				Optional:         "pointer",
 				Bindings:         testBindings(),
 			},
 			check: func(t *testing.T, config *Config, generated map[string][]byte) {
