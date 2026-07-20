@@ -57,7 +57,8 @@ func (m *Materializer) Materialize(ctx context.Context, request Request) (data [
 		return nil, err
 	}
 	if request.Path != "" {
-		request.Path, err = ResolveSchemaPath(request.Path)
+		configuredSchemaPath := request.Path
+		request.Path, err = ResolveSchemaIdentity(configuredSchemaPath)
 		if err != nil {
 			return nil, err
 		}
@@ -69,6 +70,13 @@ func (m *Materializer) Materialize(ctx context.Context, request Request) (data [
 		defer func() {
 			err = errors.Join(err, release())
 		}()
+		resolvedSchemaPath, resolveErr := ResolveSchemaPath(configuredSchemaPath)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		if resolvedSchemaPath != request.Path {
+			return nil, errors.New("schema path changed while materializing")
+		}
 	}
 
 	sourceCount := sourceVariantCount(request.Source)
@@ -288,6 +296,7 @@ func sourceVariantCount(source config.Source) int {
 
 type fileSystem interface {
 	ReadFile(string) ([]byte, error)
+	Lstat(string) (fs.FileInfo, error)
 	MkdirAll(string, fs.FileMode) error
 	CreateTemp(string, string) (tempFile, error)
 	Link(string, string) error
@@ -305,6 +314,10 @@ type osFileSystem struct{}
 
 func (osFileSystem) ReadFile(name string) ([]byte, error) {
 	return os.ReadFile(name)
+}
+
+func (osFileSystem) Lstat(name string) (fs.FileInfo, error) {
+	return os.Lstat(name)
 }
 
 func (osFileSystem) MkdirAll(path string, perm fs.FileMode) error {
@@ -364,6 +377,13 @@ func publish(fileSystem fileSystem, destination string, data []byte, expectedSHA
 		return fmt.Errorf("publishing schema file %q: %w", destination, err)
 	}
 
+	info, statErr := fileSystem.Lstat(destination)
+	if statErr != nil {
+		return fmt.Errorf("reading concurrently materialized schema metadata %q: %w", destination, statErr)
+	}
+	if info.Mode()&fs.ModeSymlink != 0 {
+		return errors.New("concurrently materialized schema is a symlink")
+	}
 	winner, readErr := fileSystem.ReadFile(destination)
 	if readErr != nil {
 		return fmt.Errorf("reading concurrently materialized schema file %q: %w", destination, readErr)

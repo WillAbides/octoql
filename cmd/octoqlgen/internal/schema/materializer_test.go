@@ -755,6 +755,22 @@ func TestMaterializerSharesPhysicalLockForMissingSchema(t *testing.T) {
 	assert.Contains(t, err.Error(), "already in progress")
 }
 
+func TestPublishRejectsConcurrentSchemaSymlink(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	destination := filepath.Join(directory, "schema.graphql")
+	target := filepath.Join(directory, "schema-target.graphql")
+	err := os.WriteFile(target, exactSchema, 0o600)
+	require.NoError(t, err)
+	err = os.Symlink(target, destination)
+	require.NoError(t, err)
+
+	err = publish(osFileSystem{}, destination, exactSchema, checksum(exactSchema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "symlink")
+}
+
 func TestMaterializerRecoversInterruptedSchemaUpdate(t *testing.T) {
 	t.Parallel()
 

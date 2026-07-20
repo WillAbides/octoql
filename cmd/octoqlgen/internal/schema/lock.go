@@ -22,11 +22,11 @@ func AcquireExclusiveLock(path string) (func() error, error) {
 
 // SameLockIdentity reports whether two paths are serialized by the same lock.
 func SameLockIdentity(left, right string) bool {
-	leftPath, err := ResolveSchemaPath(left)
+	leftPath, err := ResolveSchemaIdentity(left)
 	if err != nil {
 		return false
 	}
-	rightPath, err := ResolveSchemaPath(right)
+	rightPath, err := ResolveSchemaIdentity(right)
 	if err != nil {
 		return false
 	}
@@ -64,7 +64,7 @@ func acquireLock(path string, exclusive bool) (func() error, error) {
 }
 
 func lockPath(path string) (string, error) {
-	resolvedPath, err := ResolveSchemaPath(path)
+	resolvedPath, err := ResolveSchemaIdentity(path)
 	if err != nil {
 		return "", err
 	}

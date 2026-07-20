@@ -100,7 +100,7 @@ func (transaction *UpdateTransaction) Rollback() error {
 // RecoverPendingUpdate restores a transaction that was interrupted before
 // Commit completed. The caller must hold the schema's exclusive lock.
 func RecoverPendingUpdate(schemaPath string) error {
-	resolvedSchemaPath, err := ResolveSchemaPath(schemaPath)
+	resolvedSchemaPath, err := ResolveSchemaIdentity(schemaPath)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func RecoverPendingUpdate(schemaPath string) error {
 }
 
 func hasPendingUpdate(schemaPath string) (bool, error) {
-	resolvedSchemaPath, err := ResolveSchemaPath(schemaPath)
+	resolvedSchemaPath, err := ResolveSchemaIdentity(schemaPath)
 	if err != nil {
 		return false, err
 	}
@@ -136,7 +136,7 @@ func recoverPendingUpdate(journalPath, schemaPath string) error {
 	if err != nil {
 		return fmt.Errorf("decoding schema update journal: %w", err)
 	}
-	recordedSchemaPath, err := ResolveSchemaPath(journal.SchemaPath)
+	recordedSchemaPath, err := ResolveSchemaIdentity(journal.SchemaPath)
 	if err != nil {
 		return err
 	}

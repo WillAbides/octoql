@@ -484,6 +484,53 @@ func TestSchemaUpdateCommandRejectsSchemaSymlink(t *testing.T) {
 	assert.NotZero(t, info.Mode()&os.ModeSymlink)
 }
 
+func TestSchemaUpdateCommandRejectsSchemaSymlinkInsertedBeforePublication(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	targetPath := filepath.Join(directory, "schema-target.graphql")
+	originalSchema := []byte("type Query { old: String }\n")
+	updatedSchema := []byte("type Query { updated: String }\n")
+	originalChecksum := fmt.Sprintf("%x", sha256.Sum256(originalSchema))
+	updatedChecksum := fmt.Sprintf("%x", sha256.Sum256(updatedSchema))
+	configData := []byte(fmt.Sprintf(
+		"schema:\n  path: schema.graphql\n  sha256: %s\n  source:\n    url: https://example.test/schema.graphql\n",
+		originalChecksum,
+	))
+	err := os.WriteFile(configPath, configData, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(schemaPath, originalSchema, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(targetPath, originalSchema, 0o600)
+	require.NoError(t, err)
+
+	command := schemaUpdateCommand{
+		Config:     configPath,
+		context:    t.Context(),
+		loadConfig: config.Load,
+		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
+			return schema.RemoteResult{
+				Data:   updatedSchema,
+				SHA256: updatedChecksum,
+			}, nil
+		}),
+		outputWriter: lateSchemaSymlinkWriter{targetPath: targetPath},
+		stdout:       io.Discard,
+	}
+
+	err = command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "schema path must not be a symlink")
+	schemaData, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	assert.Equal(t, originalSchema, schemaData)
+	info, err := os.Lstat(schemaPath)
+	require.NoError(t, err)
+	assert.Zero(t, info.Mode()&os.ModeSymlink)
+}
+
 func TestSchemaUpdateCommandRollsBackChangedPublishedConfig(t *testing.T) {
 	t.Parallel()
 
@@ -546,6 +593,73 @@ func TestSchemaUpdateCommandRollsBackChangedPublishedConfig(t *testing.T) {
 	schemaData, err := os.ReadFile(schemaPath)
 	require.NoError(t, err)
 	assert.Equal(t, originalSchema, schemaData)
+}
+
+func TestSchemaUpdateCommandUsesCanonicalConfigAfterAliasRetarget(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configAPath := filepath.Join(directory, "config-a.yaml")
+	configBPath := filepath.Join(directory, "config-b.yaml")
+	configAliasPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	originalSchema := []byte("type Query { old: String }\n")
+	updatedSchema := []byte("type Query { updated: String }\n")
+	originalChecksum := fmt.Sprintf("%x", sha256.Sum256(originalSchema))
+	updatedChecksum := fmt.Sprintf("%x", sha256.Sum256(updatedSchema))
+	configA := []byte(fmt.Sprintf(
+		"schema:\n  path: schema.graphql\n  sha256: %s\n  source:\n    url: https://schemas.example.test/a\n",
+		originalChecksum,
+	))
+	configB := []byte(fmt.Sprintf(
+		"schema:\n  path: schema.graphql\n  sha256: %s\n  source:\n    url: https://schemas.example.test/b\n",
+		originalChecksum,
+	))
+	err := os.WriteFile(configAPath, configA, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(configBPath, configB, 0o600)
+	require.NoError(t, err)
+	err = os.Symlink(configAPath, configAliasPath)
+	require.NoError(t, err)
+	err = os.WriteFile(schemaPath, originalSchema, 0o600)
+	require.NoError(t, err)
+
+	loadCalls := 0
+	resolverSource := ""
+	command := schemaUpdateCommand{
+		Config:  configAliasPath,
+		context: t.Context(),
+		loadConfig: func(path string) (*config.Config, error) {
+			loadCalls++
+			if loadCalls == 3 {
+				removeErr := os.Remove(configAliasPath)
+				if removeErr != nil {
+					return nil, removeErr
+				}
+				symlinkErr := os.Symlink(configBPath, configAliasPath)
+				if symlinkErr != nil {
+					return nil, symlinkErr
+				}
+			}
+			return config.Load(path)
+		},
+		resolver: remoteResolverFunc(func(_ context.Context, source config.Source) (schema.RemoteResult, error) {
+			resolverSource = *source.Url
+			return schema.RemoteResult{
+				Data:   updatedSchema,
+				SHA256: updatedChecksum,
+			}, nil
+		}),
+		outputWriter: atomicOutputWriter{},
+		stdout:       io.Discard,
+	}
+
+	err = command.Run()
+	require.NoError(t, err)
+	assert.Equal(t, "https://schemas.example.test/a", resolverSource)
+	configBData, err := os.ReadFile(configBPath)
+	require.NoError(t, err)
+	assert.Equal(t, configB, configBData)
 }
 
 func TestHelpSnapshots(t *testing.T) {
@@ -724,6 +838,26 @@ type outputWriterFunc func(string, []byte) error
 
 func (f outputWriterFunc) Write(path string, data []byte) error {
 	return f(path, data)
+}
+
+type lateSchemaSymlinkWriter struct {
+	targetPath string
+}
+
+func (w lateSchemaSymlinkWriter) Write(path string, data []byte) error {
+	return atomicOutputWriter{}.Write(path, data)
+}
+
+func (w lateSchemaSymlinkWriter) WriteSchema(path string, data []byte) error {
+	err := os.Remove(path)
+	if err != nil {
+		return err
+	}
+	err = os.Symlink(w.targetPath, path)
+	if err != nil {
+		return err
+	}
+	return atomicOutputWriter{}.WriteSchema(path, data)
 }
 
 type stubOutputWriter struct {

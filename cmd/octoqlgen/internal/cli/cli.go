@@ -201,11 +201,11 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	initialConfig, err := cmd.loadConfig(userConfigPath)
+	initialConfig, err := cmd.loadConfig(configPath)
 	if err != nil {
 		return err
 	}
-	lockedSchemaPath, err := schema.ResolveSchemaPath(initialConfig.SchemaPath())
+	lockedSchemaPath, err := schema.ResolveSchemaIdentity(initialConfig.SchemaPath())
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 		err = errors.Join(err, unlock())
 	}()
 
-	loaded, err := cmd.loadConfig(userConfigPath)
+	loaded, err := cmd.loadConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -236,12 +236,13 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return fmt.Errorf("reading config file %q: %w", cmd.Config, err)
 	}
-	loaded, err = cmd.loadConfig(userConfigPath)
+	loaded, err = cmd.loadConfig(configPath)
 	if err != nil {
 		return err
 	}
-	if !schema.SameLockIdentity(lockedSchemaPath, loaded.SchemaPath()) {
-		return errors.New("schema path changed while acquiring update lock")
+	err = validateSchemaTarget(lockedSchemaPath, loaded.SchemaPath())
+	if err != nil {
+		return err
 	}
 	source := loaded.Schema.SourceValue()
 	if !hasRemoteSource(source) {
@@ -305,7 +306,7 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return rollback(err)
 	}
-	err = cmd.outputWriter.Write(lockedSchemaPath, result.Data)
+	err = writeSchemaOutput(cmd.outputWriter, lockedSchemaPath, result.Data)
 	if err != nil {
 		return rollback(fmt.Errorf("publishing updated schema: %w", err))
 	}
@@ -324,7 +325,7 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return rollback(fmt.Errorf("config update failed: %w", err))
 	}
-	published, err := cmd.loadConfig(userConfigPath)
+	published, err := cmd.loadConfig(configPath)
 	if err != nil {
 		return rollback(fmt.Errorf("validating published config: %w", err))
 	}
@@ -364,6 +365,24 @@ func checkContext(ctx context.Context) error {
 	err := ctx.Err()
 	if err != nil {
 		return fmt.Errorf("schema update canceled: %w", err)
+	}
+	return nil
+}
+
+func validateSchemaTarget(lockedSchemaPath, configuredSchemaPath string) error {
+	identityPath, err := schema.ResolveSchemaIdentity(configuredSchemaPath)
+	if err != nil {
+		return err
+	}
+	if identityPath != lockedSchemaPath {
+		return errors.New("schema path changed while acquiring update lock")
+	}
+	resolvedPath, err := schema.ResolveSchemaPath(configuredSchemaPath)
+	if err != nil {
+		return err
+	}
+	if resolvedPath != lockedSchemaPath {
+		return errors.New("schema path changed while acquiring update lock")
 	}
 	return nil
 }
@@ -518,6 +537,10 @@ type outputWriter interface {
 	Write(string, []byte) error
 }
 
+type schemaOutputWriter interface {
+	WriteSchema(string, []byte) error
+}
+
 type Dependencies struct {
 	Context        context.Context
 	Stdout         io.Writer
@@ -642,6 +665,26 @@ func (d *Dependencies) setDefaults() {
 type atomicOutputWriter struct{}
 
 func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
+	return writeOutputAtomically(destination, data, false)
+}
+
+func (atomicOutputWriter) WriteSchema(destination string, data []byte) (err error) {
+	return writeOutputAtomically(destination, data, true)
+}
+
+func writeSchemaOutput(writer outputWriter, destination string, data []byte) error {
+	schemaWriter, ok := writer.(schemaOutputWriter)
+	if ok {
+		return schemaWriter.WriteSchema(destination, data)
+	}
+	err := verifySchemaPublicationPath(destination)
+	if err != nil {
+		return err
+	}
+	return writer.Write(destination, data)
+}
+
+func writeOutputAtomically(destination string, data []byte, rejectSymlink bool) (err error) {
 	directory := filepath.Dir(destination)
 	err = os.MkdirAll(directory, 0o755)
 	if err != nil {
@@ -667,8 +710,18 @@ func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
 		return fmt.Errorf("writing temporary output file: %w", err)
 	}
 	mode := os.FileMode(0o644)
-	info, statErr := os.Stat(destination)
+	var info os.FileInfo
+	var statErr error
+	if rejectSymlink {
+		info, statErr = os.Lstat(destination)
+	}
+	if !rejectSymlink {
+		info, statErr = os.Stat(destination)
+	}
 	if statErr == nil {
+		if rejectSymlink && info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("schema path must not be a symlink")
+		}
 		mode = info.Mode()
 	}
 	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
@@ -687,10 +740,27 @@ func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
 	if err != nil {
 		return fmt.Errorf("closing temporary output file: %w", err)
 	}
+	if rejectSymlink {
+		err = verifySchemaPublicationPath(destination)
+		if err != nil {
+			return err
+		}
+	}
 	err = os.Rename(temp.Name(), destination)
 	if err != nil {
 		return fmt.Errorf("publishing output file: %w", err)
 	}
 	shouldRemove = false
+	return nil
+}
+
+func verifySchemaPublicationPath(destination string) error {
+	resolvedPath, err := schema.ResolveSchemaPath(destination)
+	if err != nil {
+		return err
+	}
+	if resolvedPath != destination {
+		return errors.New("schema path changed before publication")
+	}
 	return nil
 }
