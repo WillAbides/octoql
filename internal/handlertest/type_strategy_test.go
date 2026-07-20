@@ -23,8 +23,14 @@ type wireParityCase struct {
 	configureClient func(*clienttypes.TestHandler)
 	configureLocal  func(*localtypes.TestHandler)
 	variables       any
+	headers         []responseHeaderExpectation
 	name            string
 	operation       string
+}
+
+type responseHeaderExpectation struct {
+	name  string
+	value string
 }
 
 func TestHandlerTypeStrategiesWireParity(t *testing.T) {
@@ -41,6 +47,16 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 				"first": 2,
 				"after": "cursor-1",
 			},
+			headers: []responseHeaderExpectation{
+				{
+					name:  "X-GitHub-Request-ID",
+					value: "request-1",
+				},
+				{
+					name:  "X-Handler-Mode",
+					value: "client",
+				},
+			},
 			configureClient: func(handler *clienttypes.TestHandler) {
 				handler.ExpectGetRepository(clienttypes.GetRepositoryVariables{
 					Owner: "octo-org",
@@ -50,7 +66,10 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 				}).Respond(
 					clientRepositoryResponse(updatedAt),
 					clienttypes.WithStatus(http.StatusAccepted),
-					clienttypes.WithHeader("X-GitHub-Request-ID", "request-1"),
+					clienttypes.WithHeader("x-github-request-id", "request-1"),
+					clienttypes.WithHeaders(http.Header{
+						"x-handler-mode": {"client"},
+					}),
 					clienttypes.WithPrimaryRateLimit(octoql.RateLimit{
 						Limit:     5000,
 						Remaining: 4999,
@@ -69,7 +88,10 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 				}).Respond(
 					localRepositoryResponse(updatedAt),
 					localtypes.WithStatus(http.StatusAccepted),
-					localtypes.WithHeader("X-GitHub-Request-ID", "request-1"),
+					localtypes.WithHeader("x-github-request-id", "request-1"),
+					localtypes.WithHeaders(http.Header{
+						"x-handler-mode": {"client"},
+					}),
 					localtypes.WithPrimaryRateLimit(octoql.RateLimit{
 						Limit:     5000,
 						Remaining: 4999,
@@ -299,6 +321,10 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 
 			assert.Equal(t, clientResponse.Code, localResponse.Code)
 			assert.Equal(t, clientResponse.Header(), localResponse.Header())
+			for _, header := range test.headers {
+				assert.Equal(t, header.value, clientResponse.Header().Get(header.name))
+				assert.Equal(t, header.value, localResponse.Header().Get(header.name))
+			}
 			assert.JSONEq(t, clientResponse.Body.String(), localResponse.Body.String())
 		})
 	}

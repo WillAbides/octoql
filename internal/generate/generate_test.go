@@ -1045,16 +1045,29 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		schema    string
-		operation string
-		wantError string
+		name       string
+		schema     string
+		operation  string
+		types      TestHandlerTypeStrategy
+		wantError  string
+		wantSource []string
 	}{
 		{
-			name:      "lowercase operation",
+			name:      "lowercase operation with client types",
 			schema:    "type Query { viewer: String! }\n",
 			operation: "query getViewer { viewer }\n",
+			types:     TestHandlerTypesClient,
 			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
+		},
+		{
+			name:      "lowercase operation with local types",
+			schema:    "type Query { viewer: String! }\n",
+			operation: "query getViewer { viewer }\n",
+			types:     TestHandlerTypesLocal,
+			wantSource: []string{
+				`case "getViewer":`,
+				"func (h *TestHandler) ExpectgetViewer(",
+			},
 		},
 		{
 			name: "enum value and expectation",
@@ -1144,6 +1157,7 @@ type Query {
 				Operations:           []string{operationPath},
 				Generated:            filepath.Join(tempDir, "client", "generated.go"),
 				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
+				TestHandlerTypes:     test.types,
 				Package:              "client",
 				ContextType:          "-",
 			}
@@ -1152,10 +1166,21 @@ type Query {
 				t.Fatal(err)
 			}
 
-			_, err = Generate(config)
-			if err == nil || !strings.Contains(err.Error(), test.wantError) {
-				t.Fatalf("error = %v, want containing %q", err, test.wantError)
+			outputs, err := Generate(config)
+			if test.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), test.wantError) {
+					t.Fatalf("error = %v, want containing %q", err, test.wantError)
+				}
+				return
 			}
+
+			require.NoError(t, err)
+			handlerSource := string(outputs[config.TestHandlerGenerated])
+			for _, source := range test.wantSource {
+				assert.Contains(t, handlerSource, source)
+			}
+			assert.NotContains(t, handlerSource, "ExpectGetViewer")
+			compileGeneratedOutputs(t, tempDir, outputs)
 		})
 	}
 }

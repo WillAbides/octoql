@@ -474,7 +474,13 @@ Local handler values are intentionally not assignable to client types. Local
 mode also rejects reachable bindings or marshal helpers owned by the generated
 client package because those references would recreate the dependency.
 
-After `go tool octoqlgen generate`, each uppercase query or mutation has
+With `types: client`, each query or mutation name must begin with an uppercase
+letter because the handler package aliases the generated client types. Local
+handlers support lowercase operation names and preserve the literal name in
+their API, such as `ExpectgetViewer`, `DefaultgetViewer`, and
+`ResetgetViewer`.
+
+After `go tool octoqlgen generate`, each handler operation has matching
 `Expect<Operation>`, `Default<Operation>`, and `Reset<Operation>` methods:
 
 ```go

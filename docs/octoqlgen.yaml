@@ -57,6 +57,9 @@ generated: generated/octoql.go
 # exposes aliases for its response, input, enum, abstract variant, and
 # OctoqlOther types. Set types to local to emit distinct but wire-equivalent
 # operation types directly in the handler package without importing the client.
+# Client types require uppercase operation names because another package cannot
+# alias unexported client operation types. Local types preserve lowercase
+# operation names in handler APIs, such as ExpectgetViewer.
 # Local values are not directly assignable to client types. Omitting test_handler
 # generates only the client and performs no handler package work.
 # In local mode, reachable binding types and marshal helpers may be external or

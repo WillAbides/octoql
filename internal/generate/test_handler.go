@@ -92,15 +92,21 @@ func validateTestHandlerNames(plan *generationPlan) error {
 		}
 	}
 
+	localTypes := plan.config.TestHandlerTypes == TestHandlerTypesLocal
 	typeNames := make([]string, 0, len(plan.typeMap))
 	for name := range plan.typeMap {
-		if token.IsExported(name) {
-			typeNames = append(typeNames, name)
+		if !localTypes && !token.IsExported(name) {
+			continue
 		}
+		typeNames = append(typeNames, name)
 	}
 	sort.Strings(typeNames)
 	for _, name := range typeNames {
-		err := addIdentifier(name, "client type alias")
+		typeSource := "client type alias"
+		if localTypes {
+			typeSource = "local type"
+		}
+		err := addIdentifier(name, typeSource)
 		if err != nil {
 			return err
 		}
@@ -109,7 +115,11 @@ func validateTestHandlerNames(plan *generationPlan) error {
 			continue
 		}
 		for _, enumValue := range enumType.Values {
-			err = addIdentifier(enumValue.GoName, "client enum value alias")
+			enumValueSource := "client enum value alias"
+			if localTypes {
+				enumValueSource = "local enum value"
+			}
+			err = addIdentifier(enumValue.GoName, enumValueSource)
 			if err != nil {
 				return err
 			}
@@ -117,14 +127,14 @@ func validateTestHandlerNames(plan *generationPlan) error {
 	}
 
 	for _, operation := range plan.operations {
-		if !token.IsExported(operation.Name) {
+		if !localTypes && !token.IsExported(operation.Name) {
 			return errorf(
 				nil,
 				"test handler operation %q must begin with an uppercase letter",
 				operation.Name,
 			)
 		}
-		if !token.IsExported(operation.ResponseName) {
+		if !localTypes && !token.IsExported(operation.ResponseName) {
 			return errorf(
 				nil,
 				"test handler response type %q must be exported",
