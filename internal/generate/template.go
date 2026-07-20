@@ -3,6 +3,7 @@ package generate
 import (
 	"embed"
 	"io"
+	"strconv"
 	"strings"
 	"text/template"
 )
@@ -36,17 +37,25 @@ func intRange(n int) []int {
 
 func sub(x, y int) int { return x - y }
 
+func goStringLiteral(value string) string {
+	if strings.Contains(value, "`") {
+		return strconv.Quote(value)
+	}
+	return "`" + value + "`"
+}
+
 // render executes the given template with the funcs from this generator.
 func (g *generator) render(tmplRelFilename string, w io.Writer, data interface{}) error {
 	tmpl := g.templateCache[tmplRelFilename]
 	if tmpl == nil {
 		funcMap := template.FuncMap{
-			"ref":         g.ref,
-			"repeat":      repeat,
-			"intRange":    intRange,
-			"sub":         sub,
-			"marshaler":   func(field templateMarshaler) (string, error) { return field.Marshaler(g) },
-			"unmarshaler": func(field templateUnmarshaler) (string, error) { return field.Unmarshaler(g) },
+			"ref":             g.ref,
+			"repeat":          repeat,
+			"intRange":        intRange,
+			"sub":             sub,
+			"goStringLiteral": goStringLiteral,
+			"marshaler":       func(field templateMarshaler) (string, error) { return field.Marshaler(g) },
+			"unmarshaler":     func(field templateUnmarshaler) (string, error) { return field.Unmarshaler(g) },
 		}
 		var err error
 		tmpl, err = template.New(tmplRelFilename).Funcs(funcMap).ParseFS(templates, tmplRelFilename)

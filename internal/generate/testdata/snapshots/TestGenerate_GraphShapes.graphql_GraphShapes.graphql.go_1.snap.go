@@ -2871,7 +2871,31 @@ func (v *SearchRepositoriesVariables) __premarshalJSON() (*__premarshalSearchRep
 }
 
 // The query executed by GetActor.
-const GetActor_Operation = "\nquery GetActor ($login: String!) {\n\tactor(login: $login) {\n\t\t__typename\n\t\t... ActorDetails\n\t}\n\trepositoryOwner(login: $login) {\n\t\t__typename\n\t\t... RepositoryOwnerDetails\n\t}\n}\nfragment ActorDetails on Actor {\n\tid\n\tlogin\n}\nfragment RepositoryOwnerDetails on RepositoryOwner {\n\tid\n\tlogin\n\trepositories(first: 5) {\n\t\tnodes {\n\t\t\tnameWithOwner\n\t\t}\n\t}\n}\n"
+const GetActor_Operation = `
+query GetActor ($login: String!) {
+	actor(login: $login) {
+		__typename
+		... ActorDetails
+	}
+	repositoryOwner(login: $login) {
+		__typename
+		... RepositoryOwnerDetails
+	}
+}
+fragment ActorDetails on Actor {
+	id
+	login
+}
+fragment RepositoryOwnerDetails on RepositoryOwner {
+	id
+	login
+	repositories(first: 5) {
+		nodes {
+			nameWithOwner
+		}
+	}
+}
+`
 
 // GetActorPartialDataError contains partial data returned by GetActor.
 type GetActorPartialDataError struct {
@@ -2927,7 +2951,29 @@ func GetActor(
 }
 
 // The query executed by GetNode.
-const GetNode_Operation = "\nquery GetNode ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t\t... on Organization {\n\t\t\tlogin\n\t\t}\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t}\n\t\t... on PullRequest {\n\t\t\ttitle\n\t\t}\n\t}\n}\n"
+const GetNode_Operation = `
+query GetNode ($id: ID!) {
+	node(id: $id) {
+		__typename
+		id
+		... on User {
+			login
+		}
+		... on Organization {
+			login
+		}
+		... on Repository {
+			nameWithOwner
+		}
+		... on Issue {
+			title
+		}
+		... on PullRequest {
+			title
+		}
+	}
+}
+`
 
 // GetNodePartialDataError contains partial data returned by GetNode.
 type GetNodePartialDataError struct {
@@ -2983,7 +3029,14 @@ func GetNode(
 }
 
 // The query executed by NestedNodeShapes.
-const NestedNodeShapes_Operation = "\nquery NestedNodeShapes {\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t}\n}\n"
+const NestedNodeShapes_Operation = `
+query NestedNodeShapes {
+	nestedNodes {
+		__typename
+		id
+	}
+}
+`
 
 // NestedNodeShapesPartialDataError contains partial data returned by NestedNodeShapes.
 type NestedNodeShapesPartialDataError struct {
@@ -3038,7 +3091,17 @@ func NestedNodeShapes(
 }
 
 // The query executed by RecursiveRepository.
-const RecursiveRepository_Operation = "\nquery RecursiveRepository ($input: RecursiveInput!) {\n\trecur(input: $input) {\n\t\tnext {\n\t\t\tnext {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n}\n"
+const RecursiveRepository_Operation = `
+query RecursiveRepository ($input: RecursiveInput!) {
+	recur(input: $input) {
+		next {
+			next {
+				id
+			}
+		}
+	}
+}
+`
 
 // RecursiveRepositoryPartialDataError contains partial data returned by RecursiveRepository.
 type RecursiveRepositoryPartialDataError struct {
@@ -3094,7 +3157,29 @@ func RecursiveRepository(
 }
 
 // The query executed by RepositoryEventCovariance.
-const RepositoryEventCovariance_Operation = "\nquery RepositoryEventCovariance {\n\tlatestRepositoryEvent {\n\t\t__typename\n\t\tsubject {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\trelatedSubjects {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\t... on RepositoryEvent {\n\t\t\trepositorySubject: subject {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t\trelatedRepositories: relatedSubjects {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t}\n\t}\n}\n"
+const RepositoryEventCovariance_Operation = `
+query RepositoryEventCovariance {
+	latestRepositoryEvent {
+		__typename
+		subject {
+			__typename
+			id
+		}
+		relatedSubjects {
+			__typename
+			id
+		}
+		... on RepositoryEvent {
+			repositorySubject: subject {
+				nameWithOwner
+			}
+			relatedRepositories: relatedSubjects {
+				nameWithOwner
+			}
+		}
+	}
+}
+`
 
 // RepositoryEventCovariancePartialDataError contains partial data returned by RepositoryEventCovariance.
 type RepositoryEventCovariancePartialDataError struct {
@@ -3149,7 +3234,50 @@ func RepositoryEventCovariance(
 }
 
 // The query executed by SearchRepositories.
-const SearchRepositories_Operation = "\nquery SearchRepositories ($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {\n\tsearch(query: $query, type: REPOSITORY, first: $first, after: $after) {\n\t\tnodes {\n\t\t\t__typename\n\t\t\t... on Repository {\n\t\t\t\trepoName: nameWithOwner\n\t\t\t\towner {\n\t\t\t\t\t__typename\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\tparent {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on Issue {\n\t\t\t\tissueTitle: title\n\t\t\t\trepository {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on PullRequest {\n\t\t\t\tpullRequestTitle: title\n\t\t\t\tmergeCommit {\n\t\t\t\t\toid\n\t\t\t\t\tparents {\n\t\t\t\t\t\toid\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tpageInfo {\n\t\t\thasNextPage\n\t\t\tendCursor\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $publishedAfter) {\n\t\tname\n\t\tpublishedAt\n\t}\n\tgetJSON\n\tgetComplexJSON\n}\n"
+const SearchRepositories_Operation = `
+query SearchRepositories ($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {
+	search(query: $query, type: REPOSITORY, first: $first, after: $after) {
+		nodes {
+			__typename
+			... on Repository {
+				repoName: nameWithOwner
+				owner {
+					__typename
+					login
+				}
+				parent {
+					nameWithOwner
+				}
+			}
+			... on Issue {
+				issueTitle: title
+				repository {
+					nameWithOwner
+				}
+			}
+			... on PullRequest {
+				pullRequestTitle: title
+				mergeCommit {
+					oid
+					parents {
+						oid
+					}
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+	}
+	latestRelease(publishedAfter: $publishedAfter) {
+		name
+		publishedAt
+	}
+	getJSON
+	getComplexJSON
+}
+`
 
 // SearchRepositoriesPartialDataError contains partial data returned by SearchRepositories.
 type SearchRepositoriesPartialDataError struct {

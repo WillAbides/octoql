@@ -92,7 +92,29 @@ func (v *GitHubNamingResponseSnake_case_type) GetName() string { return v.Name }
 type SecondRepository string
 
 // The query executed by GitHubNaming.
-const GitHubNaming_Operation = "\nquery GitHubNaming {\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n\tfirst: repository(owner: \"octo\", name: \"one\") {\n\t\tnameWithOwner\n\t}\n\tsecond: repository(owner: \"octo\", name: \"two\") {\n\t\tnameWithOwner\n\t}\n\tsnake_case_type {\n\t\tid\n\t\tname\n\t}\n\tobject {\n\t\tsnake_case_field {\n\t\t\tid\n\t\t}\n\t}\n}\n"
+const GitHubNaming_Operation = `
+query GitHubNaming {
+	account {
+		id
+		login
+	}
+	first: repository(owner: "octo", name: "one") {
+		nameWithOwner
+	}
+	second: repository(owner: "octo", name: "two") {
+		nameWithOwner
+	}
+	snake_case_type {
+		id
+		name
+	}
+	object {
+		snake_case_field {
+			id
+		}
+	}
+}
+`
 
 // GitHubNamingPartialDataError contains partial data returned by GitHubNaming.
 type GitHubNamingPartialDataError struct {
