@@ -246,19 +246,21 @@ func (e *ResponseError) Unwrap() error {
 	return e.err
 }
 
-func newResponseError(
-	statusCode int,
-	requestID string,
-	body []byte,
-	retainBody bool,
-	bodyTruncated bool,
-	err error,
-) *ResponseError {
+type responseErrorParams struct {
+	statusCode    int
+	requestID     string
+	body          []byte
+	retainBody    bool
+	bodyTruncated bool
+	err           error
+}
+
+func newResponseError(params responseErrorParams) *ResponseError {
 	var rawBody []byte
 	isTruncated := false
-	if retainBody {
-		rawBody = body
-		isTruncated = bodyTruncated
+	if params.retainBody {
+		rawBody = params.body
+		isTruncated = params.bodyTruncated
 		if len(rawBody) > maxResponseErrorRawBody {
 			rawBody = rawBody[:maxResponseErrorRawBody]
 			isTruncated = true
@@ -267,10 +269,10 @@ func newResponseError(
 	}
 
 	return &ResponseError{
-		StatusCode:       statusCode,
-		RequestID:        requestID,
+		StatusCode:       params.statusCode,
+		RequestID:        params.requestID,
 		RawBody:          rawBody,
 		RawBodyTruncated: isTruncated,
-		err:              err,
+		err:              params.err,
 	}
 }

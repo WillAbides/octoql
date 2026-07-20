@@ -153,27 +153,21 @@ func (c *Client) Execute(ctx context.Context, payload Payload, response any) (bo
 	requestID := requestIDFromHeader(httpResponse.Header)
 	if sendErr != nil {
 		cause := fmt.Errorf("send graphql request: %w", sendErr)
-		responseError := newResponseError(
-			statusCode,
-			requestID,
-			nil,
-			false,
-			false,
-			cause,
-		)
+		responseError := newResponseError(responseErrorParams{
+			statusCode: statusCode,
+			requestID:  requestID,
+			err:        cause,
+		})
 		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
 	if httpResponse.Body == nil {
 		cause := errors.New("read graphql response: response body is nil")
-		responseError := newResponseError(
-			statusCode,
-			requestID,
-			nil,
-			false,
-			false,
-			cause,
-		)
+		responseError := newResponseError(responseErrorParams{
+			statusCode: statusCode,
+			requestID:  requestID,
+			err:        cause,
+		})
 		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
@@ -184,14 +178,14 @@ func (c *Client) Execute(ctx context.Context, payload Payload, response any) (bo
 	if readErr != nil {
 		cause := errors.Join(readErr, closeErr)
 		_, responseTooLarge := errors.AsType[*ResponseSizeLimitError](readErr)
-		responseError := newResponseError(
-			statusCode,
-			requestID,
-			body,
-			true,
-			responseTooLarge,
-			cause,
-		)
+		responseError := newResponseError(responseErrorParams{
+			statusCode:    statusCode,
+			requestID:     requestID,
+			body:          body,
+			retainBody:    true,
+			bodyTruncated: responseTooLarge,
+			err:           cause,
+		})
 		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
@@ -227,14 +221,13 @@ func (c *Client) Execute(ctx context.Context, payload Payload, response any) (bo
 
 	hasDecodeFailure := decodeErr != nil || missingPayload
 	retainBody := !isSuccessful || hasDecodeFailure
-	responseError := newResponseError(
-		statusCode,
-		requestID,
-		body,
-		retainBody,
-		false,
-		cause,
-	)
+	responseError := newResponseError(responseErrorParams{
+		statusCode: statusCode,
+		requestID:  requestID,
+		body:       body,
+		retainBody: retainBody,
+		err:        cause,
+	})
 	return hasUsableData, classifyRateLimit(statusCode, &rateLimit, responseError)
 }
 
