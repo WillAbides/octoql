@@ -67,14 +67,7 @@ func (v *getViewerViewerUser) GetMyName() string { return v.MyName }
 func (v *getViewerViewerUser) GetCreatedAt() time.Time { return v.CreatedAt }
 
 // The query executed by getUser.
-const getUser_Operation = `
-query getUser ($Login: String!) {
-	user(login: $Login) {
-		theirName: name
-		createdAt
-	}
-}
-`
+const getUser_Operation = "\nquery getUser ($Login: String!) {\n\tuser(login: $Login) {\n\t\ttheirName: name\n\t\tcreatedAt\n\t}\n}\n"
 
 // getUserPartialDataError contains partial data returned by getUser.
 type getUserPartialDataError struct {
@@ -132,14 +125,7 @@ func getUser(
 }
 
 // The query executed by getViewer.
-const getViewer_Operation = `
-query getViewer {
-	viewer {
-		MyName: name
-		createdAt
-	}
-}
-`
+const getViewer_Operation = "\nquery getViewer {\n\tviewer {\n\t\tMyName: name\n\t\tcreatedAt\n\t}\n}\n"
 
 // getViewerPartialDataError contains partial data returned by getViewer.
 type getViewerPartialDataError struct {
