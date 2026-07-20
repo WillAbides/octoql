@@ -4278,18 +4278,7 @@ func (v *userFields) __premarshalJSON() (*__premarshaluserFields, error) {
 }
 
 // The mutation executed by addComment.
-const addComment_Operation = `
-mutation addComment ($input: AddCommentInput!) {
-	addComment(input: $input) {
-		commentEdge {
-			node {
-				id
-				body
-			}
-		}
-	}
-}
-`
+const addComment_Operation = "\nmutation addComment ($input: AddCommentInput!) {\n\taddComment(input: $input) {\n\t\tcommentEdge {\n\t\t\tnode {\n\t\t\t\tid\n\t\t\t\tbody\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // addCommentPartialDataError contains partial data returned by addComment.
 type addCommentPartialDataError struct {
@@ -4346,18 +4335,7 @@ func addComment(
 }
 
 // The mutation executed by addStar.
-const addStar_Operation = `
-mutation addStar ($input: AddStarInput!) {
-	addStar(input: $input) {
-		starrable {
-			__typename
-			id
-			stargazerCount
-			viewerHasStarred
-		}
-	}
-}
-`
+const addStar_Operation = "\nmutation addStar ($input: AddStarInput!) {\n\taddStar(input: $input) {\n\t\tstarrable {\n\t\t\t__typename\n\t\t\tid\n\t\t\tstargazerCount\n\t\t\tviewerHasStarred\n\t\t}\n\t}\n}\n"
 
 // addStarPartialDataError contains partial data returned by addStar.
 type addStarPartialDataError struct {
@@ -4414,14 +4392,7 @@ func addStar(
 }
 
 // The query executed by failingQuery.
-const failingQuery_Operation = `
-query failingQuery {
-	fail
-	viewer {
-		id
-	}
-}
-`
+const failingQuery_Operation = "\nquery failingQuery {\n\tfail\n\tviewer {\n\t\tid\n\t}\n}\n"
 
 // failingQueryPartialDataError contains partial data returned by failingQuery.
 type failingQueryPartialDataError struct {
@@ -4477,19 +4448,7 @@ func failingQuery(
 }
 
 // The query executed by getRepository.
-const getRepository_Operation = `
-query getRepository ($owner: String!, $name: String!) {
-	repository(owner: $owner, name: $name) {
-		id
-		name
-		nameWithOwner
-		owner {
-			__typename
-			login
-		}
-	}
-}
-`
+const getRepository_Operation = "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tid\n\t\tname\n\t\tnameWithOwner\n\t\towner {\n\t\t\t__typename\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
 
 // getRepositoryPartialDataError contains partial data returned by getRepository.
 type getRepositoryPartialDataError struct {
@@ -4546,15 +4505,7 @@ func getRepository(
 }
 
 // The query executed by queryWithCustomMarshal.
-const queryWithCustomMarshal_Operation = `
-query queryWithCustomMarshal ($date: Date!) {
-	usersCreatedOn(date: $date) {
-		id
-		login
-		createdAt
-	}
-}
-`
+const queryWithCustomMarshal_Operation = "\nquery queryWithCustomMarshal ($date: Date!) {\n\tusersCreatedOn(date: $date) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n"
 
 // queryWithCustomMarshalPartialDataError contains partial data returned by queryWithCustomMarshal.
 type queryWithCustomMarshalPartialDataError struct {
@@ -4611,15 +4562,7 @@ func queryWithCustomMarshal(
 }
 
 // The query executed by queryWithCustomMarshalOptional.
-const queryWithCustomMarshalOptional_Operation = `
-query queryWithCustomMarshalOptional ($date: Date, $login: String) {
-	userSearch(createdOn: $date, login: $login) {
-		id
-		login
-		createdAt
-	}
-}
-`
+const queryWithCustomMarshalOptional_Operation = "\nquery queryWithCustomMarshalOptional ($date: Date, $login: String) {\n\tuserSearch(createdOn: $date, login: $login) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n"
 
 // queryWithCustomMarshalOptionalPartialDataError contains partial data returned by queryWithCustomMarshalOptional.
 type queryWithCustomMarshalOptionalPartialDataError struct {
@@ -4676,15 +4619,7 @@ func queryWithCustomMarshalOptional(
 }
 
 // The query executed by queryWithCustomMarshalSlice.
-const queryWithCustomMarshalSlice_Operation = `
-query queryWithCustomMarshalSlice ($dates: [Date!]!) {
-	usersCreatedOnDates(dates: $dates) {
-		id
-		login
-		createdAt
-	}
-}
-`
+const queryWithCustomMarshalSlice_Operation = "\nquery queryWithCustomMarshalSlice ($dates: [Date!]!) {\n\tusersCreatedOnDates(dates: $dates) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n"
 
 // queryWithCustomMarshalSlicePartialDataError contains partial data returned by queryWithCustomMarshalSlice.
 type queryWithCustomMarshalSlicePartialDataError struct {
@@ -4741,49 +4676,7 @@ func queryWithCustomMarshalSlice(
 }
 
 // The query executed by queryWithFlatten.
-const queryWithFlatten_Operation = `
-query queryWithFlatten ($ids: [ID!]!) {
-	... queryFragment
-}
-fragment queryFragment on Query {
-	actors(ids: $ids) {
-		__typename
-		id
-		... flattenedUserFields
-		... on Organization {
-			topContributor {
-				__typename
-				... actorFields
-			}
-		}
-	}
-}
-fragment flattenedUserFields on User {
-	... flattenedRepositoryOwnerFields
-}
-fragment actorFields on Actor {
-	... innerActorFields
-}
-fragment flattenedRepositoryOwnerFields on RepositoryOwner {
-	... innerRepositoryOwnerFields
-}
-fragment innerActorFields on Actor {
-	id
-	login
-	... on User {
-		repositories {
-			... repositoriesFields
-		}
-	}
-}
-fragment innerRepositoryOwnerFields on RepositoryOwner {
-	contributionCount
-}
-fragment repositoriesFields on Repository {
-	id
-	name
-}
-`
+const queryWithFlatten_Operation = "\nquery queryWithFlatten ($ids: [ID!]!) {\n\t... queryFragment\n}\nfragment queryFragment on Query {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... flattenedUserFields\n\t\t... on Organization {\n\t\t\ttopContributor {\n\t\t\t\t__typename\n\t\t\t\t... actorFields\n\t\t\t}\n\t\t}\n\t}\n}\nfragment flattenedUserFields on User {\n\t... flattenedRepositoryOwnerFields\n}\nfragment actorFields on Actor {\n\t... innerActorFields\n}\nfragment flattenedRepositoryOwnerFields on RepositoryOwner {\n\t... innerRepositoryOwnerFields\n}\nfragment innerActorFields on Actor {\n\tid\n\tlogin\n\t... on User {\n\t\trepositories {\n\t\t\t... repositoriesFields\n\t\t}\n\t}\n}\nfragment innerRepositoryOwnerFields on RepositoryOwner {\n\tcontributionCount\n}\nfragment repositoriesFields on Repository {\n\tid\n\tname\n}\n"
 
 // queryWithFlattenPartialDataError contains partial data returned by queryWithFlatten.
 type queryWithFlattenPartialDataError struct {
@@ -4840,42 +4733,7 @@ func queryWithFlatten(
 }
 
 // The query executed by queryWithFragments.
-const queryWithFragments_Operation = `
-query queryWithFragments ($ids: [ID!]!) {
-	actors(ids: $ids) {
-		__typename
-		id
-		... on Actor {
-			id
-			login
-		}
-		... on Organization {
-			id
-			plan {
-				name
-			}
-			topContributor {
-				__typename
-				id
-				... on Actor {
-					login
-				}
-				... on User {
-					contributionCount
-				}
-			}
-		}
-		... on RepositoryOwner {
-			contributionCount
-		}
-		... on User {
-			status {
-				emoji
-			}
-		}
-	}
-}
-`
+const queryWithFragments_Operation = "\nquery queryWithFragments ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... on Actor {\n\t\t\tid\n\t\t\tlogin\n\t\t}\n\t\t... on Organization {\n\t\t\tid\n\t\t\tplan {\n\t\t\t\tname\n\t\t\t}\n\t\t\ttopContributor {\n\t\t\t\t__typename\n\t\t\t\tid\n\t\t\t\t... on Actor {\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\t... on User {\n\t\t\t\t\tcontributionCount\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\t... on RepositoryOwner {\n\t\t\tcontributionCount\n\t\t}\n\t\t... on User {\n\t\t\tstatus {\n\t\t\t\temoji\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // queryWithFragmentsPartialDataError contains partial data returned by queryWithFragments.
 type queryWithFragmentsPartialDataError struct {
@@ -4932,15 +4790,7 @@ func queryWithFragments(
 }
 
 // The query executed by queryWithInterfaceListField.
-const queryWithInterfaceListField_Operation = `
-query queryWithInterfaceListField ($ids: [ID!]!) {
-	actors(ids: $ids) {
-		__typename
-		id
-		login
-	}
-}
-`
+const queryWithInterfaceListField_Operation = "\nquery queryWithInterfaceListField ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\tlogin\n\t}\n}\n"
 
 // queryWithInterfaceListFieldPartialDataError contains partial data returned by queryWithInterfaceListField.
 type queryWithInterfaceListFieldPartialDataError struct {
@@ -4997,15 +4847,7 @@ func queryWithInterfaceListField(
 }
 
 // The query executed by queryWithInterfaceListPointerField.
-const queryWithInterfaceListPointerField_Operation = `
-query queryWithInterfaceListPointerField ($ids: [ID!]!) {
-	actors(ids: $ids) {
-		__typename
-		id
-		login
-	}
-}
-`
+const queryWithInterfaceListPointerField_Operation = "\nquery queryWithInterfaceListPointerField ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\tlogin\n\t}\n}\n"
 
 // queryWithInterfaceListPointerFieldPartialDataError contains partial data returned by queryWithInterfaceListPointerField.
 type queryWithInterfaceListPointerFieldPartialDataError struct {
@@ -5062,19 +4904,7 @@ func queryWithInterfaceListPointerField(
 }
 
 // The query executed by queryWithInterfaceNoFragments.
-const queryWithInterfaceNoFragments_Operation = `
-query queryWithInterfaceNoFragments ($id: ID!) {
-	actor(id: $id) {
-		__typename
-		id
-		login
-	}
-	viewer {
-		id
-		login
-	}
-}
-`
+const queryWithInterfaceNoFragments_Operation = "\nquery queryWithInterfaceNoFragments ($id: ID!) {\n\tactor(id: $id) {\n\t\t__typename\n\t\tid\n\t\tlogin\n\t}\n\tviewer {\n\t\tid\n\t\tlogin\n\t}\n}\n"
 
 // queryWithInterfaceNoFragmentsPartialDataError contains partial data returned by queryWithInterfaceNoFragments.
 type queryWithInterfaceNoFragmentsPartialDataError struct {
@@ -5131,43 +4961,7 @@ func queryWithInterfaceNoFragments(
 }
 
 // The query executed by queryWithNamedFragments.
-const queryWithNamedFragments_Operation = `
-query queryWithNamedFragments ($ids: [ID!]!) {
-	actors(ids: $ids) {
-		__typename
-		id
-		... organizationFields
-		... userFields
-	}
-}
-fragment organizationFields on Organization {
-	id
-	plan {
-		name
-	}
-	topContributor {
-		__typename
-		id
-		... userFields
-		... repositoryOwnerFields
-	}
-}
-fragment userFields on User {
-	id
-	... repositoryOwnerFields
-	... moreUserFields
-}
-fragment repositoryOwnerFields on RepositoryOwner {
-	... moreUserFields
-	contributionCount
-}
-fragment moreUserFields on User {
-	id
-	status {
-		emoji
-	}
-}
-`
+const queryWithNamedFragments_Operation = "\nquery queryWithNamedFragments ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... organizationFields\n\t\t... userFields\n\t}\n}\nfragment organizationFields on Organization {\n\tid\n\tplan {\n\t\tname\n\t}\n\ttopContributor {\n\t\t__typename\n\t\tid\n\t\t... userFields\n\t\t... repositoryOwnerFields\n\t}\n}\nfragment userFields on User {\n\tid\n\t... repositoryOwnerFields\n\t... moreUserFields\n}\nfragment repositoryOwnerFields on RepositoryOwner {\n\t... moreUserFields\n\tcontributionCount\n}\nfragment moreUserFields on User {\n\tid\n\tstatus {\n\t\temoji\n\t}\n}\n"
 
 // queryWithNamedFragmentsPartialDataError contains partial data returned by queryWithNamedFragments.
 type queryWithNamedFragmentsPartialDataError struct {
@@ -5224,15 +5018,7 @@ func queryWithNamedFragments(
 }
 
 // The query executed by queryWithOmitempty.
-const queryWithOmitempty_Operation = `
-query queryWithOmitempty ($login: String) {
-	user(login: $login) {
-		id
-		login
-		contributionCount
-	}
-}
-`
+const queryWithOmitempty_Operation = "\nquery queryWithOmitempty ($login: String) {\n\tuser(login: $login) {\n\t\tid\n\t\tlogin\n\t\tcontributionCount\n\t}\n}\n"
 
 // queryWithOmitemptyPartialDataError contains partial data returned by queryWithOmitempty.
 type queryWithOmitemptyPartialDataError struct {
@@ -5289,31 +5075,7 @@ func queryWithOmitempty(
 }
 
 // The query executed by queryWithSearch.
-const queryWithSearch_Operation = `
-query queryWithSearch ($query: String!, $searchType: SearchType!) {
-	search(query: $query, type: $searchType) {
-		__typename
-		... on Node {
-			id
-		}
-		... on Repository {
-			name
-			stargazerCount
-		}
-		... on Issue {
-			title
-			issueState: state
-		}
-		... on PullRequest {
-			title
-			pullRequestState: state
-		}
-		... on Actor {
-			login
-		}
-	}
-}
-`
+const queryWithSearch_Operation = "\nquery queryWithSearch ($query: String!, $searchType: SearchType!) {\n\tsearch(query: $query, type: $searchType) {\n\t\t__typename\n\t\t... on Node {\n\t\t\tid\n\t\t}\n\t\t... on Repository {\n\t\t\tname\n\t\t\tstargazerCount\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t\tissueState: state\n\t\t}\n\t\t... on PullRequest {\n\t\t\ttitle\n\t\t\tpullRequestState: state\n\t\t}\n\t\t... on Actor {\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
 
 // queryWithSearchPartialDataError contains partial data returned by queryWithSearch.
 type queryWithSearchPartialDataError struct {
@@ -5370,15 +5132,7 @@ func queryWithSearch(
 }
 
 // The query executed by queryWithVariables.
-const queryWithVariables_Operation = `
-query queryWithVariables ($login: String!) {
-	user(login: $login) {
-		id
-		login
-		contributionCount
-	}
-}
-`
+const queryWithVariables_Operation = "\nquery queryWithVariables ($login: String!) {\n\tuser(login: $login) {\n\t\tid\n\t\tlogin\n\t\tcontributionCount\n\t}\n}\n"
 
 // queryWithVariablesPartialDataError contains partial data returned by queryWithVariables.
 type queryWithVariablesPartialDataError struct {
@@ -5435,18 +5189,7 @@ func queryWithVariables(
 }
 
 // The mutation executed by removeStar.
-const removeStar_Operation = `
-mutation removeStar ($input: RemoveStarInput!) {
-	removeStar(input: $input) {
-		starrable {
-			__typename
-			id
-			stargazerCount
-			viewerHasStarred
-		}
-	}
-}
-`
+const removeStar_Operation = "\nmutation removeStar ($input: RemoveStarInput!) {\n\tremoveStar(input: $input) {\n\t\tstarrable {\n\t\t\t__typename\n\t\t\tid\n\t\t\tstargazerCount\n\t\t\tviewerHasStarred\n\t\t}\n\t}\n}\n"
 
 // removeStarPartialDataError contains partial data returned by removeStar.
 type removeStarPartialDataError struct {

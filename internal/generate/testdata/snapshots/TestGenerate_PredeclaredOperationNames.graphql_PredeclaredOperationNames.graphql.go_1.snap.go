@@ -42,13 +42,7 @@ type newViewerUser struct {
 func (v *newViewerUser) GetId() testutil.ID { return v.Id }
 
 // The query executed by any.
-const any_Operation = `
-query any {
-	viewer {
-		id
-	}
-}
-`
+const any_Operation = "\nquery any {\n\tviewer {\n\t\tid\n\t}\n}\n"
 
 // anyPartialDataError contains partial data returned by any.
 type anyPartialDataError struct {
@@ -103,13 +97,7 @@ func any(
 }
 
 // The query executed by new.
-const new_Operation = `
-query new {
-	viewer {
-		id
-	}
-}
-`
+const new_Operation = "\nquery new {\n\tviewer {\n\t\tid\n\t}\n}\n"
 
 // newPartialDataError contains partial data returned by new.
 type newPartialDataError struct {

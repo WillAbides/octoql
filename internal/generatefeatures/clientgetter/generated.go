@@ -34,13 +34,7 @@ type getRepositoryVariables struct {
 }
 
 // The query executed by getRepository.
-const getRepository_Operation = `
-query getRepository ($owner: String!, $name: String!) {
-	repository(owner: $owner, name: $name) {
-		nameWithOwner
-	}
-}
-`
+const getRepository_Operation = "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tnameWithOwner\n\t}\n}\n"
 
 // getRepositoryPartialDataError contains partial data returned by getRepository.
 type getRepositoryPartialDataError struct {
