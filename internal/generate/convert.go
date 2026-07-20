@@ -252,13 +252,17 @@ func (g *generator) convertType(
 	localBinding := options.Bind
 	if localBinding != "" && localBinding != "-" {
 		goRef, err := g.ref(localBinding)
+		if err != nil {
+			return nil, err
+		}
 		// TODO(benkraft): Add syntax to specify a custom (un)marshaler, if
 		// it proves useful.
-		return &goOpaqueType{
+		goTyp := &goOpaqueType{
 			GoRef:          goRef,
 			QualifiedGoRef: localBinding,
 			GraphQLName:    typ.Name(),
-		}, err
+		}
+		return applyPointerSelection(goTyp, typ, options), nil
 	}
 
 	if typ.Elem != nil {
@@ -289,14 +293,24 @@ func (g *generator) convertType(
 		}
 		return goTyp, nil
 	}
-	if !options.PointerIsFalse() && (options.GetPointer() || !typ.NonNull) {
-		// Whatever we get, wrap it in a pointer.  (Because of the way the
-		// options work, recursing here isn't as convenient.)
-		// Note this does []*T or [][]*T, not e.g. *[][]T.  See #16.
-		goTyp = &goPointerType{goTyp}
-	}
+	// Lists recurse before this point, so pointer selection applies to nullable
+	// elements rather than slice containers. Whole-field local bindings apply it
+	// before list recursion.
+	return applyPointerSelection(goTyp, typ, options), nil
+}
 
-	return goTyp, nil
+func applyPointerSelection(
+	goTyp goType,
+	typ *ast.Type,
+	options *octoqlgenDirective,
+) goType {
+	if options.PointerIsFalse() {
+		return goTyp
+	}
+	if !options.GetPointer() && typ.NonNull {
+		return goTyp
+	}
+	return &goPointerType{goTyp}
 }
 
 // getStructReference decides if a field should be of pointer type and have the omitempty flag set.

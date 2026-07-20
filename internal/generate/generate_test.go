@@ -773,6 +773,54 @@ query PointerDefaults(
 	require.NoError(t, buildGoFile("pointer-defaults", outputs[config.Generated]))
 }
 
+func TestGeneratedLocalBindingsRespectPointerSelection(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	err := os.WriteFile(schemaPath, []byte(`
+type Query {
+  nullableDefault: String
+  nullableOptOut: String
+  nonNullDefault: String!
+  nonNullPointer: String!
+  nullableList: [String]
+}
+`), 0o600)
+	require.NoError(t, err)
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(operationPath, []byte(`
+query LocalBindings {
+  # @octoqlgen(bind: "string")
+  nullableDefault
+  # @octoqlgen(bind: "string", pointer: false)
+  nullableOptOut
+  # @octoqlgen(bind: "string")
+  nonNullDefault
+  # @octoqlgen(bind: "string", pointer: true)
+  nonNullPointer
+  # @octoqlgen(bind: "[]string")
+  nullableList
+}
+`), 0o600)
+	require.NoError(t, err)
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(tempDir, "generated.go"),
+		Package:     "localbindings",
+		ContextType: "-",
+	}
+	outputs, err := Generate(config)
+	require.NoError(t, err)
+	source := string(outputs[config.Generated])
+	assert.Regexp(t, `NullableDefault\s+\*string`, source)
+	assert.Regexp(t, `NullableOptOut\s+string`, source)
+	assert.Regexp(t, `NonNullDefault\s+string`, source)
+	assert.Regexp(t, `NonNullPointer\s+\*string`, source)
+	assert.Regexp(t, `NullableList\s+\*\[\]string`, source)
+	require.NoError(t, buildGoFile("local-binding-pointers", outputs[config.Generated]))
+}
+
 func TestGeneratedTypenameIsNonNull(t *testing.T) {
 	tempDir := t.TempDir()
 	schemaPath := filepath.Join(tempDir, "schema.graphql")

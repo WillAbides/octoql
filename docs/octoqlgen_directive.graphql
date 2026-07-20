@@ -186,6 +186,9 @@ directive octoqlgen(
   # (But you're not required to; if you want to map to some type DateList,
   # you can do that, as long as its UnmarshalJSON method can accept a list
   # of datetimes.)
+  # Nullability and the pointer option apply to the bound type. Nullable fields
+  # default to a pointer to the bound type, `pointer: false` opts out, and
+  # `pointer: true` forces a pointer for a non-null field.
   #
   # Note that the type you bind to must be defined elsewhere in your code.
   # If you want octoqlgen to create the type definition, use "typename"
