@@ -95,8 +95,10 @@ directive octoqlgen(
   omitempty: Boolean
 
   # Nullable named values and nullable list elements use pointer types in Go
-  # by default. Set this to false on a specific argument or field to opt out.
-  # The omitempty setting remains independent of pointer selection.
+  # by default. Generated abstract interface values are never wrapped in
+  # pointers because a nil interface already represents GraphQL null. Set this
+  # to false on a specific argument or field to opt out for other types. The
+  # omitempty setting remains independent of pointer selection.
   #
   # This can be useful if it's a type you'll need to pass around (and want a
   # pointer to save copies) or if you wish to distinguish between the Go

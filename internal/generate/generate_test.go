@@ -773,6 +773,61 @@ query PointerDefaults(
 	require.NoError(t, buildGoFile("pointer-defaults", outputs[config.Generated]))
 }
 
+func TestGeneratedAbstractValuesAreInterfaces(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	err := os.WriteFile(schemaPath, []byte(`
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+}
+
+type Query {
+  nullableNode: Node
+  nullableNodes: [Node]
+  forcedNode: Node!
+}
+`), 0o600)
+	require.NoError(t, err)
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(operationPath, []byte(`
+query AbstractValues {
+  nullableNode {
+    id
+  }
+  nullableNodes {
+    id
+  }
+  # @octoqlgen(pointer: true)
+  forcedNode {
+    id
+  }
+}
+`), 0o600)
+	require.NoError(t, err)
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(tempDir, "generated.go"),
+		Package:     "abstractvalues",
+		ContextType: "-",
+	}
+	outputs, err := Generate(config)
+	require.NoError(t, err)
+	source := string(outputs[config.Generated])
+	assert.Regexp(t, `NullableNode\s+AbstractValuesNullableNode`, source)
+	assert.NotRegexp(t, `NullableNode\s+\*AbstractValuesNullableNode`, source)
+	assert.Regexp(t, `NullableNodes\s+\[\]AbstractValuesNullableNodesNode`, source)
+	assert.NotRegexp(t, `NullableNodes\s+\[\]\*AbstractValuesNullableNodesNode`, source)
+	assert.Regexp(t, `ForcedNode\s+AbstractValuesForcedNode`, source)
+	assert.NotRegexp(t, `ForcedNode\s+\*AbstractValuesForcedNode`, source)
+	require.NoError(t, buildGoFile("abstract-values", outputs[config.Generated]))
+}
+
 func TestGeneratedLocalBindingsRespectPointerSelection(t *testing.T) {
 	tempDir := t.TempDir()
 	schemaPath := filepath.Join(tempDir, "schema.graphql")

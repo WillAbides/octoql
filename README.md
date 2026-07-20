@@ -412,9 +412,11 @@ GraphQL's built-in scalars map to ordinary Go values:
 | `String`, `ID` | `string` |
 | `Boolean` | `bool` |
 
-Nullable named values generate as pointers by default. Nullable list values
-remain slices so GraphQL `null` and `[]` map to nil and empty slices,
-respectively; nullable list elements generate as pointers. Use
+Nullable named values generate as pointers by default. Generated abstract
+interface values are the exception: their nil interface value represents
+GraphQL null, so they are never wrapped in pointers. Nullable list values remain
+slices so GraphQL `null` and `[]` map to nil and empty slices, respectively;
+nullable non-interface list elements generate as pointers. Use
 `@octoqlgen(pointer: false)` on a specific operation argument or selected field
 when its zero value should represent GraphQL null. The `omitempty` directive
 remains independent and explicit.

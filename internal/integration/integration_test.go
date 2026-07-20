@@ -92,18 +92,18 @@ func TestStarMutations(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, starResponse.AddStar.Starrable)
-	assert.Equal(t, "10", (*starResponse.AddStar.Starrable).GetId())
-	assert.True(t, (*starResponse.AddStar.Starrable).GetViewerHasStarred())
-	assert.Equal(t, 43, (*starResponse.AddStar.Starrable).GetStargazerCount())
+	assert.Equal(t, "10", starResponse.AddStar.Starrable.GetId())
+	assert.True(t, starResponse.AddStar.Starrable.GetViewerHasStarred())
+	assert.Equal(t, 43, starResponse.AddStar.Starrable.GetStargazerCount())
 
 	unstarResponse, err := removeStar(ctx, postClient, removeStarVariables{
 		Input: gqlserver.RemoveStarInput{StarrableID: "10"},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, unstarResponse.RemoveStar.Starrable)
-	assert.Equal(t, "10", (*unstarResponse.RemoveStar.Starrable).GetId())
-	assert.False(t, (*unstarResponse.RemoveStar.Starrable).GetViewerHasStarred())
-	assert.Equal(t, 42, (*unstarResponse.RemoveStar.Starrable).GetStargazerCount())
+	assert.Equal(t, "10", unstarResponse.RemoveStar.Starrable.GetId())
+	assert.False(t, unstarResponse.RemoveStar.Starrable.GetViewerHasStarred())
+	assert.Equal(t, 42, unstarResponse.RemoveStar.Starrable.GetStargazerCount())
 }
 
 func TestServerError(t *testing.T) {
@@ -336,7 +336,7 @@ func TestInterfaceNoFragments(t *testing.T) {
 
 		// Check fields both via interface and via type-assertion:
 		require.NotNil(t, response.Actor)
-		actor := *response.Actor
+		actor := response.Actor
 		assert.Equal(t, "User", actor.GetTypename())
 		assert.Equal(t, "1", actor.GetId())
 		assert.Equal(t, "octocat", actor.GetLogin())
@@ -359,7 +359,7 @@ func TestInterfaceNoFragments(t *testing.T) {
 		assert.Equal(t, "octocat", response.Viewer.Login)
 
 		require.NotNil(t, response.Actor)
-		actor = *response.Actor
+		actor = response.Actor
 		assert.Equal(t, "Organization", actor.GetTypename())
 		assert.Equal(t, "3", actor.GetId())
 		assert.Equal(t, "octo-org", actor.GetLogin())
@@ -411,22 +411,22 @@ func TestInterfaceListField(t *testing.T) {
 
 		// Check fields both via interface and via type-assertion:
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
-		assert.Equal(t, "1", (*response.Actors[0]).GetId())
-		assert.Equal(t, "octocat", (*response.Actors[0]).GetLogin())
+		assert.Equal(t, "User", response.Actors[0].GetTypename())
+		assert.Equal(t, "1", response.Actors[0].GetId())
+		assert.Equal(t, "octocat", response.Actors[0].GetLogin())
 
-		user, ok := (*response.Actors[0]).(*queryWithInterfaceListFieldActorsUser)
-		require.Truef(t, ok, "got %T, not User", *response.Actors[0])
+		user, ok := response.Actors[0].(*queryWithInterfaceListFieldActorsUser)
+		require.Truef(t, ok, "got %T, not User", response.Actors[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "octocat", user.Login)
 
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
-		assert.Equal(t, "3", (*response.Actors[1]).GetId())
-		assert.Equal(t, "octo-org", (*response.Actors[1]).GetLogin())
+		assert.Equal(t, "Organization", response.Actors[1].GetTypename())
+		assert.Equal(t, "3", response.Actors[1].GetId())
+		assert.Equal(t, "octo-org", response.Actors[1].GetLogin())
 
-		org, ok := (*response.Actors[1]).(*queryWithInterfaceListFieldActorsOrganization)
-		require.Truef(t, ok, "got %T, not Organization", *response.Actors[1])
+		org, ok := response.Actors[1].(*queryWithInterfaceListFieldActorsOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Actors[1])
 		assert.Equal(t, "3", org.Id)
 		assert.Equal(t, "octo-org", org.Login)
 
@@ -458,21 +458,21 @@ func TestInterfaceListPointerField(t *testing.T) {
 
 		// Check fields both via interface and via type-assertion:
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
-		assert.Equal(t, "1", (*response.Actors[0]).GetId())
-		assert.Equal(t, "octocat", (*response.Actors[0]).GetLogin())
+		assert.Equal(t, "User", response.Actors[0].GetTypename())
+		assert.Equal(t, "1", response.Actors[0].GetId())
+		assert.Equal(t, "octocat", response.Actors[0].GetLogin())
 
-		user, ok := (*response.Actors[0]).(*queryWithInterfaceListPointerFieldActorsUser)
-		require.Truef(t, ok, "got %T, not User", *response.Actors[0])
+		user, ok := response.Actors[0].(*queryWithInterfaceListPointerFieldActorsUser)
+		require.Truef(t, ok, "got %T, not User", response.Actors[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "octocat", user.Login)
 
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
-		assert.Equal(t, "3", (*response.Actors[1]).GetId())
-		assert.Equal(t, "octo-org", (*response.Actors[1]).GetLogin())
+		assert.Equal(t, "Organization", response.Actors[1].GetTypename())
+		assert.Equal(t, "3", response.Actors[1].GetId())
+		assert.Equal(t, "octo-org", response.Actors[1].GetLogin())
 
-		org, ok := (*response.Actors[1]).(*queryWithInterfaceListPointerFieldActorsOrganization)
+		org, ok := response.Actors[1].(*queryWithInterfaceListPointerFieldActorsOrganization)
 		require.Truef(t, ok, "got %T, not Organization", response.Actors[1])
 		assert.Equal(t, "3", org.Id)
 		assert.Equal(t, "octo-org", org.Login)
@@ -522,13 +522,13 @@ func TestFragments(t *testing.T) {
 		// Check fields both via interface and via type-assertion when possible
 		// User has, in total, the fields: __typename id login contributionCount.
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
-		assert.Equal(t, "1", (*response.Actors[0]).GetId())
-		assert.Equal(t, "octocat", (*response.Actors[0]).GetLogin())
+		assert.Equal(t, "User", response.Actors[0].GetTypename())
+		assert.Equal(t, "1", response.Actors[0].GetId())
+		assert.Equal(t, "octocat", response.Actors[0].GetLogin())
 		// (status and contributionCount we need to cast for)
 
-		user, ok := (*response.Actors[0]).(*queryWithFragmentsActorsUser)
-		require.Truef(t, ok, "got %T, not User", *response.Actors[0])
+		user, ok := response.Actors[0].(*queryWithFragmentsActorsUser)
+		require.Truef(t, ok, "got %T, not User", response.Actors[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "octocat", user.Login)
 		require.NotNil(t, user.Status)
@@ -546,23 +546,23 @@ func TestFragments(t *testing.T) {
 		//		... on User { contributionCount }
 		//	}
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
-		assert.Equal(t, "3", (*response.Actors[1]).GetId())
+		assert.Equal(t, "Organization", response.Actors[1].GetTypename())
+		assert.Equal(t, "3", response.Actors[1].GetId())
 		// (plan, contributionCount, and topContributor.* we have to cast for)
 
-		org, ok := (*response.Actors[1]).(*queryWithFragmentsActorsOrganization)
-		require.Truef(t, ok, "got %T, not Organization", *response.Actors[1])
+		org, ok := response.Actors[1].(*queryWithFragmentsActorsOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Actors[1])
 		assert.Equal(t, "3", org.Id)
 		require.NotNil(t, org.Plan)
 		assert.Equal(t, gqlserver.PlanNameTeam, org.Plan.Name)
 
 		require.NotNil(t, org.TopContributor)
-		assert.Equal(t, "1", (*org.TopContributor).GetId())
-		assert.Equal(t, "octocat", (*org.TopContributor).GetLogin())
+		assert.Equal(t, "1", org.TopContributor.GetId())
+		assert.Equal(t, "octocat", org.TopContributor.GetLogin())
 		// (contributionCount we have to cast for, again)
 
-		topContributor, ok := (*org.TopContributor).(*queryWithFragmentsActorsOrganizationTopContributorUser)
-		require.Truef(t, ok, "got %T, not User", *org.TopContributor)
+		topContributor, ok := org.TopContributor.(*queryWithFragmentsActorsOrganizationTopContributorUser)
+		require.Truef(t, ok, "got %T, not User", org.TopContributor)
 		assert.Equal(t, "1", topContributor.Id)
 		assert.Equal(t, "octocat", topContributor.Login)
 		assert.Equal(t, 17, requirePtrValue(t, topContributor.ContributionCount))
@@ -624,12 +624,12 @@ func TestNamedFragments(t *testing.T) {
 		// Check fields both via interface and via type-assertion when possible
 		// User has, in total, the fields: __typename id contributionCount.
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
-		assert.Equal(t, "1", (*response.Actors[0]).GetId())
+		assert.Equal(t, "User", response.Actors[0].GetTypename())
+		assert.Equal(t, "1", response.Actors[0].GetId())
 		// (contributionCount, status we need to cast for)
 
-		user, ok := (*response.Actors[0]).(*queryWithNamedFragmentsActorsUser)
-		require.Truef(t, ok, "got %T, not User", *response.Actors[0])
+		user, ok := response.Actors[0].(*queryWithNamedFragmentsActorsUser)
+		require.Truef(t, ok, "got %T, not User", response.Actors[0])
 		assert.Equal(t, "1", user.Id)
 		assert.Equal(t, "1", user.userFields.Id)
 		assert.Equal(t, "1", user.userFields.moreUserFields.Id)
@@ -652,12 +652,12 @@ func TestNamedFragments(t *testing.T) {
 		//	plan
 		//	topContributor { id contributionCount }
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
-		assert.Equal(t, "3", (*response.Actors[1]).GetId())
+		assert.Equal(t, "Organization", response.Actors[1].GetTypename())
+		assert.Equal(t, "3", response.Actors[1].GetId())
 		// (plan.* and topContributor.* we have to cast for)
 
-		org, ok := (*response.Actors[1]).(*queryWithNamedFragmentsActorsOrganization)
-		require.Truef(t, ok, "got %T, not Organization", *response.Actors[1])
+		org, ok := response.Actors[1].(*queryWithNamedFragmentsActorsOrganization)
+		require.Truef(t, ok, "got %T, not Organization", response.Actors[1])
 		// Check that we filled in *both* ID fields:
 		assert.Equal(t, "3", org.Id)
 		assert.Equal(t, "3", org.organizationFields.Id)
@@ -665,11 +665,11 @@ func TestNamedFragments(t *testing.T) {
 		require.NotNil(t, org.Plan)
 		assert.Equal(t, gqlserver.PlanNameTeam, org.Plan.Name)
 		require.NotNil(t, org.TopContributor)
-		assert.Equal(t, "1", (*org.TopContributor).GetId())
+		assert.Equal(t, "1", org.TopContributor.GetId())
 		// (contributionCount we have to cast for, again)
 
-		topContributor, ok := (*org.TopContributor).(*organizationFieldsTopContributorUser)
-		require.Truef(t, ok, "got %T, not User", *org.TopContributor)
+		topContributor, ok := org.TopContributor.(*organizationFieldsTopContributorUser)
+		require.Truef(t, ok, "got %T, not User", org.TopContributor)
 		// Check that we filled in *both* ID fields:
 		assert.Equal(t, "1", topContributor.Id)
 		assert.Equal(t, "1", topContributor.userFields.Id)
@@ -686,8 +686,8 @@ func TestNamedFragments(t *testing.T) {
 		))
 
 		// RepositoryOwner-based fields we can also get by casting to the fragment-interface.
-		repoOwnerTopContributor, ok := (*org.TopContributor).(repositoryOwnerFields)
-		require.Truef(t, ok, "got %T, not RepositoryOwner", *org.TopContributor)
+		repoOwnerTopContributor, ok := org.TopContributor.(repositoryOwnerFields)
+		require.Truef(t, ok, "got %T, not RepositoryOwner", org.TopContributor)
 		assert.Equal(t, 17, requirePtrValue(t, repoOwnerTopContributor.GetContributionCount()))
 
 		assert.Nil(t, response.Actors[2])

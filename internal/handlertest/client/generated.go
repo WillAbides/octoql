@@ -259,11 +259,11 @@ func (v *GetNodeNodeRepository) GetNameWithOwner() string { return v.NameWithOwn
 
 // GetNodeResponse is returned by GetNode on success.
 type GetNodeResponse struct {
-	Node *GetNodeNode `json:"-"`
+	Node GetNodeNode `json:"-"`
 }
 
 // GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
-func (v *GetNodeResponse) GetNode() *GetNodeNode { return v.Node }
+func (v *GetNodeResponse) GetNode() GetNodeNode { return v.Node }
 
 func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 
@@ -290,9 +290,8 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			*dst = new(GetNodeNode)
 			err = __unmarshalGetNodeNode(
-				src, *dst)
+				src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetNodeResponse.Node: %w", err)
@@ -321,14 +320,12 @@ func (v *GetNodeResponse) __premarshalJSON() (*__premarshalGetNodeResponse, erro
 
 		dst := &retval.Node
 		src := v.Node
-		if src != nil {
-			var err error
-			*dst, err = __marshalGetNodeNode(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal GetNodeResponse.Node: %w", err)
-			}
+		var err error
+		*dst, err = __marshalGetNodeNode(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetNodeResponse.Node: %w", err)
 		}
 	}
 	return &retval, nil

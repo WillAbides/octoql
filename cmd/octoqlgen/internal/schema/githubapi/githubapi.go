@@ -16,11 +16,11 @@ import (
 // A repository contains the content for a project.
 type LatestCommitRepository struct {
 	// The Ref associated with the repository's default branch.
-	DefaultBranchRef LatestCommitRepositoryDefaultBranchRef `json:"defaultBranchRef"`
+	DefaultBranchRef *LatestCommitRepositoryDefaultBranchRef `json:"defaultBranchRef"`
 }
 
 // GetDefaultBranchRef returns LatestCommitRepository.DefaultBranchRef, and is useful for accessing the field via an interface.
-func (v *LatestCommitRepository) GetDefaultBranchRef() LatestCommitRepositoryDefaultBranchRef {
+func (v *LatestCommitRepository) GetDefaultBranchRef() *LatestCommitRepositoryDefaultBranchRef {
 	return v.DefaultBranchRef
 }
 
@@ -30,11 +30,11 @@ func (v *LatestCommitRepository) GetDefaultBranchRef() LatestCommitRepositoryDef
 // Represents a Git reference.
 type LatestCommitRepositoryDefaultBranchRef struct {
 	// The object the ref points to. Returns null when object does not exist.
-	Target *LatestCommitRepositoryDefaultBranchRefTargetGitObject `json:"-"`
+	Target LatestCommitRepositoryDefaultBranchRefTargetGitObject `json:"-"`
 }
 
 // GetTarget returns LatestCommitRepositoryDefaultBranchRef.Target, and is useful for accessing the field via an interface.
-func (v *LatestCommitRepositoryDefaultBranchRef) GetTarget() *LatestCommitRepositoryDefaultBranchRefTargetGitObject {
+func (v *LatestCommitRepositoryDefaultBranchRef) GetTarget() LatestCommitRepositoryDefaultBranchRefTargetGitObject {
 	return v.Target
 }
 
@@ -63,9 +63,8 @@ func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			*dst = new(LatestCommitRepositoryDefaultBranchRefTargetGitObject)
 			err = __unmarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(
-				src, *dst)
+				src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal LatestCommitRepositoryDefaultBranchRef.Target: %w", err)
@@ -94,14 +93,12 @@ func (v *LatestCommitRepositoryDefaultBranchRef) __premarshalJSON() (*__premarsh
 
 		dst := &retval.Target
 		src := v.Target
-		if src != nil {
-			var err error
-			*dst, err = __marshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal LatestCommitRepositoryDefaultBranchRef.Target: %w", err)
-			}
+		var err error
+		*dst, err = __marshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal LatestCommitRepositoryDefaultBranchRef.Target: %w", err)
 		}
 	}
 	return &retval, nil
@@ -233,11 +230,11 @@ func (v *LatestCommitRepositoryDefaultBranchRefTargetGitObjectOctoqlOther) GetTy
 // LatestCommitResponse is returned by LatestCommit on success.
 type LatestCommitResponse struct {
 	// Lookup a given repository by the owner and repository name.
-	Repository LatestCommitRepository `json:"repository"`
+	Repository *LatestCommitRepository `json:"repository"`
 }
 
 // GetRepository returns LatestCommitResponse.Repository, and is useful for accessing the field via an interface.
-func (v *LatestCommitResponse) GetRepository() LatestCommitRepository { return v.Repository }
+func (v *LatestCommitResponse) GetRepository() *LatestCommitRepository { return v.Repository }
 
 // LatestCommitVariables contains the variables accepted by LatestCommit.
 type LatestCommitVariables struct {

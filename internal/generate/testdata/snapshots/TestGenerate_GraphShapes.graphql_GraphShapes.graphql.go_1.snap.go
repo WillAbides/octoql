@@ -939,15 +939,15 @@ func (v *GetActorRepositoryOwnerUser) __premarshalJSON() (*__premarshalGetActorR
 
 // GetActorResponse is returned by GetActor on success.
 type GetActorResponse struct {
-	Actor           *GetActorActor           `json:"-"`
-	RepositoryOwner *GetActorRepositoryOwner `json:"-"`
+	Actor           GetActorActor           `json:"-"`
+	RepositoryOwner GetActorRepositoryOwner `json:"-"`
 }
 
 // GetActor returns GetActorResponse.Actor, and is useful for accessing the field via an interface.
-func (v *GetActorResponse) GetActor() *GetActorActor { return v.Actor }
+func (v *GetActorResponse) GetActor() GetActorActor { return v.Actor }
 
 // GetRepositoryOwner returns GetActorResponse.RepositoryOwner, and is useful for accessing the field via an interface.
-func (v *GetActorResponse) GetRepositoryOwner() *GetActorRepositoryOwner { return v.RepositoryOwner }
+func (v *GetActorResponse) GetRepositoryOwner() GetActorRepositoryOwner { return v.RepositoryOwner }
 
 func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 
@@ -975,9 +975,8 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			*dst = new(GetActorActor)
 			err = __unmarshalGetActorActor(
-				src, *dst)
+				src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetActorResponse.Actor: %w", err)
@@ -992,9 +991,8 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			*dst = new(GetActorRepositoryOwner)
 			err = __unmarshalGetActorRepositoryOwner(
-				src, *dst)
+				src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetActorResponse.RepositoryOwner: %w", err)
@@ -1025,28 +1023,24 @@ func (v *GetActorResponse) __premarshalJSON() (*__premarshalGetActorResponse, er
 
 		dst := &retval.Actor
 		src := v.Actor
-		if src != nil {
-			var err error
-			*dst, err = __marshalGetActorActor(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal GetActorResponse.Actor: %w", err)
-			}
+		var err error
+		*dst, err = __marshalGetActorActor(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetActorResponse.Actor: %w", err)
 		}
 	}
 	{
 
 		dst := &retval.RepositoryOwner
 		src := v.RepositoryOwner
-		if src != nil {
-			var err error
-			*dst, err = __marshalGetActorRepositoryOwner(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal GetActorResponse.RepositoryOwner: %w", err)
-			}
+		var err error
+		*dst, err = __marshalGetActorRepositoryOwner(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetActorResponse.RepositoryOwner: %w", err)
 		}
 	}
 	return &retval, nil
@@ -1267,11 +1261,11 @@ func (v *GetNodeNodeUser) GetLogin() string { return v.Login }
 
 // GetNodeResponse is returned by GetNode on success.
 type GetNodeResponse struct {
-	Node *GetNodeNode `json:"-"`
+	Node GetNodeNode `json:"-"`
 }
 
 // GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
-func (v *GetNodeResponse) GetNode() *GetNodeNode { return v.Node }
+func (v *GetNodeResponse) GetNode() GetNodeNode { return v.Node }
 
 func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 
@@ -1298,9 +1292,8 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			*dst = new(GetNodeNode)
 			err = __unmarshalGetNodeNode(
-				src, *dst)
+				src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetNodeResponse.Node: %w", err)
@@ -1329,14 +1322,12 @@ func (v *GetNodeResponse) __premarshalJSON() (*__premarshalGetNodeResponse, erro
 
 		dst := &retval.Node
 		src := v.Node
-		if src != nil {
-			var err error
-			*dst, err = __marshalGetNodeNode(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal GetNodeResponse.Node: %w", err)
-			}
+		var err error
+		*dst, err = __marshalGetNodeNode(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetNodeResponse.Node: %w", err)
 		}
 	}
 	return &retval, nil
@@ -1645,6 +1636,9 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 	{
 		dst := &v.Subject
 		src := firstPass.Subject
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
 				src, dst)
@@ -1892,6 +1886,9 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 	{
 		dst := &v.Subject
 		src := firstPass.Subject
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
 				src, dst)
@@ -2158,6 +2155,9 @@ func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.LatestRepositoryEvent
 		src := firstPass.LatestRepositoryEvent
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
 				src, dst)
@@ -2640,6 +2640,9 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) Unmarsha
 	{
 		dst := &v.Owner
 		src := firstPass.Owner
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			err = __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(
 				src, dst)

@@ -129,11 +129,13 @@ func (m *Materializer) latestRevision(
 	if err != nil {
 		return "", fmt.Errorf("resolving schema revision: %w", err)
 	}
-	if result.Repository.DefaultBranchRef.Target == nil {
+	if result.Repository == nil ||
+		result.Repository.DefaultBranchRef == nil ||
+		result.Repository.DefaultBranchRef.Target == nil {
 		return "", errors.New("no github commit changed the configured schema path")
 	}
 
-	target, ok := (*result.Repository.DefaultBranchRef.Target).(*githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommit)
+	target, ok := result.Repository.DefaultBranchRef.Target.(*githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommit)
 	if !ok || len(target.History.Nodes) == 0 || target.History.Nodes[0] == nil {
 		return "", errors.New("no github commit changed the configured schema path")
 	}
