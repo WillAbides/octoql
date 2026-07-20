@@ -57,6 +57,10 @@ func (m *Materializer) Materialize(ctx context.Context, request Request) (data [
 		return nil, err
 	}
 	if request.Path != "" {
+		request.Path, err = ResolveSchemaPath(request.Path)
+		if err != nil {
+			return nil, err
+		}
 		var release func() error
 		release, err = acquireMaterializationLock(ctx, request.Path)
 		if err != nil {

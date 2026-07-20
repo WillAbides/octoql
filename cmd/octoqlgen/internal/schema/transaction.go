@@ -39,8 +39,12 @@ type UpdateTransaction struct {
 // BeginUpdate records enough state to restore an interrupted schema update.
 // The caller must hold the schema's exclusive lock.
 func BeginUpdate(schemaPath, configPath string) (*UpdateTransaction, error) {
-	journalPath := schemaPath + updateJournalSuffix
-	_, err := os.Lstat(journalPath)
+	resolvedSchemaPath, err := ResolveSchemaPath(schemaPath)
+	if err != nil {
+		return nil, err
+	}
+	journalPath := updateJournalPath(resolvedSchemaPath)
+	_, err = os.Lstat(journalPath)
 	if err == nil {
 		return nil, errors.New("recovering an interrupted schema update is required before starting another update")
 	}
@@ -52,7 +56,7 @@ func BeginUpdate(schemaPath, configPath string) (*UpdateTransaction, error) {
 	if err != nil {
 		return nil, fmt.Errorf("snapshotting config before schema update: %w", err)
 	}
-	originalSchema, err := snapshot(schemaPath)
+	originalSchema, err := snapshot(resolvedSchemaPath)
 	if err != nil {
 		return nil, fmt.Errorf("snapshotting schema before schema update: %w", err)
 	}
@@ -61,7 +65,7 @@ func BeginUpdate(schemaPath, configPath string) (*UpdateTransaction, error) {
 		OriginalConfig: originalConfig,
 		OriginalSchema: originalSchema,
 		Phase:          journalPhasePending,
-		SchemaPath:     schemaPath,
+		SchemaPath:     resolvedSchemaPath,
 	}
 	err = writeJournal(journalPath, &journal)
 	if err != nil {
@@ -96,11 +100,19 @@ func (transaction *UpdateTransaction) Rollback() error {
 // RecoverPendingUpdate restores a transaction that was interrupted before
 // Commit completed. The caller must hold the schema's exclusive lock.
 func RecoverPendingUpdate(schemaPath string) error {
-	return recoverPendingUpdate(schemaPath+updateJournalSuffix, schemaPath)
+	resolvedSchemaPath, err := ResolveSchemaPath(schemaPath)
+	if err != nil {
+		return err
+	}
+	return recoverPendingUpdate(updateJournalPath(resolvedSchemaPath), resolvedSchemaPath)
 }
 
 func hasPendingUpdate(schemaPath string) (bool, error) {
-	_, err := os.Stat(schemaPath + updateJournalSuffix)
+	resolvedSchemaPath, err := ResolveSchemaPath(schemaPath)
+	if err != nil {
+		return false, err
+	}
+	_, err = os.Stat(updateJournalPath(resolvedSchemaPath))
 	if err == nil {
 		return true, nil
 	}
@@ -124,7 +136,11 @@ func recoverPendingUpdate(journalPath, schemaPath string) error {
 	if err != nil {
 		return fmt.Errorf("decoding schema update journal: %w", err)
 	}
-	if filepath.Clean(journal.SchemaPath) != filepath.Clean(schemaPath) {
+	recordedSchemaPath, err := ResolveSchemaPath(journal.SchemaPath)
+	if err != nil {
+		return err
+	}
+	if recordedSchemaPath != schemaPath {
 		return errors.New("schema update journal belongs to a different schema path")
 	}
 	if journal.ConfigPath == "" {
@@ -143,7 +159,7 @@ func recoverPendingUpdate(journalPath, schemaPath string) error {
 		if err != nil {
 			return fmt.Errorf("restoring config from schema update journal: %w", err)
 		}
-		err = restore(journal.SchemaPath, journal.OriginalSchema)
+		err = restore(recordedSchemaPath, journal.OriginalSchema)
 		if err != nil {
 			return fmt.Errorf("restoring schema from schema update journal: %w", err)
 		}
@@ -200,6 +216,10 @@ func writeJournal(path string, journal *updateJournal) error {
 		return fmt.Errorf("writing schema update journal: %w", err)
 	}
 	return nil
+}
+
+func updateJournalPath(schemaPath string) string {
+	return schemaPath + updateJournalSuffix
 }
 
 func writeFileAtomically(destination string, data []byte, mode fs.FileMode) (err error) {

@@ -721,6 +721,40 @@ func TestMaterializerConcurrentDifferentBytes(t *testing.T) {
 	assert.Empty(t, temporaryFiles(t, destination))
 }
 
+func TestMaterializerSharesPhysicalLockForMissingSchema(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	realDirectory := filepath.Join(directory, "real")
+	aliasDirectory := filepath.Join(directory, "alias")
+	err := os.Mkdir(realDirectory, 0o755)
+	require.NoError(t, err)
+	err = os.Symlink(realDirectory, aliasDirectory)
+	require.NoError(t, err)
+	realSchemaPath := filepath.Join(realDirectory, "schema.graphql")
+	aliasSchemaPath := filepath.Join(aliasDirectory, "schema.graphql")
+	release, err := AcquireExclusiveLock(realSchemaPath)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		releaseErr := release()
+		require.NoError(t, releaseErr)
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		_, _ = response.Write(exactSchema)
+	}))
+	t.Cleanup(server.Close)
+	materializer := NewMaterializer()
+
+	_, err = materializer.Materialize(t.Context(), Request{
+		Path:   aliasSchemaPath,
+		SHA256: checksum(exactSchema),
+		Source: config.Source{Url: new(server.URL)},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already in progress")
+}
+
 func TestMaterializerRecoversInterruptedSchemaUpdate(t *testing.T) {
 	t.Parallel()
 

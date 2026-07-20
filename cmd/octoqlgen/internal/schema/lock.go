@@ -22,12 +22,23 @@ func AcquireExclusiveLock(path string) (func() error, error) {
 
 // SameLockIdentity reports whether two paths are serialized by the same lock.
 func SameLockIdentity(left, right string) bool {
-	return lockPath(left) == lockPath(right)
+	leftPath, err := ResolveSchemaPath(left)
+	if err != nil {
+		return false
+	}
+	rightPath, err := ResolveSchemaPath(right)
+	if err != nil {
+		return false
+	}
+	return leftPath == rightPath
 }
 
 func acquireLock(path string, exclusive bool) (func() error, error) {
-	filename := lockPath(path)
-	err := os.MkdirAll(filepath.Dir(filename), 0o700)
+	filename, err := lockPath(path)
+	if err != nil {
+		return nil, err
+	}
+	err = os.MkdirAll(filepath.Dir(filename), 0o700)
 	if err != nil {
 		return nil, fmt.Errorf("creating schema update lock directory: %w", err)
 	}
@@ -52,15 +63,11 @@ func acquireLock(path string, exclusive bool) (func() error, error) {
 	}, nil
 }
 
-func lockPath(path string) string {
-	absolutePath, err := filepath.Abs(path)
-	if err == nil {
-		path = absolutePath
+func lockPath(path string) (string, error) {
+	resolvedPath, err := ResolveSchemaPath(path)
+	if err != nil {
+		return "", err
 	}
-	resolvedPath, err := filepath.EvalSymlinks(path)
-	if err == nil {
-		path = resolvedPath
-	}
-	sum := sha256.Sum256([]byte(filepath.Clean(path)))
-	return filepath.Join(os.TempDir(), "octoqlgen-schema-locks", fmt.Sprintf("%x", sum))
+	sum := sha256.Sum256([]byte(resolvedPath))
+	return filepath.Join(os.TempDir(), "octoqlgen-schema-locks", fmt.Sprintf("%x", sum)), nil
 }

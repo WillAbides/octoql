@@ -205,7 +205,10 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	lockedSchemaPath := initialConfig.SchemaPath()
+	lockedSchemaPath, err := schema.ResolveSchemaPath(initialConfig.SchemaPath())
+	if err != nil {
+		return err
+	}
 	unlock, err := acquireUpdateLock(lockedSchemaPath)
 	if err != nil {
 		return err
@@ -256,7 +259,7 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	originalSchema, err := snapshotFile(loaded.SchemaPath())
+	originalSchema, err := snapshotFile(lockedSchemaPath)
 	if err != nil {
 		return fmt.Errorf("reading configured schema: %w", err)
 	}
@@ -277,14 +280,14 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return fmt.Errorf("checking config before schema publication: %w", err)
 	}
-	finalSchema, err := snapshotFile(loaded.SchemaPath())
+	finalSchema, err := snapshotFile(lockedSchemaPath)
 	if err != nil {
 		return fmt.Errorf("checking schema before publication: %w", err)
 	}
 	if !bytes.Equal(finalConfig, rawConfig) || !sameFileSnapshot(finalSchema, originalSchema) {
 		return errors.New("config or schema changed while updating; no files were published")
 	}
-	transaction, err := schema.BeginUpdate(loaded.SchemaPath(), configPath)
+	transaction, err := schema.BeginUpdate(lockedSchemaPath, configPath)
 	if err != nil {
 		return err
 	}
@@ -302,7 +305,7 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return rollback(err)
 	}
-	err = cmd.outputWriter.Write(loaded.SchemaPath(), result.Data)
+	err = cmd.outputWriter.Write(lockedSchemaPath, result.Data)
 	if err != nil {
 		return rollback(fmt.Errorf("publishing updated schema: %w", err))
 	}
@@ -321,9 +324,19 @@ func (cmd *schemaUpdateCommand) Run() (err error) {
 	if err != nil {
 		return rollback(fmt.Errorf("config update failed: %w", err))
 	}
-	_, err = cmd.loadConfig(userConfigPath)
+	published, err := cmd.loadConfig(userConfigPath)
 	if err != nil {
 		return rollback(fmt.Errorf("validating published config: %w", err))
+	}
+	if !schema.SameLockIdentity(lockedSchemaPath, published.SchemaPath()) {
+		return rollback(errors.New("published config changed before commit"))
+	}
+	publishedConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		return rollback(fmt.Errorf("reading published config: %w", err))
+	}
+	if !bytes.Equal(publishedConfig, updatedConfig) {
+		return rollback(errors.New("published config changed before commit"))
 	}
 	err = checkContext(cmd.context)
 	if err != nil {

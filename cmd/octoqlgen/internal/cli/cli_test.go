@@ -355,7 +355,7 @@ func TestSchemaUpdateCommandCancellationRestoresOriginalFiles(t *testing.T) {
 		}),
 		outputWriter: outputWriterFunc(func(path string, data []byte) error {
 			writeErr := atomicOutputWriter{}.Write(path, data)
-			if path == schemaPath {
+			if schema.SameLockIdentity(path, schemaPath) {
 				cancel()
 			}
 			return writeErr
@@ -440,6 +440,112 @@ func TestSchemaUpdateCommandRejectsSchemaPathChangeAfterLock(t *testing.T) {
 	assert.Contains(t, err.Error(), "schema path changed while acquiring update lock")
 	assert.False(t, resolved)
 	assert.Empty(t, outputWriter.path)
+}
+
+func TestSchemaUpdateCommandRejectsSchemaSymlink(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	targetPath := filepath.Join(directory, "schema-target.graphql")
+	originalSchema := []byte("type Query { old: String }\n")
+	originalChecksum := fmt.Sprintf("%x", sha256.Sum256(originalSchema))
+	configData := []byte(fmt.Sprintf(
+		"schema:\n  path: schema.graphql\n  sha256: %s\n  source:\n    url: https://example.test/schema.graphql\n",
+		originalChecksum,
+	))
+	err := os.WriteFile(configPath, configData, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(targetPath, originalSchema, 0o600)
+	require.NoError(t, err)
+	err = os.Symlink(targetPath, schemaPath)
+	require.NoError(t, err)
+
+	resolved := false
+	command := schemaUpdateCommand{
+		Config:     configPath,
+		context:    t.Context(),
+		loadConfig: config.Load,
+		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
+			resolved = true
+			return schema.RemoteResult{}, nil
+		}),
+		outputWriter: &stubOutputWriter{},
+		stdout:       io.Discard,
+	}
+
+	err = command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "schema path must not be a symlink")
+	assert.False(t, resolved)
+	info, err := os.Lstat(schemaPath)
+	require.NoError(t, err)
+	assert.NotZero(t, info.Mode()&os.ModeSymlink)
+}
+
+func TestSchemaUpdateCommandRollsBackChangedPublishedConfig(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	replacementSchemaPath := filepath.Join(directory, "replacement.graphql")
+	originalSchema := []byte("type Query { old: String }\n")
+	replacementSchema := []byte("type Query { replacement: String }\n")
+	updatedSchema := []byte("type Query { updated: String }\n")
+	originalChecksum := fmt.Sprintf("%x", sha256.Sum256(originalSchema))
+	replacementChecksum := fmt.Sprintf("%x", sha256.Sum256(replacementSchema))
+	updatedChecksum := fmt.Sprintf("%x", sha256.Sum256(updatedSchema))
+	originalConfig := []byte(fmt.Sprintf(
+		"schema:\n  path: schema.graphql\n  sha256: %s\n  source:\n    url: https://example.test/schema.graphql\n",
+		originalChecksum,
+	))
+	replacementConfig := []byte(fmt.Sprintf(
+		"schema:\n  path: replacement.graphql\n  sha256: %s\n  source:\n    url: https://example.test/schema.graphql\n",
+		replacementChecksum,
+	))
+	err := os.WriteFile(configPath, originalConfig, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(schemaPath, originalSchema, 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(replacementSchemaPath, replacementSchema, 0o600)
+	require.NoError(t, err)
+	canonicalConfigPath, err := canonicalPath(configPath)
+	require.NoError(t, err)
+
+	command := schemaUpdateCommand{
+		Config:     configPath,
+		context:    t.Context(),
+		loadConfig: config.Load,
+		resolver: remoteResolverFunc(func(context.Context, config.Source) (schema.RemoteResult, error) {
+			return schema.RemoteResult{
+				Data:   updatedSchema,
+				SHA256: updatedChecksum,
+			}, nil
+		}),
+		outputWriter: outputWriterFunc(func(path string, data []byte) error {
+			writeErr := atomicOutputWriter{}.Write(path, data)
+			if writeErr != nil {
+				return writeErr
+			}
+			if path == canonicalConfigPath {
+				return os.WriteFile(configPath, replacementConfig, 0o600)
+			}
+			return nil
+		}),
+		stdout: io.Discard,
+	}
+
+	err = command.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "published config changed before commit")
+	configData, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, originalConfig, configData)
+	schemaData, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	assert.Equal(t, originalSchema, schemaData)
 }
 
 func TestHelpSnapshots(t *testing.T) {
