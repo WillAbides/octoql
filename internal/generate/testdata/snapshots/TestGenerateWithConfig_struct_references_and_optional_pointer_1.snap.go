@@ -839,6 +839,32 @@ func (v *__UpdateIssueWithCollidingNamesInput) GetResp() *int { return v.Resp }
 // GetClient returns __UpdateIssueWithCollidingNamesInput.Client, and is useful for accessing the field via an interface.
 func (v *__UpdateIssueWithCollidingNamesInput) GetClient() *string { return v.Client }
 
+type __octoqlPartialDataError[T any] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
 func __octoqlDo[T any](
 	ctx context.Context,
 	client *octoql.Client,
@@ -868,32 +894,7 @@ mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
 
 // CreateGitHubRepositoryPartialDataError contains partial data returned by CreateGitHubRepository.
 type CreateGitHubRepositoryPartialDataError struct {
-	data *CreateGitHubRepositoryResponse
-	err  error
-}
-
-// Error returns the underlying response error.
-func (err *CreateGitHubRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-// Unwrap exposes the underlying response error.
-func (err *CreateGitHubRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-// PartialData returns the partial data returned by CreateGitHubRepository.
-func (err *CreateGitHubRepositoryPartialDataError) PartialData() *CreateGitHubRepositoryResponse {
-	if err == nil {
-		return nil
-	}
-	return err.data
+	__octoqlPartialDataError[CreateGitHubRepositoryResponse]
 }
 
 func CreateGitHubRepository(
@@ -913,7 +914,12 @@ func CreateGitHubRepository(
 			Variables:     &variables_,
 		},
 		func(data *CreateGitHubRepositoryResponse, err error) error {
-			return &CreateGitHubRepositoryPartialDataError{data: data, err: err}
+			return &CreateGitHubRepositoryPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[CreateGitHubRepositoryResponse]{
+					data: data,
+					err:  err,
+				},
+			}
 		},
 	)
 }
@@ -946,32 +952,7 @@ query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $dat
 
 // GitHubInputsPartialDataError contains partial data returned by GitHubInputs.
 type GitHubInputsPartialDataError struct {
-	data *GitHubInputResponse
-	err  error
-}
-
-// Error returns the underlying response error.
-func (err *GitHubInputsPartialDataError) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-// Unwrap exposes the underlying response error.
-func (err *GitHubInputsPartialDataError) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-// PartialData returns the partial data returned by GitHubInputs.
-func (err *GitHubInputsPartialDataError) PartialData() *GitHubInputResponse {
-	if err == nil {
-		return nil
-	}
-	return err.data
+	__octoqlPartialDataError[GitHubInputResponse]
 }
 
 func GitHubInputs(
@@ -1005,7 +986,12 @@ func GitHubInputs(
 			Variables:     &variables_,
 		},
 		func(data *GitHubInputResponse, err error) error {
-			return &GitHubInputsPartialDataError{data: data, err: err}
+			return &GitHubInputsPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[GitHubInputResponse]{
+					data: data,
+					err:  err,
+				},
+			}
 		},
 	)
 }
@@ -1021,32 +1007,7 @@ mutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $
 
 // UpdateIssueWithCollidingNamesPartialDataError contains partial data returned by UpdateIssueWithCollidingNames.
 type UpdateIssueWithCollidingNamesPartialDataError struct {
-	data *UpdateIssueWithCollidingNamesResponse
-	err  error
-}
-
-// Error returns the underlying response error.
-func (err *UpdateIssueWithCollidingNamesPartialDataError) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-// Unwrap exposes the underlying response error.
-func (err *UpdateIssueWithCollidingNamesPartialDataError) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-// PartialData returns the partial data returned by UpdateIssueWithCollidingNames.
-func (err *UpdateIssueWithCollidingNamesPartialDataError) PartialData() *UpdateIssueWithCollidingNamesResponse {
-	if err == nil {
-		return nil
-	}
-	return err.data
+	__octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]
 }
 
 func UpdateIssueWithCollidingNames(
@@ -1072,7 +1033,12 @@ func UpdateIssueWithCollidingNames(
 			Variables:     &variables_,
 		},
 		func(data *UpdateIssueWithCollidingNamesResponse, err error) error {
-			return &UpdateIssueWithCollidingNamesPartialDataError{data: data, err: err}
+			return &UpdateIssueWithCollidingNamesPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]{
+					data: data,
+					err:  err,
+				},
+			}
 		},
 	)
 }

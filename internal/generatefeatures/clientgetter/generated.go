@@ -39,6 +39,32 @@ type getRepositoryResponse struct {
 // GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
 func (v *getRepositoryResponse) GetRepository() getRepositoryRepository { return v.Repository }
 
+type __octoqlPartialDataError[T any] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
 func __octoqlDo[T any](
 	ctx context.Context,
 	client *octoql.Client,
@@ -67,32 +93,7 @@ query getRepository ($owner: String!, $name: String!) {
 
 // getRepositoryPartialDataError contains partial data returned by getRepository.
 type getRepositoryPartialDataError struct {
-	data *getRepositoryResponse
-	err  error
-}
-
-// Error returns the underlying response error.
-func (err *getRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-// Unwrap exposes the underlying response error.
-func (err *getRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-// PartialData returns the partial data returned by getRepository.
-func (err *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
-	if err == nil {
-		return nil
-	}
-	return err.data
+	__octoqlPartialDataError[getRepositoryResponse]
 }
 
 func getRepository(
@@ -117,7 +118,12 @@ func getRepository(
 			Variables:     &variables_,
 		},
 		func(data *getRepositoryResponse, err error) error {
-			return &getRepositoryPartialDataError{data: data, err: err}
+			return &getRepositoryPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[getRepositoryResponse]{
+					data: data,
+					err:  err,
+				},
+			}
 		},
 	)
 }

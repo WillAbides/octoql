@@ -91,6 +91,32 @@ func (v *GitHubNamingResponseSnake_case_type) GetName() string { return v.Name }
 
 type SecondRepository string
 
+type __octoqlPartialDataError[T any] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
 func __octoqlDo[T any](
 	ctx context.Context,
 	client *octoql.Client,
@@ -135,32 +161,7 @@ query GitHubNaming {
 
 // GitHubNamingPartialDataError contains partial data returned by GitHubNaming.
 type GitHubNamingPartialDataError struct {
-	data *GitHubNamingResponse
-	err  error
-}
-
-// Error returns the underlying response error.
-func (err *GitHubNamingPartialDataError) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-// Unwrap exposes the underlying response error.
-func (err *GitHubNamingPartialDataError) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-// PartialData returns the partial data returned by GitHubNaming.
-func (err *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
-	if err == nil {
-		return nil
-	}
-	return err.data
+	__octoqlPartialDataError[GitHubNamingResponse]
 }
 
 func GitHubNaming(
@@ -175,7 +176,12 @@ func GitHubNaming(
 			Variables:     nil,
 		},
 		func(data *GitHubNamingResponse, err error) error {
-			return &GitHubNamingPartialDataError{data: data, err: err}
+			return &GitHubNamingPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[GitHubNamingResponse]{
+					data: data,
+					err:  err,
+				},
+			}
 		},
 	)
 }

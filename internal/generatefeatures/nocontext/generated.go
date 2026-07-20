@@ -36,6 +36,32 @@ func (v *__GetRepositoryInput) GetOwner() string { return v.Owner }
 // GetName returns __GetRepositoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__GetRepositoryInput) GetName() string { return v.Name }
 
+type __octoqlPartialDataError[T any] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
 func __octoqlDo[T any](
 	ctx context.Context,
 	client *octoql.Client,
@@ -64,32 +90,7 @@ query GetRepository ($owner: String!, $name: String!) {
 
 // GetRepositoryPartialDataError contains partial data returned by GetRepository.
 type GetRepositoryPartialDataError struct {
-	data *GetRepositoryResponse
-	err  error
-}
-
-// Error returns the underlying response error.
-func (err *GetRepositoryPartialDataError) Error() string {
-	if err == nil || err.err == nil {
-		return "graphql response contains partial data"
-	}
-	return err.err.Error()
-}
-
-// Unwrap exposes the underlying response error.
-func (err *GetRepositoryPartialDataError) Unwrap() error {
-	if err == nil {
-		return nil
-	}
-	return err.err
-}
-
-// PartialData returns the partial data returned by GetRepository.
-func (err *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
-	if err == nil {
-		return nil
-	}
-	return err.data
+	__octoqlPartialDataError[GetRepositoryResponse]
 }
 
 func GetRepository(
@@ -110,7 +111,12 @@ func GetRepository(
 			Variables:     &variables_,
 		},
 		func(data *GetRepositoryResponse, err error) error {
-			return &GetRepositoryPartialDataError{data: data, err: err}
+			return &GetRepositoryPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
+					data: data,
+					err:  err,
+				},
+			}
 		},
 	)
 }
