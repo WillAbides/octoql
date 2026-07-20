@@ -244,7 +244,7 @@ query Value(
 	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
 }
 
-func TestGenerateSelectsOperationLiteralRepresentation(t *testing.T) {
+func TestGenerateQuotesOperationText(t *testing.T) {
 	dir := t.TempDir()
 	schema := `
 type Query {
@@ -284,8 +284,9 @@ type Query {
 	assert.Contains(t, backtick.Body, "`")
 
 	source := string(generated[config.Generated])
-	assert.Contains(t, source, "const Ordinary_Operation = `"+ordinary.Body+"`")
+	assert.Contains(t, source, "const Ordinary_Operation = "+strconv.Quote(ordinary.Body))
 	assert.Contains(t, source, "const Backtick_Operation = "+strconv.Quote(backtick.Body))
+	assert.NotContains(t, source, "const Ordinary_Operation = `")
 	assert.NotContains(t, source, "const Backtick_Operation = `")
 	assert.Equal(t, ordinary.Body, generatedStringConstant(t, generated[config.Generated], "Ordinary_Operation"))
 	assert.Equal(t, backtick.Body, generatedStringConstant(t, generated[config.Generated], "Backtick_Operation"))

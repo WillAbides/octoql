@@ -736,14 +736,7 @@ type UseStructReferencesInput struct {
 }
 
 // The mutation executed by CreateGitHubRepository.
-const CreateGitHubRepository_Operation = `
-mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
-	createRepository(input: $input) {
-		id
-		nameWithOwner
-	}
-}
-`
+const CreateGitHubRepository_Operation = "\nmutation CreateGitHubRepository ($input: CreateRepositoryInput!) {\n\tcreateRepository(input: $input) {\n\t\tid\n\t\tnameWithOwner\n\t}\n}\n"
 
 // CreateGitHubRepositoryPartialDataError contains partial data returned by CreateGitHubRepository.
 type CreateGitHubRepositoryPartialDataError struct {
@@ -800,30 +793,7 @@ func CreateGitHubRepository(
 }
 
 // The query executed by GitHubInputs.
-const GitHubInputs_Operation = `
-query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!, $publishedDates: [[[Date!]!]!]!, $optionalPublishedDates: [[[Date!]!]!]) {
-	repositoryBySelector(input: $repository) {
-		id
-		issues(filter: $filter) {
-			nodes {
-				id
-			}
-		}
-	}
-	latestRelease(publishedAfter: $date) {
-		publishedAt
-	}
-	default(input: $defaults)
-	omitempty(input: $optional)
-	useStructReferencesInput(input: $structs)
-	releasesPublishedOn(dates: $publishedDates) {
-		publishedAt
-	}
-	releasesPublishedOnOptional(dates: $optionalPublishedDates) {
-		publishedAt
-	}
-}
-`
+const GitHubInputs_Operation = "\nquery GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $structs: UseStructReferencesInput!, $publishedDates: [[[Date!]!]!]!, $optionalPublishedDates: [[[Date!]!]!]) {\n\trepositoryBySelector(input: $repository) {\n\t\tid\n\t\tissues(filter: $filter) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $date) {\n\t\tpublishedAt\n\t}\n\tdefault(input: $defaults)\n\tomitempty(input: $optional)\n\tuseStructReferencesInput(input: $structs)\n\treleasesPublishedOn(dates: $publishedDates) {\n\t\tpublishedAt\n\t}\n\treleasesPublishedOnOptional(dates: $optionalPublishedDates) {\n\t\tpublishedAt\n\t}\n}\n"
 
 // GitHubInputsPartialDataError contains partial data returned by GitHubInputs.
 type GitHubInputsPartialDataError struct {
@@ -880,13 +850,7 @@ func GitHubInputs(
 }
 
 // The mutation executed by UpdateIssueWithCollidingNames.
-const UpdateIssueWithCollidingNames_Operation = `
-mutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $client: String) {
-	closeIssue(data: $data, req: $req, resp: $resp, client: $client) {
-		id
-	}
-}
-`
+const UpdateIssueWithCollidingNames_Operation = "\nmutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $client: String) {\n\tcloseIssue(data: $data, req: $req, resp: $resp, client: $client) {\n\t\tid\n\t}\n}\n"
 
 // UpdateIssueWithCollidingNamesPartialDataError contains partial data returned by UpdateIssueWithCollidingNames.
 type UpdateIssueWithCollidingNamesPartialDataError struct {
