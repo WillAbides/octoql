@@ -139,16 +139,6 @@ func TestConfigValidationErrors(t *testing.T) {
 			wantError: "test_handler.types must be one of",
 		},
 		{
-			name:      "invalid optional mode",
-			config:    Config{Optional: "invalid"},
-			wantError: "optional must be one of",
-		},
-		{
-			name:      "generic type required",
-			config:    Config{Optional: "generic"},
-			wantError: "optional_generic_type must be set",
-		},
-		{
 			name:      "invalid package",
 			config:    Config{Package: "invalid-package"},
 			wantError: "invalid package in octoqlgen.yaml",

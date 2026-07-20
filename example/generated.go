@@ -12,11 +12,11 @@ import (
 // getUserResponse is returned by getUser on success.
 type getUserResponse struct {
 	// Lookup a user by login.
-	User getUserUser `json:"user"`
+	User *getUserUser `json:"user"`
 }
 
 // GetUser returns getUserResponse.User, and is useful for accessing the field via an interface.
-func (v *getUserResponse) GetUser() getUserUser { return v.User }
+func (v *getUserResponse) GetUser() *getUserUser { return v.User }
 
 // getUserUser includes the requested fields of the GraphQL type User.
 // The GraphQL type's documentation follows.
@@ -24,13 +24,13 @@ func (v *getUserResponse) GetUser() getUserUser { return v.User }
 // A user is an individual's account on GitHub that owns repositories and can make new content.
 type getUserUser struct {
 	// The user's public profile name.
-	TheirName string `json:"theirName"`
+	TheirName *string `json:"theirName"`
 	// Identifies the date and time when the object was created.
 	CreatedAt time.Time `json:"createdAt"`
 }
 
 // GetTheirName returns getUserUser.TheirName, and is useful for accessing the field via an interface.
-func (v *getUserUser) GetTheirName() string { return v.TheirName }
+func (v *getUserUser) GetTheirName() *string { return v.TheirName }
 
 // GetCreatedAt returns getUserUser.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getUserUser) GetCreatedAt() time.Time { return v.CreatedAt }
@@ -55,13 +55,13 @@ func (v *getViewerResponse) GetViewer() getViewerViewerUser { return v.Viewer }
 // A user is an individual's account on GitHub that owns repositories and can make new content.
 type getViewerViewerUser struct {
 	// The user's public profile name.
-	MyName string `json:"MyName"`
+	MyName *string `json:"MyName"`
 	// Identifies the date and time when the object was created.
 	CreatedAt time.Time `json:"createdAt"`
 }
 
 // GetMyName returns getViewerViewerUser.MyName, and is useful for accessing the field via an interface.
-func (v *getViewerViewerUser) GetMyName() string { return v.MyName }
+func (v *getViewerViewerUser) GetMyName() *string { return v.MyName }
 
 // GetCreatedAt returns getViewerViewerUser.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getViewerViewerUser) GetCreatedAt() time.Time { return v.CreatedAt }

@@ -48,12 +48,6 @@ properties:
       $ref: '#/$defs/packageBinding'
   casing:
     $ref: '#/$defs/casing'
-  optional:
-    description: Representation used for optional GraphQL fields.
-    type: string
-  optional_generic_type:
-    description: Fully qualified single-parameter generic type used when optional is generic.
-    type: string
   use_struct_references:
     description: Whether generated struct fields default to pointers with omitempty.
     type: boolean

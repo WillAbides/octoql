@@ -13,24 +13,24 @@ type FirstRepository string
 
 // GitHubNamingResponse is returned by GitHubNaming on success.
 type GitHubNamingResponse struct {
-	Account         testutil.Account                     `json:"account"`
-	First           GitHubNamingResponseFirstRepository  `json:"first"`
-	Second          GitHubNamingResponseSecondRepository `json:"second"`
-	Snake_case_type GitHubNamingResponseSnake_case_type  `json:"snake_case_type"`
-	Object          GitHubNamingResponseObjectObjectType `json:"object"`
+	Account         testutil.Account                      `json:"account"`
+	First           *GitHubNamingResponseFirstRepository  `json:"first"`
+	Second          *GitHubNamingResponseSecondRepository `json:"second"`
+	Snake_case_type *GitHubNamingResponseSnake_case_type  `json:"snake_case_type"`
+	Object          GitHubNamingResponseObjectObjectType  `json:"object"`
 }
 
 // GetAccount returns GitHubNamingResponse.Account, and is useful for accessing the field via an interface.
 func (v *GitHubNamingResponse) GetAccount() testutil.Account { return v.Account }
 
 // GetFirst returns GitHubNamingResponse.First, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponse) GetFirst() GitHubNamingResponseFirstRepository { return v.First }
+func (v *GitHubNamingResponse) GetFirst() *GitHubNamingResponseFirstRepository { return v.First }
 
 // GetSecond returns GitHubNamingResponse.Second, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponse) GetSecond() GitHubNamingResponseSecondRepository { return v.Second }
+func (v *GitHubNamingResponse) GetSecond() *GitHubNamingResponseSecondRepository { return v.Second }
 
 // GetSnake_case_type returns GitHubNamingResponse.Snake_case_type, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponse) GetSnake_case_type() GitHubNamingResponseSnake_case_type {
+func (v *GitHubNamingResponse) GetSnake_case_type() *GitHubNamingResponseSnake_case_type {
 	return v.Snake_case_type
 }
 
@@ -49,11 +49,11 @@ func (v *GitHubNamingResponseFirstRepository) GetNameWithOwner() FirstRepository
 
 // GitHubNamingResponseObjectObjectType includes the requested fields of the GraphQL type ObjectType.
 type GitHubNamingResponseObjectObjectType struct {
-	Snake_case_field GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type `json:"snake_case_field"`
+	Snake_case_field *GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type `json:"snake_case_field"`
 }
 
 // GetSnake_case_field returns GitHubNamingResponseObjectObjectType.Snake_case_field, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponseObjectObjectType) GetSnake_case_field() GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type {
+func (v *GitHubNamingResponseObjectObjectType) GetSnake_case_field() *GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type {
 	return v.Snake_case_field
 }
 
@@ -80,14 +80,14 @@ func (v *GitHubNamingResponseSecondRepository) GetNameWithOwner() SecondReposito
 // GitHubNamingResponseSnake_case_type includes the requested fields of the GraphQL type snake_case_type.
 type GitHubNamingResponseSnake_case_type struct {
 	Id   testutil.ID `json:"id"`
-	Name string      `json:"name"`
+	Name *string     `json:"name"`
 }
 
 // GetId returns GitHubNamingResponseSnake_case_type.Id, and is useful for accessing the field via an interface.
 func (v *GitHubNamingResponseSnake_case_type) GetId() testutil.ID { return v.Id }
 
 // GetName returns GitHubNamingResponseSnake_case_type.Name, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponseSnake_case_type) GetName() string { return v.Name }
+func (v *GitHubNamingResponseSnake_case_type) GetName() *string { return v.Name }
 
 type SecondRepository string
 

@@ -21,11 +21,11 @@ func (v *getRepositoryRepository) GetNameWithOwner() string { return v.NameWithO
 
 // getRepositoryResponse is returned by getRepository on success.
 type getRepositoryResponse struct {
-	Repository getRepositoryRepository `json:"repository"`
+	Repository *getRepositoryRepository `json:"repository"`
 }
 
 // GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *getRepositoryResponse) GetRepository() getRepositoryRepository { return v.Repository }
+func (v *getRepositoryResponse) GetRepository() *getRepositoryRepository { return v.Repository }
 
 // getRepositoryVariables contains the variables accepted by getRepository.
 type getRepositoryVariables struct {

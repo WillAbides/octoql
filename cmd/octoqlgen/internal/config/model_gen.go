@@ -57,8 +57,6 @@ type Config struct {
 	Generated                       string               `json:"generated"`
 	OmitUnreferencedImplementations *bool                `json:"omit_unreferenced_implementations"`
 	Operations                      []string             `json:"operations"`
-	Optional                        *string              `json:"optional"`
-	OptionalGenericType             *string              `json:"optional_generic_type"`
 	Package                         *string              `json:"package"`
 	PackageBindings                 []PackageBinding     `json:"package_bindings"`
 	Schema                          Schema               `json:"schema"`

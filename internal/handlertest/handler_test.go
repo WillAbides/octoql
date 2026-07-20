@@ -44,27 +44,28 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 		variables,
 	)
 	require.NoError(t, err)
+	require.NotNil(t, response.Repository)
 	assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
 	assert.Equal(t, time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC), response.Repository.UpdatedAt)
 	assert.JSONEq(t, `["red","blue"]`, string(response.Repository.PropertyValue))
 	require.Len(t, response.Repository.Issues.Nodes, 1)
 	assert.Equal(t, "bug", response.Repository.Issues.Nodes[0].Title)
-	assert.Equal(t, "cursor-2", response.Repository.Issues.PageInfo.EndCursor)
+	assert.Equal(t, "cursor-2", requirePtrValue(t, response.Repository.Issues.PageInfo.EndCursor))
 
 	input := githubapitest.CreateRepositoryInput{
 		Name:             "created",
-		OwnerId:          "O1",
-		Visibility:       githubapitest.RepositoryVisibilityPrivate,
-		ClientMutationId: "mutation-1",
+		OwnerId:          ptr("O1"),
+		Visibility:       ptr(githubapitest.RepositoryVisibilityPrivate),
+		ClientMutationId: ptr("mutation-1"),
 	}
 	mutationData := githubapitest.CreateRepositoryResponse{
 		CreateRepository: githubapitest.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
-			Repository: githubapitest.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+			Repository: ptr(githubapitest.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
 				Id:            "R2",
 				NameWithOwner: "octo-org/created",
 				UpdatedAt:     time.Date(2026, time.July, 19, 13, 0, 0, 0, time.UTC),
-			},
-			ClientMutationId: "mutation-1",
+			}),
+			ClientMutationId: ptr("mutation-1"),
 		},
 	}
 	handler.ExpectCreateRepository(githubapitest.CreateRepositoryVariables{
@@ -75,8 +76,9 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 		Input: input,
 	})
 	require.NoError(t, err)
+	require.NotNil(t, mutationResponse.CreateRepository.Repository)
 	assert.Equal(t, "octo-org/created", mutationResponse.CreateRepository.Repository.NameWithOwner)
-	assert.Equal(t, "mutation-1", mutationResponse.CreateRepository.ClientMutationId)
+	assert.Equal(t, "mutation-1", requirePtrValue(t, mutationResponse.CreateRepository.ClientMutationId))
 
 	property := json.RawMessage(`["one","two"]`)
 	handler.ExpectEchoProperty(githubapitest.EchoPropertyVariables{
@@ -283,28 +285,32 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	assert.JSONEq(t, string(dynamicVariables.Value), string((<-receivedVariables).Value))
 
 	repositoryVariables := githubapitest.GetNodeVariables{Id: "repository"}
+	repositoryNode := githubapitest.GetNodeNode(&githubapitest.GetNodeNodeRepository{
+		Id:            "R1",
+		NameWithOwner: "octo-org/octo-repo",
+	})
 	handler.ExpectGetNode(repositoryVariables).Respond(githubapitest.GetNodeResponse{
-		Node: &githubapitest.GetNodeNodeRepository{
-			Id:            "R1",
-			NameWithOwner: "octo-org/octo-repo",
-		},
+		Node: &repositoryNode,
 	})
 	repositoryResponse, err := githubapi.GetNode(t.Context(), client, repositoryVariables)
 	require.NoError(t, err)
-	repository, ok := repositoryResponse.Node.(*githubapitest.GetNodeNodeRepository)
+	require.NotNil(t, repositoryResponse.Node)
+	repository, ok := (*repositoryResponse.Node).(*githubapitest.GetNodeNodeRepository)
 	require.True(t, ok)
 	assert.Equal(t, "Repository", repository.Typename)
 
 	otherVariables := githubapitest.GetNodeVariables{Id: "user"}
+	otherNode := githubapitest.GetNodeNode(&githubapitest.GetNodeNodeOctoqlOther{
+		Typename: "User",
+		Id:       "U1",
+	})
 	handler.ExpectGetNode(otherVariables).Respond(githubapitest.GetNodeResponse{
-		Node: &githubapitest.GetNodeNodeOctoqlOther{
-			Typename: "User",
-			Id:       "U1",
-		},
+		Node: &otherNode,
 	})
 	otherResponse, err := githubapi.GetNode(t.Context(), client, otherVariables)
 	require.NoError(t, err)
-	other, ok := otherResponse.Node.(*githubapitest.GetNodeNodeOctoqlOther)
+	require.NotNil(t, otherResponse.Node)
+	other, ok := (*otherResponse.Node).(*githubapitest.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", other.Typename)
 
@@ -373,13 +379,13 @@ func repositoryVariables() githubapitest.GetRepositoryVariables {
 		Owner: "octo-org",
 		Name:  "octo-repo",
 		First: 2,
-		After: "cursor-1",
+		After: ptr("cursor-1"),
 	}
 }
 
 func repositoryData() githubapitest.GetRepositoryResponse {
 	return githubapitest.GetRepositoryResponse{
-		Repository: githubapitest.GetRepositoryRepository{
+		Repository: ptr(githubapitest.GetRepositoryRepository{
 			Id:            "R1",
 			FullName:      "octo-org/octo-repo",
 			UpdatedAt:     time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC),
@@ -391,9 +397,19 @@ func repositoryData() githubapitest.GetRepositoryResponse {
 				}},
 				PageInfo: githubapitest.GetRepositoryRepositoryIssuesIssueConnectionPageInfo{
 					HasNextPage: true,
-					EndCursor:   "cursor-2",
+					EndCursor:   ptr("cursor-2"),
 				},
 			},
-		},
+		}),
 	}
+}
+
+func ptr[T any](value T) *T {
+	return &value
+}
+
+func requirePtrValue[T any](t *testing.T, value *T) T {
+	t.Helper()
+	require.NotNil(t, value)
+	return *value
 }
