@@ -24,6 +24,7 @@ func warn(err error) error {
 type Config struct {
 	Schema                          StringList
 	Operations                      StringList
+	ConfigFile                      string
 	Generated                       string
 	TestHandlerGenerated            string
 	TestHandlerTypes                TestHandlerTypeStrategy
@@ -34,8 +35,6 @@ type Config struct {
 	Bindings                        map[string]*TypeBinding
 	PackageBindings                 []*PackageBinding
 	Casing                          Casing
-	Optional                        string
-	OptionalGenericType             string
 	StructReferences                bool
 	OmitUnreferencedImplementations *bool
 
@@ -274,6 +273,9 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	for i := range c.Operations {
 		c.Operations[i] = pathJoin(baseDir, c.Operations[i])
 	}
+	if c.ConfigFile != "" {
+		c.ConfigFile = pathJoin(baseDir, c.ConfigFile)
+	}
 	if c.Generated == "" {
 		c.Generated = "generated.go"
 	}
@@ -302,16 +304,6 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	err = c.TestHandlerTypes.validate()
 	if err != nil {
 		return err
-	}
-
-	if c.Optional != "" && c.Optional != "value" && c.Optional != "pointer" && c.Optional != "pointer_omitempty" && c.Optional != "generic" {
-		return errorf(nil, "optional must be one of: 'value' (default), 'pointer', 'pointer_omitempty' or 'generic'")
-	}
-
-	if c.Optional == "generic" && c.OptionalGenericType == "" {
-		return errorf(nil, "if optional is set to 'generic', optional_generic_type must be set to the fully"+
-			"qualified name of a type with a single generic parameter"+
-			"\nExample: \"github.com/Org/Repo/optional.Value\"")
 	}
 
 	if c.Package != "" && !token.IsIdentifier(c.Package) {
@@ -460,12 +452,61 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 }
 
 func (c *Config) validateOutputPaths() error {
-	outputs := map[string]string{}
-	type existingOutput struct {
-		name string
-		info os.FileInfo
+	outputs, err := c.outputPaths()
+	if err != nil {
+		return err
 	}
-	existingOutputs := []existingOutput{}
+	if c.ConfigFile != "" {
+		err = validateProtectedPath(outputs, "config", c.ConfigFile)
+		if err != nil {
+			return err
+		}
+	}
+	for _, input := range []struct {
+		name  string
+		paths StringList
+	}{
+		{name: "schema input", paths: c.Schema},
+		{name: "operations input", paths: c.Operations},
+	} {
+		for _, filename := range input.paths {
+			err = validateProtectedPath(outputs, input.name, filename)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateProtectedPath(outputs []inspectedPath, name, filename string) error {
+	protected, err := inspectPath(name, filename)
+	if err != nil {
+		return errorf(nil, "resolving %s path %q: %v", name, filename, err)
+	}
+	for _, output := range outputs {
+		if pathsAlias(output, protected) {
+			return errorf(
+				nil,
+				"%s output path must be different from %s path: %q",
+				output.name,
+				name,
+				output.path,
+			)
+		}
+	}
+	return nil
+}
+
+type inspectedPath struct {
+	name      string
+	path      string
+	canonical string
+	info      os.FileInfo
+}
+
+func (c *Config) outputPaths() ([]inspectedPath, error) {
+	var outputs []inspectedPath
 	for _, output := range []struct {
 		name string
 		path string
@@ -477,35 +518,9 @@ func (c *Config) validateOutputPaths() error {
 		if output.path == "" {
 			continue
 		}
-		info, statErr := os.Stat(output.path)
-		if statErr == nil {
-			for _, existing := range existingOutputs {
-				if os.SameFile(existing.info, info) {
-					return errorf(
-						nil,
-						"%s and %s output paths must be different: %q",
-						existing.name,
-						output.name,
-						output.path,
-					)
-				}
-			}
-			existingOutputs = append(existingOutputs, existingOutput{
-				name: output.name,
-				info: info,
-			})
-		} else if !os.IsNotExist(statErr) {
-			return errorf(
-				nil,
-				"checking %s output path %q: %v",
-				output.name,
-				output.path,
-				statErr,
-			)
-		}
-		canonical, err := canonicalOutputPath(output.path)
+		inspected, err := inspectPath(output.name, output.path)
 		if err != nil {
-			return errorf(
+			return nil, errorf(
 				nil,
 				"resolving %s output path %q: %v",
 				output.name,
@@ -513,19 +528,88 @@ func (c *Config) validateOutputPaths() error {
 				err,
 			)
 		}
-		existing := outputs[canonical]
-		if existing != "" {
-			return errorf(
-				nil,
-				"%s and %s output paths must be different: %q",
-				existing,
-				output.name,
-				canonical,
-			)
+		for _, existing := range outputs {
+			if pathsAlias(existing, inspected) {
+				return nil, errorf(
+					nil,
+					"%s and %s output paths must be different: %q",
+					existing.name,
+					output.name,
+					inspected.canonical,
+				)
+			}
 		}
-		outputs[canonical] = output.name
+		outputs = append(outputs, inspected)
+	}
+	return outputs, nil
+}
+
+func (c *Config) validateInputPaths() error {
+	outputs, err := c.outputPaths()
+	if err != nil {
+		return err
+	}
+	inputs := []struct {
+		name  string
+		globs StringList
+	}{
+		{name: "schema", globs: c.Schema},
+		{name: "operations", globs: c.Operations},
+	}
+	for _, input := range inputs {
+		filenames, expandErr := expandFilenames(input.globs)
+		if expandErr != nil {
+			return expandErr
+		}
+		for _, filename := range filenames {
+			inspected, inspectErr := inspectPath(input.name, filename)
+			if inspectErr != nil {
+				return errorf(
+					nil,
+					"resolving %s input path %q: %v",
+					input.name,
+					filename,
+					inspectErr,
+				)
+			}
+			for _, output := range outputs {
+				if pathsAlias(output, inspected) {
+					return errorf(
+						nil,
+						"%s output path must be different from %s input path: %q",
+						output.name,
+						input.name,
+						output.path,
+					)
+				}
+			}
+		}
 	}
 	return nil
+}
+
+func inspectPath(name, filename string) (inspectedPath, error) {
+	info, err := os.Stat(filename)
+	if err != nil && !os.IsNotExist(err) {
+		return inspectedPath{}, err
+	}
+	canonical, err := canonicalOutputPath(filename)
+	if err != nil {
+		return inspectedPath{}, err
+	}
+	return inspectedPath{
+		name:      name,
+		path:      filename,
+		canonical: canonical,
+		info:      info,
+	}, nil
+}
+
+func pathsAlias(left, right inspectedPath) bool {
+	if left.info != nil && right.info != nil && os.SameFile(left.info, right.info) {
+		return true
+	}
+	return left.canonical == right.canonical
 }
 
 func canonicalOutputPath(filename string) (string, error) {

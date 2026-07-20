@@ -225,16 +225,22 @@ func TestRuntimeAbstracts(t *testing.T) {
 			name: "referenced implementation",
 			body: ` + "`" + `{"node":{"__typename":"Repository","id":"R1","url":"https://example.test/r","nameWithOwner":"octo/repo"},"nestedNodes":[],"actorNode":{"__typename":"Organization","login":"octo-org"}}` + "`" + `,
 			check: func(t *testing.T, response RuntimeAbstractsResponse) {
-				repository, ok := response.Node.(*RuntimeAbstractsNodeRepository)
+				if response.Node == nil {
+					t.Fatal("node is nil")
+				}
+				repository, ok := (*response.Node).(*RuntimeAbstractsNodeRepository)
 				if !ok {
-					t.Fatalf("node has type %T", response.Node)
+					t.Fatalf("node has type %T", *response.Node)
 				}
 				if repository.NameWithOwner != "octo/repo" {
 					t.Fatalf("nameWithOwner = %q", repository.NameWithOwner)
 				}
-				organization, ok := response.ActorNode.(*RuntimeAbstractsActorNodeOrganization)
+				if response.ActorNode == nil {
+					t.Fatal("actor node is nil")
+				}
+				organization, ok := (*response.ActorNode).(*RuntimeAbstractsActorNodeOrganization)
 				if !ok {
-					t.Fatalf("actor node has type %T", response.ActorNode)
+					t.Fatalf("actor node has type %T", *response.ActorNode)
 				}
 				if organization.Login != "octo-org" {
 					t.Fatalf("login = %q", organization.Login)
@@ -245,9 +251,12 @@ func TestRuntimeAbstracts(t *testing.T) {
 			name: "omitted implementation shared fields",
 			body: ` + "`" + `{"node":{"__typename":"Issue","id":"I1","url":"https://example.test/i"},"nestedNodes":[]}` + "`" + `,
 			check: func(t *testing.T, response RuntimeAbstractsResponse) {
-				other, ok := response.Node.(*RuntimeAbstractsNodeOctoqlOther)
+				if response.Node == nil {
+					t.Fatal("node is nil")
+				}
+				other, ok := (*response.Node).(*RuntimeAbstractsNodeOctoqlOther)
 				if !ok {
-					t.Fatalf("node has type %T", response.Node)
+					t.Fatalf("node has type %T", *response.Node)
 				}
 				if other.GetTypename() != "Issue" || other.GetId() != "I1" || other.GetUrl() != "https://example.test/i" {
 					t.Fatalf("catch-all fields = %q, %q, %q", other.GetTypename(), other.GetId(), other.GetUrl())
@@ -258,9 +267,12 @@ func TestRuntimeAbstracts(t *testing.T) {
 			name: "future typename",
 			body: ` + "`" + `{"node":{"__typename":"FutureNode","id":"F1","url":"https://example.test/f"},"nestedNodes":[]}` + "`" + `,
 			check: func(t *testing.T, response RuntimeAbstractsResponse) {
-				other, ok := response.Node.(*RuntimeAbstractsNodeOctoqlOther)
+				if response.Node == nil {
+					t.Fatal("node is nil")
+				}
+				other, ok := (*response.Node).(*RuntimeAbstractsNodeOctoqlOther)
 				if !ok || other.GetTypename() != "FutureNode" {
-					t.Fatalf("future node = %#v (%T)", response.Node, response.Node)
+					t.Fatalf("future node = %#v (%T)", *response.Node, *response.Node)
 				}
 			},
 		},
@@ -273,6 +285,9 @@ func TestRuntimeAbstracts(t *testing.T) {
 				}
 				if response.NestedNodes[0][0][0] != nil {
 					t.Fatalf("null node = %#v", response.NestedNodes[0][0][0])
+				}
+				if response.NestedNodes[0][0][1] == nil {
+					t.Fatal("nested node is nil")
 				}
 				other, ok := response.NestedNodes[0][0][1].(*RuntimeAbstractsNestedNodesNodeOctoqlOther)
 				if !ok || other.GetTypename() != "Bot" || other.GetId() != "B1" {

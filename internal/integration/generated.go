@@ -15,21 +15,21 @@ import (
 
 // addCommentAddCommentAddCommentPayload includes the requested fields of the GraphQL type AddCommentPayload.
 type addCommentAddCommentAddCommentPayload struct {
-	CommentEdge addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge `json:"commentEdge"`
+	CommentEdge *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge `json:"commentEdge"`
 }
 
 // GetCommentEdge returns addCommentAddCommentAddCommentPayload.CommentEdge, and is useful for accessing the field via an interface.
-func (v *addCommentAddCommentAddCommentPayload) GetCommentEdge() addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge {
+func (v *addCommentAddCommentAddCommentPayload) GetCommentEdge() *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge {
 	return v.CommentEdge
 }
 
 // addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge includes the requested fields of the GraphQL type IssueCommentEdge.
 type addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge struct {
-	Node addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment `json:"node"`
+	Node *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment `json:"node"`
 }
 
 // GetNode returns addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge.Node, and is useful for accessing the field via an interface.
-func (v *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge) GetNode() addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment {
+func (v *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge) GetNode() *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment {
 	return v.Node
 }
 
@@ -66,11 +66,11 @@ type addCommentVariables struct {
 
 // addStarAddStarAddStarPayload includes the requested fields of the GraphQL type AddStarPayload.
 type addStarAddStarAddStarPayload struct {
-	Starrable addStarAddStarAddStarPayloadStarrable `json:"-"`
+	Starrable *addStarAddStarAddStarPayloadStarrable `json:"-"`
 }
 
 // GetStarrable returns addStarAddStarAddStarPayload.Starrable, and is useful for accessing the field via an interface.
-func (v *addStarAddStarAddStarPayload) GetStarrable() addStarAddStarAddStarPayloadStarrable {
+func (v *addStarAddStarAddStarPayload) GetStarrable() *addStarAddStarAddStarPayloadStarrable {
 	return v.Starrable
 }
 
@@ -95,9 +95,13 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Starrable
 		src := firstPass.Starrable
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(addStarAddStarAddStarPayloadStarrable)
 			err = __unmarshaladdStarAddStarAddStarPayloadStarrable(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal addStarAddStarAddStarPayload.Starrable: %w", err)
@@ -126,12 +130,14 @@ func (v *addStarAddStarAddStarPayload) __premarshalJSON() (*__premarshaladdStarA
 
 		dst := &retval.Starrable
 		src := v.Starrable
-		var err error
-		*dst, err = __marshaladdStarAddStarAddStarPayloadStarrable(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal addStarAddStarAddStarPayload.Starrable: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = __marshaladdStarAddStarAddStarPayloadStarrable(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal addStarAddStarAddStarPayload.Starrable: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -241,12 +247,12 @@ type addStarVariables struct {
 
 // failingQueryResponse is returned by failingQuery on success.
 type failingQueryResponse struct {
-	Fail   bool                   `json:"fail"`
+	Fail   *bool                  `json:"fail"`
 	Viewer failingQueryViewerUser `json:"viewer"`
 }
 
 // GetFail returns failingQueryResponse.Fail, and is useful for accessing the field via an interface.
-func (v *failingQueryResponse) GetFail() bool { return v.Fail }
+func (v *failingQueryResponse) GetFail() *bool { return v.Fail }
 
 // GetViewer returns failingQueryResponse.Viewer, and is useful for accessing the field via an interface.
 func (v *failingQueryResponse) GetViewer() failingQueryViewerUser { return v.Viewer }
@@ -451,11 +457,11 @@ func (v *getRepositoryRepositoryOwnerUser) GetLogin() string { return v.Login }
 
 // getRepositoryResponse is returned by getRepository on success.
 type getRepositoryResponse struct {
-	Repository getRepositoryRepository `json:"repository"`
+	Repository *getRepositoryRepository `json:"repository"`
 }
 
 // GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *getRepositoryResponse) GetRepository() getRepositoryRepository { return v.Repository }
+func (v *getRepositoryResponse) GetRepository() *getRepositoryRepository { return v.Repository }
 
 // getRepositoryVariables contains the variables accepted by getRepository.
 type getRepositoryVariables struct {
@@ -597,7 +603,7 @@ func (v *innerActorFieldsUser) GetRepositories() []repositoriesFields { return v
 type innerRepositoryOwnerFields interface {
 	implementsGraphQLInterfaceinnerRepositoryOwnerFields()
 	// GetContributionCount returns the interface-field "contributionCount" from its implementation.
-	GetContributionCount() int
+	GetContributionCount() *int
 }
 
 func (v *innerRepositoryOwnerFieldsOrganization) implementsGraphQLInterfaceinnerRepositoryOwnerFields() {
@@ -663,57 +669,57 @@ func __marshalinnerRepositoryOwnerFields(v *innerRepositoryOwnerFields) ([]byte,
 
 // innerRepositoryOwnerFields includes the GraphQL fields of Organization requested by the fragment innerRepositoryOwnerFields.
 type innerRepositoryOwnerFieldsOrganization struct {
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 }
 
 // GetContributionCount returns innerRepositoryOwnerFieldsOrganization.ContributionCount, and is useful for accessing the field via an interface.
-func (v *innerRepositoryOwnerFieldsOrganization) GetContributionCount() int {
+func (v *innerRepositoryOwnerFieldsOrganization) GetContributionCount() *int {
 	return v.ContributionCount
 }
 
 // innerRepositoryOwnerFields includes the GraphQL fields of User requested by the fragment innerRepositoryOwnerFields.
 type innerRepositoryOwnerFieldsUser struct {
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 }
 
 // GetContributionCount returns innerRepositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *innerRepositoryOwnerFieldsUser) GetContributionCount() int { return v.ContributionCount }
+func (v *innerRepositoryOwnerFieldsUser) GetContributionCount() *int { return v.ContributionCount }
 
 // moreUserFields includes the GraphQL fields of User requested by the fragment moreUserFields.
 type moreUserFields struct {
-	Id     string                         `json:"id"`
-	Status moreUserFieldsStatusUserStatus `json:"status"`
+	Id     string                          `json:"id"`
+	Status *moreUserFieldsStatusUserStatus `json:"status"`
 }
 
 // GetId returns moreUserFields.Id, and is useful for accessing the field via an interface.
 func (v *moreUserFields) GetId() string { return v.Id }
 
 // GetStatus returns moreUserFields.Status, and is useful for accessing the field via an interface.
-func (v *moreUserFields) GetStatus() moreUserFieldsStatusUserStatus { return v.Status }
+func (v *moreUserFields) GetStatus() *moreUserFieldsStatusUserStatus { return v.Status }
 
 // moreUserFieldsStatusUserStatus includes the requested fields of the GraphQL type UserStatus.
 type moreUserFieldsStatusUserStatus struct {
-	Emoji string `json:"emoji"`
+	Emoji *string `json:"emoji"`
 }
 
 // GetEmoji returns moreUserFieldsStatusUserStatus.Emoji, and is useful for accessing the field via an interface.
-func (v *moreUserFieldsStatusUserStatus) GetEmoji() string { return v.Emoji }
+func (v *moreUserFieldsStatusUserStatus) GetEmoji() *string { return v.Emoji }
 
 // organizationFields includes the GraphQL fields of Organization requested by the fragment organizationFields.
 type organizationFields struct {
-	Id             string                                `json:"id"`
-	Plan           organizationFieldsPlan                `json:"plan"`
-	TopContributor organizationFieldsTopContributorActor `json:"-"`
+	Id             string                                 `json:"id"`
+	Plan           *organizationFieldsPlan                `json:"plan"`
+	TopContributor *organizationFieldsTopContributorActor `json:"-"`
 }
 
 // GetId returns organizationFields.Id, and is useful for accessing the field via an interface.
 func (v *organizationFields) GetId() string { return v.Id }
 
 // GetPlan returns organizationFields.Plan, and is useful for accessing the field via an interface.
-func (v *organizationFields) GetPlan() organizationFieldsPlan { return v.Plan }
+func (v *organizationFields) GetPlan() *organizationFieldsPlan { return v.Plan }
 
 // GetTopContributor returns organizationFields.TopContributor, and is useful for accessing the field via an interface.
-func (v *organizationFields) GetTopContributor() organizationFieldsTopContributorActor {
+func (v *organizationFields) GetTopContributor() *organizationFieldsTopContributorActor {
 	return v.TopContributor
 }
 
@@ -738,9 +744,13 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.TopContributor
 		src := firstPass.TopContributor
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(organizationFieldsTopContributorActor)
 			err = __unmarshalorganizationFieldsTopContributorActor(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal organizationFields.TopContributor: %w", err)
@@ -753,7 +763,7 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 type __premarshalorganizationFields struct {
 	Id string `json:"id"`
 
-	Plan organizationFieldsPlan `json:"plan"`
+	Plan *organizationFieldsPlan `json:"plan"`
 
 	TopContributor json.RawMessage `json:"topContributor"`
 }
@@ -775,12 +785,14 @@ func (v *organizationFields) __premarshalJSON() (*__premarshalorganizationFields
 
 		dst := &retval.TopContributor
 		src := v.TopContributor
-		var err error
-		*dst, err = __marshalorganizationFieldsTopContributorActor(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal organizationFields.TopContributor: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = __marshalorganizationFieldsTopContributorActor(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal organizationFields.TopContributor: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -917,7 +929,7 @@ func (v *organizationFieldsTopContributorOrganization) GetTypename() string { re
 func (v *organizationFieldsTopContributorOrganization) GetId() string { return v.Id }
 
 // GetContributionCount returns organizationFieldsTopContributorOrganization.ContributionCount, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorOrganization) GetContributionCount() int {
+func (v *organizationFieldsTopContributorOrganization) GetContributionCount() *int {
 	return v.repositoryOwnerFieldsOrganization.ContributionCount
 }
 
@@ -951,7 +963,7 @@ type __premarshalorganizationFieldsTopContributorOrganization struct {
 
 	Id string `json:"id"`
 
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 }
 
 func (v *organizationFieldsTopContributorOrganization) MarshalJSON() ([]byte, error) {
@@ -986,12 +998,12 @@ func (v *organizationFieldsTopContributorUser) GetTypename() string { return v.T
 func (v *organizationFieldsTopContributorUser) GetId() string { return v.Id }
 
 // GetContributionCount returns organizationFieldsTopContributorUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorUser) GetContributionCount() int {
+func (v *organizationFieldsTopContributorUser) GetContributionCount() *int {
 	return v.repositoryOwnerFieldsUser.ContributionCount
 }
 
 // GetStatus returns organizationFieldsTopContributorUser.Status, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorUser) GetStatus() moreUserFieldsStatusUserStatus {
+func (v *organizationFieldsTopContributorUser) GetStatus() *moreUserFieldsStatusUserStatus {
 	return v.userFields.moreUserFields.Status
 }
 
@@ -1030,9 +1042,9 @@ type __premarshalorganizationFieldsTopContributorUser struct {
 
 	Id string `json:"id"`
 
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 
-	Status moreUserFieldsStatusUserStatus `json:"status"`
+	Status *moreUserFieldsStatusUserStatus `json:"status"`
 }
 
 func (v *organizationFieldsTopContributorUser) MarshalJSON() ([]byte, error) {
@@ -1055,11 +1067,11 @@ func (v *organizationFieldsTopContributorUser) __premarshalJSON() (*__premarshal
 
 // queryFragment includes the GraphQL fields of Query requested by the fragment queryFragment.
 type queryFragment struct {
-	Actors []queryFragmentActorsActor `json:"-"`
+	Actors []*queryFragmentActorsActor `json:"-"`
 }
 
 // GetActors returns queryFragment.Actors, and is useful for accessing the field via an interface.
-func (v *queryFragment) GetActors() []queryFragmentActorsActor { return v.Actors }
+func (v *queryFragment) GetActors() []*queryFragmentActorsActor { return v.Actors }
 
 func (v *queryFragment) UnmarshalJSON(b []byte) error {
 
@@ -1069,7 +1081,7 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryFragment
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryFragment = v
@@ -1081,18 +1093,34 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		*dst = make(
-			[]queryFragmentActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryFragmentActorsActor(
-					src, dst)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
 				if err != nil {
 					return fmt.Errorf(
 						"unable to unmarshal queryFragment.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]*queryFragmentActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							*dst = new(queryFragmentActorsActor)
+							err = __unmarshalqueryFragmentActorsActor(
+								src, *dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryFragment.Actors: %w", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -1119,17 +1147,21 @@ func (v *queryFragment) __premarshalJSON() (*__premarshalqueryFragment, error) {
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryFragmentActorsActor(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryFragment.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if src != nil {
+					var err error
+					*dst, err = __marshalqueryFragmentActorsActor(
+						src)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"unable to marshal queryFragment.Actors: %w", err)
+					}
+				}
 			}
 		}
 	}
@@ -1244,9 +1276,9 @@ func (v *queryFragmentActorsBot) GetId() string { return v.Id }
 
 // queryFragmentActorsOrganization includes the requested fields of the GraphQL type Organization.
 type queryFragmentActorsOrganization struct {
-	Typename       string           `json:"__typename"`
-	Id             string           `json:"id"`
-	TopContributor innerActorFields `json:"-"`
+	Typename       string            `json:"__typename"`
+	Id             string            `json:"id"`
+	TopContributor *innerActorFields `json:"-"`
 }
 
 // GetTypename returns queryFragmentActorsOrganization.Typename, and is useful for accessing the field via an interface.
@@ -1256,7 +1288,7 @@ func (v *queryFragmentActorsOrganization) GetTypename() string { return v.Typena
 func (v *queryFragmentActorsOrganization) GetId() string { return v.Id }
 
 // GetTopContributor returns queryFragmentActorsOrganization.TopContributor, and is useful for accessing the field via an interface.
-func (v *queryFragmentActorsOrganization) GetTopContributor() innerActorFields {
+func (v *queryFragmentActorsOrganization) GetTopContributor() *innerActorFields {
 	return v.TopContributor
 }
 
@@ -1281,9 +1313,13 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.TopContributor
 		src := firstPass.TopContributor
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(innerActorFields)
 			err = __unmarshalinnerActorFields(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryFragmentActorsOrganization.TopContributor: %w", err)
@@ -1318,12 +1354,14 @@ func (v *queryFragmentActorsOrganization) __premarshalJSON() (*__premarshalquery
 
 		dst := &retval.TopContributor
 		src := v.TopContributor
-		var err error
-		*dst, err = __marshalinnerActorFields(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal queryFragmentActorsOrganization.TopContributor: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = __marshalinnerActorFields(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryFragmentActorsOrganization.TopContributor: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -1343,7 +1381,7 @@ func (v *queryFragmentActorsUser) GetTypename() string { return v.Typename }
 func (v *queryFragmentActorsUser) GetId() string { return v.Id }
 
 // GetContributionCount returns queryFragmentActorsUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryFragmentActorsUser) GetContributionCount() int {
+func (v *queryFragmentActorsUser) GetContributionCount() *int {
 	return v.innerRepositoryOwnerFieldsUser.ContributionCount
 }
 
@@ -1377,7 +1415,7 @@ type __premarshalqueryFragmentActorsUser struct {
 
 	Id string `json:"id"`
 
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 }
 
 func (v *queryFragmentActorsUser) MarshalJSON() ([]byte, error) {
@@ -1399,19 +1437,19 @@ func (v *queryFragmentActorsUser) __premarshalJSON() (*__premarshalqueryFragment
 
 // queryWithCustomMarshalOptionalResponse is returned by queryWithCustomMarshalOptional on success.
 type queryWithCustomMarshalOptionalResponse struct {
-	UserSearch []queryWithCustomMarshalOptionalUserSearchUser `json:"userSearch"`
+	UserSearch []*queryWithCustomMarshalOptionalUserSearchUser `json:"userSearch"`
 }
 
 // GetUserSearch returns queryWithCustomMarshalOptionalResponse.UserSearch, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalOptionalResponse) GetUserSearch() []queryWithCustomMarshalOptionalUserSearchUser {
+func (v *queryWithCustomMarshalOptionalResponse) GetUserSearch() []*queryWithCustomMarshalOptionalUserSearchUser {
 	return v.UserSearch
 }
 
 // queryWithCustomMarshalOptionalUserSearchUser includes the requested fields of the GraphQL type User.
 type queryWithCustomMarshalOptionalUserSearchUser struct {
-	Id        string    `json:"id"`
-	Login     string    `json:"login"`
-	CreatedAt time.Time `json:"-"`
+	Id        string     `json:"id"`
+	Login     string     `json:"login"`
+	CreatedAt *time.Time `json:"-"`
 }
 
 // GetId returns queryWithCustomMarshalOptionalUserSearchUser.Id, and is useful for accessing the field via an interface.
@@ -1421,7 +1459,7 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) GetId() string { return v
 func (v *queryWithCustomMarshalOptionalUserSearchUser) GetLogin() string { return v.Login }
 
 // GetCreatedAt returns queryWithCustomMarshalOptionalUserSearchUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalOptionalUserSearchUser) GetCreatedAt() time.Time { return v.CreatedAt }
+func (v *queryWithCustomMarshalOptionalUserSearchUser) GetCreatedAt() *time.Time { return v.CreatedAt }
 
 func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) error {
 
@@ -1444,9 +1482,13 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) e
 	{
 		dst := &v.CreatedAt
 		src := firstPass.CreatedAt
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryWithCustomMarshalOptionalUserSearchUser.CreatedAt: %w", err)
@@ -1481,12 +1523,14 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) __premarshalJSON() (*__pr
 
 		dst := &retval.CreatedAt
 		src := v.CreatedAt
-		var err error
-		*dst, err = testutil.MarshalDate(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal queryWithCustomMarshalOptionalUserSearchUser.CreatedAt: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = testutil.MarshalDate(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryWithCustomMarshalOptionalUserSearchUser.CreatedAt: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -1519,6 +1563,9 @@ func (v *queryWithCustomMarshalOptionalVariables) UnmarshalJSON(b []byte) error 
 	{
 		dst := &v.Date
 		src := firstPass.Date
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
 			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(
@@ -1589,9 +1636,9 @@ func (v *queryWithCustomMarshalSliceResponse) GetUsersCreatedOnDates() []queryWi
 
 // queryWithCustomMarshalSliceUsersCreatedOnDatesUser includes the requested fields of the GraphQL type User.
 type queryWithCustomMarshalSliceUsersCreatedOnDatesUser struct {
-	Id        string    `json:"id"`
-	Login     string    `json:"login"`
-	CreatedAt time.Time `json:"-"`
+	Id        string     `json:"id"`
+	Login     string     `json:"login"`
+	CreatedAt *time.Time `json:"-"`
 }
 
 // GetId returns queryWithCustomMarshalSliceUsersCreatedOnDatesUser.Id, and is useful for accessing the field via an interface.
@@ -1601,7 +1648,7 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetId() string { re
 func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetLogin() string { return v.Login }
 
 // GetCreatedAt returns queryWithCustomMarshalSliceUsersCreatedOnDatesUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetCreatedAt() time.Time {
+func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetCreatedAt() *time.Time {
 	return v.CreatedAt
 }
 
@@ -1626,9 +1673,13 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []b
 	{
 		dst := &v.CreatedAt
 		src := firstPass.CreatedAt
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryWithCustomMarshalSliceUsersCreatedOnDatesUser.CreatedAt: %w", err)
@@ -1663,12 +1714,14 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) __premarshalJSON() 
 
 		dst := &retval.CreatedAt
 		src := v.CreatedAt
-		var err error
-		*dst, err = testutil.MarshalDate(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal queryWithCustomMarshalSliceUsersCreatedOnDatesUser.CreatedAt: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = testutil.MarshalDate(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryWithCustomMarshalSliceUsersCreatedOnDatesUser.CreatedAt: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -1687,7 +1740,7 @@ func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithCustomMarshalSliceVariables
-		Dates []json.RawMessage `json:"dates"`
+		Dates json.RawMessage `json:"dates"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalSliceVariables = v
@@ -1699,18 +1752,33 @@ func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Dates
-		src := firstPass.Dates
-		*dst = make(
-			[]time.Time,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = testutil.UnmarshalDate(
-					src, dst)
+		raw := firstPass.Dates
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
 				if err != nil {
 					return fmt.Errorf(
 						"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]time.Time,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = testutil.UnmarshalDate(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -1737,17 +1805,19 @@ func (v *queryWithCustomMarshalSliceVariables) __premarshalJSON() (*__premarshal
 
 		dst := &retval.Dates
 		src := v.Dates
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = testutil.MarshalDate(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = testutil.MarshalDate(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
+				}
 			}
 		}
 	}
@@ -1756,9 +1826,9 @@ func (v *queryWithCustomMarshalSliceVariables) __premarshalJSON() (*__premarshal
 
 // queryWithCustomMarshalUsersCreatedOnUser includes the requested fields of the GraphQL type User.
 type queryWithCustomMarshalUsersCreatedOnUser struct {
-	Id        string    `json:"id"`
-	Login     string    `json:"login"`
-	CreatedAt time.Time `json:"-"`
+	Id        string     `json:"id"`
+	Login     string     `json:"login"`
+	CreatedAt *time.Time `json:"-"`
 }
 
 // GetId returns queryWithCustomMarshalUsersCreatedOnUser.Id, and is useful for accessing the field via an interface.
@@ -1768,7 +1838,7 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) GetId() string { return v.Id 
 func (v *queryWithCustomMarshalUsersCreatedOnUser) GetLogin() string { return v.Login }
 
 // GetCreatedAt returns queryWithCustomMarshalUsersCreatedOnUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalUsersCreatedOnUser) GetCreatedAt() time.Time { return v.CreatedAt }
+func (v *queryWithCustomMarshalUsersCreatedOnUser) GetCreatedAt() *time.Time { return v.CreatedAt }
 
 func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error {
 
@@ -1791,9 +1861,13 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error
 	{
 		dst := &v.CreatedAt
 		src := firstPass.CreatedAt
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(time.Time)
 			err = testutil.UnmarshalDate(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryWithCustomMarshalUsersCreatedOnUser.CreatedAt: %w", err)
@@ -1828,12 +1902,14 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) __premarshalJSON() (*__premar
 
 		dst := &retval.CreatedAt
 		src := v.CreatedAt
-		var err error
-		*dst, err = testutil.MarshalDate(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal queryWithCustomMarshalUsersCreatedOnUser.CreatedAt: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = testutil.MarshalDate(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryWithCustomMarshalUsersCreatedOnUser.CreatedAt: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -2023,12 +2099,12 @@ func (v *queryWithFragmentsActorsBot) GetLogin() string { return v.Login }
 
 // queryWithFragmentsActorsOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithFragmentsActorsOrganization struct {
-	Typename          string                                                  `json:"__typename"`
-	Id                string                                                  `json:"id"`
-	Login             string                                                  `json:"login"`
-	Plan              queryWithFragmentsActorsOrganizationPlan                `json:"plan"`
-	TopContributor    queryWithFragmentsActorsOrganizationTopContributorActor `json:"-"`
-	ContributionCount int                                                     `json:"contributionCount"`
+	Typename          string                                                   `json:"__typename"`
+	Id                string                                                   `json:"id"`
+	Login             string                                                   `json:"login"`
+	Plan              *queryWithFragmentsActorsOrganizationPlan                `json:"plan"`
+	TopContributor    *queryWithFragmentsActorsOrganizationTopContributorActor `json:"-"`
+	ContributionCount *int                                                     `json:"contributionCount"`
 }
 
 // GetTypename returns queryWithFragmentsActorsOrganization.Typename, and is useful for accessing the field via an interface.
@@ -2041,17 +2117,19 @@ func (v *queryWithFragmentsActorsOrganization) GetId() string { return v.Id }
 func (v *queryWithFragmentsActorsOrganization) GetLogin() string { return v.Login }
 
 // GetPlan returns queryWithFragmentsActorsOrganization.Plan, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganization) GetPlan() queryWithFragmentsActorsOrganizationPlan {
+func (v *queryWithFragmentsActorsOrganization) GetPlan() *queryWithFragmentsActorsOrganizationPlan {
 	return v.Plan
 }
 
 // GetTopContributor returns queryWithFragmentsActorsOrganization.TopContributor, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganization) GetTopContributor() queryWithFragmentsActorsOrganizationTopContributorActor {
+func (v *queryWithFragmentsActorsOrganization) GetTopContributor() *queryWithFragmentsActorsOrganizationTopContributorActor {
 	return v.TopContributor
 }
 
 // GetContributionCount returns queryWithFragmentsActorsOrganization.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganization) GetContributionCount() int { return v.ContributionCount }
+func (v *queryWithFragmentsActorsOrganization) GetContributionCount() *int {
+	return v.ContributionCount
+}
 
 func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 
@@ -2074,9 +2152,13 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.TopContributor
 		src := firstPass.TopContributor
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(queryWithFragmentsActorsOrganizationTopContributorActor)
 			err = __unmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryWithFragmentsActorsOrganization.TopContributor: %w", err)
@@ -2093,11 +2175,11 @@ type __premarshalqueryWithFragmentsActorsOrganization struct {
 
 	Login string `json:"login"`
 
-	Plan queryWithFragmentsActorsOrganizationPlan `json:"plan"`
+	Plan *queryWithFragmentsActorsOrganizationPlan `json:"plan"`
 
 	TopContributor json.RawMessage `json:"topContributor"`
 
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 }
 
 func (v *queryWithFragmentsActorsOrganization) MarshalJSON() ([]byte, error) {
@@ -2119,12 +2201,14 @@ func (v *queryWithFragmentsActorsOrganization) __premarshalJSON() (*__premarshal
 
 		dst := &retval.TopContributor
 		src := v.TopContributor
-		var err error
-		*dst, err = __marshalqueryWithFragmentsActorsOrganizationTopContributorActor(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal queryWithFragmentsActorsOrganization.TopContributor: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = __marshalqueryWithFragmentsActorsOrganizationTopContributorActor(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryWithFragmentsActorsOrganization.TopContributor: %w", err)
+			}
 		}
 	}
 	retval.ContributionCount = v.ContributionCount
@@ -2273,7 +2357,7 @@ type queryWithFragmentsActorsOrganizationTopContributorUser struct {
 	Typename          string `json:"__typename"`
 	Id                string `json:"id"`
 	Login             string `json:"login"`
-	ContributionCount int    `json:"contributionCount"`
+	ContributionCount *int   `json:"contributionCount"`
 }
 
 // GetTypename returns queryWithFragmentsActorsOrganizationTopContributorUser.Typename, and is useful for accessing the field via an interface.
@@ -2288,17 +2372,17 @@ func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetId() string 
 func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetLogin() string { return v.Login }
 
 // GetContributionCount returns queryWithFragmentsActorsOrganizationTopContributorUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetContributionCount() int {
+func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetContributionCount() *int {
 	return v.ContributionCount
 }
 
 // queryWithFragmentsActorsUser includes the requested fields of the GraphQL type User.
 type queryWithFragmentsActorsUser struct {
-	Typename          string                             `json:"__typename"`
-	Id                string                             `json:"id"`
-	Login             string                             `json:"login"`
-	ContributionCount int                                `json:"contributionCount"`
-	Status            queryWithFragmentsActorsUserStatus `json:"status"`
+	Typename          string                              `json:"__typename"`
+	Id                string                              `json:"id"`
+	Login             string                              `json:"login"`
+	ContributionCount *int                                `json:"contributionCount"`
+	Status            *queryWithFragmentsActorsUserStatus `json:"status"`
 }
 
 // GetTypename returns queryWithFragmentsActorsUser.Typename, and is useful for accessing the field via an interface.
@@ -2311,28 +2395,28 @@ func (v *queryWithFragmentsActorsUser) GetId() string { return v.Id }
 func (v *queryWithFragmentsActorsUser) GetLogin() string { return v.Login }
 
 // GetContributionCount returns queryWithFragmentsActorsUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsUser) GetContributionCount() int { return v.ContributionCount }
+func (v *queryWithFragmentsActorsUser) GetContributionCount() *int { return v.ContributionCount }
 
 // GetStatus returns queryWithFragmentsActorsUser.Status, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsUser) GetStatus() queryWithFragmentsActorsUserStatus {
+func (v *queryWithFragmentsActorsUser) GetStatus() *queryWithFragmentsActorsUserStatus {
 	return v.Status
 }
 
 // queryWithFragmentsActorsUserStatus includes the requested fields of the GraphQL type UserStatus.
 type queryWithFragmentsActorsUserStatus struct {
-	Emoji string `json:"emoji"`
+	Emoji *string `json:"emoji"`
 }
 
 // GetEmoji returns queryWithFragmentsActorsUserStatus.Emoji, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsUserStatus) GetEmoji() string { return v.Emoji }
+func (v *queryWithFragmentsActorsUserStatus) GetEmoji() *string { return v.Emoji }
 
 // queryWithFragmentsResponse is returned by queryWithFragments on success.
 type queryWithFragmentsResponse struct {
-	Actors []queryWithFragmentsActorsActor `json:"-"`
+	Actors []*queryWithFragmentsActorsActor `json:"-"`
 }
 
 // GetActors returns queryWithFragmentsResponse.Actors, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsResponse) GetActors() []queryWithFragmentsActorsActor { return v.Actors }
+func (v *queryWithFragmentsResponse) GetActors() []*queryWithFragmentsActorsActor { return v.Actors }
 
 func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 
@@ -2342,7 +2426,7 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithFragmentsResponse
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithFragmentsResponse = v
@@ -2354,18 +2438,34 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		*dst = make(
-			[]queryWithFragmentsActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryWithFragmentsActorsActor(
-					src, dst)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
 				if err != nil {
 					return fmt.Errorf(
 						"unable to unmarshal queryWithFragmentsResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]*queryWithFragmentsActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							*dst = new(queryWithFragmentsActorsActor)
+							err = __unmarshalqueryWithFragmentsActorsActor(
+								src, *dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithFragmentsResponse.Actors: %w", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -2392,17 +2492,21 @@ func (v *queryWithFragmentsResponse) __premarshalJSON() (*__premarshalqueryWithF
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryWithFragmentsActorsActor(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithFragmentsResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if src != nil {
+					var err error
+					*dst, err = __marshalqueryWithFragmentsActorsActor(
+						src)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"unable to marshal queryWithFragmentsResponse.Actors: %w", err)
+					}
+				}
 			}
 		}
 	}
@@ -2555,11 +2659,11 @@ func (v *queryWithInterfaceListFieldActorsUser) GetLogin() string { return v.Log
 
 // queryWithInterfaceListFieldResponse is returned by queryWithInterfaceListField on success.
 type queryWithInterfaceListFieldResponse struct {
-	Actors []queryWithInterfaceListFieldActorsActor `json:"-"`
+	Actors []*queryWithInterfaceListFieldActorsActor `json:"-"`
 }
 
 // GetActors returns queryWithInterfaceListFieldResponse.Actors, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceListFieldResponse) GetActors() []queryWithInterfaceListFieldActorsActor {
+func (v *queryWithInterfaceListFieldResponse) GetActors() []*queryWithInterfaceListFieldActorsActor {
 	return v.Actors
 }
 
@@ -2571,7 +2675,7 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithInterfaceListFieldResponse
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceListFieldResponse = v
@@ -2583,18 +2687,34 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		*dst = make(
-			[]queryWithInterfaceListFieldActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryWithInterfaceListFieldActorsActor(
-					src, dst)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
 				if err != nil {
 					return fmt.Errorf(
 						"unable to unmarshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]*queryWithInterfaceListFieldActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							*dst = new(queryWithInterfaceListFieldActorsActor)
+							err = __unmarshalqueryWithInterfaceListFieldActorsActor(
+								src, *dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -2621,17 +2741,21 @@ func (v *queryWithInterfaceListFieldResponse) __premarshalJSON() (*__premarshalq
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryWithInterfaceListFieldActorsActor(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if src != nil {
+					var err error
+					*dst, err = __marshalqueryWithInterfaceListFieldActorsActor(
+						src)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"unable to marshal queryWithInterfaceListFieldResponse.Actors: %w", err)
+					}
+				}
 			}
 		}
 	}
@@ -2802,7 +2926,7 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 
 	var firstPass struct {
 		*queryWithInterfaceListPointerFieldResponse
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceListPointerFieldResponse = v
@@ -2814,19 +2938,34 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		*dst = make(
-			[]*queryWithInterfaceListPointerFieldActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				*dst = new(queryWithInterfaceListPointerFieldActorsActor)
-				err = __unmarshalqueryWithInterfaceListPointerFieldActorsActor(
-					src, *dst)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
 				if err != nil {
 					return fmt.Errorf(
 						"unable to unmarshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]*queryWithInterfaceListPointerFieldActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							*dst = new(queryWithInterfaceListPointerFieldActorsActor)
+							err = __unmarshalqueryWithInterfaceListPointerFieldActorsActor(
+								src, *dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -2853,18 +2992,20 @@ func (v *queryWithInterfaceListPointerFieldResponse) __premarshalJSON() (*__prem
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if src != nil {
-				var err error
-				*dst, err = __marshalqueryWithInterfaceListPointerFieldActorsActor(
-					src)
-				if err != nil {
-					return nil, fmt.Errorf(
-						"unable to marshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if src != nil {
+					var err error
+					*dst, err = __marshalqueryWithInterfaceListPointerFieldActorsActor(
+						src)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"unable to marshal queryWithInterfaceListPointerFieldResponse.Actors: %w", err)
+					}
 				}
 			}
 		}
@@ -3018,12 +3159,12 @@ func (v *queryWithInterfaceNoFragmentsActorUser) GetLogin() string { return v.Lo
 
 // queryWithInterfaceNoFragmentsResponse is returned by queryWithInterfaceNoFragments on success.
 type queryWithInterfaceNoFragmentsResponse struct {
-	Actor  queryWithInterfaceNoFragmentsActor      `json:"-"`
+	Actor  *queryWithInterfaceNoFragmentsActor     `json:"-"`
 	Viewer queryWithInterfaceNoFragmentsViewerUser `json:"viewer"`
 }
 
 // GetActor returns queryWithInterfaceNoFragmentsResponse.Actor, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceNoFragmentsResponse) GetActor() queryWithInterfaceNoFragmentsActor {
+func (v *queryWithInterfaceNoFragmentsResponse) GetActor() *queryWithInterfaceNoFragmentsActor {
 	return v.Actor
 }
 
@@ -3053,9 +3194,13 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Actor
 		src := firstPass.Actor
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(queryWithInterfaceNoFragmentsActor)
 			err = __unmarshalqueryWithInterfaceNoFragmentsActor(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryWithInterfaceNoFragmentsResponse.Actor: %w", err)
@@ -3086,12 +3231,14 @@ func (v *queryWithInterfaceNoFragmentsResponse) __premarshalJSON() (*__premarsha
 
 		dst := &retval.Actor
 		src := v.Actor
-		var err error
-		*dst, err = __marshalqueryWithInterfaceNoFragmentsActor(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal queryWithInterfaceNoFragmentsResponse.Actor: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = __marshalqueryWithInterfaceNoFragmentsActor(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryWithInterfaceNoFragmentsResponse.Actor: %w", err)
+			}
 		}
 	}
 	retval.Viewer = v.Viewer
@@ -3238,12 +3385,12 @@ func (v *queryWithNamedFragmentsActorsOrganization) GetTypename() string { retur
 func (v *queryWithNamedFragmentsActorsOrganization) GetId() string { return v.Id }
 
 // GetPlan returns queryWithNamedFragmentsActorsOrganization.Plan, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsOrganization) GetPlan() organizationFieldsPlan {
+func (v *queryWithNamedFragmentsActorsOrganization) GetPlan() *organizationFieldsPlan {
 	return v.organizationFields.Plan
 }
 
 // GetTopContributor returns queryWithNamedFragmentsActorsOrganization.TopContributor, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsOrganization) GetTopContributor() organizationFieldsTopContributorActor {
+func (v *queryWithNamedFragmentsActorsOrganization) GetTopContributor() *organizationFieldsTopContributorActor {
 	return v.organizationFields.TopContributor
 }
 
@@ -3277,7 +3424,7 @@ type __premarshalqueryWithNamedFragmentsActorsOrganization struct {
 
 	Id string `json:"id"`
 
-	Plan organizationFieldsPlan `json:"plan"`
+	Plan *organizationFieldsPlan `json:"plan"`
 
 	TopContributor json.RawMessage `json:"topContributor"`
 }
@@ -3300,12 +3447,14 @@ func (v *queryWithNamedFragmentsActorsOrganization) __premarshalJSON() (*__prema
 
 		dst := &retval.TopContributor
 		src := v.organizationFields.TopContributor
-		var err error
-		*dst, err = __marshalorganizationFieldsTopContributorActor(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal queryWithNamedFragmentsActorsOrganization.organizationFields.TopContributor: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = __marshalorganizationFieldsTopContributorActor(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal queryWithNamedFragmentsActorsOrganization.organizationFields.TopContributor: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -3325,12 +3474,12 @@ func (v *queryWithNamedFragmentsActorsUser) GetTypename() string { return v.Type
 func (v *queryWithNamedFragmentsActorsUser) GetId() string { return v.Id }
 
 // GetContributionCount returns queryWithNamedFragmentsActorsUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsUser) GetContributionCount() int {
+func (v *queryWithNamedFragmentsActorsUser) GetContributionCount() *int {
 	return v.userFields.repositoryOwnerFieldsUser.ContributionCount
 }
 
 // GetStatus returns queryWithNamedFragmentsActorsUser.Status, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsUser) GetStatus() moreUserFieldsStatusUserStatus {
+func (v *queryWithNamedFragmentsActorsUser) GetStatus() *moreUserFieldsStatusUserStatus {
 	return v.userFields.moreUserFields.Status
 }
 
@@ -3364,9 +3513,9 @@ type __premarshalqueryWithNamedFragmentsActorsUser struct {
 
 	Id string `json:"id"`
 
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 
-	Status moreUserFieldsStatusUserStatus `json:"status"`
+	Status *moreUserFieldsStatusUserStatus `json:"status"`
 }
 
 func (v *queryWithNamedFragmentsActorsUser) MarshalJSON() ([]byte, error) {
@@ -3389,11 +3538,11 @@ func (v *queryWithNamedFragmentsActorsUser) __premarshalJSON() (*__premarshalque
 
 // queryWithNamedFragmentsResponse is returned by queryWithNamedFragments on success.
 type queryWithNamedFragmentsResponse struct {
-	Actors []queryWithNamedFragmentsActorsActor `json:"-"`
+	Actors []*queryWithNamedFragmentsActorsActor `json:"-"`
 }
 
 // GetActors returns queryWithNamedFragmentsResponse.Actors, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsResponse) GetActors() []queryWithNamedFragmentsActorsActor {
+func (v *queryWithNamedFragmentsResponse) GetActors() []*queryWithNamedFragmentsActorsActor {
 	return v.Actors
 }
 
@@ -3405,7 +3554,7 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithNamedFragmentsResponse
-		Actors []json.RawMessage `json:"actors"`
+		Actors json.RawMessage `json:"actors"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithNamedFragmentsResponse = v
@@ -3417,18 +3566,34 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Actors
-		src := firstPass.Actors
-		*dst = make(
-			[]queryWithNamedFragmentsActorsActor,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryWithNamedFragmentsActorsActor(
-					src, dst)
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
 				if err != nil {
 					return fmt.Errorf(
 						"unable to unmarshal queryWithNamedFragmentsResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]*queryWithNamedFragmentsActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							*dst = new(queryWithNamedFragmentsActorsActor)
+							err = __unmarshalqueryWithNamedFragmentsActorsActor(
+								src, *dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithNamedFragmentsResponse.Actors: %w", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -3455,17 +3620,21 @@ func (v *queryWithNamedFragmentsResponse) __premarshalJSON() (*__premarshalquery
 
 		dst := &retval.Actors
 		src := v.Actors
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryWithNamedFragmentsActorsActor(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithNamedFragmentsResponse.Actors: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if src != nil {
+					var err error
+					*dst, err = __marshalqueryWithNamedFragmentsActorsActor(
+						src)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"unable to marshal queryWithNamedFragmentsResponse.Actors: %w", err)
+					}
+				}
 			}
 		}
 	}
@@ -3479,17 +3648,17 @@ type queryWithNamedFragmentsVariables struct {
 
 // queryWithOmitemptyResponse is returned by queryWithOmitempty on success.
 type queryWithOmitemptyResponse struct {
-	User queryWithOmitemptyUser `json:"user"`
+	User *queryWithOmitemptyUser `json:"user"`
 }
 
 // GetUser returns queryWithOmitemptyResponse.User, and is useful for accessing the field via an interface.
-func (v *queryWithOmitemptyResponse) GetUser() queryWithOmitemptyUser { return v.User }
+func (v *queryWithOmitemptyResponse) GetUser() *queryWithOmitemptyUser { return v.User }
 
 // queryWithOmitemptyUser includes the requested fields of the GraphQL type User.
 type queryWithOmitemptyUser struct {
 	Id                string `json:"id"`
 	Login             string `json:"login"`
-	ContributionCount int    `json:"contributionCount"`
+	ContributionCount *int   `json:"contributionCount"`
 }
 
 // GetId returns queryWithOmitemptyUser.Id, and is useful for accessing the field via an interface.
@@ -3499,11 +3668,11 @@ func (v *queryWithOmitemptyUser) GetId() string { return v.Id }
 func (v *queryWithOmitemptyUser) GetLogin() string { return v.Login }
 
 // GetContributionCount returns queryWithOmitemptyUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithOmitemptyUser) GetContributionCount() int { return v.ContributionCount }
+func (v *queryWithOmitemptyUser) GetContributionCount() *int { return v.ContributionCount }
 
 // queryWithOmitemptyVariables contains the variables accepted by queryWithOmitempty.
 type queryWithOmitemptyVariables struct {
-	Login string `json:"login,omitempty"`
+	Login *string `json:"login,omitempty"`
 }
 
 // queryWithSearchResponse is returned by queryWithSearch on success.
@@ -3524,7 +3693,7 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithSearchResponse
-		Search []json.RawMessage `json:"search"`
+		Search json.RawMessage `json:"search"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.queryWithSearchResponse = v
@@ -3536,18 +3705,33 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Search
-		src := firstPass.Search
-		*dst = make(
-			[]queryWithSearchSearchSearchResultItem,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalqueryWithSearchSearchSearchResultItem(
-					src, dst)
+		raw := firstPass.Search
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
 				if err != nil {
 					return fmt.Errorf(
 						"unable to unmarshal queryWithSearchResponse.Search: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]queryWithSearchSearchSearchResultItem,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalqueryWithSearchSearchSearchResultItem(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithSearchResponse.Search: %w", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -3574,17 +3758,19 @@ func (v *queryWithSearchResponse) __premarshalJSON() (*__premarshalqueryWithSear
 
 		dst := &retval.Search
 		src := v.Search
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalqueryWithSearchSearchSearchResultItem(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithSearchResponse.Search: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalqueryWithSearchSearchSearchResultItem(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryWithSearchResponse.Search: %w", err)
+				}
 			}
 		}
 	}
@@ -3838,17 +4024,17 @@ type queryWithSearchVariables struct {
 
 // queryWithVariablesResponse is returned by queryWithVariables on success.
 type queryWithVariablesResponse struct {
-	User queryWithVariablesUser `json:"user"`
+	User *queryWithVariablesUser `json:"user"`
 }
 
 // GetUser returns queryWithVariablesResponse.User, and is useful for accessing the field via an interface.
-func (v *queryWithVariablesResponse) GetUser() queryWithVariablesUser { return v.User }
+func (v *queryWithVariablesResponse) GetUser() *queryWithVariablesUser { return v.User }
 
 // queryWithVariablesUser includes the requested fields of the GraphQL type User.
 type queryWithVariablesUser struct {
 	Id                string `json:"id"`
 	Login             string `json:"login"`
-	ContributionCount int    `json:"contributionCount"`
+	ContributionCount *int   `json:"contributionCount"`
 }
 
 // GetId returns queryWithVariablesUser.Id, and is useful for accessing the field via an interface.
@@ -3858,7 +4044,7 @@ func (v *queryWithVariablesUser) GetId() string { return v.Id }
 func (v *queryWithVariablesUser) GetLogin() string { return v.Login }
 
 // GetContributionCount returns queryWithVariablesUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithVariablesUser) GetContributionCount() int { return v.ContributionCount }
+func (v *queryWithVariablesUser) GetContributionCount() *int { return v.ContributionCount }
 
 // queryWithVariablesVariables contains the variables accepted by queryWithVariables.
 type queryWithVariablesVariables struct {
@@ -3867,11 +4053,11 @@ type queryWithVariablesVariables struct {
 
 // removeStarRemoveStarRemoveStarPayload includes the requested fields of the GraphQL type RemoveStarPayload.
 type removeStarRemoveStarRemoveStarPayload struct {
-	Starrable removeStarRemoveStarRemoveStarPayloadStarrable `json:"-"`
+	Starrable *removeStarRemoveStarRemoveStarPayloadStarrable `json:"-"`
 }
 
 // GetStarrable returns removeStarRemoveStarRemoveStarPayload.Starrable, and is useful for accessing the field via an interface.
-func (v *removeStarRemoveStarRemoveStarPayload) GetStarrable() removeStarRemoveStarRemoveStarPayloadStarrable {
+func (v *removeStarRemoveStarRemoveStarPayload) GetStarrable() *removeStarRemoveStarRemoveStarPayloadStarrable {
 	return v.Starrable
 }
 
@@ -3896,9 +4082,13 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Starrable
 		src := firstPass.Starrable
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(removeStarRemoveStarRemoveStarPayloadStarrable)
 			err = __unmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal removeStarRemoveStarRemoveStarPayload.Starrable: %w", err)
@@ -3927,12 +4117,14 @@ func (v *removeStarRemoveStarRemoveStarPayload) __premarshalJSON() (*__premarsha
 
 		dst := &retval.Starrable
 		src := v.Starrable
-		var err error
-		*dst, err = __marshalremoveStarRemoveStarRemoveStarPayloadStarrable(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal removeStarRemoveStarRemoveStarPayload.Starrable: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = __marshalremoveStarRemoveStarRemoveStarPayloadStarrable(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal removeStarRemoveStarRemoveStarPayload.Starrable: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -4064,7 +4256,7 @@ func (v *repositoriesFields) GetName() string { return v.Name }
 type repositoryOwnerFields interface {
 	implementsGraphQLInterfacerepositoryOwnerFields()
 	// GetContributionCount returns the interface-field "contributionCount" from its implementation.
-	GetContributionCount() int
+	GetContributionCount() *int
 }
 
 func (v *repositoryOwnerFieldsOrganization) implementsGraphQLInterfacerepositoryOwnerFields() {}
@@ -4133,26 +4325,26 @@ func __marshalrepositoryOwnerFields(v *repositoryOwnerFields) ([]byte, error) {
 
 // repositoryOwnerFields includes the GraphQL fields of Organization requested by the fragment repositoryOwnerFields.
 type repositoryOwnerFieldsOrganization struct {
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 }
 
 // GetContributionCount returns repositoryOwnerFieldsOrganization.ContributionCount, and is useful for accessing the field via an interface.
-func (v *repositoryOwnerFieldsOrganization) GetContributionCount() int { return v.ContributionCount }
+func (v *repositoryOwnerFieldsOrganization) GetContributionCount() *int { return v.ContributionCount }
 
 // repositoryOwnerFields includes the GraphQL fields of User requested by the fragment repositoryOwnerFields.
 type repositoryOwnerFieldsUser struct {
 	moreUserFields    `json:"-"`
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 }
 
 // GetContributionCount returns repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *repositoryOwnerFieldsUser) GetContributionCount() int { return v.ContributionCount }
+func (v *repositoryOwnerFieldsUser) GetContributionCount() *int { return v.ContributionCount }
 
 // GetId returns repositoryOwnerFieldsUser.Id, and is useful for accessing the field via an interface.
 func (v *repositoryOwnerFieldsUser) GetId() string { return v.moreUserFields.Id }
 
 // GetStatus returns repositoryOwnerFieldsUser.Status, and is useful for accessing the field via an interface.
-func (v *repositoryOwnerFieldsUser) GetStatus() moreUserFieldsStatusUserStatus {
+func (v *repositoryOwnerFieldsUser) GetStatus() *moreUserFieldsStatusUserStatus {
 	return v.moreUserFields.Status
 }
 
@@ -4182,11 +4374,11 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalrepositoryOwnerFieldsUser struct {
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 
 	Id string `json:"id"`
 
-	Status moreUserFieldsStatusUserStatus `json:"status"`
+	Status *moreUserFieldsStatusUserStatus `json:"status"`
 }
 
 func (v *repositoryOwnerFieldsUser) MarshalJSON() ([]byte, error) {
@@ -4217,10 +4409,12 @@ type userFields struct {
 func (v *userFields) GetId() string { return v.Id }
 
 // GetContributionCount returns userFields.ContributionCount, and is useful for accessing the field via an interface.
-func (v *userFields) GetContributionCount() int { return v.repositoryOwnerFieldsUser.ContributionCount }
+func (v *userFields) GetContributionCount() *int {
+	return v.repositoryOwnerFieldsUser.ContributionCount
+}
 
 // GetStatus returns userFields.Status, and is useful for accessing the field via an interface.
-func (v *userFields) GetStatus() moreUserFieldsStatusUserStatus { return v.moreUserFields.Status }
+func (v *userFields) GetStatus() *moreUserFieldsStatusUserStatus { return v.moreUserFields.Status }
 
 func (v *userFields) UnmarshalJSON(b []byte) error {
 
@@ -4255,9 +4449,9 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 type __premarshaluserFields struct {
 	Id string `json:"id"`
 
-	ContributionCount int `json:"contributionCount"`
+	ContributionCount *int `json:"contributionCount"`
 
-	Status moreUserFieldsStatusUserStatus `json:"status"`
+	Status *moreUserFieldsStatusUserStatus `json:"status"`
 }
 
 func (v *userFields) MarshalJSON() ([]byte, error) {

@@ -109,6 +109,9 @@ Generation performs the same schema verification or materialization before it
 writes code. Query and mutation operation names become generated helper names,
 so use an uppercase name when the helper must be exported. octoql does not
 support GraphQL subscriptions, and `octoqlgen` rejects subscription operations.
+Generation also refuses output paths that alias `octoqlgen.yaml`, the schema,
+or any expanded operation input. Operation manifests record source paths
+relative to the configuration directory so checked-in manifests stay portable.
 
 `operations` may also select Go files. A string literal beginning with
 `# @octoqlgen` is parsed as an operation:
@@ -418,6 +421,13 @@ GraphQL's built-in scalars map to ordinary Go values:
 | `Float` | `float64` |
 | `String`, `ID` | `string` |
 | `Boolean` | `bool` |
+
+Nullable named values generate as pointers by default. Nullable list values
+remain slices so GraphQL `null` and `[]` map to nil and empty slices,
+respectively; nullable list elements generate as pointers. Use
+`@octoqlgen(pointer: false)` on a specific operation argument or selected field
+when its zero value should represent GraphQL null. The `omitempty` directive
+remains independent and explicit.
 
 octoqlgen also supplies GitHub defaults:
 

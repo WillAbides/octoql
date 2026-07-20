@@ -290,7 +290,16 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 	t.Parallel()
 
 	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
-	err := os.WriteFile(configPath, []byte("schema:\n  path: schema.graphql\n"), 0o600)
+	err := os.WriteFile(
+		configPath,
+		[]byte(
+			"schema:\n"+
+				"  path: schema.graphql\n"+
+				"operations: []\n"+
+				"generated: generated.go\n",
+		),
+		0o600,
+	)
 	require.NoError(t, err)
 	command := schemaUpdateCommand{
 		Config:     configPath,
