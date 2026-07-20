@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -147,6 +148,44 @@ func TestGenerateCommandRun(t *testing.T) {
 	assert.Equal(t, 1, writer.writes[exportPath])
 	assert.Equal(t, []byte("generated"), writer.outputs[generatedPath])
 	assert.Equal(t, []byte("operations"), writer.outputs[exportPath])
+}
+
+func TestGenerateCommandRefusesConfigOutput(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, config.DefaultFilename)
+	err := os.WriteFile(
+		configPath,
+		[]byte(
+			"schema:\n"+
+				"  path: schema.graphql\n"+
+				"operations:\n"+
+				"  - operation.graphql\n"+
+				"generated: "+config.DefaultFilename+"\n",
+		),
+		0o600,
+	)
+	require.NoError(t, err)
+
+	materializer := &stubMaterializer{}
+	command := generateCommand{
+		Config:       configPath,
+		context:      t.Context(),
+		loadConfig:   config.Load,
+		materializer: materializer,
+		generate: func(*generate.Config) (map[string][]byte, error) {
+			return nil, errors.New("generation should not run")
+		},
+		outputWriter: &recordingOutputWriter{},
+	}
+
+	err = command.Run()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "generated output path")
+	assert.Contains(t, err.Error(), "config")
+	assert.Empty(t, materializer.request.Path)
 }
 
 func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
@@ -504,6 +543,64 @@ func TestMinimalInitConfigGenerates(t *testing.T) {
 	generated, err := os.ReadFile(filepath.Join(directory, "internal", "githubapi", "generated.go"))
 	require.NoError(t, err)
 	assert.Contains(t, string(generated), "func Viewer(")
+}
+
+func TestGenerateOperationManifestPathsRelativeToConfig(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, config.DefaultFilename)
+	err := os.WriteFile(
+		configPath,
+		[]byte(
+			"schema:\n"+
+				"  path: schema.graphql\n"+
+				"operations:\n"+
+				"  - graphql/*.graphql\n"+
+				"generated: generated.go\n"+
+				"package: client\n"+
+				"export_operations: operations.json\n",
+		),
+		0o600,
+	)
+	require.NoError(t, err)
+	err = os.WriteFile(
+		filepath.Join(directory, "schema.graphql"),
+		[]byte("type Query { viewer: String! }\n"),
+		0o600,
+	)
+	require.NoError(t, err)
+	err = os.Mkdir(filepath.Join(directory, "graphql"), 0o755)
+	require.NoError(t, err)
+	err = os.WriteFile(
+		filepath.Join(directory, "graphql", "viewer.graphql"),
+		[]byte("query Viewer { viewer }\n"),
+		0o600,
+	)
+	require.NoError(t, err)
+
+	err = Run(
+		[]string{"generate", "--config", configPath},
+		"test",
+		&Dependencies{
+			Context: t.Context(),
+			Stdout:  io.Discard,
+			Stderr:  io.Discard,
+		},
+	)
+	require.NoError(t, err)
+	manifest, err := os.ReadFile(filepath.Join(directory, "operations.json"))
+	require.NoError(t, err)
+	var exported struct {
+		Operations []struct {
+			SourceLocation string `json:"sourceLocation"`
+		} `json:"operations"`
+	}
+	err = json.Unmarshal(manifest, &exported)
+	require.NoError(t, err)
+	require.Len(t, exported.Operations, 1)
+	assert.Equal(t, filepath.Join("graphql", "viewer.graphql"), exported.Operations[0].SourceLocation)
+	assert.NotContains(t, exported.Operations[0].SourceLocation, directory)
 }
 
 func schemaMaterializer() materializer {
