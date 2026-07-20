@@ -2,6 +2,7 @@ func __octoqlDo[T any](
 	ctx {{ref "context.Context"}},
 	client *{{ref "github.com/willabides/octoql.Client"}},
 	payload {{ref "github.com/willabides/octoql.Payload"}},
+	newPartialDataError func(*T, error) error,
 ) (*T, error) {
 	response := new(T)
 	hasData, err := client.Execute(ctx, payload, response)
@@ -9,7 +10,7 @@ func __octoqlDo[T any](
 		return nil, err
 	}
 	if err != nil {
-		return nil, {{ref "github.com/willabides/octoql.NewPartialDataError"}}(response, err)
+		return nil, newPartialDataError(response, err)
 	}
 	return response, nil
 }

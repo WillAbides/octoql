@@ -513,6 +513,16 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 			return nil, err
 		}
 	}
+	for _, operation := range g.Operations {
+		name := operation.Name + "PartialDataError"
+		if g.typeMap[name] != nil {
+			return nil, errorf(
+				nil,
+				"generated partial data error %q conflicts with a generated GraphQL type",
+				name,
+			)
+		}
+	}
 
 	sort.Slice(g.Operations, func(i, j int) bool {
 		return g.Operations[i].Name < g.Operations[j].Name

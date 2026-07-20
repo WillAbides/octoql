@@ -25,8 +25,8 @@
 - Every failure after an HTTP response includes `ResponseError`; GraphQL
   `Errors` and `RateLimitError` are independently discoverable facets in its
   error chain. Generated helpers always return nil with an error. When the
-  GraphQL `data` field decoded successfully, partial data is available only
-  through `GetPartialData`.
+  GraphQL `data` field decoded successfully, partial data is available through
+  the operation-specific generated partial-data error type.
 - `Client.Execute` is an exported generated-code contract, not a handwritten
   application API. Generated clients wrap it in one package-local unexported
   helper that preserves nil-before-response behavior.

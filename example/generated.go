@@ -73,6 +73,7 @@ func __octoqlDo[T any](
 	ctx context.Context,
 	client *octoql.Client,
 	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
 ) (*T, error) {
 	response := new(T)
 	hasData, err := client.Execute(ctx, payload, response)
@@ -80,7 +81,7 @@ func __octoqlDo[T any](
 		return nil, err
 	}
 	if err != nil {
-		return nil, octoql.NewPartialDataError(response, err)
+		return nil, newPartialDataError(response, err)
 	}
 	return response, nil
 }
@@ -94,6 +95,36 @@ query getUser ($Login: String!) {
 	}
 }
 `
+
+// getUserPartialDataError contains partial data returned by getUser.
+type getUserPartialDataError struct {
+	data *getUserResponse
+	err  error
+}
+
+// Error returns the underlying response error.
+func (err *getUserPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+// Unwrap exposes the underlying response error.
+func (err *getUserPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+// PartialData returns the partial data returned by getUser.
+func (err *getUserPartialDataError) PartialData() *getUserResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
 
 // getUser gets the given user's name from their username.
 func getUser(
@@ -112,6 +143,9 @@ func getUser(
 			Query:         getUser_Operation,
 			Variables:     &variables_,
 		},
+		func(data *getUserResponse, err error) error {
+			return &getUserPartialDataError{data: data, err: err}
+		},
 	)
 }
 
@@ -125,6 +159,36 @@ query getViewer {
 }
 `
 
+// getViewerPartialDataError contains partial data returned by getViewer.
+type getViewerPartialDataError struct {
+	data *getViewerResponse
+	err  error
+}
+
+// Error returns the underlying response error.
+func (err *getViewerPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+// Unwrap exposes the underlying response error.
+func (err *getViewerPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+// PartialData returns the partial data returned by getViewer.
+func (err *getViewerPartialDataError) PartialData() *getViewerResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
 func getViewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
@@ -136,6 +200,9 @@ func getViewer(
 			OperationName: "getViewer",
 			Query:         getViewer_Operation,
 			Variables:     nil,
+		},
+		func(data *getViewerResponse, err error) error {
+			return &getViewerPartialDataError{data: data, err: err}
 		},
 	)
 }

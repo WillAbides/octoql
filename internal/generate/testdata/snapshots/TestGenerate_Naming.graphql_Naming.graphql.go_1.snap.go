@@ -95,6 +95,7 @@ func __octoqlDo[T any](
 	ctx context.Context,
 	client *octoql.Client,
 	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
 ) (*T, error) {
 	response := new(T)
 	hasData, err := client.Execute(ctx, payload, response)
@@ -102,7 +103,7 @@ func __octoqlDo[T any](
 		return nil, err
 	}
 	if err != nil {
-		return nil, octoql.NewPartialDataError(response, err)
+		return nil, newPartialDataError(response, err)
 	}
 	return response, nil
 }
@@ -132,6 +133,36 @@ query GitHubNaming {
 }
 `
 
+// GitHubNamingPartialDataError contains partial data returned by GitHubNaming.
+type GitHubNamingPartialDataError struct {
+	data *GitHubNamingResponse
+	err  error
+}
+
+// Error returns the underlying response error.
+func (err *GitHubNamingPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+// Unwrap exposes the underlying response error.
+func (err *GitHubNamingPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+// PartialData returns the partial data returned by GitHubNaming.
+func (err *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
 func GitHubNaming(
 	client_ *octoql.Client,
 ) (*GitHubNamingResponse, error) {
@@ -142,6 +173,9 @@ func GitHubNaming(
 			OperationName: "GitHubNaming",
 			Query:         GitHubNaming_Operation,
 			Variables:     nil,
+		},
+		func(data *GitHubNamingResponse, err error) error {
+			return &GitHubNamingPartialDataError{data: data, err: err}
 		},
 	)
 }

@@ -23,6 +23,28 @@ type exampleRepositoryResponse struct {
 	} `json:"repository"`
 }
 
+type exampleViewerPartialDataError struct {
+	data *exampleViewerResponse
+	err  error
+}
+
+func (err *exampleViewerPartialDataError) Error() string { return err.err.Error() }
+func (err *exampleViewerPartialDataError) Unwrap() error { return err.err }
+func (err *exampleViewerPartialDataError) PartialData() *exampleViewerResponse {
+	return err.data
+}
+
+type exampleRepositoryPartialDataError struct {
+	data *exampleRepositoryResponse
+	err  error
+}
+
+func (err *exampleRepositoryPartialDataError) Error() string { return err.err.Error() }
+func (err *exampleRepositoryPartialDataError) Unwrap() error { return err.err }
+func (err *exampleRepositoryPartialDataError) PartialData() *exampleRepositoryResponse {
+	return err.data
+}
+
 func ExampleNewClient() {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
@@ -63,9 +85,9 @@ func ExampleErrors_partialData() {
 	var graphqlErrors octoql.Errors
 	if errors.As(err, &graphqlErrors) {
 		fmt.Println(response == nil)
-		var partial *exampleRepositoryResponse
-		if octoql.GetPartialData(err, &partial) {
-			fmt.Println(partial.Repository.Name)
+		partialErr, ok := errors.AsType[*exampleRepositoryPartialDataError](err)
+		if ok {
+			fmt.Println(partialErr.PartialData().Repository.Name)
 		}
 		fmt.Println(graphqlErrors[0].Type)
 	}
@@ -173,6 +195,9 @@ func getViewer(
 		client,
 		"Viewer",
 		"query Viewer { viewer { login } }",
+		func(data *exampleViewerResponse, err error) error {
+			return &exampleViewerPartialDataError{data: data, err: err}
+		},
 	)
 }
 
@@ -185,6 +210,9 @@ func getRepository(
 		client,
 		"Repository",
 		"query Repository { repository { name owner { login } } }",
+		func(data *exampleRepositoryResponse, err error) error {
+			return &exampleRepositoryPartialDataError{data: data, err: err}
+		},
 	)
 }
 
@@ -193,6 +221,7 @@ func executeExample[T any](
 	client *octoql.Client,
 	operationName string,
 	query string,
+	newPartialDataError func(*T, error) error,
 ) (*T, error) {
 	response := new(T)
 	hasData, err := client.Execute(ctx, octoql.Payload{
@@ -203,7 +232,7 @@ func executeExample[T any](
 		return nil, err
 	}
 	if err != nil {
-		return nil, octoql.NewPartialDataError(response, err)
+		return nil, newPartialDataError(response, err)
 	}
 	return response, nil
 }

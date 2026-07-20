@@ -843,6 +843,7 @@ func __octoqlDo[T any](
 	ctx context.Context,
 	client *octoql.Client,
 	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
 ) (*T, error) {
 	response := new(T)
 	hasData, err := client.Execute(ctx, payload, response)
@@ -850,7 +851,7 @@ func __octoqlDo[T any](
 		return nil, err
 	}
 	if err != nil {
-		return nil, octoql.NewPartialDataError(response, err)
+		return nil, newPartialDataError(response, err)
 	}
 	return response, nil
 }
@@ -864,6 +865,36 @@ mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
 	}
 }
 `
+
+// CreateGitHubRepositoryPartialDataError contains partial data returned by CreateGitHubRepository.
+type CreateGitHubRepositoryPartialDataError struct {
+	data *CreateGitHubRepositoryResponse
+	err  error
+}
+
+// Error returns the underlying response error.
+func (err *CreateGitHubRepositoryPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+// Unwrap exposes the underlying response error.
+func (err *CreateGitHubRepositoryPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+// PartialData returns the partial data returned by CreateGitHubRepository.
+func (err *CreateGitHubRepositoryPartialDataError) PartialData() *CreateGitHubRepositoryResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
 
 func CreateGitHubRepository(
 	ctx_ context.Context,
@@ -880,6 +911,9 @@ func CreateGitHubRepository(
 			OperationName: "CreateGitHubRepository",
 			Query:         CreateGitHubRepository_Operation,
 			Variables:     &variables_,
+		},
+		func(data *CreateGitHubRepositoryResponse, err error) error {
+			return &CreateGitHubRepositoryPartialDataError{data: data, err: err}
 		},
 	)
 }
@@ -909,6 +943,36 @@ query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $dat
 	}
 }
 `
+
+// GitHubInputsPartialDataError contains partial data returned by GitHubInputs.
+type GitHubInputsPartialDataError struct {
+	data *GitHubInputResponse
+	err  error
+}
+
+// Error returns the underlying response error.
+func (err *GitHubInputsPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+// Unwrap exposes the underlying response error.
+func (err *GitHubInputsPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+// PartialData returns the partial data returned by GitHubInputs.
+func (err *GitHubInputsPartialDataError) PartialData() *GitHubInputResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
 
 func GitHubInputs(
 	ctx_ context.Context,
@@ -940,6 +1004,9 @@ func GitHubInputs(
 			Query:         GitHubInputs_Operation,
 			Variables:     &variables_,
 		},
+		func(data *GitHubInputResponse, err error) error {
+			return &GitHubInputsPartialDataError{data: data, err: err}
+		},
 	)
 }
 
@@ -951,6 +1018,36 @@ mutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $
 	}
 }
 `
+
+// UpdateIssueWithCollidingNamesPartialDataError contains partial data returned by UpdateIssueWithCollidingNames.
+type UpdateIssueWithCollidingNamesPartialDataError struct {
+	data *UpdateIssueWithCollidingNamesResponse
+	err  error
+}
+
+// Error returns the underlying response error.
+func (err *UpdateIssueWithCollidingNamesPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+// Unwrap exposes the underlying response error.
+func (err *UpdateIssueWithCollidingNamesPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+// PartialData returns the partial data returned by UpdateIssueWithCollidingNames.
+func (err *UpdateIssueWithCollidingNamesPartialDataError) PartialData() *UpdateIssueWithCollidingNamesResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
 
 func UpdateIssueWithCollidingNames(
 	ctx_ context.Context,
@@ -973,6 +1070,9 @@ func UpdateIssueWithCollidingNames(
 			OperationName: "UpdateIssueWithCollidingNames",
 			Query:         UpdateIssueWithCollidingNames_Operation,
 			Variables:     &variables_,
+		},
+		func(data *UpdateIssueWithCollidingNamesResponse, err error) error {
+			return &UpdateIssueWithCollidingNamesPartialDataError{data: data, err: err}
 		},
 	)
 }

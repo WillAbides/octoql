@@ -40,6 +40,7 @@ func __octoqlDo[T any](
 	ctx context.Context,
 	client *octoql.Client,
 	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
 ) (*T, error) {
 	response := new(T)
 	hasData, err := client.Execute(ctx, payload, response)
@@ -47,7 +48,7 @@ func __octoqlDo[T any](
 		return nil, err
 	}
 	if err != nil {
-		return nil, octoql.NewPartialDataError(response, err)
+		return nil, newPartialDataError(response, err)
 	}
 	return response, nil
 }
@@ -60,6 +61,36 @@ query GetRepository ($owner: String!, $name: String!) {
 	}
 }
 `
+
+// GetRepositoryPartialDataError contains partial data returned by GetRepository.
+type GetRepositoryPartialDataError struct {
+	data *GetRepositoryResponse
+	err  error
+}
+
+// Error returns the underlying response error.
+func (err *GetRepositoryPartialDataError) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+// Unwrap exposes the underlying response error.
+func (err *GetRepositoryPartialDataError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+// PartialData returns the partial data returned by GetRepository.
+func (err *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
 
 func GetRepository(
 	client_ *octoql.Client,
@@ -77,6 +108,9 @@ func GetRepository(
 			OperationName: "GetRepository",
 			Query:         GetRepository_Operation,
 			Variables:     &variables_,
+		},
+		func(data *GetRepositoryResponse, err error) error {
+			return &GetRepositoryPartialDataError{data: data, err: err}
 		},
 	)
 }

@@ -119,10 +119,10 @@ func TestServerError(t *testing.T) {
 			assert.Equal(t, "oh no", gqlErrors[0].Message)
 		}
 		assert.Nil(t, response)
-		var partial *failingQueryResponse
-		require.True(t, octoql.GetPartialData(err, &partial))
-		require.NotNil(t, partial)
-		assert.Equal(t, "1", partial.Viewer.Id)
+		partialErr, ok := errors.AsType[*failingQueryPartialDataError](err)
+		require.True(t, ok)
+		require.NotNil(t, partialErr.PartialData())
+		assert.Equal(t, "1", partialErr.PartialData().Viewer.Id)
 	}
 }
 

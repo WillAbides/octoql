@@ -124,10 +124,11 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			}
 			if err != nil {
 				assert.Nil(t, response)
-				var partial *githubclient.GetRepositoryResponse
-				hasPartial := octoql.GetPartialData(err, &partial)
+				partialErr, hasPartial := errors.AsType[*githubclient.GetRepositoryPartialDataError](err)
 				assert.Equal(t, test.wantData, hasPartial)
-				response = partial
+				if hasPartial {
+					response = partialErr.PartialData()
+				}
 			}
 			test.check(t, response, err)
 		})

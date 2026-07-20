@@ -287,9 +287,9 @@ GraphQL errors, octoql stores that data in the error for explicit extraction:
 response, err := githubapi.GetRepository(ctx, client, owner, name, 10)
 if err != nil {
 	// response is always nil here.
-	var partial *githubapi.GetRepositoryResponse
-	if octoql.GetPartialData(err, &partial) {
-		fmt.Printf("partial repository: %+v\n", partial.Repository)
+	partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
+	if ok {
+		fmt.Printf("partial repository: %+v\n", partialErr.PartialData().Repository)
 	}
 }
 
@@ -329,9 +329,9 @@ categories. A rate-limited response can match `*octoql.RateLimitError`,
 | Outcome | Generated response | Error facets |
 | --- | --- | --- |
 | Success | Non-nil concrete data | `nil` |
-| GraphQL errors with decodable data | `nil`; use `GetPartialData` | partial-data error, `ResponseError`, `Errors` |
+| GraphQL errors with decodable data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `ResponseError`, `Errors` |
 | Any error without decodable data | `nil` | `ResponseError` and available causes |
-| Primary or secondary rate limit with decodable data | `nil`; use `GetPartialData` | partial-data error, `RateLimitError`, `ResponseError`, and possibly `Errors` |
+| Primary or secondary rate limit with decodable data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `RateLimitError`, `ResponseError`, and possibly `Errors` |
 | Client getter, encoding, or transport failure before a response | `nil` | Wrapped underlying error; no `ResponseError` |
 
 Primary and secondary GitHub limits wrap `*octoql.ResponseError` in
