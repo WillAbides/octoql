@@ -1,5 +1,6 @@
+{{- $contextType := ref "context.Context" -}}
 // The {{.Type}} executed by {{.Name}}.
-const {{.Name}}_Operation = `{{$.Body}}`
+const {{.Name}}_Operation = {{printf "%q" $.Body}}
 
 // {{.Name}}PartialDataError contains partial data returned by {{.Name}}.
 type {{.Name}}PartialDataError struct {
@@ -46,24 +47,19 @@ func {{.Name}}(
         return nil, err
     }
     {{end -}}
-    var response {{.ResponseName}}
-    hasData, err := client.Execute(
+    return __octoqlExecute[{{.ResponseName}}](
         {{if ne .Config.ContextType "-"}}ctx{{else}}{{ref "context.Background"}}(){{end}},
+        client,
         {{ref "github.com/willabides/octoql.Payload"}}{
             OperationName: "{{.Name}}",
             Query: {{.Name}}_Operation,
             Variables: {{if .Input}}&vars{{else}}nil{{end}},
         },
-        &response,
+        func(data *{{.ResponseName}}, err error) error {
+            return &{{.Name}}PartialDataError{
+                data: data,
+                err: err,
+            }
+        },
     )
-    if !hasData {
-        return nil, err
-    }
-    if err != nil {
-        return nil, &{{.Name}}PartialDataError{
-            data: &response,
-            err: err,
-        }
-    }
-    return &response, nil
 }

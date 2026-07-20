@@ -8,3 +8,22 @@ package {{.Config.Package}}
 // Check that context_type from octoqlgen.yaml implements context.Context.
 var _ {{ref "context.Context"}} = ({{ref .Config.ContextType}})(nil)
 {{end}}
+
+{{if .Operations -}}
+func __octoqlExecute[T any](
+    ctx {{ref "context.Context"}},
+    client *{{ref "github.com/willabides/octoql.Client"}},
+    payload {{ref "github.com/willabides/octoql.Payload"}},
+    newPartialDataError func(*T, error) error,
+) (*T, error) {
+    var response T
+    hasData, err := client.Execute(ctx, payload, &response)
+    if !hasData {
+        return nil, err
+    }
+    if err != nil {
+        return nil, newPartialDataError(&response, err)
+    }
+    return &response, nil
+}
+{{end}}
