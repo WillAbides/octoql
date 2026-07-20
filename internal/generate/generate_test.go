@@ -1334,6 +1334,8 @@ func TestGenerateWithConfig(t *testing.T) {
 			},
 			check: func(t *testing.T, config *Config, generated map[string][]byte) {
 				t.Helper()
+				source := string(generated[config.Generated])
+				assert.NotContains(t, source, "func (v *__GitHubInputsInput) Get")
 				matchGeneratedSnapshot(t, config.Generated, generated[config.Generated])
 			},
 		},

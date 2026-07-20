@@ -14,9 +14,6 @@ type __getUserInput struct {
 	Login string `json:"Login"`
 }
 
-// GetLogin returns __getUserInput.Login, and is useful for accessing the field via an interface.
-func (v *__getUserInput) GetLogin() string { return v.Login }
-
 // getUserResponse is returned by getUser on success.
 type getUserResponse struct {
 	// Lookup a user by login.

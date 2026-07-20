@@ -40,15 +40,6 @@ type CreateRepositoryInput struct {
 	Owner      *RepositorySelector   `json:"owner,omitempty"`
 }
 
-// GetName returns CreateRepositoryInput.Name, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryInput) GetName() string { return v.Name }
-
-// GetVisibility returns CreateRepositoryInput.Visibility, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryInput) GetVisibility() *RepositoryVisibility { return v.Visibility }
-
-// GetOwner returns CreateRepositoryInput.Owner, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryInput) GetOwner() *RepositorySelector { return v.Owner }
-
 // GitHubInputResponse is returned by GitHubInputs on success.
 type GitHubInputResponse struct {
 	RepositoryBySelector        *GitHubInputResponseRepositoryBySelectorRepository       `json:"repositoryBySelector"`
@@ -354,30 +345,12 @@ type InputWithDefaults struct {
 	OptionalLabel *string `json:"optionalLabel,omitempty"`
 }
 
-// GetRequiredLabel returns InputWithDefaults.RequiredLabel, and is useful for accessing the field via an interface.
-func (v *InputWithDefaults) GetRequiredLabel() string { return v.RequiredLabel }
-
-// GetOptionalLabel returns InputWithDefaults.OptionalLabel, and is useful for accessing the field via an interface.
-func (v *InputWithDefaults) GetOptionalLabel() *string { return v.OptionalLabel }
-
 type IssueFilter struct {
 	States    []IssueState `json:"states"`
 	Labels    []string     `json:"labels"`
 	Assignee  *string      `json:"assignee"`
 	Milestone *int         `json:"milestone"`
 }
-
-// GetStates returns IssueFilter.States, and is useful for accessing the field via an interface.
-func (v *IssueFilter) GetStates() []IssueState { return v.States }
-
-// GetLabels returns IssueFilter.Labels, and is useful for accessing the field via an interface.
-func (v *IssueFilter) GetLabels() []string { return v.Labels }
-
-// GetAssignee returns IssueFilter.Assignee, and is useful for accessing the field via an interface.
-func (v *IssueFilter) GetAssignee() *string { return v.Assignee }
-
-// GetMilestone returns IssueFilter.Milestone, and is useful for accessing the field via an interface.
-func (v *IssueFilter) GetMilestone() *int { return v.Milestone }
 
 type IssueState string
 
@@ -396,12 +369,6 @@ type OmitemptyInput struct {
 	OptionalLabel *string `json:"optionalLabel"`
 }
 
-// GetRequiredLabel returns OmitemptyInput.RequiredLabel, and is useful for accessing the field via an interface.
-func (v *OmitemptyInput) GetRequiredLabel() string { return v.RequiredLabel }
-
-// GetOptionalLabel returns OmitemptyInput.OptionalLabel, and is useful for accessing the field via an interface.
-func (v *OmitemptyInput) GetOptionalLabel() *string { return v.OptionalLabel }
-
 type RepositorySelector struct {
 	Owner        string       `json:"owner"`
 	Name         string       `json:"name"`
@@ -409,21 +376,6 @@ type RepositorySelector struct {
 	Topics       []string     `json:"topics"`
 	CreatedAfter *time.Time   `json:"-"`
 }
-
-// GetOwner returns RepositorySelector.Owner, and is useful for accessing the field via an interface.
-func (v *RepositorySelector) GetOwner() string { return v.Owner }
-
-// GetName returns RepositorySelector.Name, and is useful for accessing the field via an interface.
-func (v *RepositorySelector) GetName() string { return v.Name }
-
-// GetDatabaseID returns RepositorySelector.DatabaseID, and is useful for accessing the field via an interface.
-func (v *RepositorySelector) GetDatabaseID() *testutil.ID { return v.DatabaseID }
-
-// GetTopics returns RepositorySelector.Topics, and is useful for accessing the field via an interface.
-func (v *RepositorySelector) GetTopics() []string { return v.Topics }
-
-// GetCreatedAfter returns RepositorySelector.CreatedAfter, and is useful for accessing the field via an interface.
-func (v *RepositorySelector) GetCreatedAfter() *time.Time { return v.CreatedAfter }
 
 func (v *RepositorySelector) UnmarshalJSON(b []byte) error {
 
@@ -521,9 +473,6 @@ type StructInput struct {
 	Field *string `json:"field"`
 }
 
-// GetField returns StructInput.Field, and is useful for accessing the field via an interface.
-func (v *StructInput) GetField() *string { return v.Field }
-
 // UpdateIssueWithCollidingNamesCloseIssue includes the requested fields of the GraphQL type Issue.
 type UpdateIssueWithCollidingNamesCloseIssue struct {
 	Id testutil.ID `json:"id"`
@@ -549,25 +498,10 @@ type UseStructReferencesInput struct {
 	NullableList   []*StructInput `json:"nullableList,omitempty"`
 }
 
-// GetStruct returns UseStructReferencesInput.Struct, and is useful for accessing the field via an interface.
-func (v *UseStructReferencesInput) GetStruct() *StructInput { return v.Struct }
-
-// GetNullableStruct returns UseStructReferencesInput.NullableStruct, and is useful for accessing the field via an interface.
-func (v *UseStructReferencesInput) GetNullableStruct() *StructInput { return v.NullableStruct }
-
-// GetList returns UseStructReferencesInput.List, and is useful for accessing the field via an interface.
-func (v *UseStructReferencesInput) GetList() []*StructInput { return v.List }
-
-// GetNullableList returns UseStructReferencesInput.NullableList, and is useful for accessing the field via an interface.
-func (v *UseStructReferencesInput) GetNullableList() []*StructInput { return v.NullableList }
-
 // __CreateGitHubRepositoryInput is used internally by octoqlgen
 type __CreateGitHubRepositoryInput struct {
 	Input *CreateRepositoryInput `json:"input,omitempty"`
 }
-
-// GetInput returns __CreateGitHubRepositoryInput.Input, and is useful for accessing the field via an interface.
-func (v *__CreateGitHubRepositoryInput) GetInput() *CreateRepositoryInput { return v.Input }
 
 // __GitHubInputsInput is used internally by octoqlgen
 type __GitHubInputsInput struct {
@@ -579,32 +513,6 @@ type __GitHubInputsInput struct {
 	Structs                *UseStructReferencesInput `json:"structs,omitempty"`
 	PublishedDates         [][][]time.Time           `json:"-"`
 	OptionalPublishedDates [][][]*time.Time          `json:"-"`
-}
-
-// GetRepository returns __GitHubInputsInput.Repository, and is useful for accessing the field via an interface.
-func (v *__GitHubInputsInput) GetRepository() *RepositorySelector { return v.Repository }
-
-// GetFilter returns __GitHubInputsInput.Filter, and is useful for accessing the field via an interface.
-func (v *__GitHubInputsInput) GetFilter() *IssueFilter { return v.Filter }
-
-// GetDate returns __GitHubInputsInput.Date, and is useful for accessing the field via an interface.
-func (v *__GitHubInputsInput) GetDate() *time.Time { return v.Date }
-
-// GetDefaults returns __GitHubInputsInput.Defaults, and is useful for accessing the field via an interface.
-func (v *__GitHubInputsInput) GetDefaults() *InputWithDefaults { return v.Defaults }
-
-// GetOptional returns __GitHubInputsInput.Optional, and is useful for accessing the field via an interface.
-func (v *__GitHubInputsInput) GetOptional() *OmitemptyInput { return v.Optional }
-
-// GetStructs returns __GitHubInputsInput.Structs, and is useful for accessing the field via an interface.
-func (v *__GitHubInputsInput) GetStructs() *UseStructReferencesInput { return v.Structs }
-
-// GetPublishedDates returns __GitHubInputsInput.PublishedDates, and is useful for accessing the field via an interface.
-func (v *__GitHubInputsInput) GetPublishedDates() [][][]time.Time { return v.PublishedDates }
-
-// GetOptionalPublishedDates returns __GitHubInputsInput.OptionalPublishedDates, and is useful for accessing the field via an interface.
-func (v *__GitHubInputsInput) GetOptionalPublishedDates() [][][]*time.Time {
-	return v.OptionalPublishedDates
 }
 
 func (v *__GitHubInputsInput) UnmarshalJSON(b []byte) error {
@@ -826,18 +734,6 @@ type __UpdateIssueWithCollidingNamesInput struct {
 	Resp   *int    `json:"resp"`
 	Client *string `json:"client"`
 }
-
-// GetData returns __UpdateIssueWithCollidingNamesInput.Data, and is useful for accessing the field via an interface.
-func (v *__UpdateIssueWithCollidingNamesInput) GetData() string { return v.Data }
-
-// GetReq returns __UpdateIssueWithCollidingNamesInput.Req, and is useful for accessing the field via an interface.
-func (v *__UpdateIssueWithCollidingNamesInput) GetReq() *int { return v.Req }
-
-// GetResp returns __UpdateIssueWithCollidingNamesInput.Resp, and is useful for accessing the field via an interface.
-func (v *__UpdateIssueWithCollidingNamesInput) GetResp() *int { return v.Resp }
-
-// GetClient returns __UpdateIssueWithCollidingNamesInput.Client, and is useful for accessing the field via an interface.
-func (v *__UpdateIssueWithCollidingNamesInput) GetClient() *string { return v.Client }
 
 type __octoqlPartialDataError[T interface{}] struct {
 	data *T

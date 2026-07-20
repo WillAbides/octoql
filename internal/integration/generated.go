@@ -18,16 +18,10 @@ type __addCommentInput struct {
 	Input server.AddCommentInput `json:"input"`
 }
 
-// GetInput returns __addCommentInput.Input, and is useful for accessing the field via an interface.
-func (v *__addCommentInput) GetInput() server.AddCommentInput { return v.Input }
-
 // __addStarInput is used internally by octoqlgen
 type __addStarInput struct {
 	Input server.AddStarInput `json:"input"`
 }
-
-// GetInput returns __addStarInput.Input, and is useful for accessing the field via an interface.
-func (v *__addStarInput) GetInput() server.AddStarInput { return v.Input }
 
 // __getRepositoryInput is used internally by octoqlgen
 type __getRepositoryInput struct {
@@ -35,19 +29,10 @@ type __getRepositoryInput struct {
 	Name  string `json:"name"`
 }
 
-// GetOwner returns __getRepositoryInput.Owner, and is useful for accessing the field via an interface.
-func (v *__getRepositoryInput) GetOwner() string { return v.Owner }
-
-// GetName returns __getRepositoryInput.Name, and is useful for accessing the field via an interface.
-func (v *__getRepositoryInput) GetName() string { return v.Name }
-
 // __queryWithCustomMarshalInput is used internally by octoqlgen
 type __queryWithCustomMarshalInput struct {
 	Date time.Time `json:"-"`
 }
-
-// GetDate returns __queryWithCustomMarshalInput.Date, and is useful for accessing the field via an interface.
-func (v *__queryWithCustomMarshalInput) GetDate() time.Time { return v.Date }
 
 func (v *__queryWithCustomMarshalInput) UnmarshalJSON(b []byte) error {
 
@@ -117,12 +102,6 @@ type __queryWithCustomMarshalOptionalInput struct {
 	Date  *time.Time `json:"-"`
 	Login *string    `json:"login"`
 }
-
-// GetDate returns __queryWithCustomMarshalOptionalInput.Date, and is useful for accessing the field via an interface.
-func (v *__queryWithCustomMarshalOptionalInput) GetDate() *time.Time { return v.Date }
-
-// GetLogin returns __queryWithCustomMarshalOptionalInput.Login, and is useful for accessing the field via an interface.
-func (v *__queryWithCustomMarshalOptionalInput) GetLogin() *string { return v.Login }
 
 func (v *__queryWithCustomMarshalOptionalInput) UnmarshalJSON(b []byte) error {
 
@@ -197,9 +176,6 @@ func (v *__queryWithCustomMarshalOptionalInput) __premarshalJSON() (*__premarsha
 type __queryWithCustomMarshalSliceInput struct {
 	Dates []time.Time `json:"-"`
 }
-
-// GetDates returns __queryWithCustomMarshalSliceInput.Dates, and is useful for accessing the field via an interface.
-func (v *__queryWithCustomMarshalSliceInput) GetDates() []time.Time { return v.Dates }
 
 func (v *__queryWithCustomMarshalSliceInput) UnmarshalJSON(b []byte) error {
 
@@ -281,56 +257,35 @@ type __queryWithFlattenInput struct {
 	Ids []string `json:"ids"`
 }
 
-// GetIds returns __queryWithFlattenInput.Ids, and is useful for accessing the field via an interface.
-func (v *__queryWithFlattenInput) GetIds() []string { return v.Ids }
-
 // __queryWithFragmentsInput is used internally by octoqlgen
 type __queryWithFragmentsInput struct {
 	Ids []string `json:"ids"`
 }
-
-// GetIds returns __queryWithFragmentsInput.Ids, and is useful for accessing the field via an interface.
-func (v *__queryWithFragmentsInput) GetIds() []string { return v.Ids }
 
 // __queryWithInterfaceListFieldInput is used internally by octoqlgen
 type __queryWithInterfaceListFieldInput struct {
 	Ids []string `json:"ids"`
 }
 
-// GetIds returns __queryWithInterfaceListFieldInput.Ids, and is useful for accessing the field via an interface.
-func (v *__queryWithInterfaceListFieldInput) GetIds() []string { return v.Ids }
-
 // __queryWithInterfaceListPointerFieldInput is used internally by octoqlgen
 type __queryWithInterfaceListPointerFieldInput struct {
 	Ids []string `json:"ids"`
 }
-
-// GetIds returns __queryWithInterfaceListPointerFieldInput.Ids, and is useful for accessing the field via an interface.
-func (v *__queryWithInterfaceListPointerFieldInput) GetIds() []string { return v.Ids }
 
 // __queryWithInterfaceNoFragmentsInput is used internally by octoqlgen
 type __queryWithInterfaceNoFragmentsInput struct {
 	Id string `json:"id"`
 }
 
-// GetId returns __queryWithInterfaceNoFragmentsInput.Id, and is useful for accessing the field via an interface.
-func (v *__queryWithInterfaceNoFragmentsInput) GetId() string { return v.Id }
-
 // __queryWithNamedFragmentsInput is used internally by octoqlgen
 type __queryWithNamedFragmentsInput struct {
 	Ids []string `json:"ids"`
 }
 
-// GetIds returns __queryWithNamedFragmentsInput.Ids, and is useful for accessing the field via an interface.
-func (v *__queryWithNamedFragmentsInput) GetIds() []string { return v.Ids }
-
 // __queryWithOmitemptyInput is used internally by octoqlgen
 type __queryWithOmitemptyInput struct {
 	Login string `json:"login,omitempty"`
 }
-
-// GetLogin returns __queryWithOmitemptyInput.Login, and is useful for accessing the field via an interface.
-func (v *__queryWithOmitemptyInput) GetLogin() string { return v.Login }
 
 // __queryWithSearchInput is used internally by octoqlgen
 type __queryWithSearchInput struct {
@@ -338,27 +293,15 @@ type __queryWithSearchInput struct {
 	SearchType server.SearchType `json:"searchType"`
 }
 
-// GetQuery returns __queryWithSearchInput.Query, and is useful for accessing the field via an interface.
-func (v *__queryWithSearchInput) GetQuery() string { return v.Query }
-
-// GetSearchType returns __queryWithSearchInput.SearchType, and is useful for accessing the field via an interface.
-func (v *__queryWithSearchInput) GetSearchType() server.SearchType { return v.SearchType }
-
 // __queryWithVariablesInput is used internally by octoqlgen
 type __queryWithVariablesInput struct {
 	Login string `json:"login"`
 }
 
-// GetLogin returns __queryWithVariablesInput.Login, and is useful for accessing the field via an interface.
-func (v *__queryWithVariablesInput) GetLogin() string { return v.Login }
-
 // __removeStarInput is used internally by octoqlgen
 type __removeStarInput struct {
 	Input server.RemoveStarInput `json:"input"`
 }
-
-// GetInput returns __removeStarInput.Input, and is useful for accessing the field via an interface.
-func (v *__removeStarInput) GetInput() server.RemoveStarInput { return v.Input }
 
 // addCommentAddCommentAddCommentPayload includes the requested fields of the GraphQL type AddCommentPayload.
 type addCommentAddCommentAddCommentPayload struct {

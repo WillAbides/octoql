@@ -17,12 +17,6 @@ type __getRepositoryInput struct {
 	Name  string `json:"name"`
 }
 
-// GetOwner returns __getRepositoryInput.Owner, and is useful for accessing the field via an interface.
-func (v *__getRepositoryInput) GetOwner() string { return v.Owner }
-
-// GetName returns __getRepositoryInput.Name, and is useful for accessing the field via an interface.
-func (v *__getRepositoryInput) GetName() string { return v.Name }
-
 // getRepositoryRepository includes the requested fields of the GraphQL type Repository.
 type getRepositoryRepository struct {
 	NameWithOwner string `json:"nameWithOwner"`
