@@ -252,31 +252,25 @@ func (g *generator) convertType(
 	localBinding := options.Bind
 	if localBinding != "" && localBinding != "-" {
 		goRef, err := g.ref(localBinding)
+		if err != nil {
+			return nil, err
+		}
 		// TODO(benkraft): Add syntax to specify a custom (un)marshaler, if
 		// it proves useful.
-		return &goOpaqueType{
+		goTyp := &goOpaqueType{
 			GoRef:          goRef,
 			QualifiedGoRef: localBinding,
 			GraphQLName:    typ.Name(),
-		}, err
+		}
+		return applyPointerSelection(goTyp, typ, options), nil
 	}
 
 	if typ.Elem != nil {
 		// Type is a list.
 		elem, err := g.convertType(
 			namePrefix, typ.Elem, selectionSet, options, queryOptions)
-		// For list types, we need to handle pointer_omitempty here because
-		// the code below won't be executed for slices.
-		// If the list itself is nullable (e.g., [String!] vs [String!]!),
-		// and pointer_omitempty is configured, we should set omitempty.
 		if err != nil {
 			return nil, err
-		}
-		if g.Config.Optional == "pointer_omitempty" && !typ.NonNull {
-			if options.Omitempty == nil {
-				oe := true
-				options.Omitempty = &oe
-			}
 		}
 		return &goSliceType{elem}, nil
 	}
@@ -297,35 +291,26 @@ func (g *generator) convertType(
 			oe := true
 			options.Omitempty = &oe
 		}
-	} else if g.Config.Optional == "pointer_omitempty" && (options.GetPointer() || !typ.NonNull) {
-		if !options.PointerIsFalse() {
-			goTyp = &goPointerType{Elem: goTyp}
-		}
-
-		if options.Omitempty == nil {
-			oe := true
-			options.Omitempty = &oe
-		}
-	} else if !options.PointerIsFalse() && (options.GetPointer() || (!typ.NonNull && g.Config.Optional == "pointer")) {
-		// Whatever we get, wrap it in a pointer.  (Because of the way the
-		// options work, recursing here isn't as convenient.)
-		// Note this does []*T or [][]*T, not e.g. *[][]T.  See #16.
-		goTyp = &goPointerType{goTyp}
-	} else if !typ.NonNull && g.Config.Optional == "generic" {
-		var genericRef string
-		genericRef, err = g.ref(g.Config.OptionalGenericType)
-		if err != nil {
-			return nil, err
-		}
-
-		goTyp = &goGenericType{
-			GoGenericRef:          genericRef,
-			QualifiedGoGenericRef: g.Config.OptionalGenericType,
-			Elem:                  goTyp,
-		}
+		return goTyp, nil
 	}
+	// Lists recurse before this point, so pointer selection applies to nullable
+	// elements rather than slice containers. Whole-field local bindings apply it
+	// before list recursion.
+	return applyPointerSelection(goTyp, typ, options), nil
+}
 
-	return goTyp, nil
+func applyPointerSelection(
+	goTyp goType,
+	typ *ast.Type,
+	options *octoqlgenDirective,
+) goType {
+	if options.PointerIsFalse() {
+		return goTyp
+	}
+	if !options.GetPointer() && typ.NonNull {
+		return goTyp
+	}
+	return &goPointerType{goTyp}
 }
 
 // getStructReference decides if a field should be of pointer type and have the omitempty flag set.

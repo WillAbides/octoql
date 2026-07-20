@@ -35,8 +35,6 @@ type Config struct {
 	Bindings                        map[string]*TypeBinding
 	PackageBindings                 []*PackageBinding
 	Casing                          Casing
-	Optional                        string
-	OptionalGenericType             string
 	StructReferences                bool
 	OmitUnreferencedImplementations *bool
 
@@ -306,16 +304,6 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	err = c.TestHandlerTypes.validate()
 	if err != nil {
 		return err
-	}
-
-	if c.Optional != "" && c.Optional != "value" && c.Optional != "pointer" && c.Optional != "pointer_omitempty" && c.Optional != "generic" {
-		return errorf(nil, "optional must be one of: 'value' (default), 'pointer', 'pointer_omitempty' or 'generic'")
-	}
-
-	if c.Optional == "generic" && c.OptionalGenericType == "" {
-		return errorf(nil, "if optional is set to 'generic', optional_generic_type must be set to the fully"+
-			"qualified name of a type with a single generic parameter"+
-			"\nExample: \"github.com/Org/Repo/optional.Value\"")
 	}
 
 	if c.Package != "" && !token.IsIdentifier(c.Package) {

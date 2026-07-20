@@ -19,17 +19,17 @@ import (
 
 // CreateRepositoryCreateRepositoryCreateRepositoryPayload includes the requested fields of the GraphQL type CreateRepositoryPayload.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayload struct {
-	Repository       CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository `json:"repository"`
-	ClientMutationId string                                                            `json:"clientMutationId"`
+	Repository       *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository `json:"repository"`
+	ClientMutationId *string                                                            `json:"clientMutationId"`
 }
 
 // GetRepository returns CreateRepositoryCreateRepositoryCreateRepositoryPayload.Repository, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetRepository() CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository {
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetRepository() *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository {
 	return v.Repository
 }
 
 // GetClientMutationId returns CreateRepositoryCreateRepositoryCreateRepositoryPayload.ClientMutationId, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetClientMutationId() string {
+func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetClientMutationId() *string {
 	return v.ClientMutationId
 }
 
@@ -82,10 +82,10 @@ func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssues
 }
 
 type CreateRepositoryInput struct {
-	Name             string               `json:"name"`
-	OwnerId          string               `json:"ownerId"`
-	Visibility       RepositoryVisibility `json:"visibility"`
-	ClientMutationId string               `json:"clientMutationId"`
+	Name             string                `json:"name"`
+	OwnerId          *string               `json:"ownerId"`
+	Visibility       *RepositoryVisibility `json:"visibility"`
+	ClientMutationId *string               `json:"clientMutationId"`
 }
 
 // CreateRepositoryResponse is returned by CreateRepository on success.
@@ -265,11 +265,11 @@ func (v *GetNodeNodeRepository) GetNameWithOwner() string { return v.NameWithOwn
 
 // GetNodeResponse is returned by GetNode on success.
 type GetNodeResponse struct {
-	Node GetNodeNode `json:"-"`
+	Node *GetNodeNode `json:"-"`
 }
 
 // GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
-func (v *GetNodeResponse) GetNode() GetNodeNode { return v.Node }
+func (v *GetNodeResponse) GetNode() *GetNodeNode { return v.Node }
 
 func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 
@@ -292,9 +292,13 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	{
 		dst := &v.Node
 		src := firstPass.Node
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
 		if len(src) != 0 && string(src) != "null" {
+			*dst = new(GetNodeNode)
 			err = __unmarshalGetNodeNode(
-				src, dst)
+				src, *dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetNodeResponse.Node: %w", err)
@@ -323,12 +327,14 @@ func (v *GetNodeResponse) __premarshalJSON() (*__premarshalGetNodeResponse, erro
 
 		dst := &retval.Node
 		src := v.Node
-		var err error
-		*dst, err = __marshalGetNodeNode(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal GetNodeResponse.Node: %w", err)
+		if src != nil {
+			var err error
+			*dst, err = __marshalGetNodeNode(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal GetNodeResponse.Node: %w", err)
+			}
 		}
 	}
 	return &retval, nil
@@ -395,8 +401,8 @@ func (v *GetRepositoryRepositoryIssuesIssueConnectionNodesIssue) GetTitle() stri
 
 // GetRepositoryRepositoryIssuesIssueConnectionPageInfo includes the requested fields of the GraphQL type PageInfo.
 type GetRepositoryRepositoryIssuesIssueConnectionPageInfo struct {
-	HasNextPage bool   `json:"hasNextPage"`
-	EndCursor   string `json:"endCursor"`
+	HasNextPage bool    `json:"hasNextPage"`
+	EndCursor   *string `json:"endCursor"`
 }
 
 // GetHasNextPage returns GetRepositoryRepositoryIssuesIssueConnectionPageInfo.HasNextPage, and is useful for accessing the field via an interface.
@@ -405,24 +411,24 @@ func (v *GetRepositoryRepositoryIssuesIssueConnectionPageInfo) GetHasNextPage() 
 }
 
 // GetEndCursor returns GetRepositoryRepositoryIssuesIssueConnectionPageInfo.EndCursor, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionPageInfo) GetEndCursor() string {
+func (v *GetRepositoryRepositoryIssuesIssueConnectionPageInfo) GetEndCursor() *string {
 	return v.EndCursor
 }
 
 // GetRepositoryResponse is returned by GetRepository on success.
 type GetRepositoryResponse struct {
-	Repository GetRepositoryRepository `json:"repository"`
+	Repository *GetRepositoryRepository `json:"repository"`
 }
 
 // GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return v.Repository }
+func (v *GetRepositoryResponse) GetRepository() *GetRepositoryRepository { return v.Repository }
 
 // GetRepositoryVariables contains the variables accepted by GetRepository.
 type GetRepositoryVariables struct {
-	Owner string `json:"owner"`
-	Name  string `json:"name"`
-	First int    `json:"first"`
-	After string `json:"after"`
+	Owner string  `json:"owner"`
+	Name  string  `json:"name"`
+	First int     `json:"first"`
+	After *string `json:"after"`
 }
 
 type RepositoryVisibility string
@@ -453,7 +459,7 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*SearchResponse
-		Search []json.RawMessage `json:"search"`
+		Search json.RawMessage `json:"search"`
 		octoql.NoUnmarshalJSON
 	}
 	firstPass.SearchResponse = v
@@ -465,18 +471,33 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 
 	{
 		dst := &v.Search
-		src := firstPass.Search
-		*dst = make(
-			[]SearchSearchSearchResultItem,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			if len(src) != 0 && string(src) != "null" {
-				err = __unmarshalSearchSearchSearchResultItem(
-					src, dst)
+		raw := firstPass.Search
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
 				if err != nil {
 					return fmt.Errorf(
 						"unable to unmarshal SearchResponse.Search: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]SearchSearchSearchResultItem,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = __unmarshalSearchSearchSearchResultItem(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal SearchResponse.Search: %w", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -503,17 +524,19 @@ func (v *SearchResponse) __premarshalJSON() (*__premarshalSearchResponse, error)
 
 		dst := &retval.Search
 		src := v.Search
-		*dst = make(
-			[]json.RawMessage,
-			len(src))
-		for i, src := range src {
-			dst := &(*dst)[i]
-			var err error
-			*dst, err = __marshalSearchSearchSearchResultItem(
-				&src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal SearchResponse.Search: %w", err)
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = __marshalSearchSearchSearchResultItem(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal SearchResponse.Search: %w", err)
+				}
 			}
 		}
 	}

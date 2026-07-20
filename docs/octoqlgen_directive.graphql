@@ -84,18 +84,19 @@ directive octoqlgen(
   # For example, given the following query:
   #  # @octoqlgen(omitempty: true)
   #  query MyQuery($arg: String) { ... }
-  # octoqlgen will generate a function
-  #  MyQuery(ctx context.Context, client *octoql.Client, arg string)
-  #    (*MyQueryResponse, error)
-  # which will omit "arg" from the variables object if arg is "", and pass the
-  # actual value otherwise.
+  # octoqlgen will generate a variables field like
+  #  Arg *string `json:"arg,omitempty"`
+  # A nil pointer omits "arg" from the variables object, while a pointer to ""
+  # includes the empty string. Add `pointer: false` to generate a string field
+  # that omits "" instead.
   #
   # Only applicable to arguments of nullable types.  Ignored for types with
   # custom marshalers (see their documentation in octoqlgen.yaml for details).
   omitempty: Boolean
 
-  # If set, this argument or field will use a pointer type in Go. Otherwise,
-  # pointer use follows the applicable optional configuration.
+  # Nullable named values and nullable list elements use pointer types in Go
+  # by default. Set this to false on a specific argument or field to opt out.
+  # The omitempty setting remains independent of pointer selection.
   #
   # This can be useful if it's a type you'll need to pass around (and want a
   # pointer to save copies) or if you wish to distinguish between the Go
@@ -185,6 +186,9 @@ directive octoqlgen(
   # (But you're not required to; if you want to map to some type DateList,
   # you can do that, as long as its UnmarshalJSON method can accept a list
   # of datetimes.)
+  # Nullability and the pointer option apply to the bound type. Nullable fields
+  # default to a pointer to the bound type, `pointer: false` opts out, and
+  # `pointer: true` forces a pointer for a non-null field.
   #
   # Note that the type you bind to must be defined elsewhere in your code.
   # If you want octoqlgen to create the type definition, use "typename"

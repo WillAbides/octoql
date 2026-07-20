@@ -274,9 +274,9 @@ func (g *generator) usedFragments(op *ast.OperationDefinition) ast.FragmentDefin
 
 // Preprocess each query to make any changes that octoqlgen needs.
 //
-// At present, the only change is that we add __typename, if not already
-// requested, to each field of interface type, so we can use the right types
-// when unmarshaling.
+// At present, we normalize __typename to its specified non-null type and add it,
+// if not already requested, to each field of interface type so we can use the
+// right types when unmarshaling.
 func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 	var observers validator.Events
 	// We want to ensure that everywhere you ask for some list of fields (a
@@ -292,6 +292,16 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 	// TODO(benkraft): We should omit __typename if you asked for
 	// `# @octoqlgen(struct: true)`.
 	observers.OnField(func(_ *validator.Walker, field *ast.Field) {
+		if field.Name == "__typename" {
+			definition := *field.Definition
+			definition.Type = ast.NonNullNamedType(
+				"String",
+				field.Definition.Type.Position,
+			)
+			field.Definition = &definition
+			return
+		}
+
 		// We are interested in a field from the query like
 		//	field { subField ... }
 		// where the schema looks like
@@ -326,13 +336,10 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 					Alias: "__typename", Name: "__typename",
 					// Fake definition for the magic field __typename cribbed
 					// from gqlparser's validator/walk.go, equivalent to
-					//	__typename: String
-					// TODO(benkraft): This should in principle be
 					//	__typename: String!
-					// But octoqlgen doesn't care, so we just match gqlparser.
 					Definition: &ast.FieldDefinition{
 						Name: "__typename",
-						Type: ast.NamedType("String", nil /* pos */),
+						Type: ast.NonNullNamedType("String", nil /* pos */),
 					},
 					// Definition of the object that contains this field, i.e.
 					// FieldType.

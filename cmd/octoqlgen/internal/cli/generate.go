@@ -126,8 +126,6 @@ func generateConfig(source *config.Config) *generate.Config {
 		Bindings:                        bindings,
 		PackageBindings:                 packageBindings,
 		Casing:                          casing,
-		Optional:                        stringValue(source.Optional),
-		OptionalGenericType:             stringValue(source.OptionalGenericType),
 		StructReferences:                boolValue(source.UseStructReferences),
 		OmitUnreferencedImplementations: source.OmitUnreferencedImplementations,
 	}
