@@ -30,12 +30,6 @@ type __GetRepositoryInput struct {
 	Name  string `json:"name"`
 }
 
-// GetOwner returns __GetRepositoryInput.Owner, and is useful for accessing the field via an interface.
-func (v *__GetRepositoryInput) GetOwner() string { return v.Owner }
-
-// GetName returns __GetRepositoryInput.Name, and is useful for accessing the field via an interface.
-func (v *__GetRepositoryInput) GetName() string { return v.Name }
-
 type __octoqlPartialDataError[T interface{}] struct {
 	data *T
 	err  error

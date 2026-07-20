@@ -407,27 +407,28 @@ func (typ *goStructType) WriteDefinition(w io.Writer, g *generator) error {
 	}
 	fmt.Fprintf(w, "}\n")
 
-	// Write out getter methods for each field.  These are most useful for
-	// shared fields of an interface -- the methods will be included in the
-	// interface.  But they can be useful in other cases, for example where you
-	// have a union several of whose members have a shared field (and can
-	// thereby be handled together).  For simplicity's sake, we just write the
-	// methods always.
-	//
-	// Note we use the *flattened* fields here, which ensures we avoid
-	// conflicts in the case where multiple embedded types include the same
-	// field.
-	flattened, err := typ.FlattenedFields()
-	if err != nil {
-		return err
-	}
-	for _, field := range flattened {
-		description := fmt.Sprintf(
-			"Get%s returns %s.%s, and is useful for accessing the field via an interface.",
-			field.GoName, typ.GoName, field.GoName)
-		writeDescription(w, description)
-		fmt.Fprintf(w, "func (v *%s) Get%s() %s { return v.%s }\n",
-			typ.GoName, field.GoName, field.GoType.Reference(), field.Selector)
+	if !typ.IsInput {
+		// Write out getter methods for each field. These are most useful for
+		// shared fields of an interface -- the methods will be included in the
+		// interface. But they can be useful in other cases, for example where you
+		// have a union several of whose members have a shared field (and can
+		// thereby be handled together).
+		//
+		// Note we use the *flattened* fields here, which ensures we avoid
+		// conflicts in the case where multiple embedded types include the same
+		// field.
+		flattened, err := typ.FlattenedFields()
+		if err != nil {
+			return err
+		}
+		for _, field := range flattened {
+			description := fmt.Sprintf(
+				"Get%s returns %s.%s, and is useful for accessing the field via an interface.",
+				field.GoName, typ.GoName, field.GoName)
+			writeDescription(w, description)
+			fmt.Fprintf(w, "func (v *%s) Get%s() %s { return v.%s }\n",
+				typ.GoName, field.GoName, field.GoType.Reference(), field.Selector)
+		}
 	}
 
 	// Now, if needed, write the marshaler/unmarshaler.  We need one if we have

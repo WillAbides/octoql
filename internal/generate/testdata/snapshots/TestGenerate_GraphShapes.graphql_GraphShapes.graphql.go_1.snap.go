@@ -1495,9 +1495,6 @@ type RecursiveInput struct {
 	Next []RecursiveInput `json:"next"`
 }
 
-// GetNext returns RecursiveInput.Next, and is useful for accessing the field via an interface.
-func (v *RecursiveInput) GetNext() []RecursiveInput { return v.Next }
-
 // RecursiveRepositoryRecurRecursive includes the requested fields of the GraphQL type Recursive.
 type RecursiveRepositoryRecurRecursive struct {
 	Next RecursiveRepositoryRecurRecursiveNextRecursive `json:"next"`
@@ -2783,24 +2780,15 @@ type __GetActorInput struct {
 	Login string `json:"login"`
 }
 
-// GetLogin returns __GetActorInput.Login, and is useful for accessing the field via an interface.
-func (v *__GetActorInput) GetLogin() string { return v.Login }
-
 // __GetNodeInput is used internally by octoqlgen
 type __GetNodeInput struct {
 	Id testutil.ID `json:"id"`
 }
 
-// GetId returns __GetNodeInput.Id, and is useful for accessing the field via an interface.
-func (v *__GetNodeInput) GetId() testutil.ID { return v.Id }
-
 // __RecursiveRepositoryInput is used internally by octoqlgen
 type __RecursiveRepositoryInput struct {
 	Input RecursiveInput `json:"input"`
 }
-
-// GetInput returns __RecursiveRepositoryInput.Input, and is useful for accessing the field via an interface.
-func (v *__RecursiveRepositoryInput) GetInput() RecursiveInput { return v.Input }
 
 // __SearchRepositoriesInput is used internally by octoqlgen
 type __SearchRepositoriesInput struct {
@@ -2809,18 +2797,6 @@ type __SearchRepositoriesInput struct {
 	After          string    `json:"after"`
 	PublishedAfter time.Time `json:"-"`
 }
-
-// GetQuery returns __SearchRepositoriesInput.Query, and is useful for accessing the field via an interface.
-func (v *__SearchRepositoriesInput) GetQuery() string { return v.Query }
-
-// GetFirst returns __SearchRepositoriesInput.First, and is useful for accessing the field via an interface.
-func (v *__SearchRepositoriesInput) GetFirst() int { return v.First }
-
-// GetAfter returns __SearchRepositoriesInput.After, and is useful for accessing the field via an interface.
-func (v *__SearchRepositoriesInput) GetAfter() string { return v.After }
-
-// GetPublishedAfter returns __SearchRepositoriesInput.PublishedAfter, and is useful for accessing the field via an interface.
-func (v *__SearchRepositoriesInput) GetPublishedAfter() time.Time { return v.PublishedAfter }
 
 func (v *__SearchRepositoriesInput) UnmarshalJSON(b []byte) error {
 
