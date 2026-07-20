@@ -126,6 +126,7 @@ func TestLoadGeneratorOptions(t *testing.T) {
 			"  source:\n" +
 			"    github_docs:\n" +
 			"      version: fpt\n" +
+			"      revision: " + testRevision + "\n" +
 			"operations:\n" +
 			"  - graphql/**/*.graphql\n" +
 			"generated: generated/client.go\n" +
@@ -196,17 +197,130 @@ func TestDocumentationConfigParses(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLoadDoesNotValidateAgainstSchema(t *testing.T) {
+func TestParseRequiresSchemaFields(t *testing.T) {
 	t.Parallel()
 
-	filename := filepath.Join(t.TempDir(), DefaultFilename)
-	err := os.WriteFile(filename, []byte("{}\n"), 0o600)
-	require.NoError(t, err)
+	tests := []struct {
+		name      string
+		content   string
+		wantError string
+	}{
+		{
+			name: "schema",
+			content: "operations: []\n" +
+				"generated: generated.go\n",
+			wantError: "schema is required",
+		},
+		{
+			name: "schema path",
+			content: "schema: {}\n" +
+				"operations: []\n" +
+				"generated: generated.go\n",
+			wantError: "schema.path is required",
+		},
+		{
+			name: "operations",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"generated: generated.go\n",
+			wantError: "operations is required",
+		},
+		{
+			name: "generated",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"operations: []\n",
+			wantError: "generated is required",
+		},
+		{
+			name: "test handler generated",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"operations: []\n" +
+				"generated: generated.go\n" +
+				"test_handler: {}\n",
+			wantError: "test_handler.generated is required",
+		},
+		{
+			name: "package binding package",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"operations: []\n" +
+				"generated: generated.go\n" +
+				"package_bindings:\n" +
+				"  - {}\n",
+			wantError: "package_bindings[0].package is required",
+		},
+		{
+			name: "github docs version",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"  source:\n" +
+				"    github_docs:\n" +
+				"      revision: " + testRevision + "\n" +
+				"operations: []\n" +
+				"generated: generated.go\n",
+			wantError: "schema.source.github_docs.version is required",
+		},
+		{
+			name: "github docs revision",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"  source:\n" +
+				"    github_docs:\n" +
+				"      version: fpt\n" +
+				"operations: []\n" +
+				"generated: generated.go\n",
+			wantError: "schema.source.github_docs.revision is required",
+		},
+		{
+			name: "github repository repository",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"  source:\n" +
+				"    github_repository:\n" +
+				"      revision: " + testRevision + "\n" +
+				"      path: schema.graphql\n" +
+				"operations: []\n" +
+				"generated: generated.go\n",
+			wantError: "schema.source.github_repository.repository is required",
+		},
+		{
+			name: "github repository revision",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"  source:\n" +
+				"    github_repository:\n" +
+				"      repository: octo-org/octo-repo\n" +
+				"      path: schema.graphql\n" +
+				"operations: []\n" +
+				"generated: generated.go\n",
+			wantError: "schema.source.github_repository.revision is required",
+		},
+		{
+			name: "github repository path",
+			content: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"  source:\n" +
+				"    github_repository:\n" +
+				"      repository: octo-org/octo-repo\n" +
+				"      revision: " + testRevision + "\n" +
+				"operations: []\n" +
+				"generated: generated.go\n",
+			wantError: "schema.source.github_repository.path is required",
+		},
+	}
 
-	loaded, err := Load(filename)
-	require.NoError(t, err)
-	assert.Equal(t, &Config{}, loaded)
-	assert.Empty(t, loaded.TestHandlerGeneratedPath())
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := Parse([]byte(test.content))
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.wantError)
+		})
+	}
 }
 
 func TestUpdatePinPreservesUnrelatedFormatting(t *testing.T) {

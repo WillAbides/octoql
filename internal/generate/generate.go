@@ -441,6 +441,11 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 }
 
 func buildGenerationPlan(config *Config) (*generationPlan, error) {
+	err := config.validateInputPaths()
+	if err != nil {
+		return nil, err
+	}
+
 	// Step 1: Read in the schema and operations from the files defined by the
 	// config (and validate the operations against the schema).  This is all
 	// defined in parse.go.

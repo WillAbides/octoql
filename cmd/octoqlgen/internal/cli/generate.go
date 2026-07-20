@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sort"
 
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
@@ -26,6 +27,22 @@ func (cmd *generateCommand) Run() error {
 		return err
 	}
 
+	configPath := cmd.Config
+	if configPath == "" {
+		configPath = config.DefaultFilename
+	}
+	configPath, err = filepath.Abs(configPath)
+	if err != nil {
+		return fmt.Errorf("resolving config path: %w", err)
+	}
+
+	generatorConfig := generateConfig(loaded)
+	generatorConfig.ConfigFile = configPath
+	err = generatorConfig.ValidateAndFillDefaults(filepath.Dir(configPath))
+	if err != nil {
+		return fmt.Errorf("validating generation config: %w", err)
+	}
+
 	_, err = cmd.materializer.Materialize(cmd.context, schema.Request{
 		Path:   loaded.SchemaPath(),
 		SHA256: loaded.Schema.SHA256Value(),
@@ -38,11 +55,6 @@ func (cmd *generateCommand) Run() error {
 		)
 	}
 
-	generatorConfig := generateConfig(loaded)
-	err = generatorConfig.ValidateAndFillDefaults("")
-	if err != nil {
-		return fmt.Errorf("validating generation config: %w", err)
-	}
 	outputs, err := cmd.generate(generatorConfig)
 	if err != nil {
 		return err

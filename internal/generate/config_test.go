@@ -103,6 +103,72 @@ func TestValidateOutputPathsFilesystemAliases(t *testing.T) {
 	})
 }
 
+func TestValidateOutputPathsProtectsInputs(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	operationPath := filepath.Join(directory, "graphql", "viewer.graphql")
+	err := os.Mkdir(filepath.Dir(operationPath), 0o755)
+	require.NoError(t, err)
+	for path, content := range map[string]string{
+		configPath:    "schema: {}\n",
+		schemaPath:    "type Query { viewer: String! }\n",
+		operationPath: "query Viewer { viewer }\n",
+	} {
+		err = os.WriteFile(path, []byte(content), 0o600)
+		require.NoError(t, err)
+	}
+
+	tests := []struct {
+		name      string
+		config    Config
+		wantError string
+	}{
+		{
+			name: "generated collides with config",
+			config: Config{
+				ConfigFile: configPath,
+				Generated:  configPath,
+			},
+			wantError: "generated output path",
+		},
+		{
+			name: "operation manifest collides with schema",
+			config: Config{
+				Schema:           StringList{schemaPath},
+				Generated:        filepath.Join(directory, "generated.go"),
+				ExportOperations: schemaPath,
+			},
+			wantError: "export_operations output path",
+		},
+		{
+			name: "test handler collides with expanded operation",
+			config: Config{
+				Operations:           StringList{filepath.Join(directory, "graphql", "*.graphql")},
+				Generated:            filepath.Join(directory, "generated.go"),
+				TestHandlerGenerated: operationPath,
+			},
+			wantError: "test_handler.generated output path",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := test.config.validateOutputPaths()
+			if err == nil {
+				err = test.config.validateInputPaths()
+			}
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.wantError)
+		})
+	}
+}
+
 func TestConfigValidateAndFillDefaults(t *testing.T) {
 	t.Parallel()
 

@@ -109,6 +109,9 @@ Generation performs the same schema verification or materialization before it
 writes code. Query and mutation operation names become generated helper names,
 so use an uppercase name when the helper must be exported. octoql does not
 support GraphQL subscriptions, and `octoqlgen` rejects subscription operations.
+Generation also refuses output paths that alias `octoqlgen.yaml`, the schema,
+or any expanded operation input. Operation manifests record source paths
+relative to the configuration directory so checked-in manifests stay portable.
 
 `operations` may also select Go files. A string literal beginning with
 `# @octoqlgen` is parsed as an operation:
