@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 )
+
+const maxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
 // type so values introduced by GitHub remain available to callers.
@@ -25,8 +26,6 @@ type Location struct {
 }
 
 // Error describes an error returned in a GraphQL response.
-//
-//nolint:govet // Preserve the documented public API field order.
 type Error struct {
 	Type       ErrorType      `json:"type,omitempty"`
 	Message    string         `json:"message"`
@@ -38,17 +37,19 @@ type Error struct {
 // Errors is the list of errors returned in a GraphQL response.
 type Errors []*Error
 
-// HTTPError describes a non-2xx GraphQL HTTP response.
-//
-//nolint:govet // Preserve the public error fields in semantic presentation order.
-type HTTPError struct {
-	HTTP HTTPMetadata
-	// Body is the raw HTTP response payload.
-	Body []byte
-	// Errors contains any GraphQL errors decoded from Body.
-	Errors Errors
-	// Cause is the response body read or JSON decode error, when present.
-	Cause error
+// ResponseError describes a failed GraphQL HTTP response.
+type ResponseError struct {
+	// StatusCode is the HTTP response status.
+	StatusCode int
+	// RequestID is GitHub's X-GitHub-Request-ID value, when present.
+	RequestID string
+	// RawBody contains at most the first 64 KiB of a non-successful or
+	// undecodable response. It is omitted for ordinary GraphQL errors.
+	RawBody []byte
+	// RawBodyTruncated reports whether RawBody omits trailing response bytes.
+	RawBodyTruncated bool
+
+	err error
 }
 
 // MarshalJSON encodes string and integer path segments in GraphQL wire format.
@@ -202,54 +203,57 @@ func (graphqlErrors Errors) Unwrap() []error {
 	return unwrapped
 }
 
-// Error returns a stable summary of the failed HTTP response.
-func (httpError *HTTPError) Error() string {
-	if httpError == nil {
-		return "graphql HTTP request failed"
+// Error returns a stable summary of the failed response.
+func (responseError *ResponseError) Error() string {
+	if responseError == nil {
+		return "graphql response failed"
 	}
 
-	message := fmt.Sprintf("graphql HTTP request failed with status %d", httpError.HTTP.StatusCode)
-	if len(httpError.Errors) > 0 {
-		return message + ": " + httpError.Errors.Error()
+	message := "graphql response failed"
+	if !isSuccessfulStatus(responseError.StatusCode) {
+		message = fmt.Sprintf(
+			"graphql response failed with status %d",
+			responseError.StatusCode,
+		)
 	}
-	if httpError.Cause != nil {
-		return message + ": " + httpError.Cause.Error()
+	if responseError.err != nil {
+		return message + ": " + responseError.err.Error()
 	}
 	return message
 }
 
-// Unwrap exposes decoded GraphQL errors and the read or decode cause to
+// Unwrap exposes decoded GraphQL errors and response processing failures to
 // [errors.Is], [errors.As], and [errors.AsType].
-func (httpError *HTTPError) Unwrap() []error {
-	if httpError == nil {
+func (responseError *ResponseError) Unwrap() error {
+	if responseError == nil {
 		return nil
 	}
-
-	unwrapped := make([]error, 0, 2)
-	if len(httpError.Errors) > 0 {
-		unwrapped = append(unwrapped, httpError.Errors)
-	}
-	if httpError.Cause != nil {
-		unwrapped = append(unwrapped, httpError.Cause)
-	}
-	return unwrapped
+	return responseError.err
 }
 
-func newHTTPError(
-	metadata *HTTPMetadata,
+func newResponseError(
+	statusCode int,
+	requestID string,
 	body []byte,
-	graphqlErrors Errors,
-	cause error,
-) *HTTPError {
-	return &HTTPError{
-		HTTP: HTTPMetadata{
-			StatusCode: metadata.StatusCode,
-			Header:     cloneHeader(metadata.Header),
-			RequestID:  metadata.RequestID,
-			RateLimit:  metadata.RateLimit,
-		},
-		Body:   bytes.Clone(body),
-		Errors: slices.Clone(graphqlErrors),
-		Cause:  cause,
+	retainBody bool,
+	err error,
+) *ResponseError {
+	var rawBody []byte
+	var isTruncated bool
+	if retainBody {
+		rawBody = body
+		if len(rawBody) > maxResponseErrorRawBody {
+			rawBody = rawBody[:maxResponseErrorRawBody]
+			isTruncated = true
+		}
+		rawBody = bytes.Clone(rawBody)
+	}
+
+	return &ResponseError{
+		StatusCode:       statusCode,
+		RequestID:        requestID,
+		RawBody:          rawBody,
+		RawBodyTruncated: isTruncated,
+		err:              err,
 	}
 }

@@ -91,6 +91,50 @@ func (v *GitHubNamingResponseSnake_case_type) GetName() string { return v.Name }
 
 type SecondRepository string
 
+type __octoqlPartialDataError[T interface{}] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
+func __octoqlDo[T interface{}](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	var data T
+	response := &data
+	hasData, err := client.Execute(ctx, payload, response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(response, err)
+	}
+	return response, nil
+}
+
 // The query executed by GitHubNaming.
 const GitHubNaming_Operation = `
 query GitHubNaming {
@@ -116,16 +160,29 @@ query GitHubNaming {
 }
 `
 
+// GitHubNamingPartialDataError contains partial data returned by GitHubNaming.
+type GitHubNamingPartialDataError struct {
+	__octoqlPartialDataError[GitHubNamingResponse]
+}
+
 func GitHubNaming(
 	client_ *octoql.Client,
-) (*octoql.Response[GitHubNamingResponse], error) {
-	return octoql.Do[GitHubNamingResponse](
+) (*GitHubNamingResponse, error) {
+	return __octoqlDo[GitHubNamingResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "GitHubNaming",
-			Query: GitHubNaming_Operation,
+		octoql.Payload{
+			OperationName: "GitHubNaming",
+			Query:         GitHubNaming_Operation,
+			Variables:     nil,
 		},
-		nil,
+		func(data *GitHubNamingResponse, err error) error {
+			return &GitHubNamingPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[GitHubNamingResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }

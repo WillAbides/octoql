@@ -839,6 +839,50 @@ func (v *__UpdateIssueWithCollidingNamesInput) GetResp() *int { return v.Resp }
 // GetClient returns __UpdateIssueWithCollidingNamesInput.Client, and is useful for accessing the field via an interface.
 func (v *__UpdateIssueWithCollidingNamesInput) GetClient() *string { return v.Client }
 
+type __octoqlPartialDataError[T interface{}] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
+func __octoqlDo[T interface{}](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	var data T
+	response := &data
+	hasData, err := client.Execute(ctx, payload, response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(response, err)
+	}
+	return response, nil
+}
+
 // The mutation executed by CreateGitHubRepository.
 const CreateGitHubRepository_Operation = `
 mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
@@ -849,22 +893,35 @@ mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
 }
 `
 
+// CreateGitHubRepositoryPartialDataError contains partial data returned by CreateGitHubRepository.
+type CreateGitHubRepositoryPartialDataError struct {
+	__octoqlPartialDataError[CreateGitHubRepositoryResponse]
+}
+
 func CreateGitHubRepository(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	input *CreateRepositoryInput,
-) (*octoql.Response[CreateGitHubRepositoryResponse], error) {
+) (*CreateGitHubRepositoryResponse, error) {
 	variables_ := __CreateGitHubRepositoryInput{
 		Input: input,
 	}
-	return octoql.Do[CreateGitHubRepositoryResponse](
+	return __octoqlDo[CreateGitHubRepositoryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "CreateGitHubRepository",
-			Query: CreateGitHubRepository_Operation,
+		octoql.Payload{
+			OperationName: "CreateGitHubRepository",
+			Query:         CreateGitHubRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *CreateGitHubRepositoryResponse, err error) error {
+			return &CreateGitHubRepositoryPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[CreateGitHubRepositoryResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -894,6 +951,11 @@ query GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $dat
 }
 `
 
+// GitHubInputsPartialDataError contains partial data returned by GitHubInputs.
+type GitHubInputsPartialDataError struct {
+	__octoqlPartialDataError[GitHubInputResponse]
+}
+
 func GitHubInputs(
 	ctx_ context.Context,
 	client_ *octoql.Client,
@@ -905,7 +967,7 @@ func GitHubInputs(
 	structs *UseStructReferencesInput,
 	publishedDates [][][]time.Time,
 	optionalPublishedDates [][][]*time.Time,
-) (*octoql.Response[GitHubInputResponse], error) {
+) (*GitHubInputResponse, error) {
 	variables_ := __GitHubInputsInput{
 		Repository:             repository,
 		Filter:                 filter,
@@ -916,14 +978,22 @@ func GitHubInputs(
 		PublishedDates:         publishedDates,
 		OptionalPublishedDates: optionalPublishedDates,
 	}
-	return octoql.Do[GitHubInputResponse](
+	return __octoqlDo[GitHubInputResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "GitHubInputs",
-			Query: GitHubInputs_Operation,
+		octoql.Payload{
+			OperationName: "GitHubInputs",
+			Query:         GitHubInputs_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *GitHubInputResponse, err error) error {
+			return &GitHubInputsPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[GitHubInputResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -936,6 +1006,11 @@ mutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $
 }
 `
 
+// UpdateIssueWithCollidingNamesPartialDataError contains partial data returned by UpdateIssueWithCollidingNames.
+type UpdateIssueWithCollidingNamesPartialDataError struct {
+	__octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]
+}
+
 func UpdateIssueWithCollidingNames(
 	ctx_ context.Context,
 	client_ *octoql.Client,
@@ -943,20 +1018,28 @@ func UpdateIssueWithCollidingNames(
 	req *int,
 	resp *int,
 	client *string,
-) (*octoql.Response[UpdateIssueWithCollidingNamesResponse], error) {
+) (*UpdateIssueWithCollidingNamesResponse, error) {
 	variables_ := __UpdateIssueWithCollidingNamesInput{
 		Data:   data,
 		Req:    req,
 		Resp:   resp,
 		Client: client,
 	}
-	return octoql.Do[UpdateIssueWithCollidingNamesResponse](
+	return __octoqlDo[UpdateIssueWithCollidingNamesResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "UpdateIssueWithCollidingNames",
-			Query: UpdateIssueWithCollidingNames_Operation,
+		octoql.Payload{
+			OperationName: "UpdateIssueWithCollidingNames",
+			Query:         UpdateIssueWithCollidingNames_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *UpdateIssueWithCollidingNamesResponse, err error) error {
+			return &UpdateIssueWithCollidingNamesPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }

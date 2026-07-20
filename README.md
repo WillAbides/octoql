@@ -257,7 +257,7 @@ response, err := githubapi.GetRepository(
 if err != nil {
 	return err
 }
-fmt.Println(response.Data.Repository.NameWithOwner)
+fmt.Println(response.Repository.NameWithOwner)
 ```
 
 Pass a different endpoint to `octoql.NewClient` for GHES, a proxy, or an
@@ -265,27 +265,37 @@ Pass a different endpoint to `octoql.NewClient` for GHES, a proxy, or an
 
 ## Runtime responses and errors
 
-Generated helpers return `*octoql.Response[T]`. Its fields are:
+Generated helpers return a pointer to the concrete operation response and an
+error. GraphQL data is available directly:
 
-- `Data`, including partial GraphQL data
-- `Errors`, the decoded `octoql.Errors`
-- `Extensions`, top-level GraphQL extensions
-- `HTTP`, containing status, cloned headers, `X-GitHub-Request-ID`, and parsed
-  rate-limit metadata
+```go
+response, err := githubapi.GetRepository(ctx, client, owner, name, 10)
+if err == nil {
+	fmt.Println(response.Repository.NameWithOwner)
+}
+```
 
 Each `*octoql.Error` retains `Type`, `Message`, `Path`, `Locations`, and its own
 `Extensions`. `Error.Type` is an open string type so new GitHub values remain
 available without a runtime update.
 
-Once an HTTP response exists, octoql returns a non-nil response even when it
-also returns an error. Inspect partial data before deciding whether it is usable:
+Generated helpers follow the usual Go convention: the response is nil whenever
+the error is non-nil. When GitHub returns decodable, non-null partial `data`
+alongside GraphQL errors, octoql stores that data in the error for explicit
+extraction. A `data: null` response has no partial-data facet:
 
 ```go
 response, err := githubapi.GetRepository(ctx, client, owner, name, 10)
+if err != nil {
+	// response is always nil here.
+	partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
+	if ok {
+		fmt.Printf("partial repository: %+v\n", partialErr.PartialData().Repository)
+	}
+}
 
-var graphqlErrors octoql.Errors
-if errors.As(err, &graphqlErrors) {
-	fmt.Printf("partial repository: %+v\n", response.Data.Repository)
+graphqlErrors, ok := errors.AsType[octoql.Errors](err)
+if ok {
 	for _, graphqlError := range graphqlErrors {
 		fmt.Printf("%s: %s at %s\n",
 			graphqlError.Type,
@@ -295,24 +305,40 @@ if errors.As(err, &graphqlErrors) {
 	}
 }
 
-httpError, ok := errors.AsType[*octoql.HTTPError](err)
+responseError, ok := errors.AsType[*octoql.ResponseError](err)
 if ok {
 	fmt.Printf("status=%d request_id=%s\n",
-		httpError.HTTP.StatusCode,
-		httpError.HTTP.RequestID,
+		responseError.StatusCode,
+		responseError.RequestID,
 	)
 }
 ```
 
-A non-2xx response is represented by `*octoql.HTTPError`, which retains the
-HTTP metadata, raw body, decoded GraphQL errors, and any read or decode cause.
-Failures before an HTTP response, such as transport errors, return a nil
-response.
+Every failure after receiving an HTTP response includes
+`*octoql.ResponseError`, including HTTP-200 GraphQL, read, close, protocol, and
+decode failures. It carries the status and `X-GitHub-Request-ID`. `RawBody`
+contains at most 64 KiB for non-2xx or undecodable responses;
+`RawBodyTruncated` reports truncation. Raw response bodies may contain sensitive
+data and should not be logged indiscriminately. This bounds retained diagnostic
+data, not total response decoding; octoql reads the complete GraphQL body.
 
-Primary and secondary GitHub limits wrap the underlying GraphQL or HTTP error
-in `*octoql.RateLimitError`. Primary limits are detected from
-`X-RateLimit-Remaining: 0`. Secondary limits are detected from `Retry-After` on
-HTTP 200 or 403 responses:
+Error types are independent facets of one chain, not mutually exclusive
+categories. A rate-limited response can match `*octoql.RateLimitError`,
+`*octoql.ResponseError`, and `octoql.Errors`. Use separate `errors.As` or
+`errors.AsType` checks when more than one facet matters.
+
+| Outcome | Generated response | Error facets |
+| --- | --- | --- |
+| Success | Non-nil concrete data | `nil` |
+| GraphQL errors with decodable non-null data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `ResponseError`, `Errors` |
+| Any error without decodable data | `nil` | `ResponseError` and available causes |
+| Primary or secondary rate limit with decodable data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `RateLimitError`, `ResponseError`, and possibly `Errors` |
+| Client getter, encoding, or transport failure before a response | `nil` | Wrapped underlying error; no `ResponseError` |
+
+Primary and secondary GitHub limits wrap `*octoql.ResponseError` in
+`*octoql.RateLimitError`. Primary limits require
+`X-RateLimit-Remaining: 0` plus HTTP 403/429 or a GraphQL `RATE_LIMITED` error.
+Secondary limits use `Retry-After` on HTTP 200/403/429 responses:
 
 ```go
 rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
@@ -325,40 +351,26 @@ if ok {
 }
 ```
 
+The client also keeps the latest valid primary rate-limit headers observed from
+any response:
+
+```go
+rateLimit, known := client.RateLimit()
+if known {
+	fmt.Printf("remaining=%d reset=%s\n", rateLimit.Remaining, rateLimit.Reset)
+}
+```
+
+The snapshot is concurrency-safe and advisory, not a reservation: other
+clients or processes can consume the same GitHub budget after it is observed.
+Missing or malformed rate-limit headers do not erase the last valid snapshot.
+Successful response status, arbitrary headers, and request ID are intentionally
+not attached to generated data. Use the supplied `http.RoundTripper` when an
+application needs arbitrary successful-response headers.
+
 octoql never retries or sleeps automatically. Apply retry policy in the calling
 application after considering operation safety, `Retry-After`, and the parsed
 reset time.
-
-## Handwritten operations
-
-Generated helpers call the same root runtime available to handwritten clients.
-Supply the endpoint, operation name, query document, and a JSON-encodable
-variables value:
-
-```go
-type viewerData struct {
-	Viewer struct {
-		Login string `json:"login"`
-	} `json:"viewer"`
-}
-
-response, err := octoql.Do[viewerData](
-	ctx,
-	octoql.NewClient("https://api.github.com/graphql", httpClient),
-	octoql.Operation{
-		Name:  "Viewer",
-		Query: "query Viewer { viewer { login } }",
-	},
-	nil,
-)
-if err != nil {
-	return err
-}
-fmt.Println(response.Data.Viewer.Login)
-```
-
-The generated client and handwritten `octoql.Do` expose the same response,
-error, extension, request ID, header, and rate-limit behavior.
 
 ## Generated types and GitHub defaults
 
@@ -468,7 +480,7 @@ response, err := githubapi.GetRepository(
 	variables.First,
 )
 require.NoError(t, err)
-require.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
+require.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)
 ```
 
 An expectation defaults to one call. Pass `Times(n)` to require exactly `n`,
@@ -476,15 +488,14 @@ An expectation defaults to one call. Pass `Times(n)` to require exactly `n`,
 `Default<Operation>` is an unlimited fallback. Cleanup verifies unmet
 expectations, and expectation state is safe for concurrent requests.
 
-Partial data and errors, extensions, headers, status, and rate limits are
-configurable:
+Partial data and errors, per-error extensions, headers, status, and rate limits
+are configurable:
 
 ```go
 handler.ExpectGetRepository(variables).
 	WithOptions(
 		githubapitest.WithStatus(http.StatusForbidden),
 		githubapitest.WithHeader("X-GitHub-Request-ID", "request-123"),
-		githubapitest.WithExtensions(map[string]any{"trace": "abc"}),
 		githubapitest.WithPrimaryRateLimit(octoql.RateLimit{
 			Limit:     5000,
 			Remaining: 0,
@@ -518,8 +529,14 @@ or sleep.
 - Import the root runtime as `github.com/willabides/octoql`. There is no
   `graphql` runtime package or public `generate` package. Invoke
   `github.com/willabides/octoql/cmd/octoqlgen`.
-- Remove `use_extensions`. It was a no-op. Top-level
-  `Response.Extensions` and per-error `Error.Extensions` are always retained.
+- Generated helpers now return concrete operation data. Replace
+  `response.Data.Field` with `response.Field`. Replace handwritten `Do` calls
+  with generated operations.
+- Replace `HTTPError` checks with `ResponseError`. The latter covers every
+  failure after an HTTP response, including HTTP-200 GraphQL and decode errors.
+- Read successful primary rate-limit state from `Client.RateLimit()`.
+- Remove `use_extensions`. It was a no-op. Top-level response extensions are
+  ignored; per-error `Error.Extensions` remains available.
 - octoql does not support subscriptions. Convert supported operations to queries
   or mutations before migration.
 - Explicit scalar bindings override octoql's GitHub defaults.

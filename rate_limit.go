@@ -1,6 +1,7 @@
 package octoql
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -23,8 +24,6 @@ const (
 //
 // Missing or malformed response headers leave their corresponding fields at
 // their zero values.
-//
-//nolint:govet // Preserve the documented public API field order.
 type RateLimit struct {
 	Limit      int
 	Remaining  int
@@ -43,8 +42,6 @@ type parsedRateLimit struct {
 }
 
 // RateLimitError describes a response rejected because of a GitHub rate limit.
-//
-//nolint:govet // Preserve the documented public API field order.
 type RateLimitError struct {
 	Kind      RateLimitKind
 	RateLimit RateLimit
@@ -62,7 +59,7 @@ func (rateLimitError *RateLimitError) Error() string {
 	return fmt.Sprintf("github %s rate limit exceeded: %v", rateLimitError.Kind, rateLimitError.Err)
 }
 
-// Unwrap exposes the original GraphQL or HTTP error.
+// Unwrap exposes the response failure and its GraphQL or processing causes.
 func (rateLimitError *RateLimitError) Unwrap() error {
 	if rateLimitError == nil {
 		return nil
@@ -107,6 +104,13 @@ func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
 	}
 
 	return rateLimit
+}
+
+func (rateLimit *parsedRateLimit) primarySnapshot() RateLimit {
+	snapshot := rateLimit.RateLimit
+	snapshot.RetryAfter = 0
+	snapshot.RetryAt = time.Time{}
+	return snapshot
 }
 
 func nonnegativeHeaderInt(header http.Header, name string) (int, bool) {
@@ -187,7 +191,7 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 		return nil
 	}
 
-	isSecondaryResponse := statusCode == http.StatusOK || statusCode == http.StatusForbidden
+	isSecondaryResponse := isSecondaryRateLimitStatus(statusCode)
 	if rateLimit.retryAfterValid && isSecondaryResponse {
 		return &RateLimitError{
 			Kind:      RateLimitSecondary,
@@ -195,7 +199,13 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 			Err:       err,
 		}
 	}
-	if rateLimit.remainingValid && rateLimit.Remaining == 0 {
+
+	isPrimaryStatus := isPrimaryRateLimitStatus(statusCode)
+	isPrimaryGraphQLError := hasGraphQLRateLimitError(err)
+	hasNoRemaining := rateLimit.remainingValid && rateLimit.Remaining == 0
+	hasPrimarySignal := isPrimaryStatus || isPrimaryGraphQLError
+	isPrimaryLimit := hasNoRemaining && hasPrimarySignal
+	if isPrimaryLimit {
 		return &RateLimitError{
 			Kind:      RateLimitPrimary,
 			RateLimit: rateLimit.RateLimit,
@@ -203,4 +213,35 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 		}
 	}
 	return err
+}
+
+func isSecondaryRateLimitStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusOK, http.StatusForbidden, http.StatusTooManyRequests:
+		return true
+	default:
+		return false
+	}
+}
+
+func isPrimaryRateLimitStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusForbidden, http.StatusTooManyRequests:
+		return true
+	default:
+		return false
+	}
+}
+
+func hasGraphQLRateLimitError(err error) bool {
+	graphqlErrors, ok := errors.AsType[Errors](err)
+	if !ok {
+		return false
+	}
+	for _, graphqlError := range graphqlErrors {
+		if graphqlError != nil && graphqlError.Type == ErrorType("RATE_LIMITED") {
+			return true
+		}
+	}
+	return false
 }

@@ -46,7 +46,6 @@ var testHandlerReservedNames = []string{
 	"ResponseOption",
 	"TestHandler",
 	"Times",
-	"WithExtensions",
 	"WithHeader",
 	"WithHeaders",
 	"WithPrimaryRateLimit",

@@ -6,6 +6,11 @@ const {{.Name}}_Operation = `{{$.Body}}`
 type {{.Name}}Variables = {{.Input.GoName}}
 
 {{end -}}
+// {{.Name}}PartialDataError contains partial data returned by {{.Name}}.
+type {{.Name}}PartialDataError struct {
+    __octoqlPartialDataError[{{.ResponseName}}]
+}
+
 {{.Doc}}
 func {{.Name}}(
     {{if ne .Config.ContextType "-" -}}
@@ -20,7 +25,7 @@ func {{.Name}}(
     {{.GraphQLName}} {{.GoType.Reference}},
     {{end -}}
     {{end -}}
-) (*{{ref "github.com/willabides/octoql.Response"}}[{{.ResponseName}}], error) {
+) (*{{.ResponseName}}, error) {
     {{if .Config.ClientGetter -}}
     {{.ClientName}}, {{.ErrorName}} := {{ref .Config.ClientGetter}}({{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{end}})
     if {{.ErrorName}} != nil {
@@ -34,13 +39,21 @@ func {{.Name}}(
         {{end -}}
     }
     {{end -}}
-    return {{ref "github.com/willabides/octoql.Do"}}[{{.ResponseName}}](
+    return __octoqlDo[{{.ResponseName}}](
         {{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{ref "context.Background"}}(){{end}},
         {{.ClientName}},
-        {{ref "github.com/willabides/octoql.Operation"}}{
-            Name: "{{.Name}}",
+        {{ref "github.com/willabides/octoql.Payload"}}{
+            OperationName: "{{.Name}}",
             Query: {{.Name}}_Operation,
+            Variables: {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
         },
-        {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
+        func(data *{{.ResponseName}}, err error) error {
+            return &{{.Name}}PartialDataError{
+                __octoqlPartialDataError: __octoqlPartialDataError[{{.ResponseName}}]{
+                    data: data,
+                    err: err,
+                },
+            }
+        },
     )
 }

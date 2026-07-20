@@ -33,7 +33,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 	updatedAt := time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC)
 	tests := []wireParityCase{
 		{
-			name:      "repository query aliases lists pagination scalars and response metadata",
+			name:      "repository query aliases lists pagination scalars and response headers",
 			operation: "GetRepository",
 			variables: map[string]any{
 				"owner": "octo-org",
@@ -58,7 +58,6 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 						Reset:     updatedAt,
 						Resource:  "graphql",
 					}),
-					clienttypes.WithExtensions(map[string]any{"trace": "client-local"}),
 				)
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
@@ -78,7 +77,6 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 						Reset:     updatedAt,
 						Resource:  "graphql",
 					}),
-					localtypes.WithExtensions(map[string]any{"trace": "client-local"}),
 				)
 			},
 		},
@@ -339,13 +337,13 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		variables.After,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.FullName)
-	assert.Equal(t, updatedAt, response.Data.Repository.UpdatedAt)
-	assert.JSONEq(t, `["red","blue"]`, string(response.Data.Repository.PropertyValue))
-	require.Len(t, response.Data.Repository.Issues.Nodes, 1)
-	assert.Equal(t, "I1", response.Data.Repository.Issues.Nodes[0].Id)
-	assert.Equal(t, "bug", response.Data.Repository.Issues.Nodes[0].Title)
-	assert.Equal(t, "cursor-2", response.Data.Repository.Issues.PageInfo.EndCursor)
+	assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
+	assert.Equal(t, updatedAt, response.Repository.UpdatedAt)
+	assert.JSONEq(t, `["red","blue"]`, string(response.Repository.PropertyValue))
+	require.Len(t, response.Repository.Issues.Nodes, 1)
+	assert.Equal(t, "I1", response.Repository.Issues.Nodes[0].Id)
+	assert.Equal(t, "bug", response.Repository.Issues.Nodes[0].Title)
+	assert.Equal(t, "cursor-2", response.Repository.Issues.PageInfo.EndCursor)
 	requireGeneratedRequest(
 		t,
 		requests,
@@ -363,7 +361,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	})
 	nodeResponse, err := githubapi.GetNode(t.Context(), client, nodeVariables.Id)
 	require.NoError(t, err)
-	other, ok := nodeResponse.Data.Node.(*githubapi.GetNodeNodeOctoqlOther)
+	other, ok := nodeResponse.Node.(*githubapi.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", other.Typename)
 	assert.Equal(t, "U1", other.Id)
@@ -382,11 +380,11 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	})
 	searchResponse, err := githubapi.Search(t.Context(), client, searchVariables.Query)
 	require.NoError(t, err)
-	require.Len(t, searchResponse.Data.Search, 3)
-	searchRepository, ok := searchResponse.Data.Search[0].(*githubapi.SearchSearchRepository)
+	require.Len(t, searchResponse.Search, 3)
+	searchRepository, ok := searchResponse.Search[0].(*githubapi.SearchSearchRepository)
 	require.True(t, ok)
 	assert.Equal(t, "octo-org/octo-repo", searchRepository.NameWithOwner)
-	searchOther, ok := searchResponse.Data.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
+	searchOther, ok := searchResponse.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", searchOther.Typename)
 	requireGeneratedRequest(t, requests, "Search", githubapi.Search_Operation, `{"query":"octo"}`)
@@ -396,7 +394,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		Respond(localtypes.EchoPropertyResponse{EchoProperty: property})
 	propertyResponse, err := githubapi.EchoProperty(t.Context(), client, property)
 	require.NoError(t, err)
-	assert.JSONEq(t, string(property), string(propertyResponse.Data.EchoProperty))
+	assert.JSONEq(t, string(property), string(propertyResponse.EchoProperty))
 	requireGeneratedRequest(
 		t,
 		requests,
@@ -409,7 +407,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		Respond(localtypes.EchoAtResponse{EchoAt: updatedAt})
 	temporalResponse, err := githubapi.EchoAt(t.Context(), client, updatedAt)
 	require.NoError(t, err)
-	assert.Equal(t, updatedAt, temporalResponse.Data.EchoAt)
+	assert.Equal(t, updatedAt, temporalResponse.EchoAt)
 	requireGeneratedRequest(
 		t,
 		requests,
@@ -426,7 +424,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		}})
 	arbitraryResponse, err := githubapi.EchoAny(t.Context(), client, largeInteger)
 	require.NoError(t, err)
-	arbitrary, ok := arbitraryResponse.Data.EchoAny.(map[string]any)
+	arbitrary, ok := arbitraryResponse.EchoAny.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, float64(42), arbitrary["count"])
 	assert.Equal(t, []any{"one", true}, arbitrary["items"])
@@ -445,7 +443,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		Extensions: map[string]any{"code": "missing"},
 	})
 	errorResponse, err := githubapi.GetNode(t.Context(), client, errorVariables.Id)
-	require.NotNil(t, errorResponse)
+	assert.Nil(t, errorResponse)
 	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
 	require.True(t, ok)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])

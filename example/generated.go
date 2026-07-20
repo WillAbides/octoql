@@ -69,6 +69,50 @@ func (v *getViewerViewerUser) GetMyName() string { return v.MyName }
 // GetCreatedAt returns getViewerViewerUser.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getViewerViewerUser) GetCreatedAt() time.Time { return v.CreatedAt }
 
+type __octoqlPartialDataError[T interface{}] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
+func __octoqlDo[T interface{}](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	var data T
+	response := &data
+	hasData, err := client.Execute(ctx, payload, response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(response, err)
+	}
+	return response, nil
+}
+
 // The query executed by getUser.
 const getUser_Operation = `
 query getUser ($Login: String!) {
@@ -79,23 +123,36 @@ query getUser ($Login: String!) {
 }
 `
 
+// getUserPartialDataError contains partial data returned by getUser.
+type getUserPartialDataError struct {
+	__octoqlPartialDataError[getUserResponse]
+}
+
 // getUser gets the given user's name from their username.
 func getUser(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	Login string,
-) (*octoql.Response[getUserResponse], error) {
+) (*getUserResponse, error) {
 	variables_ := __getUserInput{
 		Login: Login,
 	}
-	return octoql.Do[getUserResponse](
+	return __octoqlDo[getUserResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "getUser",
-			Query: getUser_Operation,
+		octoql.Payload{
+			OperationName: "getUser",
+			Query:         getUser_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *getUserResponse, err error) error {
+			return &getUserPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[getUserResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -109,17 +166,30 @@ query getViewer {
 }
 `
 
+// getViewerPartialDataError contains partial data returned by getViewer.
+type getViewerPartialDataError struct {
+	__octoqlPartialDataError[getViewerResponse]
+}
+
 func getViewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
-) (*octoql.Response[getViewerResponse], error) {
-	return octoql.Do[getViewerResponse](
+) (*getViewerResponse, error) {
+	return __octoqlDo[getViewerResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "getViewer",
-			Query: getViewer_Operation,
+		octoql.Payload{
+			OperationName: "getViewer",
+			Query:         getViewer_Operation,
+			Variables:     nil,
 		},
-		nil,
+		func(data *getViewerResponse, err error) error {
+			return &getViewerPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[getViewerResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }

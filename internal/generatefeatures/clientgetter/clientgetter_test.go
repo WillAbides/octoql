@@ -2,6 +2,7 @@ package clientgetter
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,11 +15,12 @@ import (
 
 type testContext struct {
 	context.Context
-	client *octoql.Client
+	client    *octoql.Client
+	clientErr error
 }
 
-func (ctx testContext) OctoqlClient() *octoql.Client {
-	return ctx.client
+func (ctx testContext) OctoqlClient() (*octoql.Client, error) {
+	return ctx.client, ctx.clientErr
 }
 
 func TestClientGetterWithCustomContext(t *testing.T) {
@@ -41,5 +43,31 @@ func TestClientGetterWithCustomContext(t *testing.T) {
 	response, err := getRepository(ctx, "octo-org", "octo-repo")
 
 	require.NoError(t, err)
-	assert.Equal(t, "octo-org/octo-repo", response.Data.Repository.NameWithOwner)
+	assert.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)
+}
+
+func TestClientGetterFailure(t *testing.T) {
+	clientErr := errors.New("client unavailable")
+	ctx := testContext{
+		Context:   t.Context(),
+		clientErr: clientErr,
+	}
+
+	response, err := getRepository(ctx, "octo-org", "octo-repo")
+
+	assert.Nil(t, response)
+	assert.ErrorIs(t, err, clientErr)
+	_, hasPartial := errors.AsType[*getRepositoryPartialDataError](err)
+	assert.False(t, hasPartial)
+}
+
+func TestClientGetterNilClient(t *testing.T) {
+	ctx := testContext{Context: t.Context()}
+
+	response, err := getRepository(ctx, "octo-org", "octo-repo")
+
+	assert.Nil(t, response)
+	assert.EqualError(t, err, "octoql: client is nil")
+	_, hasPartial := errors.AsType[*getRepositoryPartialDataError](err)
+	assert.False(t, hasPartial)
 }

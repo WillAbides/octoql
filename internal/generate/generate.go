@@ -513,6 +513,45 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 			return nil, err
 		}
 	}
+	operationNames := make(map[string]bool, len(g.Operations))
+	for _, operation := range g.Operations {
+		operationNames[operation.Name] = true
+	}
+	enumValueNames := make(map[string]bool)
+	for _, typ := range g.typeMap {
+		enumType, ok := typ.(*goEnumType)
+		if !ok {
+			continue
+		}
+		for _, value := range enumType.Values {
+			enumValueNames[value.GoName] = true
+		}
+	}
+	for _, operation := range g.Operations {
+		name := operation.Name + "PartialDataError"
+		if g.typeMap[name] != nil {
+			return nil, errorf(
+				nil,
+				"generated partial data error %q conflicts with a generated GraphQL type",
+				name,
+			)
+		}
+		if operationNames[name] {
+			return nil, errorf(
+				nil,
+				"generated partial data error %q conflicts with operation %q",
+				name,
+				name,
+			)
+		}
+		if enumValueNames[name] {
+			return nil, errorf(
+				nil,
+				"generated partial data error %q conflicts with a generated enum value",
+				name,
+			)
+		}
+	}
 
 	sort.Slice(g.Operations, func(i, j int) bool {
 		return g.Operations[i].Name < g.Operations[j].Name
@@ -541,6 +580,10 @@ func renderClientGenerator(g *generator) ([]byte, error) {
 	}
 	var bodyBuf bytes.Buffer
 	_, err = bodyBuf.Write(typeDefinitions)
+	if err != nil {
+		return nil, err
+	}
+	err = g.render("execute.go.tmpl", &bodyBuf, nil)
 	if err != nil {
 		return nil, err
 	}

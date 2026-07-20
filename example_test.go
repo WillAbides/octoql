@@ -11,7 +11,41 @@ import (
 	"github.com/willabides/octoql"
 )
 
-func ExampleDo() {
+type exampleViewerResponse struct {
+	Viewer struct {
+		Login string `json:"login"`
+	} `json:"viewer"`
+}
+
+type exampleRepositoryResponse struct {
+	Repository struct {
+		Name string `json:"name"`
+	} `json:"repository"`
+}
+
+type exampleViewerPartialDataError struct {
+	data *exampleViewerResponse
+	err  error
+}
+
+func (err *exampleViewerPartialDataError) Error() string { return err.err.Error() }
+func (err *exampleViewerPartialDataError) Unwrap() error { return err.err }
+func (err *exampleViewerPartialDataError) PartialData() *exampleViewerResponse {
+	return err.data
+}
+
+type exampleRepositoryPartialDataError struct {
+	data *exampleRepositoryResponse
+	err  error
+}
+
+func (err *exampleRepositoryPartialDataError) Error() string { return err.err.Error() }
+func (err *exampleRepositoryPartialDataError) Unwrap() error { return err.err }
+func (err *exampleRepositoryPartialDataError) PartialData() *exampleRepositoryResponse {
+	return err.data
+}
+
+func ExampleNewClient() {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
 		_, err := io.WriteString(writer, `{"data":{"viewer":{"login":"octocat"}}}`)
@@ -21,32 +55,18 @@ func ExampleDo() {
 	}))
 	defer server.Close()
 
-	type viewerData struct {
-		Viewer struct {
-			Login string `json:"login"`
-		} `json:"viewer"`
-	}
-
 	client := octoql.NewClient(server.URL, server.Client())
-	response, err := octoql.Do[viewerData](
-		context.Background(),
-		client,
-		octoql.Operation{
-			Name:  "Viewer",
-			Query: "query Viewer { viewer { login } }",
-		},
-		nil,
-	)
+	response, err := getViewer(context.Background(), client)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fmt.Println(response.Data.Viewer.Login)
+	fmt.Println(response.Viewer.Login)
 	// Output: octocat
 }
 
-func ExampleDo_partialData() {
+func ExampleErrors_partialData() {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
 		_, err := io.WriteString(writer, `{
@@ -59,29 +79,20 @@ func ExampleDo_partialData() {
 	}))
 	defer server.Close()
 
-	type repositoryData struct {
-		Repository struct {
-			Name string `json:"name"`
-		} `json:"repository"`
-	}
-
 	client := octoql.NewClient(server.URL, server.Client())
-	response, err := octoql.Do[repositoryData](
-		context.Background(),
-		client,
-		octoql.Operation{
-			Name:  "Repository",
-			Query: "query Repository { repository { name owner { login } } }",
-		},
-		nil,
-	)
+	response, err := getRepository(context.Background(), client)
 
 	var graphqlErrors octoql.Errors
 	if errors.As(err, &graphqlErrors) {
-		fmt.Println(response.Data.Repository.Name)
+		fmt.Println(response == nil)
+		partialErr, ok := errors.AsType[*exampleRepositoryPartialDataError](err)
+		if ok {
+			fmt.Println(partialErr.PartialData().Repository.Name)
+		}
 		fmt.Println(graphqlErrors[0].Type)
 	}
 	// Output:
+	// true
 	// octoql
 	// FORBIDDEN
 }
@@ -97,15 +108,7 @@ func ExampleRateLimitError() {
 	defer server.Close()
 
 	client := octoql.NewClient(server.URL, server.Client())
-	_, err := octoql.Do[struct{}](
-		context.Background(),
-		client,
-		octoql.Operation{
-			Name:  "Viewer",
-			Query: "query Viewer { viewer { login } }",
-		},
-		nil,
-	)
+	_, err := getViewer(context.Background(), client)
 
 	rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
 	fmt.Println(ok)
@@ -113,4 +116,123 @@ func ExampleRateLimitError() {
 	// Output:
 	// true
 	// secondary
+}
+
+func ExampleResponseError() {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("X-GitHub-Request-ID", "request-example")
+		writer.WriteHeader(http.StatusForbidden)
+		_, err := io.WriteString(
+			writer,
+			`{"errors":[{"type":"FORBIDDEN","message":"request rejected"}]}`,
+		)
+		if err != nil {
+			panic(err)
+		}
+	}))
+	defer server.Close()
+
+	client := octoql.NewClient(server.URL, server.Client())
+	_, err := getViewer(context.Background(), client)
+
+	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	if !ok {
+		fmt.Println("response error not found")
+		return
+	}
+	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
+	if !ok {
+		fmt.Println("graphql errors not found")
+		return
+	}
+
+	fmt.Println(responseError != nil)
+	fmt.Println(responseError.StatusCode)
+	fmt.Println(responseError.RequestID)
+	fmt.Println(graphqlErrors[0].Type)
+	// Output:
+	// true
+	// 403
+	// request-example
+	// FORBIDDEN
+}
+
+func ExampleClient_RateLimit() {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("X-RateLimit-Limit", "5000")
+		writer.Header().Set("X-RateLimit-Remaining", "4999")
+		writer.Header().Set("X-RateLimit-Used", "1")
+		_, err := io.WriteString(writer, `{"data":{}}`)
+		if err != nil {
+			panic(err)
+		}
+	}))
+	defer server.Close()
+
+	client := octoql.NewClient(server.URL, server.Client())
+	_, err := getViewer(context.Background(), client)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	rateLimit, known := client.RateLimit()
+	fmt.Println(known)
+	fmt.Println(rateLimit.Limit)
+	fmt.Println(rateLimit.Remaining)
+	// Output:
+	// true
+	// 5000
+	// 4999
+}
+
+func getViewer(
+	ctx context.Context,
+	client *octoql.Client,
+) (*exampleViewerResponse, error) {
+	return executeExample[exampleViewerResponse](
+		ctx,
+		client,
+		"Viewer",
+		"query Viewer { viewer { login } }",
+		func(data *exampleViewerResponse, err error) error {
+			return &exampleViewerPartialDataError{data: data, err: err}
+		},
+	)
+}
+
+func getRepository(
+	ctx context.Context,
+	client *octoql.Client,
+) (*exampleRepositoryResponse, error) {
+	return executeExample[exampleRepositoryResponse](
+		ctx,
+		client,
+		"Repository",
+		"query Repository { repository { name owner { login } } }",
+		func(data *exampleRepositoryResponse, err error) error {
+			return &exampleRepositoryPartialDataError{data: data, err: err}
+		},
+	)
+}
+
+func executeExample[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	operationName string,
+	query string,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	response := new(T)
+	hasData, err := client.Execute(ctx, octoql.Payload{
+		OperationName: operationName,
+		Query:         query,
+	}, response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(response, err)
+	}
+	return response, nil
 }

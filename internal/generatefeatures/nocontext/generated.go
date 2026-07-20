@@ -36,6 +36,50 @@ func (v *__GetRepositoryInput) GetOwner() string { return v.Owner }
 // GetName returns __GetRepositoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__GetRepositoryInput) GetName() string { return v.Name }
 
+type __octoqlPartialDataError[T interface{}] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
+func __octoqlDo[T interface{}](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	var data T
+	response := &data
+	hasData, err := client.Execute(ctx, payload, response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(response, err)
+	}
+	return response, nil
+}
+
 // The query executed by GetRepository.
 const GetRepository_Operation = `
 query GetRepository ($owner: String!, $name: String!) {
@@ -45,22 +89,35 @@ query GetRepository ($owner: String!, $name: String!) {
 }
 `
 
+// GetRepositoryPartialDataError contains partial data returned by GetRepository.
+type GetRepositoryPartialDataError struct {
+	__octoqlPartialDataError[GetRepositoryResponse]
+}
+
 func GetRepository(
 	client_ *octoql.Client,
 	owner string,
 	name string,
-) (*octoql.Response[GetRepositoryResponse], error) {
+) (*GetRepositoryResponse, error) {
 	variables_ := __GetRepositoryInput{
 		Owner: owner,
 		Name:  name,
 	}
-	return octoql.Do[GetRepositoryResponse](
+	return __octoqlDo[GetRepositoryResponse](
 		context.Background(),
 		client_,
-		octoql.Operation{
-			Name:  "GetRepository",
-			Query: GetRepository_Operation,
+		octoql.Payload{
+			OperationName: "GetRepository",
+			Query:         GetRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *GetRepositoryResponse, err error) error {
+			return &GetRepositoryPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }

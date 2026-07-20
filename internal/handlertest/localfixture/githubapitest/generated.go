@@ -1020,10 +1020,9 @@ func (set *expectationSet[V]) verify() {
 }
 
 type responseOptions struct {
-	status     int
-	header     http.Header
-	extensions map[string]any
-	err        error
+	status int
+	header http.Header
+	err    error
 }
 
 type ResponseOption func(*responseOptions)
@@ -1050,19 +1049,6 @@ func WithHeaders(header http.Header) ResponseOption {
 	return func(options *responseOptions) {
 		for name, values := range clonedHeader {
 			options.header[name] = append([]string{}, values...)
-		}
-	}
-}
-
-func WithExtensions(extensions map[string]any) ResponseOption {
-	clonedExtensions := make(map[string]any, len(extensions))
-	for name, value := range extensions {
-		clonedExtensions[name] = value
-	}
-	return func(options *responseOptions) {
-		options.extensions = make(map[string]any, len(clonedExtensions))
-		for name, value := range clonedExtensions {
-			options.extensions[name] = value
 		}
 	}
 }
@@ -1155,10 +1141,6 @@ func writeGraphQLResponse(
 	if graphqlErrors != nil {
 		payload["errors"] = graphqlErrors
 	}
-	if options.extensions != nil {
-		payload["extensions"] = options.extensions
-	}
-
 	writer.WriteHeader(options.status)
 	err := json.NewEncoder(writer).Encode(payload)
 	if err != nil {

@@ -755,6 +755,50 @@ type __SearchInput struct {
 // GetQuery returns __SearchInput.Query, and is useful for accessing the field via an interface.
 func (v *__SearchInput) GetQuery() string { return v.Query }
 
+type __octoqlPartialDataError[T interface{}] struct {
+	data *T
+	err  error
+}
+
+func (err *__octoqlPartialDataError[T]) Error() string {
+	if err == nil || err.err == nil {
+		return "graphql response contains partial data"
+	}
+	return err.err.Error()
+}
+
+func (err *__octoqlPartialDataError[T]) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.err
+}
+
+func (err *__octoqlPartialDataError[T]) PartialData() *T {
+	if err == nil {
+		return nil
+	}
+	return err.data
+}
+
+func __octoqlDo[T interface{}](
+	ctx context.Context,
+	client *octoql.Client,
+	payload octoql.Payload,
+	newPartialDataError func(*T, error) error,
+) (*T, error) {
+	var data T
+	response := &data
+	hasData, err := client.Execute(ctx, payload, response)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, newPartialDataError(response, err)
+	}
+	return response, nil
+}
+
 // The mutation executed by CreateRepository.
 const CreateRepository_Operation = `
 mutation CreateRepository ($input: CreateRepositoryInput!) {
@@ -777,22 +821,35 @@ mutation CreateRepository ($input: CreateRepositoryInput!) {
 // CreateRepositoryVariables contains the variables accepted by CreateRepository.
 type CreateRepositoryVariables = __CreateRepositoryInput
 
+// CreateRepositoryPartialDataError contains partial data returned by CreateRepository.
+type CreateRepositoryPartialDataError struct {
+	__octoqlPartialDataError[CreateRepositoryResponse]
+}
+
 func CreateRepository(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	input CreateRepositoryInput,
-) (*octoql.Response[CreateRepositoryResponse], error) {
+) (*CreateRepositoryResponse, error) {
 	variables_ := __CreateRepositoryInput{
 		Input: input,
 	}
-	return octoql.Do[CreateRepositoryResponse](
+	return __octoqlDo[CreateRepositoryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "CreateRepository",
-			Query: CreateRepository_Operation,
+		octoql.Payload{
+			OperationName: "CreateRepository",
+			Query:         CreateRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *CreateRepositoryResponse, err error) error {
+			return &CreateRepositoryPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[CreateRepositoryResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -806,22 +863,35 @@ query EchoAny ($value: ArbitraryJSON!) {
 // EchoAnyVariables contains the variables accepted by EchoAny.
 type EchoAnyVariables = __EchoAnyInput
 
+// EchoAnyPartialDataError contains partial data returned by EchoAny.
+type EchoAnyPartialDataError struct {
+	__octoqlPartialDataError[EchoAnyResponse]
+}
+
 func EchoAny(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	value any,
-) (*octoql.Response[EchoAnyResponse], error) {
+) (*EchoAnyResponse, error) {
 	variables_ := __EchoAnyInput{
 		Value: value,
 	}
-	return octoql.Do[EchoAnyResponse](
+	return __octoqlDo[EchoAnyResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "EchoAny",
-			Query: EchoAny_Operation,
+		octoql.Payload{
+			OperationName: "EchoAny",
+			Query:         EchoAny_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *EchoAnyResponse, err error) error {
+			return &EchoAnyPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[EchoAnyResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -835,22 +905,35 @@ query EchoAt ($value: DateTime!) {
 // EchoAtVariables contains the variables accepted by EchoAt.
 type EchoAtVariables = __EchoAtInput
 
+// EchoAtPartialDataError contains partial data returned by EchoAt.
+type EchoAtPartialDataError struct {
+	__octoqlPartialDataError[EchoAtResponse]
+}
+
 func EchoAt(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	value time.Time,
-) (*octoql.Response[EchoAtResponse], error) {
+) (*EchoAtResponse, error) {
 	variables_ := __EchoAtInput{
 		Value: value,
 	}
-	return octoql.Do[EchoAtResponse](
+	return __octoqlDo[EchoAtResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "EchoAt",
-			Query: EchoAt_Operation,
+		octoql.Payload{
+			OperationName: "EchoAt",
+			Query:         EchoAt_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *EchoAtResponse, err error) error {
+			return &EchoAtPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[EchoAtResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -864,22 +947,35 @@ query EchoProperty ($value: CustomPropertyValue!) {
 // EchoPropertyVariables contains the variables accepted by EchoProperty.
 type EchoPropertyVariables = __EchoPropertyInput
 
+// EchoPropertyPartialDataError contains partial data returned by EchoProperty.
+type EchoPropertyPartialDataError struct {
+	__octoqlPartialDataError[EchoPropertyResponse]
+}
+
 func EchoProperty(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	value json.RawMessage,
-) (*octoql.Response[EchoPropertyResponse], error) {
+) (*EchoPropertyResponse, error) {
 	variables_ := __EchoPropertyInput{
 		Value: value,
 	}
-	return octoql.Do[EchoPropertyResponse](
+	return __octoqlDo[EchoPropertyResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "EchoProperty",
-			Query: EchoProperty_Operation,
+		octoql.Payload{
+			OperationName: "EchoProperty",
+			Query:         EchoProperty_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *EchoPropertyResponse, err error) error {
+			return &EchoPropertyPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[EchoPropertyResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -902,22 +998,35 @@ query GetNode ($id: ID!) {
 // GetNodeVariables contains the variables accepted by GetNode.
 type GetNodeVariables = __GetNodeInput
 
+// GetNodePartialDataError contains partial data returned by GetNode.
+type GetNodePartialDataError struct {
+	__octoqlPartialDataError[GetNodeResponse]
+}
+
 func GetNode(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	id string,
-) (*octoql.Response[GetNodeResponse], error) {
+) (*GetNodeResponse, error) {
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	return octoql.Do[GetNodeResponse](
+	return __octoqlDo[GetNodeResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "GetNode",
-			Query: GetNode_Operation,
+		octoql.Payload{
+			OperationName: "GetNode",
+			Query:         GetNode_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *GetNodeResponse, err error) error {
+			return &GetNodePartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[GetNodeResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -946,6 +1055,11 @@ query GetRepository ($owner: String!, $name: String!, $first: Int!, $after: Stri
 // GetRepositoryVariables contains the variables accepted by GetRepository.
 type GetRepositoryVariables = __GetRepositoryInput
 
+// GetRepositoryPartialDataError contains partial data returned by GetRepository.
+type GetRepositoryPartialDataError struct {
+	__octoqlPartialDataError[GetRepositoryResponse]
+}
+
 func GetRepository(
 	ctx_ context.Context,
 	client_ *octoql.Client,
@@ -953,21 +1067,29 @@ func GetRepository(
 	name string,
 	first int,
 	after string,
-) (*octoql.Response[GetRepositoryResponse], error) {
+) (*GetRepositoryResponse, error) {
 	variables_ := __GetRepositoryInput{
 		Owner: owner,
 		Name:  name,
 		First: first,
 		After: after,
 	}
-	return octoql.Do[GetRepositoryResponse](
+	return __octoqlDo[GetRepositoryResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "GetRepository",
-			Query: GetRepository_Operation,
+		octoql.Payload{
+			OperationName: "GetRepository",
+			Query:         GetRepository_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *GetRepositoryResponse, err error) error {
+			return &GetRepositoryPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -991,22 +1113,35 @@ query Search ($query: String!) {
 // SearchVariables contains the variables accepted by Search.
 type SearchVariables = __SearchInput
 
+// SearchPartialDataError contains partial data returned by Search.
+type SearchPartialDataError struct {
+	__octoqlPartialDataError[SearchResponse]
+}
+
 func Search(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 	query string,
-) (*octoql.Response[SearchResponse], error) {
+) (*SearchResponse, error) {
 	variables_ := __SearchInput{
 		Query: query,
 	}
-	return octoql.Do[SearchResponse](
+	return __octoqlDo[SearchResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "Search",
-			Query: Search_Operation,
+		octoql.Payload{
+			OperationName: "Search",
+			Query:         Search_Operation,
+			Variables:     &variables_,
 		},
-		&variables_,
+		func(data *SearchResponse, err error) error {
+			return &SearchPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[SearchResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }
 
@@ -1023,17 +1158,30 @@ fragment ViewerVariables on User {
 }
 `
 
+// ViewerPartialDataError contains partial data returned by Viewer.
+type ViewerPartialDataError struct {
+	__octoqlPartialDataError[ViewerResponse]
+}
+
 func Viewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
-) (*octoql.Response[ViewerResponse], error) {
-	return octoql.Do[ViewerResponse](
+) (*ViewerResponse, error) {
+	return __octoqlDo[ViewerResponse](
 		ctx_,
 		client_,
-		octoql.Operation{
-			Name:  "Viewer",
-			Query: Viewer_Operation,
+		octoql.Payload{
+			OperationName: "Viewer",
+			Query:         Viewer_Operation,
+			Variables:     nil,
 		},
-		nil,
+		func(data *ViewerResponse, err error) error {
+			return &ViewerPartialDataError{
+				__octoqlPartialDataError: __octoqlPartialDataError[ViewerResponse]{
+					data: data,
+					err:  err,
+				},
+			}
+		},
 	)
 }

@@ -27,9 +27,14 @@ type testData struct {
 	} `json:"repository"`
 }
 
+const (
+	validOperationName  = "Viewer"
+	validOperationQuery = "query Viewer { viewer { login } }"
+)
+
 func TestDoHTTPResponses(t *testing.T) {
 	tests := []struct {
-		check      func(*testing.T, *octoql.Response[testData], error)
+		check      func(*testing.T, *testData, error)
 		name       string
 		body       string
 		requestID  string
@@ -39,9 +44,8 @@ func TestDoHTTPResponses(t *testing.T) {
 			name:       "unknown top-level error type",
 			statusCode: http.StatusOK,
 			body:       `{"errors":[{"type":"A_FUTURE_GITHUB_ERROR","message":"future failure"}]}`,
-			check: func(t *testing.T, response *octoql.Response[testData], err error) {
+			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				require.NotNil(t, response)
 				var graphqlErrors octoql.Errors
 				require.ErrorAs(t, err, &graphqlErrors)
 				require.Len(t, graphqlErrors, 1)
@@ -56,13 +60,12 @@ func TestDoHTTPResponses(t *testing.T) {
 			statusCode: http.StatusServiceUnavailable,
 			body:       `{"errors":[`,
 			requestID:  "request-invalid-json",
-			check: func(t *testing.T, response *octoql.Response[testData], err error) {
+			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				require.NotNil(t, response)
-				httpError, ok := errors.AsType[*octoql.HTTPError](err)
+				responseError, ok := errors.AsType[*octoql.ResponseError](err)
 				require.True(t, ok)
-				assert.Equal(t, `{"errors":[`, string(httpError.Body))
-				assert.Equal(t, http.StatusServiceUnavailable, httpError.HTTP.StatusCode)
+				assert.Equal(t, `{"errors":[`, string(responseError.RawBody))
+				assert.Equal(t, http.StatusServiceUnavailable, responseError.StatusCode)
 				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
 				assert.True(t, syntaxErrorFound)
 			},
@@ -72,12 +75,11 @@ func TestDoHTTPResponses(t *testing.T) {
 			statusCode: http.StatusOK,
 			body:       `{"data":`,
 			requestID:  "request-malformed",
-			check: func(t *testing.T, response *octoql.Response[testData], err error) {
+			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				require.NotNil(t, response)
 				require.Error(t, err)
-				var httpError *octoql.HTTPError
-				assert.False(t, errors.As(err, &httpError))
+				_, responseErrorFound := errors.AsType[*octoql.ResponseError](err)
+				assert.True(t, responseErrorFound)
 				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
 				assert.True(t, syntaxErrorFound)
 			},
@@ -89,15 +91,12 @@ func TestDoHTTPResponses(t *testing.T) {
 				"errors":[{"type":"PARTIAL","message":"decoded before data"}],
 				"data":{"repository":"not an object"}
 			}`,
-			check: func(t *testing.T, response *octoql.Response[testData], err error) {
+			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				require.NotNil(t, response)
-				require.Len(t, response.Errors, 1)
-				assert.Equal(t, octoql.ErrorType("PARTIAL"), response.Errors[0].Type)
-
 				var graphqlErrors octoql.Errors
 				require.ErrorAs(t, err, &graphqlErrors)
-				assert.Equal(t, response.Errors, graphqlErrors)
+				require.Len(t, graphqlErrors, 1)
+				assert.Equal(t, octoql.ErrorType("PARTIAL"), graphqlErrors[0].Type)
 				_, typeErrorFound := errors.AsType[*json.UnmarshalTypeError](err)
 				assert.True(t, typeErrorFound)
 			},
@@ -118,23 +117,25 @@ func TestDoHTTPResponses(t *testing.T) {
 			defer server.Close()
 
 			client := octoql.NewClient(server.URL, nil)
-			operation := octoql.Operation{
-				Name:  "Repository",
-				Query: "query Repository { repository { name } }",
-			}
-			response, err := octoql.Do[testData](t.Context(), client, operation, nil)
+			response, err := doOperation[testData](
+				t.Context(),
+				client,
+				"Repository",
+				"query Repository { repository { name } }",
+				nil,
+			)
+			assert.Nil(t, response)
 			test.check(t, response, err)
 
-			require.NotNil(t, response)
-			assert.Equal(t, test.statusCode, response.HTTP.StatusCode)
-			assert.Equal(t, test.requestID, response.HTTP.RequestID)
-			assert.Equal(t, "original", response.HTTP.Header.Get("X-Test"))
+			responseError, ok := errors.AsType[*octoql.ResponseError](err)
+			require.True(t, ok)
+			assert.Equal(t, test.statusCode, responseError.StatusCode)
+			assert.Equal(t, test.requestID, responseError.RequestID)
 		})
 	}
 }
 
 func TestDoRequest(t *testing.T) {
-	//nolint:govet // The fixture follows the request's presentation order.
 	type recordedRequest struct {
 		header http.Header
 		body   []byte
@@ -168,11 +169,15 @@ func TestDoRequest(t *testing.T) {
 	}
 
 	client := octoql.NewClient("https://github.example/api/graphql", httpClient)
-	operation := octoql.Operation{
-		Name:  "Repository",
-		Query: "query Repository($owner: String!) { repository(owner: $owner) { name } }",
-	}
-	_, err := octoql.Do[struct{}](t.Context(), client, operation, map[string]any{"owner": "octo"})
+	operationName := "Repository"
+	query := "query Repository($owner: String!) { repository(owner: $owner) { name } }"
+	_, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		operationName,
+		query,
+		map[string]any{"owner": "octo"},
+	)
 	require.NoError(t, err)
 	withVariables := <-requests
 	assert.Equal(t, http.MethodPost, withVariables.method)
@@ -185,7 +190,7 @@ func TestDoRequest(t *testing.T) {
 	}`
 	assert.JSONEq(t, wantBody, string(withVariables.body))
 
-	_, err = octoql.Do[struct{}](t.Context(), client, operation, nil)
+	_, err = doOperation[struct{}](t.Context(), client, operationName, query, nil)
 	require.NoError(t, err)
 	withoutVariables := <-requests
 	var requestObject map[string]json.RawMessage
@@ -194,66 +199,35 @@ func TestDoRequest(t *testing.T) {
 	assert.NotContains(t, requestObject, "variables")
 }
 
+func TestClientExecuteNilClient(t *testing.T) {
+	var client *octoql.Client
+	var response testData
+
+	hasData, err := client.Execute(
+		t.Context(),
+		octoql.Payload{
+			OperationName: validOperationName,
+			Query:         validOperationQuery,
+		},
+		&response,
+	)
+
+	assert.False(t, hasData)
+	assert.EqualError(t, err, "octoql: client is nil")
+}
+
 func TestDoFailurePhases(t *testing.T) {
 	readError := errors.New("body read failed")
 	transportError := errors.New("transport failed")
 
 	tests := []struct {
-		client       *octoql.Client
-		operation    octoql.Operation
-		ctx          context.Context
-		variables    any
-		wantCause    error
-		name         string
-		wantResponse bool
-		wantHTTP     bool
+		client            *octoql.Client
+		ctx               context.Context
+		variables         any
+		wantCause         error
+		name              string
+		wantResponseError bool
 	}{
-		{
-			name:      "nil client",
-			ctx:       t.Context(),
-			operation: validOperation(),
-		},
-		{
-			name:      "empty endpoint",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("", nil),
-			operation: validOperation(),
-		},
-		{
-			name:      "invalid endpoint",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("://bad endpoint", nil),
-			operation: validOperation(),
-		},
-		{
-			name:      "unsupported endpoint scheme",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("ftp://github.example/graphql", nil),
-			operation: validOperation(),
-		},
-		{
-			name:      "empty operation name",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("https://api.github.com/graphql", nil),
-			operation: octoql.Operation{Query: "query Viewer { viewer { login } }"},
-		},
-		{
-			name:      "empty operation query",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("https://api.github.com/graphql", nil),
-			operation: octoql.Operation{Name: "Viewer"},
-		},
-		{
-			name:      "invalid operation name",
-			ctx:       t.Context(),
-			client:    octoql.NewClient("https://api.github.com/graphql", nil),
-			operation: octoql.Operation{Name: "Not Valid", Query: "query Viewer { viewer { login } }"},
-		},
-		{
-			name:      "nil context",
-			client:    octoql.NewClient("https://api.github.com/graphql", nil),
-			operation: validOperation(),
-		},
 		{
 			name: "variables cannot be encoded",
 			ctx:  t.Context(),
@@ -264,13 +238,11 @@ func TestDoFailurePhases(t *testing.T) {
 					return nil, nil
 				})},
 			),
-			operation: validOperation(),
 			variables: make(chan int),
 		},
 		{
-			name:      "transport error",
-			ctx:       t.Context(),
-			operation: validOperation(),
+			name: "transport error",
+			ctx:  t.Context(),
 			client: octoql.NewClient(
 				"https://api.github.com/graphql",
 				&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -280,51 +252,54 @@ func TestDoFailurePhases(t *testing.T) {
 			wantCause: transportError,
 		},
 		{
-			name:      "unreadable 2xx body",
-			ctx:       t.Context(),
-			operation: validOperation(),
+			name: "unreadable 2xx body",
+			ctx:  t.Context(),
 			client: newStaticResponseClient(
 				http.StatusOK,
 				http.Header{"X-Github-Request-Id": {"request-read-2xx"}},
 				&errorReadCloser{err: readError},
 			),
-			wantCause:    readError,
-			wantResponse: true,
+			wantCause:         readError,
+			wantResponseError: true,
 		},
 		{
-			name:      "unreadable non-2xx body",
-			ctx:       t.Context(),
-			operation: validOperation(),
+			name: "unreadable non-2xx body",
+			ctx:  t.Context(),
 			client: newStaticResponseClient(
 				http.StatusBadGateway,
 				http.Header{"X-Github-Request-Id": {"request-read-error"}},
 				&errorReadCloser{err: readError},
 			),
-			wantCause:    readError,
-			wantResponse: true,
-			wantHTTP:     true,
+			wantCause:         readError,
+			wantResponseError: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response, err := octoql.Do[struct{}](test.ctx, test.client, test.operation, test.variables)
+			response, err := doOperation[struct{}](
+				test.ctx,
+				test.client,
+				validOperationName,
+				validOperationQuery,
+				test.variables,
+			)
 			require.Error(t, err)
-			assert.Equal(t, test.wantResponse, response != nil)
+			assert.Nil(t, response)
 			if test.wantCause != nil {
 				assert.ErrorIs(t, err, test.wantCause)
 			}
-			_, isHTTPError := errors.AsType[*octoql.HTTPError](err)
-			assert.Equal(t, test.wantHTTP, isHTTPError)
-			if test.wantResponse {
-				require.NotNil(t, response)
-				assert.NotEmpty(t, response.HTTP.RequestID)
+			responseError, hasResponseError := errors.AsType[*octoql.ResponseError](err)
+			assert.Equal(t, test.wantResponseError, hasResponseError)
+			if test.wantResponseError {
+				require.NotNil(t, responseError)
+				assert.NotEmpty(t, responseError.RequestID)
 			}
 		})
 	}
 }
 
-func TestDoReturnsMetadataWithRedirectError(t *testing.T) {
+func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 	redirectError := errors.New("redirect rejected")
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/redirected" {
@@ -346,40 +321,19 @@ func TestDoReturnsMetadataWithRedirectError(t *testing.T) {
 	}
 	client := octoql.NewClient(server.URL, httpClient)
 
-	response, err := octoql.Do[struct{}](t.Context(), client, validOperation(), nil)
-	require.NotNil(t, response)
-	assert.Equal(t, http.StatusFound, response.HTTP.StatusCode)
-	assert.Equal(t, "redirect-request", response.HTTP.RequestID)
-	assert.ErrorIs(t, err, redirectError)
-	_, ok := errors.AsType[*octoql.HTTPError](err)
-	assert.True(t, ok)
-}
-
-func TestDoClonesResponseHeaders(t *testing.T) {
-	transportHeader := http.Header{
-		"X-GitHub-Request-ID": {"original-request"},
-		"X-Test":              {"original-value"},
-	}
-	client := newStaticResponseClient(
-		http.StatusBadRequest,
-		transportHeader,
-		io.NopCloser(strings.NewReader(`{"errors":[{"message":"rejected"}]}`)),
+	response, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
 	)
-
-	response, err := octoql.Do[struct{}](t.Context(), client, validOperation(), nil)
-	require.NotNil(t, response)
-	httpError, ok := errors.AsType[*octoql.HTTPError](err)
+	assert.Nil(t, response)
+	assert.ErrorIs(t, err, redirectError)
+	responseError, ok := errors.AsType[*octoql.ResponseError](err)
 	require.True(t, ok)
-
-	transportHeader.Set("X-GitHub-Request-ID", "mutated-request")
-	transportHeader.Set("X-Test", "mutated-value")
-	assert.Equal(t, "original-request", response.HTTP.RequestID)
-	assert.Equal(t, "original-value", response.HTTP.Header.Get("X-Test"))
-	assert.Equal(t, "original-request", httpError.HTTP.RequestID)
-	assert.Equal(t, "original-value", httpError.HTTP.Header.Get("X-Test"))
-
-	response.HTTP.Header.Set("X-Test", "response-mutated")
-	assert.Equal(t, "original-value", httpError.HTTP.Header.Get("X-Test"))
+	assert.Equal(t, http.StatusFound, responseError.StatusCode)
+	assert.Equal(t, "redirect-request", responseError.RequestID)
 }
 
 func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
@@ -396,22 +350,39 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 		},
 	)
 
-	response, err := octoql.Do[testData](t.Context(), client, validOperation(), nil)
+	response, err := doOperation[testData](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
 	require.NotNil(t, response)
-	assert.Equal(t, "partial", response.Data.Repository.Name)
+	assert.Equal(t, "partial", response.Repository.Name)
 	assert.ErrorIs(t, err, closeError)
 	_, graphqlErrorsFound := errors.AsType[octoql.Errors](err)
 	assert.True(t, graphqlErrorsFound)
-
-	response.HTTP.Header.Set("X-Test", "writable")
-	assert.Equal(t, "writable", response.HTTP.Header.Get("X-Test"))
+	_, responseErrorFound := errors.AsType[*octoql.ResponseError](err)
+	assert.True(t, responseErrorFound)
 }
 
-func validOperation() octoql.Operation {
-	return octoql.Operation{
-		Name:  "Viewer",
-		Query: "query Viewer { viewer { login } }",
+func doOperation[T any](
+	ctx context.Context,
+	client *octoql.Client,
+	operationName string,
+	query string,
+	variables any,
+) (*T, error) {
+	response := new(T)
+	hasData, err := client.Execute(ctx, octoql.Payload{
+		OperationName: operationName,
+		Query:         query,
+		Variables:     variables,
+	}, response)
+	if !hasData {
+		return nil, err
 	}
+	return response, err
 }
 
 func newStaticResponseClient(statusCode int, header http.Header, body io.ReadCloser) *octoql.Client {

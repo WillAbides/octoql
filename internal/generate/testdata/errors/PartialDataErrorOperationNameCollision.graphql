@@ -1,0 +1,11 @@
+query GetUser {
+  user {
+    id
+  }
+}
+
+query GetUserPartialDataError {
+  user {
+    id
+  }
+}
