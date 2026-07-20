@@ -213,9 +213,10 @@ publishes the materialized schema, then atomically updates the configuration
 pin: `sha256` for every remote source and the GitHub revision for GitHub-backed
 sources:
 
-The schema/config pair is not published atomically. Concurrent schema commands
-are unsupported, and a failure after schema publication, such as a failed
-config write, can leave an incoherent schema/config pair. Simultaneous
+The schema/config pair is not published atomically. `schema update` takes no
+lock and maintains no journal, rollback, or automatic recovery. Concurrent
+schema commands are unsupported, and a failure after schema publication, such
+as a failed config write, can leave an incoherent schema/config pair. Simultaneous
 invocations targeting the same schema or config can be last-writer-wins, leave
 an incoherent pair even when all commands succeed, or result in a
 verification/materialization failure. After concurrent activity or a failure
