@@ -4303,24 +4303,6 @@ func (err *__octoqlPartialDataError[T]) PartialData() *T {
 	return err.data
 }
 
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
-}
-
 // The mutation executed by addComment.
 const addComment_Operation = `
 mutation addComment ($input: AddCommentInput!) {
@@ -4348,23 +4330,28 @@ func addComment(
 	variables_ := __addCommentInput{
 		Input: input,
 	}
-	return __octoqlDo[addCommentResponse](
+	var response_ addCommentResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "addComment",
 			Query:         addComment_Operation,
 			Variables:     &variables_,
 		},
-		func(data *addCommentResponse, err error) error {
-			return &addCommentPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[addCommentResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &addCommentPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[addCommentResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The mutation executed by addStar.
@@ -4394,23 +4381,28 @@ func addStar(
 	variables_ := __addStarInput{
 		Input: input,
 	}
-	return __octoqlDo[addStarResponse](
+	var response_ addStarResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "addStar",
 			Query:         addStar_Operation,
 			Variables:     &variables_,
 		},
-		func(data *addStarResponse, err error) error {
-			return &addStarPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[addStarResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &addStarPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[addStarResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by failingQuery.
@@ -4432,23 +4424,28 @@ func failingQuery(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*failingQueryResponse, error) {
-	return __octoqlDo[failingQueryResponse](
+	var response_ failingQueryResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "failingQuery",
 			Query:         failingQuery_Operation,
 			Variables:     nil,
 		},
-		func(data *failingQueryResponse, err error) error {
-			return &failingQueryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[failingQueryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &failingQueryPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[failingQueryResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by getRepository.
@@ -4481,23 +4478,28 @@ func getRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	return __octoqlDo[getRepositoryResponse](
+	var response_ getRepositoryResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "getRepository",
 			Query:         getRepository_Operation,
 			Variables:     &variables_,
 		},
-		func(data *getRepositoryResponse, err error) error {
-			return &getRepositoryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[getRepositoryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &getRepositoryPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[getRepositoryResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithCustomMarshal.
@@ -4524,23 +4526,28 @@ func queryWithCustomMarshal(
 	variables_ := __queryWithCustomMarshalInput{
 		Date: date,
 	}
-	return __octoqlDo[queryWithCustomMarshalResponse](
+	var response_ queryWithCustomMarshalResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithCustomMarshal",
 			Query:         queryWithCustomMarshal_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithCustomMarshalResponse, err error) error {
-			return &queryWithCustomMarshalPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithCustomMarshalPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithCustomMarshalOptional.
@@ -4569,23 +4576,28 @@ func queryWithCustomMarshalOptional(
 		Date:  date,
 		Login: login,
 	}
-	return __octoqlDo[queryWithCustomMarshalOptionalResponse](
+	var response_ queryWithCustomMarshalOptionalResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithCustomMarshalOptional",
 			Query:         queryWithCustomMarshalOptional_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithCustomMarshalOptionalResponse, err error) error {
-			return &queryWithCustomMarshalOptionalPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalOptionalResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithCustomMarshalOptionalPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalOptionalResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithCustomMarshalSlice.
@@ -4612,23 +4624,28 @@ func queryWithCustomMarshalSlice(
 	variables_ := __queryWithCustomMarshalSliceInput{
 		Dates: dates,
 	}
-	return __octoqlDo[queryWithCustomMarshalSliceResponse](
+	var response_ queryWithCustomMarshalSliceResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithCustomMarshalSlice",
 			Query:         queryWithCustomMarshalSlice_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithCustomMarshalSliceResponse, err error) error {
-			return &queryWithCustomMarshalSlicePartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalSliceResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithCustomMarshalSlicePartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithCustomMarshalSliceResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithFlatten.
@@ -4689,23 +4706,28 @@ func queryWithFlatten(
 	variables_ := __queryWithFlattenInput{
 		Ids: ids,
 	}
-	return __octoqlDo[queryFragment](
+	var response_ queryFragment
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithFlatten",
 			Query:         queryWithFlatten_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryFragment, err error) error {
-			return &queryWithFlattenPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryFragment]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithFlattenPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryFragment]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithFragments.
@@ -4759,23 +4781,28 @@ func queryWithFragments(
 	variables_ := __queryWithFragmentsInput{
 		Ids: ids,
 	}
-	return __octoqlDo[queryWithFragmentsResponse](
+	var response_ queryWithFragmentsResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithFragments",
 			Query:         queryWithFragments_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithFragmentsResponse, err error) error {
-			return &queryWithFragmentsPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithFragmentsResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithFragmentsPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithFragmentsResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithInterfaceListField.
@@ -4802,23 +4829,28 @@ func queryWithInterfaceListField(
 	variables_ := __queryWithInterfaceListFieldInput{
 		Ids: ids,
 	}
-	return __octoqlDo[queryWithInterfaceListFieldResponse](
+	var response_ queryWithInterfaceListFieldResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithInterfaceListField",
 			Query:         queryWithInterfaceListField_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithInterfaceListFieldResponse, err error) error {
-			return &queryWithInterfaceListFieldPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceListFieldResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithInterfaceListFieldPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceListFieldResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithInterfaceListPointerField.
@@ -4845,23 +4877,28 @@ func queryWithInterfaceListPointerField(
 	variables_ := __queryWithInterfaceListPointerFieldInput{
 		Ids: ids,
 	}
-	return __octoqlDo[queryWithInterfaceListPointerFieldResponse](
+	var response_ queryWithInterfaceListPointerFieldResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithInterfaceListPointerField",
 			Query:         queryWithInterfaceListPointerField_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithInterfaceListPointerFieldResponse, err error) error {
-			return &queryWithInterfaceListPointerFieldPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceListPointerFieldResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithInterfaceListPointerFieldPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceListPointerFieldResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithInterfaceNoFragments.
@@ -4892,23 +4929,28 @@ func queryWithInterfaceNoFragments(
 	variables_ := __queryWithInterfaceNoFragmentsInput{
 		Id: id,
 	}
-	return __octoqlDo[queryWithInterfaceNoFragmentsResponse](
+	var response_ queryWithInterfaceNoFragmentsResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithInterfaceNoFragments",
 			Query:         queryWithInterfaceNoFragments_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithInterfaceNoFragmentsResponse, err error) error {
-			return &queryWithInterfaceNoFragmentsPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceNoFragmentsResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithInterfaceNoFragmentsPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithInterfaceNoFragmentsResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithNamedFragments.
@@ -4963,23 +5005,28 @@ func queryWithNamedFragments(
 	variables_ := __queryWithNamedFragmentsInput{
 		Ids: ids,
 	}
-	return __octoqlDo[queryWithNamedFragmentsResponse](
+	var response_ queryWithNamedFragmentsResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithNamedFragments",
 			Query:         queryWithNamedFragments_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithNamedFragmentsResponse, err error) error {
-			return &queryWithNamedFragmentsPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithNamedFragmentsResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithNamedFragmentsPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithNamedFragmentsResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithOmitempty.
@@ -5006,23 +5053,28 @@ func queryWithOmitempty(
 	variables_ := __queryWithOmitemptyInput{
 		Login: login,
 	}
-	return __octoqlDo[queryWithOmitemptyResponse](
+	var response_ queryWithOmitemptyResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithOmitempty",
 			Query:         queryWithOmitempty_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithOmitemptyResponse, err error) error {
-			return &queryWithOmitemptyPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithOmitemptyResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithOmitemptyPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithOmitemptyResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithSearch.
@@ -5067,23 +5119,28 @@ func queryWithSearch(
 		Query:      query,
 		SearchType: searchType,
 	}
-	return __octoqlDo[queryWithSearchResponse](
+	var response_ queryWithSearchResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithSearch",
 			Query:         queryWithSearch_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithSearchResponse, err error) error {
-			return &queryWithSearchPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithSearchResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithSearchPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithSearchResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by queryWithVariables.
@@ -5110,23 +5167,28 @@ func queryWithVariables(
 	variables_ := __queryWithVariablesInput{
 		Login: login,
 	}
-	return __octoqlDo[queryWithVariablesResponse](
+	var response_ queryWithVariablesResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "queryWithVariables",
 			Query:         queryWithVariables_Operation,
 			Variables:     &variables_,
 		},
-		func(data *queryWithVariablesResponse, err error) error {
-			return &queryWithVariablesPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[queryWithVariablesResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &queryWithVariablesPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[queryWithVariablesResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The mutation executed by removeStar.
@@ -5156,21 +5218,26 @@ func removeStar(
 	variables_ := __removeStarInput{
 		Input: input,
 	}
-	return __octoqlDo[removeStarResponse](
+	var response_ removeStarResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "removeStar",
 			Query:         removeStar_Operation,
 			Variables:     &variables_,
 		},
-		func(data *removeStarResponse, err error) error {
-			return &removeStarPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[removeStarResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &removeStarPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[removeStarResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }

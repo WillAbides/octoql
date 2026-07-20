@@ -67,24 +67,6 @@ func (err *__octoqlPartialDataError[T]) PartialData() *T {
 	return err.data
 }
 
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
-}
-
 // The query executed by any.
 const any_Operation = `
 query any {
@@ -102,23 +84,28 @@ type anyPartialDataError struct {
 func any(
 	client_ *octoql.Client,
 ) (*anyResponse, error) {
-	return __octoqlDo[anyResponse](
+	var response_ anyResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "any",
 			Query:         any_Operation,
 			Variables:     nil,
 		},
-		func(data *anyResponse, err error) error {
-			return &anyPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[anyResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &anyPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[anyResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by new.
@@ -138,21 +125,26 @@ type newPartialDataError struct {
 func new(
 	client_ *octoql.Client,
 ) (*newResponse, error) {
-	return __octoqlDo[newResponse](
+	var response_ newResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "new",
 			Query:         new_Operation,
 			Variables:     nil,
 		},
-		func(data *newResponse, err error) error {
-			return &newPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[newResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &newPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[newResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }

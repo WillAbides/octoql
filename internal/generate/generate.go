@@ -68,10 +68,12 @@ type operation struct {
 	// The type-name for the operation's response type.
 	ResponseName string `json:"-"`
 	// Collision-free generated parameter and local names.
-	ContextName   string `json:"-"`
-	ClientName    string `json:"-"`
-	ErrorName     string `json:"-"`
-	VariablesName string `json:"-"`
+	ContextName          string `json:"-"`
+	ClientName           string `json:"-"`
+	ErrorName            string `json:"-"`
+	VariablesName        string `json:"-"`
+	ResponseVariableName string `json:"-"`
+	HasDataName          string `json:"-"`
 	// The original filename from which we got this query.
 	SourceFilename string `json:"sourceLocation"`
 	// The config within which we are generating code.
@@ -83,6 +85,8 @@ type operationIdentifiers struct {
 	clientName    string
 	errorName     string
 	variablesName string
+	responseName  string
+	hasDataName   string
 }
 
 type exportedOperations struct {
@@ -225,7 +229,7 @@ func newGenerator(
 
 func (g *generator) prepareOperationIdentifiers(operations ast.OperationList) {
 	for _, op := range operations {
-		used := make(map[string]bool, len(op.VariableDefinitions)+4)
+		used := make(map[string]bool, len(op.VariableDefinitions)+6)
 		for _, definition := range op.VariableDefinitions {
 			used[definition.Variable] = true
 			g.usedAliases[definition.Variable] = true
@@ -236,12 +240,16 @@ func (g *generator) prepareOperationIdentifiers(operations ast.OperationList) {
 			clientName:    allocateIdentifier("client_", used),
 			errorName:     allocateIdentifier("err_", used),
 			variablesName: allocateIdentifier("variables_", used),
+			responseName:  allocateIdentifier("response_", used),
+			hasDataName:   allocateIdentifier("hasData_", used),
 		}
 		g.operationIdentifiers[op] = identifiers
 		g.usedAliases[identifiers.contextName] = true
 		g.usedAliases[identifiers.clientName] = true
 		g.usedAliases[identifiers.errorName] = true
 		g.usedAliases[identifiers.variablesName] = true
+		g.usedAliases[identifiers.responseName] = true
+		g.usedAliases[identifiers.hasDataName] = true
 	}
 }
 
@@ -464,15 +472,17 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 		// The newline just makes it format a little nicer.  We add it here
 		// rather than in the template so exported operations will match
 		// *exactly* what we send to the server.
-		Body:           "\n" + builder.String(),
-		Input:          inputType,
-		ResponseName:   responseType.Reference(),
-		ContextName:    identifiers.contextName,
-		ClientName:     identifiers.clientName,
-		ErrorName:      identifiers.errorName,
-		VariablesName:  identifiers.variablesName,
-		SourceFilename: sourceFilename,
-		Config:         g.Config, // for the convenience of the template
+		Body:                 "\n" + builder.String(),
+		Input:                inputType,
+		ResponseName:         responseType.Reference(),
+		ContextName:          identifiers.contextName,
+		ClientName:           identifiers.clientName,
+		ErrorName:            identifiers.errorName,
+		VariablesName:        identifiers.variablesName,
+		ResponseVariableName: identifiers.responseName,
+		HasDataName:          identifiers.hasDataName,
+		SourceFilename:       sourceFilename,
+		Config:               g.Config, // for the convenience of the template
 	})
 
 	return nil
@@ -583,7 +593,7 @@ func renderClientGenerator(g *generator) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = g.render("execute.go.tmpl", &bodyBuf, nil)
+	err = g.render("partial_data_error.go.tmpl", &bodyBuf, nil)
 	if err != nil {
 		return nil, err
 	}

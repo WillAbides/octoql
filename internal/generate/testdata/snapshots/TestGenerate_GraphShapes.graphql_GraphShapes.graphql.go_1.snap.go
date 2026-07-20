@@ -2896,24 +2896,6 @@ func (err *__octoqlPartialDataError[T]) PartialData() *T {
 	return err.data
 }
 
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
-}
-
 // The query executed by GetActor.
 const GetActor_Operation = `
 query GetActor ($login: String!) {
@@ -2953,23 +2935,28 @@ func GetActor(
 	variables_ := __GetActorInput{
 		Login: login,
 	}
-	return __octoqlDo[GetActorResponse](
+	var response_ GetActorResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "GetActor",
 			Query:         GetActor_Operation,
 			Variables:     &variables_,
 		},
-		func(data *GetActorResponse, err error) error {
-			return &GetActorPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[GetActorResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &GetActorPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[GetActorResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by GetNode.
@@ -3009,23 +2996,28 @@ func GetNode(
 	variables_ := __GetNodeInput{
 		Id: id,
 	}
-	return __octoqlDo[GetNodeResponse](
+	var response_ GetNodeResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "GetNode",
 			Query:         GetNode_Operation,
 			Variables:     &variables_,
 		},
-		func(data *GetNodeResponse, err error) error {
-			return &GetNodePartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[GetNodeResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &GetNodePartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[GetNodeResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by NestedNodeShapes.
@@ -3046,23 +3038,28 @@ type NestedNodeShapesPartialDataError struct {
 func NestedNodeShapes(
 	client_ *octoql.Client,
 ) (*NestedNodeShapesResponse, error) {
-	return __octoqlDo[NestedNodeShapesResponse](
+	var response_ NestedNodeShapesResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "NestedNodeShapes",
 			Query:         NestedNodeShapes_Operation,
 			Variables:     nil,
 		},
-		func(data *NestedNodeShapesResponse, err error) error {
-			return &NestedNodeShapesPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[NestedNodeShapesResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &NestedNodeShapesPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[NestedNodeShapesResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by RecursiveRepository.
@@ -3090,23 +3087,28 @@ func RecursiveRepository(
 	variables_ := __RecursiveRepositoryInput{
 		Input: input,
 	}
-	return __octoqlDo[RecursiveRepositoryResponse](
+	var response_ RecursiveRepositoryResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "RecursiveRepository",
 			Query:         RecursiveRepository_Operation,
 			Variables:     &variables_,
 		},
-		func(data *RecursiveRepositoryResponse, err error) error {
-			return &RecursiveRepositoryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[RecursiveRepositoryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &RecursiveRepositoryPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[RecursiveRepositoryResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by RepositoryEventCovariance.
@@ -3142,23 +3144,28 @@ type RepositoryEventCovariancePartialDataError struct {
 func RepositoryEventCovariance(
 	client_ *octoql.Client,
 ) (*RepositoryEventCovarianceResponse, error) {
-	return __octoqlDo[RepositoryEventCovarianceResponse](
+	var response_ RepositoryEventCovarianceResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "RepositoryEventCovariance",
 			Query:         RepositoryEventCovariance_Operation,
 			Variables:     nil,
 		},
-		func(data *RepositoryEventCovarianceResponse, err error) error {
-			return &RepositoryEventCovariancePartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[RepositoryEventCovarianceResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &RepositoryEventCovariancePartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[RepositoryEventCovarianceResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by SearchRepositories.
@@ -3225,21 +3232,26 @@ func SearchRepositories(
 		After:          after,
 		PublishedAfter: publishedAfter,
 	}
-	return __octoqlDo[SearchRepositoriesResponse](
+	var response_ SearchRepositoriesResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "SearchRepositories",
 			Query:         SearchRepositories_Operation,
 			Variables:     &variables_,
 		},
-		func(data *SearchRepositoriesResponse, err error) error {
-			return &SearchRepositoriesPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[SearchRepositoriesResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &SearchRepositoriesPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[SearchRepositoriesResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }

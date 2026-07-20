@@ -56,24 +56,6 @@ func (err *__octoqlPartialDataError[T]) PartialData() *T {
 	return err.data
 }
 
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
-}
-
 // The query executed by GetRepository.
 const GetRepository_Operation = `
 query GetRepository ($owner: String!, $name: String!) {
@@ -97,21 +79,26 @@ func GetRepository(
 		Owner: owner,
 		Name:  name,
 	}
-	return __octoqlDo[GetRepositoryResponse](
+	var response_ GetRepositoryResponse
+	hasData_, err_ := client_.Execute(
 		context.Background(),
-		client_,
 		octoql.Payload{
 			OperationName: "GetRepository",
 			Query:         GetRepository_Operation,
 			Variables:     &variables_,
 		},
-		func(data *GetRepositoryResponse, err error) error {
-			return &GetRepositoryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &GetRepositoryPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[GetRepositoryResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }

@@ -39,21 +39,26 @@ func {{.Name}}(
         {{end -}}
     }
     {{end -}}
-    return __octoqlDo[{{.ResponseName}}](
+    var {{.ResponseVariableName}} {{.ResponseName}}
+    {{.HasDataName}}, {{.ErrorName}} := {{.ClientName}}.Execute(
         {{if ne .Config.ContextType "-"}}{{.ContextName}}{{else}}{{ref "context.Background"}}(){{end}},
-        {{.ClientName}},
         {{ref "github.com/willabides/octoql.Payload"}}{
             OperationName: "{{.Name}}",
             Query: {{.Name}}_Operation,
             Variables: {{if .Input}}&{{.VariablesName}}{{else}}nil{{end}},
         },
-        func(data *{{.ResponseName}}, err error) error {
-            return &{{.Name}}PartialDataError{
-                __octoqlPartialDataError: __octoqlPartialDataError[{{.ResponseName}}]{
-                    data: data,
-                    err: err,
-                },
-            }
-        },
+        &{{.ResponseVariableName}},
     )
+    if !{{.HasDataName}} {
+        return nil, {{.ErrorName}}
+    }
+    if {{.ErrorName}} != nil {
+        return nil, &{{.Name}}PartialDataError{
+            __octoqlPartialDataError: __octoqlPartialDataError[{{.ResponseName}}]{
+                data: &{{.ResponseVariableName}},
+                err: {{.ErrorName}},
+            },
+        }
+    }
+    return &{{.ResponseVariableName}}, nil
 }

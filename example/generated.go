@@ -92,24 +92,6 @@ func (err *__octoqlPartialDataError[T]) PartialData() *T {
 	return err.data
 }
 
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
-}
-
 // The query executed by getUser.
 const getUser_Operation = `
 query getUser ($Login: String!) {
@@ -134,23 +116,28 @@ func getUser(
 	variables_ := __getUserInput{
 		Login: Login,
 	}
-	return __octoqlDo[getUserResponse](
+	var response_ getUserResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "getUser",
 			Query:         getUser_Operation,
 			Variables:     &variables_,
 		},
-		func(data *getUserResponse, err error) error {
-			return &getUserPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[getUserResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &getUserPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[getUserResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by getViewer.
@@ -172,21 +159,26 @@ func getViewer(
 	ctx_ context.Context,
 	client_ *octoql.Client,
 ) (*getViewerResponse, error) {
-	return __octoqlDo[getViewerResponse](
+	var response_ getViewerResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "getViewer",
 			Query:         getViewer_Operation,
 			Variables:     nil,
 		},
-		func(data *getViewerResponse, err error) error {
-			return &getViewerPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[getViewerResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &getViewerPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[getViewerResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }

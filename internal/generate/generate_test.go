@@ -149,6 +149,61 @@ func TestGenerateDeterministic(t *testing.T) {
 	}
 }
 
+func TestGenerateInlinesExecutionWithCollisionFreeLocals(t *testing.T) {
+	dir := t.TempDir()
+	schema := `
+type Query {
+  value(
+    ctx_: String!
+    client_: String!
+    err_: String!
+    variables_: String!
+    response_: String!
+    hasData_: String!
+  ): String!
+}
+`
+	operation := `
+query Value(
+  $ctx_: String!
+  $client_: String!
+  $err_: String!
+  $variables_: String!
+  $response_: String!
+  $hasData_: String!
+) {
+  value(
+    ctx_: $ctx_
+    client_: $client_
+    err_: $err_
+    variables_: $variables_
+    response_: $response_
+    hasData_: $hasData_
+  )
+}
+`
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "collision",
+		ContextType: "-",
+	}
+	generated, err := Generate(config)
+	require.NoError(t, err)
+
+	source := string(generated[config.Generated])
+	assert.NotContains(t, source, "func __octoqlDo")
+	assert.Contains(t, source, "var response_2 ValueResponse")
+	assert.Contains(t, source, "hasData_2, err_2 := client_2.Execute(")
+	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
+}
+
 func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
 	for _, strategy := range []TestHandlerTypeStrategy{
 		TestHandlerTypesClient,

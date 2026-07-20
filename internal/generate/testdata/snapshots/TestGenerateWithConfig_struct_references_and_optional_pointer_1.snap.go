@@ -761,24 +761,6 @@ func (err *__octoqlPartialDataError[T]) PartialData() *T {
 	return err.data
 }
 
-func __octoqlDo[T interface{}](
-	ctx context.Context,
-	client *octoql.Client,
-	payload octoql.Payload,
-	newPartialDataError func(*T, error) error,
-) (*T, error) {
-	var data T
-	response := &data
-	hasData, err := client.Execute(ctx, payload, response)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, newPartialDataError(response, err)
-	}
-	return response, nil
-}
-
 // The mutation executed by CreateGitHubRepository.
 const CreateGitHubRepository_Operation = `
 mutation CreateGitHubRepository ($input: CreateRepositoryInput!) {
@@ -802,23 +784,28 @@ func CreateGitHubRepository(
 	variables_ := __CreateGitHubRepositoryInput{
 		Input: input,
 	}
-	return __octoqlDo[CreateGitHubRepositoryResponse](
+	var response_ CreateGitHubRepositoryResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "CreateGitHubRepository",
 			Query:         CreateGitHubRepository_Operation,
 			Variables:     &variables_,
 		},
-		func(data *CreateGitHubRepositoryResponse, err error) error {
-			return &CreateGitHubRepositoryPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[CreateGitHubRepositoryResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &CreateGitHubRepositoryPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[CreateGitHubRepositoryResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The query executed by GitHubInputs.
@@ -874,23 +861,28 @@ func GitHubInputs(
 		PublishedDates:         publishedDates,
 		OptionalPublishedDates: optionalPublishedDates,
 	}
-	return __octoqlDo[GitHubInputResponse](
+	var response_ GitHubInputResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "GitHubInputs",
 			Query:         GitHubInputs_Operation,
 			Variables:     &variables_,
 		},
-		func(data *GitHubInputResponse, err error) error {
-			return &GitHubInputsPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[GitHubInputResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &GitHubInputsPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[GitHubInputResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
 
 // The mutation executed by UpdateIssueWithCollidingNames.
@@ -921,21 +913,26 @@ func UpdateIssueWithCollidingNames(
 		Resp:   resp,
 		Client: client,
 	}
-	return __octoqlDo[UpdateIssueWithCollidingNamesResponse](
+	var response_ UpdateIssueWithCollidingNamesResponse
+	hasData_, err_ := client_.Execute(
 		ctx_,
-		client_,
 		octoql.Payload{
 			OperationName: "UpdateIssueWithCollidingNames",
 			Query:         UpdateIssueWithCollidingNames_Operation,
 			Variables:     &variables_,
 		},
-		func(data *UpdateIssueWithCollidingNamesResponse, err error) error {
-			return &UpdateIssueWithCollidingNamesPartialDataError{
-				__octoqlPartialDataError: __octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]{
-					data: data,
-					err:  err,
-				},
-			}
-		},
+		&response_,
 	)
+	if !hasData_ {
+		return nil, err_
+	}
+	if err_ != nil {
+		return nil, &UpdateIssueWithCollidingNamesPartialDataError{
+			__octoqlPartialDataError: __octoqlPartialDataError[UpdateIssueWithCollidingNamesResponse]{
+				data: &response_,
+				err:  err_,
+			},
+		}
+	}
+	return &response_, nil
 }
