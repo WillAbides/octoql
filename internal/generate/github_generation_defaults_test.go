@@ -258,8 +258,8 @@ func TestRuntimeAbstracts(t *testing.T) {
 				if !ok {
 					t.Fatalf("node has type %T", *response.Node)
 				}
-				if stringValue(other.GetTypename()) != "Issue" || other.GetId() != "I1" || other.GetUrl() != "https://example.test/i" {
-					t.Fatalf("catch-all fields = %q, %q, %q", stringValue(other.GetTypename()), other.GetId(), other.GetUrl())
+				if other.GetTypename() != "Issue" || other.GetId() != "I1" || other.GetUrl() != "https://example.test/i" {
+					t.Fatalf("catch-all fields = %q, %q, %q", other.GetTypename(), other.GetId(), other.GetUrl())
 				}
 			},
 		},
@@ -271,7 +271,7 @@ func TestRuntimeAbstracts(t *testing.T) {
 					t.Fatal("node is nil")
 				}
 				other, ok := (*response.Node).(*RuntimeAbstractsNodeOctoqlOther)
-				if !ok || stringValue(other.GetTypename()) != "FutureNode" {
+				if !ok || other.GetTypename() != "FutureNode" {
 					t.Fatalf("future node = %#v (%T)", *response.Node, *response.Node)
 				}
 			},
@@ -290,7 +290,7 @@ func TestRuntimeAbstracts(t *testing.T) {
 					t.Fatal("nested node is nil")
 				}
 				other, ok := response.NestedNodes[0][0][1].(*RuntimeAbstractsNestedNodesNodeOctoqlOther)
-				if !ok || stringValue(other.GetTypename()) != "Bot" || other.GetId() != "B1" {
+				if !ok || other.GetTypename() != "Bot" || other.GetId() != "B1" {
 					t.Fatalf("nested node = %#v (%T)", response.NestedNodes[0][0][1], response.NestedNodes[0][0][1])
 				}
 			},
@@ -306,13 +306,6 @@ func TestRuntimeAbstracts(t *testing.T) {
 			test.check(t, response)
 		})
 	}
-}
-
-func stringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }
 
 func TestMissingTypename(t *testing.T) {

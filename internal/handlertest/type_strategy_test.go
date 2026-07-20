@@ -158,7 +158,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			variables: map[string]any{"id": "user"},
 			configureClient: func(handler *clienttypes.TestHandler) {
 				node := clienttypes.GetNodeNode(&clienttypes.GetNodeNodeOctoqlOther{
-					Typename: ptr("User"),
+					Typename: "User",
 					Id:       "U1",
 				})
 				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "user"}).
@@ -168,7 +168,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
 				node := localtypes.GetNodeNode(&localtypes.GetNodeNodeOctoqlOther{
-					Typename: ptr("User"),
+					Typename: "User",
 					Id:       "U1",
 				})
 				handler.ExpectGetNode(localtypes.GetNodeVariables{Id: "user"}).
@@ -191,7 +191,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 							},
 							&clienttypes.SearchSearchIssue{Id: "I1", Title: "bug"},
 							&clienttypes.SearchSearchSearchResultItemOctoqlOther{
-								Typename: ptr("User"),
+								Typename: "User",
 							},
 						},
 					})
@@ -206,7 +206,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 							},
 							&localtypes.SearchSearchIssue{Id: "I1", Title: "bug"},
 							&localtypes.SearchSearchSearchResultItemOctoqlOther{
-								Typename: ptr("User"),
+								Typename: "User",
 							},
 						},
 					})
@@ -387,7 +387,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 
 	nodeVariables := localtypes.GetNodeVariables{Id: "user"}
 	localNode := localtypes.GetNodeNode(&localtypes.GetNodeNodeOctoqlOther{
-		Typename: ptr("User"),
+		Typename: "User",
 		Id:       "U1",
 	})
 	handler.ExpectGetNode(nodeVariables).Respond(localtypes.GetNodeResponse{
@@ -400,7 +400,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	require.NotNil(t, nodeResponse.Node)
 	other, ok := (*nodeResponse.Node).(*githubapi.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
-	assert.Equal(t, "User", requirePtrValue(t, other.Typename))
+	assert.Equal(t, "User", other.Typename)
 	assert.Equal(t, "U1", other.Id)
 	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"user"}`)
 
@@ -412,7 +412,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 				NameWithOwner: "octo-org/octo-repo",
 			},
 			&localtypes.SearchSearchIssue{Id: "I1", Title: "bug"},
-			&localtypes.SearchSearchSearchResultItemOctoqlOther{Typename: ptr("User")},
+			&localtypes.SearchSearchSearchResultItemOctoqlOther{Typename: "User"},
 		},
 	})
 	searchResponse, err := githubapi.Search(t.Context(), client, githubapi.SearchVariables{
@@ -425,7 +425,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	assert.Equal(t, "octo-org/octo-repo", searchRepository.NameWithOwner)
 	searchOther, ok := searchResponse.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
 	require.True(t, ok)
-	assert.Equal(t, "User", requirePtrValue(t, searchOther.Typename))
+	assert.Equal(t, "User", searchOther.Typename)
 	requireGeneratedRequest(t, requests, "Search", githubapi.Search_Operation, `{"query":"octo"}`)
 
 	property := json.RawMessage(`["one","two"]`)

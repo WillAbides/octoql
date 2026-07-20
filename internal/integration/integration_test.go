@@ -337,7 +337,7 @@ func TestInterfaceNoFragments(t *testing.T) {
 		// Check fields both via interface and via type-assertion:
 		require.NotNil(t, response.Actor)
 		actor := *response.Actor
-		assert.Equal(t, "User", requirePtrValue(t, actor.GetTypename()))
+		assert.Equal(t, "User", actor.GetTypename())
 		assert.Equal(t, "1", actor.GetId())
 		assert.Equal(t, "octocat", actor.GetLogin())
 
@@ -360,7 +360,7 @@ func TestInterfaceNoFragments(t *testing.T) {
 
 		require.NotNil(t, response.Actor)
 		actor = *response.Actor
-		assert.Equal(t, "Organization", requirePtrValue(t, actor.GetTypename()))
+		assert.Equal(t, "Organization", actor.GetTypename())
 		assert.Equal(t, "3", actor.GetId())
 		assert.Equal(t, "octo-org", actor.GetLogin())
 
@@ -411,7 +411,7 @@ func TestInterfaceListField(t *testing.T) {
 
 		// Check fields both via interface and via type-assertion:
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", requirePtrValue(t, (*response.Actors[0]).GetTypename()))
+		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
 		assert.Equal(t, "1", (*response.Actors[0]).GetId())
 		assert.Equal(t, "octocat", (*response.Actors[0]).GetLogin())
 
@@ -421,7 +421,7 @@ func TestInterfaceListField(t *testing.T) {
 		assert.Equal(t, "octocat", user.Login)
 
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", requirePtrValue(t, (*response.Actors[1]).GetTypename()))
+		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
 		assert.Equal(t, "3", (*response.Actors[1]).GetId())
 		assert.Equal(t, "octo-org", (*response.Actors[1]).GetLogin())
 
@@ -458,7 +458,7 @@ func TestInterfaceListPointerField(t *testing.T) {
 
 		// Check fields both via interface and via type-assertion:
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", requirePtrValue(t, (*response.Actors[0]).GetTypename()))
+		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
 		assert.Equal(t, "1", (*response.Actors[0]).GetId())
 		assert.Equal(t, "octocat", (*response.Actors[0]).GetLogin())
 
@@ -468,7 +468,7 @@ func TestInterfaceListPointerField(t *testing.T) {
 		assert.Equal(t, "octocat", user.Login)
 
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", requirePtrValue(t, (*response.Actors[1]).GetTypename()))
+		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
 		assert.Equal(t, "3", (*response.Actors[1]).GetId())
 		assert.Equal(t, "octo-org", (*response.Actors[1]).GetLogin())
 
@@ -522,7 +522,7 @@ func TestFragments(t *testing.T) {
 		// Check fields both via interface and via type-assertion when possible
 		// User has, in total, the fields: __typename id login contributionCount.
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", requirePtrValue(t, (*response.Actors[0]).GetTypename()))
+		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
 		assert.Equal(t, "1", (*response.Actors[0]).GetId())
 		assert.Equal(t, "octocat", (*response.Actors[0]).GetLogin())
 		// (status and contributionCount we need to cast for)
@@ -546,7 +546,7 @@ func TestFragments(t *testing.T) {
 		//		... on User { contributionCount }
 		//	}
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", requirePtrValue(t, (*response.Actors[1]).GetTypename()))
+		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
 		assert.Equal(t, "3", (*response.Actors[1]).GetId())
 		// (plan, contributionCount, and topContributor.* we have to cast for)
 
@@ -624,7 +624,7 @@ func TestNamedFragments(t *testing.T) {
 		// Check fields both via interface and via type-assertion when possible
 		// User has, in total, the fields: __typename id contributionCount.
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", requirePtrValue(t, (*response.Actors[0]).GetTypename()))
+		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
 		assert.Equal(t, "1", (*response.Actors[0]).GetId())
 		// (contributionCount, status we need to cast for)
 
@@ -652,7 +652,7 @@ func TestNamedFragments(t *testing.T) {
 		//	plan
 		//	topContributor { id contributionCount }
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", requirePtrValue(t, (*response.Actors[1]).GetTypename()))
+		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
 		assert.Equal(t, "3", (*response.Actors[1]).GetId())
 		// (plan.* and topContributor.* we have to cast for)
 
@@ -772,7 +772,7 @@ func TestFlatten(t *testing.T) {
 		// Check fields both via interface and via type-assertion when possible
 		// User has, in total, the fields: __typename id contributionCount.
 		require.NotNil(t, response.Actors[0])
-		assert.Equal(t, "User", requirePtrValue(t, (*response.Actors[0]).GetTypename()))
+		assert.Equal(t, "User", (*response.Actors[0]).GetTypename())
 		assert.Equal(t, "1", (*response.Actors[0]).GetId())
 		// (contributionCount we need to cast for)
 
@@ -786,7 +786,7 @@ func TestFlatten(t *testing.T) {
 		//	id
 		//	topContributor { id login ... on User { repositories { id name } } }
 		require.NotNil(t, response.Actors[1])
-		assert.Equal(t, "Organization", requirePtrValue(t, (*response.Actors[1]).GetTypename()))
+		assert.Equal(t, "Organization", (*response.Actors[1]).GetTypename())
 		assert.Equal(t, "3", (*response.Actors[1]).GetId())
 		// (topContributor.* we have to cast for)
 

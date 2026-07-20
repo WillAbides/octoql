@@ -150,7 +150,7 @@ func (v *addStarAddStarAddStarPayload) __premarshalJSON() (*__premarshaladdStarA
 type addStarAddStarAddStarPayloadStarrable interface {
 	implementsGraphQLInterfaceaddStarAddStarAddStarPayloadStarrable()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 	// GetStargazerCount returns the interface-field "stargazerCount" from its implementation.
@@ -210,14 +210,14 @@ func __marshaladdStarAddStarAddStarPayloadStarrable(v *addStarAddStarAddStarPayl
 
 // addStarAddStarAddStarPayloadStarrableRepository includes the requested fields of the GraphQL type Repository.
 type addStarAddStarAddStarPayloadStarrableRepository struct {
-	Typename         *string `json:"__typename"`
-	Id               string  `json:"id"`
-	StargazerCount   int     `json:"stargazerCount"`
-	ViewerHasStarred bool    `json:"viewerHasStarred"`
+	Typename         string `json:"__typename"`
+	Id               string `json:"id"`
+	StargazerCount   int    `json:"stargazerCount"`
+	ViewerHasStarred bool   `json:"viewerHasStarred"`
 }
 
 // GetTypename returns addStarAddStarAddStarPayloadStarrableRepository.Typename, and is useful for accessing the field via an interface.
-func (v *addStarAddStarAddStarPayloadStarrableRepository) GetTypename() *string { return v.Typename }
+func (v *addStarAddStarAddStarPayloadStarrableRepository) GetTypename() string { return v.Typename }
 
 // GetId returns addStarAddStarAddStarPayloadStarrableRepository.Id, and is useful for accessing the field via an interface.
 func (v *addStarAddStarAddStarPayloadStarrableRepository) GetId() string { return v.Id }
@@ -365,7 +365,7 @@ func (v *getRepositoryRepository) __premarshalJSON() (*__premarshalgetRepository
 type getRepositoryRepositoryOwner interface {
 	implementsGraphQLInterfacegetRepositoryRepositoryOwner()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetLogin returns the interface-field "login" from its implementation.
 	GetLogin() string
 }
@@ -433,24 +433,24 @@ func __marshalgetRepositoryRepositoryOwner(v *getRepositoryRepositoryOwner) ([]b
 
 // getRepositoryRepositoryOwnerOrganization includes the requested fields of the GraphQL type Organization.
 type getRepositoryRepositoryOwnerOrganization struct {
-	Typename *string `json:"__typename"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns getRepositoryRepositoryOwnerOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *getRepositoryRepositoryOwnerOrganization) GetTypename() *string { return v.Typename }
+func (v *getRepositoryRepositoryOwnerOrganization) GetTypename() string { return v.Typename }
 
 // GetLogin returns getRepositoryRepositoryOwnerOrganization.Login, and is useful for accessing the field via an interface.
 func (v *getRepositoryRepositoryOwnerOrganization) GetLogin() string { return v.Login }
 
 // getRepositoryRepositoryOwnerUser includes the requested fields of the GraphQL type User.
 type getRepositoryRepositoryOwnerUser struct {
-	Typename *string `json:"__typename"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns getRepositoryRepositoryOwnerUser.Typename, and is useful for accessing the field via an interface.
-func (v *getRepositoryRepositoryOwnerUser) GetTypename() *string { return v.Typename }
+func (v *getRepositoryRepositoryOwnerUser) GetTypename() string { return v.Typename }
 
 // GetLogin returns getRepositoryRepositoryOwnerUser.Login, and is useful for accessing the field via an interface.
 func (v *getRepositoryRepositoryOwnerUser) GetLogin() string { return v.Login }
@@ -815,7 +815,7 @@ func (v *organizationFieldsPlan) GetName() server.PlanName { return v.Name }
 type organizationFieldsTopContributorActor interface {
 	implementsGraphQLInterfaceorganizationFieldsTopContributorActor()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 }
@@ -905,25 +905,25 @@ func __marshalorganizationFieldsTopContributorActor(v *organizationFieldsTopCont
 
 // organizationFieldsTopContributorBot includes the requested fields of the GraphQL type Bot.
 type organizationFieldsTopContributorBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
 }
 
 // GetTypename returns organizationFieldsTopContributorBot.Typename, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorBot) GetTypename() *string { return v.Typename }
+func (v *organizationFieldsTopContributorBot) GetTypename() string { return v.Typename }
 
 // GetId returns organizationFieldsTopContributorBot.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorBot) GetId() string { return v.Id }
 
 // organizationFieldsTopContributorOrganization includes the requested fields of the GraphQL type Organization.
 type organizationFieldsTopContributorOrganization struct {
-	Typename                          *string `json:"__typename"`
-	Id                                string  `json:"id"`
+	Typename                          string `json:"__typename"`
+	Id                                string `json:"id"`
 	repositoryOwnerFieldsOrganization `json:"-"`
 }
 
 // GetTypename returns organizationFieldsTopContributorOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorOrganization) GetTypename() *string { return v.Typename }
+func (v *organizationFieldsTopContributorOrganization) GetTypename() string { return v.Typename }
 
 // GetId returns organizationFieldsTopContributorOrganization.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorOrganization) GetId() string { return v.Id }
@@ -959,7 +959,7 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 }
 
 type __premarshalorganizationFieldsTopContributorOrganization struct {
-	Typename *string `json:"__typename"`
+	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
 
@@ -985,14 +985,14 @@ func (v *organizationFieldsTopContributorOrganization) __premarshalJSON() (*__pr
 
 // organizationFieldsTopContributorUser includes the requested fields of the GraphQL type User.
 type organizationFieldsTopContributorUser struct {
-	Typename                  *string `json:"__typename"`
-	Id                        string  `json:"id"`
+	Typename                  string `json:"__typename"`
+	Id                        string `json:"id"`
 	userFields                `json:"-"`
 	repositoryOwnerFieldsUser `json:"-"`
 }
 
 // GetTypename returns organizationFieldsTopContributorUser.Typename, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorUser) GetTypename() *string { return v.Typename }
+func (v *organizationFieldsTopContributorUser) GetTypename() string { return v.Typename }
 
 // GetId returns organizationFieldsTopContributorUser.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorUser) GetId() string { return v.Id }
@@ -1038,7 +1038,7 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalorganizationFieldsTopContributorUser struct {
-	Typename *string `json:"__typename"`
+	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
 
@@ -1177,7 +1177,7 @@ func (v *queryFragment) __premarshalJSON() (*__premarshalqueryFragment, error) {
 type queryFragmentActorsActor interface {
 	implementsGraphQLInterfacequeryFragmentActorsActor()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 }
@@ -1264,25 +1264,25 @@ func __marshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte, err
 
 // queryFragmentActorsBot includes the requested fields of the GraphQL type Bot.
 type queryFragmentActorsBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
 }
 
 // GetTypename returns queryFragmentActorsBot.Typename, and is useful for accessing the field via an interface.
-func (v *queryFragmentActorsBot) GetTypename() *string { return v.Typename }
+func (v *queryFragmentActorsBot) GetTypename() string { return v.Typename }
 
 // GetId returns queryFragmentActorsBot.Id, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsBot) GetId() string { return v.Id }
 
 // queryFragmentActorsOrganization includes the requested fields of the GraphQL type Organization.
 type queryFragmentActorsOrganization struct {
-	Typename       *string           `json:"__typename"`
+	Typename       string            `json:"__typename"`
 	Id             string            `json:"id"`
 	TopContributor *innerActorFields `json:"-"`
 }
 
 // GetTypename returns queryFragmentActorsOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *queryFragmentActorsOrganization) GetTypename() *string { return v.Typename }
+func (v *queryFragmentActorsOrganization) GetTypename() string { return v.Typename }
 
 // GetId returns queryFragmentActorsOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsOrganization) GetId() string { return v.Id }
@@ -1330,7 +1330,7 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalqueryFragmentActorsOrganization struct {
-	Typename *string `json:"__typename"`
+	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
 
@@ -1369,13 +1369,13 @@ func (v *queryFragmentActorsOrganization) __premarshalJSON() (*__premarshalquery
 
 // queryFragmentActorsUser includes the requested fields of the GraphQL type User.
 type queryFragmentActorsUser struct {
-	Typename                       *string `json:"__typename"`
-	Id                             string  `json:"id"`
+	Typename                       string `json:"__typename"`
+	Id                             string `json:"id"`
 	innerRepositoryOwnerFieldsUser `json:"-"`
 }
 
 // GetTypename returns queryFragmentActorsUser.Typename, and is useful for accessing the field via an interface.
-func (v *queryFragmentActorsUser) GetTypename() *string { return v.Typename }
+func (v *queryFragmentActorsUser) GetTypename() string { return v.Typename }
 
 // GetId returns queryFragmentActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsUser) GetId() string { return v.Id }
@@ -1411,7 +1411,7 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalqueryFragmentActorsUser struct {
-	Typename *string `json:"__typename"`
+	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
 
@@ -1997,7 +1997,7 @@ type queryWithFlattenVariables struct {
 type queryWithFragmentsActorsActor interface {
 	implementsGraphQLInterfacequeryWithFragmentsActorsActor()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 	// GetLogin returns the interface-field "login" from its implementation.
@@ -2083,13 +2083,13 @@ func __marshalqueryWithFragmentsActorsActor(v *queryWithFragmentsActorsActor) ([
 
 // queryWithFragmentsActorsBot includes the requested fields of the GraphQL type Bot.
 type queryWithFragmentsActorsBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithFragmentsActorsBot.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsBot) GetTypename() *string { return v.Typename }
+func (v *queryWithFragmentsActorsBot) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithFragmentsActorsBot.Id, and is useful for accessing the field via an interface.
 func (v *queryWithFragmentsActorsBot) GetId() string { return v.Id }
@@ -2099,7 +2099,7 @@ func (v *queryWithFragmentsActorsBot) GetLogin() string { return v.Login }
 
 // queryWithFragmentsActorsOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithFragmentsActorsOrganization struct {
-	Typename          *string                                                  `json:"__typename"`
+	Typename          string                                                   `json:"__typename"`
 	Id                string                                                   `json:"id"`
 	Login             string                                                   `json:"login"`
 	Plan              *queryWithFragmentsActorsOrganizationPlan                `json:"plan"`
@@ -2108,7 +2108,7 @@ type queryWithFragmentsActorsOrganization struct {
 }
 
 // GetTypename returns queryWithFragmentsActorsOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganization) GetTypename() *string { return v.Typename }
+func (v *queryWithFragmentsActorsOrganization) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithFragmentsActorsOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryWithFragmentsActorsOrganization) GetId() string { return v.Id }
@@ -2169,7 +2169,7 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalqueryWithFragmentsActorsOrganization struct {
-	Typename *string `json:"__typename"`
+	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
 
@@ -2232,7 +2232,7 @@ func (v *queryWithFragmentsActorsOrganizationPlan) GetName() server.PlanName { r
 type queryWithFragmentsActorsOrganizationTopContributorActor interface {
 	implementsGraphQLInterfacequeryWithFragmentsActorsOrganizationTopContributorActor()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 	// GetLogin returns the interface-field "login" from its implementation.
@@ -2316,13 +2316,13 @@ func __marshalqueryWithFragmentsActorsOrganizationTopContributorActor(v *queryWi
 
 // queryWithFragmentsActorsOrganizationTopContributorBot includes the requested fields of the GraphQL type Bot.
 type queryWithFragmentsActorsOrganizationTopContributorBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithFragmentsActorsOrganizationTopContributorBot.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganizationTopContributorBot) GetTypename() *string {
+func (v *queryWithFragmentsActorsOrganizationTopContributorBot) GetTypename() string {
 	return v.Typename
 }
 
@@ -2334,13 +2334,13 @@ func (v *queryWithFragmentsActorsOrganizationTopContributorBot) GetLogin() strin
 
 // queryWithFragmentsActorsOrganizationTopContributorOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithFragmentsActorsOrganizationTopContributorOrganization struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithFragmentsActorsOrganizationTopContributorOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganizationTopContributorOrganization) GetTypename() *string {
+func (v *queryWithFragmentsActorsOrganizationTopContributorOrganization) GetTypename() string {
 	return v.Typename
 }
 
@@ -2354,14 +2354,14 @@ func (v *queryWithFragmentsActorsOrganizationTopContributorOrganization) GetLogi
 
 // queryWithFragmentsActorsOrganizationTopContributorUser includes the requested fields of the GraphQL type User.
 type queryWithFragmentsActorsOrganizationTopContributorUser struct {
-	Typename          *string `json:"__typename"`
-	Id                string  `json:"id"`
-	Login             string  `json:"login"`
-	ContributionCount *int    `json:"contributionCount"`
+	Typename          string `json:"__typename"`
+	Id                string `json:"id"`
+	Login             string `json:"login"`
+	ContributionCount *int   `json:"contributionCount"`
 }
 
 // GetTypename returns queryWithFragmentsActorsOrganizationTopContributorUser.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetTypename() *string {
+func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetTypename() string {
 	return v.Typename
 }
 
@@ -2378,7 +2378,7 @@ func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetContribution
 
 // queryWithFragmentsActorsUser includes the requested fields of the GraphQL type User.
 type queryWithFragmentsActorsUser struct {
-	Typename          *string                             `json:"__typename"`
+	Typename          string                              `json:"__typename"`
 	Id                string                              `json:"id"`
 	Login             string                              `json:"login"`
 	ContributionCount *int                                `json:"contributionCount"`
@@ -2386,7 +2386,7 @@ type queryWithFragmentsActorsUser struct {
 }
 
 // GetTypename returns queryWithFragmentsActorsUser.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsUser) GetTypename() *string { return v.Typename }
+func (v *queryWithFragmentsActorsUser) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithFragmentsActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithFragmentsActorsUser) GetId() string { return v.Id }
@@ -2527,7 +2527,7 @@ type queryWithFragmentsVariables struct {
 type queryWithInterfaceListFieldActorsActor interface {
 	implementsGraphQLInterfacequeryWithInterfaceListFieldActorsActor()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 	// GetLogin returns the interface-field "login" from its implementation.
@@ -2611,13 +2611,13 @@ func __marshalqueryWithInterfaceListFieldActorsActor(v *queryWithInterfaceListFi
 
 // queryWithInterfaceListFieldActorsBot includes the requested fields of the GraphQL type Bot.
 type queryWithInterfaceListFieldActorsBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceListFieldActorsBot.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceListFieldActorsBot) GetTypename() *string { return v.Typename }
+func (v *queryWithInterfaceListFieldActorsBot) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithInterfaceListFieldActorsBot.Id, and is useful for accessing the field via an interface.
 func (v *queryWithInterfaceListFieldActorsBot) GetId() string { return v.Id }
@@ -2627,13 +2627,13 @@ func (v *queryWithInterfaceListFieldActorsBot) GetLogin() string { return v.Logi
 
 // queryWithInterfaceListFieldActorsOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithInterfaceListFieldActorsOrganization struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceListFieldActorsOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceListFieldActorsOrganization) GetTypename() *string { return v.Typename }
+func (v *queryWithInterfaceListFieldActorsOrganization) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithInterfaceListFieldActorsOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryWithInterfaceListFieldActorsOrganization) GetId() string { return v.Id }
@@ -2643,13 +2643,13 @@ func (v *queryWithInterfaceListFieldActorsOrganization) GetLogin() string { retu
 
 // queryWithInterfaceListFieldActorsUser includes the requested fields of the GraphQL type User.
 type queryWithInterfaceListFieldActorsUser struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceListFieldActorsUser.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceListFieldActorsUser) GetTypename() *string { return v.Typename }
+func (v *queryWithInterfaceListFieldActorsUser) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithInterfaceListFieldActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithInterfaceListFieldActorsUser) GetId() string { return v.Id }
@@ -2776,7 +2776,7 @@ type queryWithInterfaceListFieldVariables struct {
 type queryWithInterfaceListPointerFieldActorsActor interface {
 	implementsGraphQLInterfacequeryWithInterfaceListPointerFieldActorsActor()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 	// GetLogin returns the interface-field "login" from its implementation.
@@ -2860,13 +2860,13 @@ func __marshalqueryWithInterfaceListPointerFieldActorsActor(v *queryWithInterfac
 
 // queryWithInterfaceListPointerFieldActorsBot includes the requested fields of the GraphQL type Bot.
 type queryWithInterfaceListPointerFieldActorsBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceListPointerFieldActorsBot.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceListPointerFieldActorsBot) GetTypename() *string { return v.Typename }
+func (v *queryWithInterfaceListPointerFieldActorsBot) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithInterfaceListPointerFieldActorsBot.Id, and is useful for accessing the field via an interface.
 func (v *queryWithInterfaceListPointerFieldActorsBot) GetId() string { return v.Id }
@@ -2876,13 +2876,13 @@ func (v *queryWithInterfaceListPointerFieldActorsBot) GetLogin() string { return
 
 // queryWithInterfaceListPointerFieldActorsOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithInterfaceListPointerFieldActorsOrganization struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceListPointerFieldActorsOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceListPointerFieldActorsOrganization) GetTypename() *string {
+func (v *queryWithInterfaceListPointerFieldActorsOrganization) GetTypename() string {
 	return v.Typename
 }
 
@@ -2894,13 +2894,13 @@ func (v *queryWithInterfaceListPointerFieldActorsOrganization) GetLogin() string
 
 // queryWithInterfaceListPointerFieldActorsUser includes the requested fields of the GraphQL type User.
 type queryWithInterfaceListPointerFieldActorsUser struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceListPointerFieldActorsUser.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceListPointerFieldActorsUser) GetTypename() *string { return v.Typename }
+func (v *queryWithInterfaceListPointerFieldActorsUser) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithInterfaceListPointerFieldActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithInterfaceListPointerFieldActorsUser) GetId() string { return v.Id }
@@ -3027,7 +3027,7 @@ type queryWithInterfaceListPointerFieldVariables struct {
 type queryWithInterfaceNoFragmentsActor interface {
 	implementsGraphQLInterfacequeryWithInterfaceNoFragmentsActor()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 	// GetLogin returns the interface-field "login" from its implementation.
@@ -3111,13 +3111,13 @@ func __marshalqueryWithInterfaceNoFragmentsActor(v *queryWithInterfaceNoFragment
 
 // queryWithInterfaceNoFragmentsActorBot includes the requested fields of the GraphQL type Bot.
 type queryWithInterfaceNoFragmentsActorBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceNoFragmentsActorBot.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceNoFragmentsActorBot) GetTypename() *string { return v.Typename }
+func (v *queryWithInterfaceNoFragmentsActorBot) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithInterfaceNoFragmentsActorBot.Id, and is useful for accessing the field via an interface.
 func (v *queryWithInterfaceNoFragmentsActorBot) GetId() string { return v.Id }
@@ -3127,13 +3127,13 @@ func (v *queryWithInterfaceNoFragmentsActorBot) GetLogin() string { return v.Log
 
 // queryWithInterfaceNoFragmentsActorOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithInterfaceNoFragmentsActorOrganization struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceNoFragmentsActorOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceNoFragmentsActorOrganization) GetTypename() *string { return v.Typename }
+func (v *queryWithInterfaceNoFragmentsActorOrganization) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithInterfaceNoFragmentsActorOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryWithInterfaceNoFragmentsActorOrganization) GetId() string { return v.Id }
@@ -3143,13 +3143,13 @@ func (v *queryWithInterfaceNoFragmentsActorOrganization) GetLogin() string { ret
 
 // queryWithInterfaceNoFragmentsActorUser includes the requested fields of the GraphQL type User.
 type queryWithInterfaceNoFragmentsActorUser struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithInterfaceNoFragmentsActorUser.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceNoFragmentsActorUser) GetTypename() *string { return v.Typename }
+func (v *queryWithInterfaceNoFragmentsActorUser) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithInterfaceNoFragmentsActorUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithInterfaceNoFragmentsActorUser) GetId() string { return v.Id }
@@ -3271,7 +3271,7 @@ func (v *queryWithInterfaceNoFragmentsViewerUser) GetLogin() string { return v.L
 type queryWithNamedFragmentsActorsActor interface {
 	implementsGraphQLInterfacequeryWithNamedFragmentsActorsActor()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 }
@@ -3361,25 +3361,25 @@ func __marshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragmentsActor
 
 // queryWithNamedFragmentsActorsBot includes the requested fields of the GraphQL type Bot.
 type queryWithNamedFragmentsActorsBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
 }
 
 // GetTypename returns queryWithNamedFragmentsActorsBot.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsBot) GetTypename() *string { return v.Typename }
+func (v *queryWithNamedFragmentsActorsBot) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithNamedFragmentsActorsBot.Id, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsBot) GetId() string { return v.Id }
 
 // queryWithNamedFragmentsActorsOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithNamedFragmentsActorsOrganization struct {
-	Typename           *string `json:"__typename"`
-	Id                 string  `json:"id"`
+	Typename           string `json:"__typename"`
+	Id                 string `json:"id"`
 	organizationFields `json:"-"`
 }
 
 // GetTypename returns queryWithNamedFragmentsActorsOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsOrganization) GetTypename() *string { return v.Typename }
+func (v *queryWithNamedFragmentsActorsOrganization) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithNamedFragmentsActorsOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsOrganization) GetId() string { return v.Id }
@@ -3420,7 +3420,7 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 }
 
 type __premarshalqueryWithNamedFragmentsActorsOrganization struct {
-	Typename *string `json:"__typename"`
+	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
 
@@ -3462,13 +3462,13 @@ func (v *queryWithNamedFragmentsActorsOrganization) __premarshalJSON() (*__prema
 
 // queryWithNamedFragmentsActorsUser includes the requested fields of the GraphQL type User.
 type queryWithNamedFragmentsActorsUser struct {
-	Typename   *string `json:"__typename"`
-	Id         string  `json:"id"`
+	Typename   string `json:"__typename"`
+	Id         string `json:"id"`
 	userFields `json:"-"`
 }
 
 // GetTypename returns queryWithNamedFragmentsActorsUser.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsUser) GetTypename() *string { return v.Typename }
+func (v *queryWithNamedFragmentsActorsUser) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithNamedFragmentsActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsUser) GetId() string { return v.Id }
@@ -3509,7 +3509,7 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalqueryWithNamedFragmentsActorsUser struct {
-	Typename *string `json:"__typename"`
+	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
 
@@ -3779,13 +3779,13 @@ func (v *queryWithSearchResponse) __premarshalJSON() (*__premarshalqueryWithSear
 
 // queryWithSearchSearchBot includes the requested fields of the GraphQL type Bot.
 type queryWithSearchSearchBot struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithSearchSearchBot.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchBot) GetTypename() *string { return v.Typename }
+func (v *queryWithSearchSearchBot) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithSearchSearchBot.Id, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchBot) GetId() string { return v.Id }
@@ -3795,14 +3795,14 @@ func (v *queryWithSearchSearchBot) GetLogin() string { return v.Login }
 
 // queryWithSearchSearchIssue includes the requested fields of the GraphQL type Issue.
 type queryWithSearchSearchIssue struct {
-	Typename   *string           `json:"__typename"`
+	Typename   string            `json:"__typename"`
 	Id         string            `json:"id"`
 	Title      string            `json:"title"`
 	IssueState server.IssueState `json:"issueState"`
 }
 
 // GetTypename returns queryWithSearchSearchIssue.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchIssue) GetTypename() *string { return v.Typename }
+func (v *queryWithSearchSearchIssue) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithSearchSearchIssue.Id, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchIssue) GetId() string { return v.Id }
@@ -3815,13 +3815,13 @@ func (v *queryWithSearchSearchIssue) GetIssueState() server.IssueState { return 
 
 // queryWithSearchSearchOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithSearchSearchOrganization struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithSearchSearchOrganization.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchOrganization) GetTypename() *string { return v.Typename }
+func (v *queryWithSearchSearchOrganization) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithSearchSearchOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchOrganization) GetId() string { return v.Id }
@@ -3831,14 +3831,14 @@ func (v *queryWithSearchSearchOrganization) GetLogin() string { return v.Login }
 
 // queryWithSearchSearchPullRequest includes the requested fields of the GraphQL type PullRequest.
 type queryWithSearchSearchPullRequest struct {
-	Typename         *string                 `json:"__typename"`
+	Typename         string                  `json:"__typename"`
 	Id               string                  `json:"id"`
 	Title            string                  `json:"title"`
 	PullRequestState server.PullRequestState `json:"pullRequestState"`
 }
 
 // GetTypename returns queryWithSearchSearchPullRequest.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchPullRequest) GetTypename() *string { return v.Typename }
+func (v *queryWithSearchSearchPullRequest) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithSearchSearchPullRequest.Id, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchPullRequest) GetId() string { return v.Id }
@@ -3853,14 +3853,14 @@ func (v *queryWithSearchSearchPullRequest) GetPullRequestState() server.PullRequ
 
 // queryWithSearchSearchRepository includes the requested fields of the GraphQL type Repository.
 type queryWithSearchSearchRepository struct {
-	Typename       *string `json:"__typename"`
-	Id             string  `json:"id"`
-	Name           string  `json:"name"`
-	StargazerCount int     `json:"stargazerCount"`
+	Typename       string `json:"__typename"`
+	Id             string `json:"id"`
+	Name           string `json:"name"`
+	StargazerCount int    `json:"stargazerCount"`
 }
 
 // GetTypename returns queryWithSearchSearchRepository.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchRepository) GetTypename() *string { return v.Typename }
+func (v *queryWithSearchSearchRepository) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithSearchSearchRepository.Id, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchRepository) GetId() string { return v.Id }
@@ -3883,7 +3883,7 @@ func (v *queryWithSearchSearchRepository) GetStargazerCount() int { return v.Sta
 type queryWithSearchSearchSearchResultItem interface {
 	implementsGraphQLInterfacequeryWithSearchSearchSearchResultItem()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 }
 
 func (v *queryWithSearchSearchBot) implementsGraphQLInterfacequeryWithSearchSearchSearchResultItem() {
@@ -4002,13 +4002,13 @@ func __marshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearchSear
 
 // queryWithSearchSearchUser includes the requested fields of the GraphQL type User.
 type queryWithSearchSearchUser struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Login    string  `json:"login"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
 }
 
 // GetTypename returns queryWithSearchSearchUser.Typename, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchUser) GetTypename() *string { return v.Typename }
+func (v *queryWithSearchSearchUser) GetTypename() string { return v.Typename }
 
 // GetId returns queryWithSearchSearchUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchUser) GetId() string { return v.Id }
@@ -4137,7 +4137,7 @@ func (v *removeStarRemoveStarRemoveStarPayload) __premarshalJSON() (*__premarsha
 type removeStarRemoveStarRemoveStarPayloadStarrable interface {
 	implementsGraphQLInterfaceremoveStarRemoveStarRemoveStarPayloadStarrable()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 	// GetStargazerCount returns the interface-field "stargazerCount" from its implementation.
@@ -4197,14 +4197,14 @@ func __marshalremoveStarRemoveStarRemoveStarPayloadStarrable(v *removeStarRemove
 
 // removeStarRemoveStarRemoveStarPayloadStarrableRepository includes the requested fields of the GraphQL type Repository.
 type removeStarRemoveStarRemoveStarPayloadStarrableRepository struct {
-	Typename         *string `json:"__typename"`
-	Id               string  `json:"id"`
-	StargazerCount   int     `json:"stargazerCount"`
-	ViewerHasStarred bool    `json:"viewerHasStarred"`
+	Typename         string `json:"__typename"`
+	Id               string `json:"id"`
+	StargazerCount   int    `json:"stargazerCount"`
+	ViewerHasStarred bool   `json:"viewerHasStarred"`
 }
 
 // GetTypename returns removeStarRemoveStarRemoveStarPayloadStarrableRepository.Typename, and is useful for accessing the field via an interface.
-func (v *removeStarRemoveStarRemoveStarPayloadStarrableRepository) GetTypename() *string {
+func (v *removeStarRemoveStarRemoveStarPayloadStarrableRepository) GetTypename() string {
 	return v.Typename
 }
 

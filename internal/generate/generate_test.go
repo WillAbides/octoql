@@ -773,6 +773,95 @@ query PointerDefaults(
 	require.NoError(t, buildGoFile("pointer-defaults", outputs[config.Generated]))
 }
 
+func TestGeneratedTypenameIsNonNull(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := filepath.Join(tempDir, "schema.graphql")
+	err := os.WriteFile(schemaPath, []byte(`
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+}
+
+type Query {
+  injected: Node
+  explicit: Node
+}
+`), 0o600)
+	require.NoError(t, err)
+	operationPath := filepath.Join(tempDir, "operation.graphql")
+	err = os.WriteFile(operationPath, []byte(`
+query TypenameFields {
+  injected {
+    id
+  }
+  explicit {
+    __typename
+    id
+  }
+}
+`), 0o600)
+	require.NoError(t, err)
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(tempDir, "generated.go"),
+		Package:     "typenamefields",
+		ContextType: "-",
+	}
+	outputs, err := Generate(config)
+	require.NoError(t, err)
+	generated, err := parser.ParseFile(
+		token.NewFileSet(),
+		config.Generated,
+		outputs[config.Generated],
+		0,
+	)
+	require.NoError(t, err)
+
+	typenameFields := 0
+	getTypenameSignatures := 0
+	requireString := func(expr ast.Expr) {
+		t.Helper()
+		identifier, ok := expr.(*ast.Ident)
+		require.Truef(t, ok, "generated typename type is %T, want string", expr)
+		assert.Equal(t, "string", identifier.Name)
+	}
+	ast.Inspect(generated, func(node ast.Node) bool {
+		switch node := node.(type) {
+		case *ast.Field:
+			if len(node.Names) == 0 {
+				return true
+			}
+			switch node.Names[0].Name {
+			case "Typename":
+				typenameFields++
+				requireString(node.Type)
+			case "GetTypename":
+				signature, ok := node.Type.(*ast.FuncType)
+				require.True(t, ok)
+				require.Len(t, signature.Results.List, 1)
+				getTypenameSignatures++
+				requireString(signature.Results.List[0].Type)
+			}
+		case *ast.FuncDecl:
+			if node.Name.Name != "GetTypename" {
+				return true
+			}
+			require.Len(t, node.Type.Results.List, 1)
+			getTypenameSignatures++
+			requireString(node.Type.Results.List[0].Type)
+		}
+		return true
+	})
+	assert.GreaterOrEqual(t, typenameFields, 2)
+	assert.GreaterOrEqual(t, getTypenameSignatures, 2)
+	require.NoError(t, buildGoFile("typename-fields", outputs[config.Generated]))
+}
+
 func TestGeneratedSpecialSliceWireSemantics(t *testing.T) {
 	tempRoot := filepath.Join("testdata", "tmp")
 	err := os.MkdirAll(tempRoot, 0o755)

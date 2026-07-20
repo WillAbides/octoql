@@ -151,7 +151,7 @@ type EchoPropertyVariables struct {
 type GetNodeNode interface {
 	implementsGraphQLInterfaceGetNodeNode()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
 }
@@ -221,13 +221,13 @@ func __marshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 
 // GetNodeNodeIssue includes the requested fields of the GraphQL type Issue.
 type GetNodeNodeIssue struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Title    string  `json:"title"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Title    string `json:"title"`
 }
 
 // GetTypename returns GetNodeNodeIssue.Typename, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeIssue) GetTypename() *string { return v.Typename }
+func (v *GetNodeNodeIssue) GetTypename() string { return v.Typename }
 
 // GetId returns GetNodeNodeIssue.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeIssue) GetId() string { return v.Id }
@@ -237,25 +237,25 @@ func (v *GetNodeNodeIssue) GetTitle() string { return v.Title }
 
 // GetNodeNodeOctoqlOther represents GetNodeNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
 type GetNodeNodeOctoqlOther struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
 }
 
 // GetTypename returns GetNodeNodeOctoqlOther.Typename, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeOctoqlOther) GetTypename() *string { return v.Typename }
+func (v *GetNodeNodeOctoqlOther) GetTypename() string { return v.Typename }
 
 // GetId returns GetNodeNodeOctoqlOther.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOctoqlOther) GetId() string { return v.Id }
 
 // GetNodeNodeRepository includes the requested fields of the GraphQL type Repository.
 type GetNodeNodeRepository struct {
-	Typename      *string `json:"__typename"`
-	Id            string  `json:"id"`
-	NameWithOwner string  `json:"nameWithOwner"`
+	Typename      string `json:"__typename"`
+	Id            string `json:"id"`
+	NameWithOwner string `json:"nameWithOwner"`
 }
 
 // GetTypename returns GetNodeNodeRepository.Typename, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeRepository) GetTypename() *string { return v.Typename }
+func (v *GetNodeNodeRepository) GetTypename() string { return v.Typename }
 
 // GetId returns GetNodeNodeRepository.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeRepository) GetId() string { return v.Id }
@@ -545,13 +545,13 @@ func (v *SearchResponse) __premarshalJSON() (*__premarshalSearchResponse, error)
 
 // SearchSearchIssue includes the requested fields of the GraphQL type Issue.
 type SearchSearchIssue struct {
-	Typename *string `json:"__typename"`
-	Id       string  `json:"id"`
-	Title    string  `json:"title"`
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Title    string `json:"title"`
 }
 
 // GetTypename returns SearchSearchIssue.Typename, and is useful for accessing the field via an interface.
-func (v *SearchSearchIssue) GetTypename() *string { return v.Typename }
+func (v *SearchSearchIssue) GetTypename() string { return v.Typename }
 
 // GetId returns SearchSearchIssue.Id, and is useful for accessing the field via an interface.
 func (v *SearchSearchIssue) GetId() string { return v.Id }
@@ -561,13 +561,13 @@ func (v *SearchSearchIssue) GetTitle() string { return v.Title }
 
 // SearchSearchRepository includes the requested fields of the GraphQL type Repository.
 type SearchSearchRepository struct {
-	Typename      *string `json:"__typename"`
-	Id            string  `json:"id"`
-	NameWithOwner string  `json:"nameWithOwner"`
+	Typename      string `json:"__typename"`
+	Id            string `json:"id"`
+	NameWithOwner string `json:"nameWithOwner"`
 }
 
 // GetTypename returns SearchSearchRepository.Typename, and is useful for accessing the field via an interface.
-func (v *SearchSearchRepository) GetTypename() *string { return v.Typename }
+func (v *SearchSearchRepository) GetTypename() string { return v.Typename }
 
 // GetId returns SearchSearchRepository.Id, and is useful for accessing the field via an interface.
 func (v *SearchSearchRepository) GetId() string { return v.Id }
@@ -584,7 +584,7 @@ func (v *SearchSearchRepository) GetNameWithOwner() string { return v.NameWithOw
 type SearchSearchSearchResultItem interface {
 	implementsGraphQLInterfaceSearchSearchSearchResultItem()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
+	GetTypename() string
 }
 
 func (v *SearchSearchIssue) implementsGraphQLInterfaceSearchSearchSearchResultItem()      {}
@@ -653,11 +653,11 @@ func __marshalSearchSearchSearchResultItem(v *SearchSearchSearchResultItem) ([]b
 
 // SearchSearchSearchResultItemOctoqlOther represents SearchSearchSearchResultItem implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
 type SearchSearchSearchResultItemOctoqlOther struct {
-	Typename *string `json:"__typename"`
+	Typename string `json:"__typename"`
 }
 
 // GetTypename returns SearchSearchSearchResultItemOctoqlOther.Typename, and is useful for accessing the field via an interface.
-func (v *SearchSearchSearchResultItemOctoqlOther) GetTypename() *string { return v.Typename }
+func (v *SearchSearchSearchResultItemOctoqlOther) GetTypename() string { return v.Typename }
 
 // SearchVariables contains the variables accepted by Search.
 type SearchVariables struct {

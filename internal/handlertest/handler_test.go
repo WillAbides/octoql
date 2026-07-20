@@ -297,11 +297,11 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	require.NotNil(t, repositoryResponse.Node)
 	repository, ok := (*repositoryResponse.Node).(*githubapitest.GetNodeNodeRepository)
 	require.True(t, ok)
-	assert.Equal(t, "Repository", requirePtrValue(t, repository.Typename))
+	assert.Equal(t, "Repository", repository.Typename)
 
 	otherVariables := githubapitest.GetNodeVariables{Id: "user"}
 	otherNode := githubapitest.GetNodeNode(&githubapitest.GetNodeNodeOctoqlOther{
-		Typename: ptr("User"),
+		Typename: "User",
 		Id:       "U1",
 	})
 	handler.ExpectGetNode(otherVariables).Respond(githubapitest.GetNodeResponse{
@@ -312,7 +312,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	require.NotNil(t, otherResponse.Node)
 	other, ok := (*otherResponse.Node).(*githubapitest.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
-	assert.Equal(t, "User", requirePtrValue(t, other.Typename))
+	assert.Equal(t, "User", other.Typename)
 
 	searchVariables := githubapitest.SearchVariables{Query: "octo"}
 	handler.ExpectSearch(searchVariables).Respond(githubapitest.SearchResponse{
@@ -326,7 +326,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 				Title: "bug",
 			},
 			&githubapitest.SearchSearchSearchResultItemOctoqlOther{
-				Typename: ptr("User"),
+				Typename: "User",
 			},
 		},
 	})
@@ -339,7 +339,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	assert.True(t, ok)
 	searchOther, ok := searchResponse.Search[2].(*githubapitest.SearchSearchSearchResultItemOctoqlOther)
 	require.True(t, ok)
-	assert.Equal(t, "User", requirePtrValue(t, searchOther.Typename))
+	assert.Equal(t, "User", searchOther.Typename)
 }
 
 func TestGeneratedHandlerConcurrentRequests(t *testing.T) {

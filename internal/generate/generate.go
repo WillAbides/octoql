@@ -317,6 +317,12 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 			subField, ok := selection.(*ast.Field)
 			if ok && subField.Name == "__typename" {
 				hasTypename = true
+				definition := *subField.Definition
+				definition.Type = ast.NonNullNamedType(
+					"String",
+					subField.Definition.Type.Position,
+				)
+				subField.Definition = &definition
 			}
 		}
 		if !hasTypename {
@@ -326,13 +332,10 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 					Alias: "__typename", Name: "__typename",
 					// Fake definition for the magic field __typename cribbed
 					// from gqlparser's validator/walk.go, equivalent to
-					//	__typename: String
-					// TODO(benkraft): This should in principle be
 					//	__typename: String!
-					// But octoqlgen doesn't care, so we just match gqlparser.
 					Definition: &ast.FieldDefinition{
 						Name: "__typename",
-						Type: ast.NamedType("String", nil /* pos */),
+						Type: ast.NonNullNamedType("String", nil /* pos */),
 					},
 					// Definition of the object that contains this field, i.e.
 					// FieldType.
