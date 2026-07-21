@@ -228,9 +228,9 @@ func TestRuntimeAbstracts(t *testing.T) {
 				if response.Node == nil {
 					t.Fatal("node is nil")
 				}
-				repository, ok := (*response.Node).(*RuntimeAbstractsNodeRepository)
+				repository, ok := response.Node.(*RuntimeAbstractsNodeRepository)
 				if !ok {
-					t.Fatalf("node has type %T", *response.Node)
+					t.Fatalf("node has type %T", response.Node)
 				}
 				if repository.NameWithOwner != "octo/repo" {
 					t.Fatalf("nameWithOwner = %q", repository.NameWithOwner)
@@ -238,9 +238,9 @@ func TestRuntimeAbstracts(t *testing.T) {
 				if response.ActorNode == nil {
 					t.Fatal("actor node is nil")
 				}
-				organization, ok := (*response.ActorNode).(*RuntimeAbstractsActorNodeOrganization)
+				organization, ok := response.ActorNode.(*RuntimeAbstractsActorNodeOrganization)
 				if !ok {
-					t.Fatalf("actor node has type %T", *response.ActorNode)
+					t.Fatalf("actor node has type %T", response.ActorNode)
 				}
 				if organization.Login != "octo-org" {
 					t.Fatalf("login = %q", organization.Login)
@@ -254,9 +254,9 @@ func TestRuntimeAbstracts(t *testing.T) {
 				if response.Node == nil {
 					t.Fatal("node is nil")
 				}
-				other, ok := (*response.Node).(*RuntimeAbstractsNodeOctoqlOther)
+				other, ok := response.Node.(*RuntimeAbstractsNodeOctoqlOther)
 				if !ok {
-					t.Fatalf("node has type %T", *response.Node)
+					t.Fatalf("node has type %T", response.Node)
 				}
 				if other.GetTypename() != "Issue" || other.GetId() != "I1" || other.GetUrl() != "https://example.test/i" {
 					t.Fatalf("catch-all fields = %q, %q, %q", other.GetTypename(), other.GetId(), other.GetUrl())
@@ -270,9 +270,9 @@ func TestRuntimeAbstracts(t *testing.T) {
 				if response.Node == nil {
 					t.Fatal("node is nil")
 				}
-				other, ok := (*response.Node).(*RuntimeAbstractsNodeOctoqlOther)
+				other, ok := response.Node.(*RuntimeAbstractsNodeOctoqlOther)
 				if !ok || other.GetTypename() != "FutureNode" {
-					t.Fatalf("future node = %#v (%T)", *response.Node, *response.Node)
+					t.Fatalf("future node = %#v (%T)", response.Node, response.Node)
 				}
 			},
 		},
@@ -313,6 +313,56 @@ func TestMissingTypename(t *testing.T) {
 	err := json.Unmarshal([]byte(` + "`" + `{"node":{"id":"I1","url":"https://example.test/i"}}` + "`" + `), &response)
 	if err == nil || !strings.Contains(err.Error(), "response was missing Node.__typename") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestNullClearsReusedAbstractField(t *testing.T) {
+	var response RuntimeAbstractsResponse
+	err := json.Unmarshal(
+		[]byte(` + "`" + `{"node":{"__typename":"Repository","id":"R1","url":"https://example.test/r","nameWithOwner":"octo/repo"}}` + "`" + `),
+		&response,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Node == nil {
+		t.Fatal("node is nil before reuse")
+	}
+
+	err = json.Unmarshal([]byte(` + "`" + `{"node":null}` + "`" + `), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Node != nil {
+		t.Fatalf("node = %#v after null", response.Node)
+	}
+}
+
+func TestTypedNilAbstractValuesMarshalAsNull(t *testing.T) {
+	tests := []struct {
+		name string
+		node RuntimeAbstractsNode
+	}{
+		{
+			name: "implementation",
+			node: (*RuntimeAbstractsNodeRepository)(nil),
+		},
+		{
+			name: "catch-all implementation",
+			node: (*RuntimeAbstractsNodeOctoqlOther)(nil),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := __marshalRuntimeAbstractsNode(&test.node)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != "null" {
+				t.Fatalf("marshal result = %s, want null", data)
+			}
+		})
 	}
 }
 `)

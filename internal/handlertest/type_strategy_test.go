@@ -157,23 +157,23 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			operation: "GetNode",
 			variables: map[string]any{"id": "user"},
 			configureClient: func(handler *clienttypes.TestHandler) {
-				node := clienttypes.GetNodeNode(&clienttypes.GetNodeNodeOctoqlOther{
+				node := &clienttypes.GetNodeNodeOctoqlOther{
 					Typename: "User",
 					Id:       "U1",
-				})
+				}
 				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "user"}).
 					Respond(clienttypes.GetNodeResponse{
-						Node: &node,
+						Node: node,
 					})
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
-				node := localtypes.GetNodeNode(&localtypes.GetNodeNodeOctoqlOther{
+				node := &localtypes.GetNodeNodeOctoqlOther{
 					Typename: "User",
 					Id:       "U1",
-				})
+				}
 				handler.ExpectGetNode(localtypes.GetNodeVariables{Id: "user"}).
 					Respond(localtypes.GetNodeResponse{
-						Node: &node,
+						Node: node,
 					})
 			},
 		},
@@ -386,19 +386,19 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	)
 
 	nodeVariables := localtypes.GetNodeVariables{Id: "user"}
-	localNode := localtypes.GetNodeNode(&localtypes.GetNodeNodeOctoqlOther{
+	localNode := &localtypes.GetNodeNodeOctoqlOther{
 		Typename: "User",
 		Id:       "U1",
-	})
+	}
 	handler.ExpectGetNode(nodeVariables).Respond(localtypes.GetNodeResponse{
-		Node: &localNode,
+		Node: localNode,
 	})
 	nodeResponse, err := githubapi.GetNode(t.Context(), client, githubapi.GetNodeVariables{
 		Id: nodeVariables.Id,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, nodeResponse.Node)
-	other, ok := (*nodeResponse.Node).(*githubapi.GetNodeNodeOctoqlOther)
+	other, ok := nodeResponse.Node.(*githubapi.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", other.Typename)
 	assert.Equal(t, "U1", other.Id)

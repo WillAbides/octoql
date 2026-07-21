@@ -295,6 +295,10 @@ func applyPointerSelection(
 	typ *ast.Type,
 	options *octoqlgenDirective,
 ) goType {
+	_, isInterface := goTyp.(*goInterfaceType)
+	if isInterface {
+		return goTyp
+	}
 	if options.PointerIsFalse() {
 		return goTyp
 	}

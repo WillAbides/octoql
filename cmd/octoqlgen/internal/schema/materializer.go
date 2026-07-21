@@ -30,24 +30,26 @@ type Request struct {
 }
 
 type Materializer struct {
-	HTTPClient        httpDoer
-	CommandRunner     commandRunner
-	LookupEnvironment func(string) (string, bool)
-	FileSystem        fileSystem
-	GitHubAPIBaseURL  func(string) string
-	MaxResponseBytes  int64
-	Timeout           time.Duration
+	HTTPClient            httpDoer
+	CommandRunner         commandRunner
+	LookupEnvironment     func(string) (string, bool)
+	FileSystem            fileSystem
+	GitHubAPIBaseURL      func(string) string
+	GitHubGraphQLEndpoint func(string) string
+	MaxResponseBytes      int64
+	Timeout               time.Duration
 }
 
 func NewMaterializer() *Materializer {
 	return &Materializer{
-		HTTPClient:        &httpClient{},
-		CommandRunner:     execRunner{},
-		LookupEnvironment: os.LookupEnv,
-		FileSystem:        osFileSystem{},
-		GitHubAPIBaseURL:  defaultGitHubAPIBaseURL,
-		MaxResponseBytes:  DefaultMaxResponseBytes,
-		Timeout:           DefaultTimeout,
+		HTTPClient:            &httpClient{},
+		CommandRunner:         execRunner{},
+		LookupEnvironment:     os.LookupEnv,
+		FileSystem:            osFileSystem{},
+		GitHubAPIBaseURL:      defaultGitHubAPIBaseURL,
+		GitHubGraphQLEndpoint: defaultGitHubGraphQLEndpoint,
+		MaxResponseBytes:      DefaultMaxResponseBytes,
+		Timeout:               DefaultTimeout,
 	}
 }
 
@@ -121,13 +123,14 @@ func (m *Materializer) Materialize(ctx context.Context, request Request) ([]byte
 }
 
 type dependencies struct {
-	httpClient        httpDoer
-	commandRunner     commandRunner
-	lookupEnvironment func(string) (string, bool)
-	fileSystem        fileSystem
-	githubAPIBaseURL  func(string) string
-	maxResponseBytes  int64
-	timeout           time.Duration
+	httpClient            httpDoer
+	commandRunner         commandRunner
+	lookupEnvironment     func(string) (string, bool)
+	fileSystem            fileSystem
+	githubAPIBaseURL      func(string) string
+	githubGraphQLEndpoint func(string) string
+	maxResponseBytes      int64
+	timeout               time.Duration
 }
 
 func (m *Materializer) dependencies() dependencies {
@@ -153,6 +156,10 @@ func (m *Materializer) dependencies() dependencies {
 	if githubAPIBaseURL == nil {
 		githubAPIBaseURL = defaults.GitHubAPIBaseURL
 	}
+	githubGraphQLEndpoint := m.GitHubGraphQLEndpoint
+	if githubGraphQLEndpoint == nil {
+		githubGraphQLEndpoint = defaults.GitHubGraphQLEndpoint
+	}
 	maxResponseBytes := m.MaxResponseBytes
 	if maxResponseBytes <= 0 {
 		maxResponseBytes = defaults.MaxResponseBytes
@@ -163,13 +170,14 @@ func (m *Materializer) dependencies() dependencies {
 	}
 
 	return dependencies{
-		httpClient:        httpClient,
-		commandRunner:     commandRunner,
-		lookupEnvironment: lookupEnvironment,
-		fileSystem:        fsys,
-		githubAPIBaseURL:  githubAPIBaseURL,
-		maxResponseBytes:  maxResponseBytes,
-		timeout:           timeout,
+		httpClient:            httpClient,
+		commandRunner:         commandRunner,
+		lookupEnvironment:     lookupEnvironment,
+		fileSystem:            fsys,
+		githubAPIBaseURL:      githubAPIBaseURL,
+		githubGraphQLEndpoint: githubGraphQLEndpoint,
+		maxResponseBytes:      maxResponseBytes,
+		timeout:               timeout,
 	}
 }
 

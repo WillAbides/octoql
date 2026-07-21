@@ -1,0 +1,15 @@
+query LatestCommit($owner: String!, $name: String!, $path: String!) {
+  repository(owner: $owner, name: $name) {
+    defaultBranchRef {
+      target {
+        ... on Commit {
+          history(first: 1, path: $path) {
+            nodes {
+              oid
+            }
+          }
+        }
+      }
+    }
+  }
+}

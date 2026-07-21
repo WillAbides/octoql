@@ -9,9 +9,12 @@ func __marshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
     {{if .Implementations -}}
     var typename string
     {{end -}}
-    switch v := (*v).(type) {
+    switch vv := (*v).(type) {
     {{range .Implementations -}}
     case *{{.GoName}}:
+        if vv == nil {
+            return []byte("null"), nil
+        }
         typename = "{{.GraphQLName}}"
 
         {{/* Now actually do the marshal, with the concrete type. (Go only
@@ -21,38 +24,47 @@ func __marshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
              field), so we call the helper __premarshalJSON directly (see
              marshal.go.tmpl). */}}
         {{if .NeedsMarshaling -}}
-        premarshaled, err := v.__premarshalJSON()
+        premarshaled, err := vv.__premarshalJSON()
         if err != nil {
             return nil, err
         }
         result := struct {
             TypeName string `json:"__typename"`
             *__premarshal{{.GoName}}
-        }{typename, premarshaled}
+        }{
+            TypeName: typename,
+            __premarshal{{.GoName}}: premarshaled,
+        }
         {{else -}}
         result := struct {
             TypeName string `json:"__typename"`
             *{{.GoName}}
-        }{typename, v}
+        }{
+            TypeName: typename,
+            {{.GoName}}: vv,
+        }
         {{end -}}
         return json.Marshal(result)
     {{end -}}
     {{if .OtherImplementation -}}
     case *{{.OtherImplementation.GoName}}:
+        if vv == nil {
+            return []byte("null"), nil
+        }
         {{if .OtherImplementation.NeedsMarshaling -}}
-        premarshaled, err := v.__premarshalJSON()
+        premarshaled, err := vv.__premarshalJSON()
         if err != nil {
             return nil, err
         }
         return json.Marshal(premarshaled)
         {{else -}}
-        return json.Marshal(v)
+        return json.Marshal(vv)
         {{end -}}
     {{end -}}
     case nil:
         return []byte("null"), nil
     default:
         return nil, {{ref "fmt.Errorf"}}(
-            `unexpected concrete type for {{.GoName}}: "%T"`, v)
+            `unexpected concrete type for {{.GoName}}: "%T"`, vv)
     }
 }

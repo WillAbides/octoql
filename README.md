@@ -202,7 +202,10 @@ order:
 1. `GH_TOKEN`
 2. `GITHUB_TOKEN`
 3. `gh auth token --hostname <host>`
-4. anonymous access when no token is available
+
+GitHub GraphQL requires authentication, including for public repositories.
+Materialization and updates fail with guidance when none of these token sources
+is available.
 
 `schema materialize` verifies an existing file or fetches a missing remote file.
 It never changes `octoqlgen.yaml`:
@@ -412,9 +415,11 @@ GraphQL's built-in scalars map to ordinary Go values:
 | `String`, `ID` | `string` |
 | `Boolean` | `bool` |
 
-Nullable named values generate as pointers by default. Nullable list values
-remain slices so GraphQL `null` and `[]` map to nil and empty slices,
-respectively; nullable list elements generate as pointers. Use
+Nullable named values generate as pointers by default. Generated abstract
+interface values are the exception: their nil interface value represents
+GraphQL null, so they are never wrapped in pointers. Nullable list values remain
+slices so GraphQL `null` and `[]` map to nil and empty slices, respectively;
+nullable non-interface list elements generate as pointers. Use
 `@octoqlgen(pointer: false)` on a specific operation argument or selected field
 when its zero value should represent GraphQL null. The `omitempty` directive
 remains independent and explicit.

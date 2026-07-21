@@ -285,32 +285,32 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	assert.JSONEq(t, string(dynamicVariables.Value), string((<-receivedVariables).Value))
 
 	repositoryVariables := githubapitest.GetNodeVariables{Id: "repository"}
-	repositoryNode := githubapitest.GetNodeNode(&githubapitest.GetNodeNodeRepository{
+	repositoryNode := &githubapitest.GetNodeNodeRepository{
 		Id:            "R1",
 		NameWithOwner: "octo-org/octo-repo",
-	})
+	}
 	handler.ExpectGetNode(repositoryVariables).Respond(githubapitest.GetNodeResponse{
-		Node: &repositoryNode,
+		Node: repositoryNode,
 	})
 	repositoryResponse, err := githubapi.GetNode(t.Context(), client, repositoryVariables)
 	require.NoError(t, err)
 	require.NotNil(t, repositoryResponse.Node)
-	repository, ok := (*repositoryResponse.Node).(*githubapitest.GetNodeNodeRepository)
+	repository, ok := repositoryResponse.Node.(*githubapitest.GetNodeNodeRepository)
 	require.True(t, ok)
 	assert.Equal(t, "Repository", repository.Typename)
 
 	otherVariables := githubapitest.GetNodeVariables{Id: "user"}
-	otherNode := githubapitest.GetNodeNode(&githubapitest.GetNodeNodeOctoqlOther{
+	otherNode := &githubapitest.GetNodeNodeOctoqlOther{
 		Typename: "User",
 		Id:       "U1",
-	})
+	}
 	handler.ExpectGetNode(otherVariables).Respond(githubapitest.GetNodeResponse{
-		Node: &otherNode,
+		Node: otherNode,
 	})
 	otherResponse, err := githubapi.GetNode(t.Context(), client, otherVariables)
 	require.NoError(t, err)
 	require.NotNil(t, otherResponse.Node)
-	other, ok := (*otherResponse.Node).(*githubapitest.GetNodeNodeOctoqlOther)
+	other, ok := otherResponse.Node.(*githubapitest.GetNodeNodeOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", other.Typename)
 

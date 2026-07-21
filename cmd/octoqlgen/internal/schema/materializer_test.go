@@ -752,6 +752,9 @@ func testGitHubMaterializer(client httpDoer) *Materializer {
 	materializer.GitHubAPIBaseURL = func(string) string {
 		return "https://api.example.test"
 	}
+	materializer.GitHubGraphQLEndpoint = func(string) string {
+		return "https://api.example.test/graphql"
+	}
 	return materializer
 }
 
