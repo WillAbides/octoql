@@ -1,0 +1,16 @@
+query GetReview {
+  review {
+    fullDatabaseId
+    createdAt
+    # @octoqlgen(struct: true)
+    author {
+      login
+      url
+    }
+    # @octoqlgen(struct: true)
+    editor {
+      login
+      url
+    }
+  }
+}
