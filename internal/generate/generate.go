@@ -87,6 +87,8 @@ type planBuilder func(*Config) (*generationPlan, error)
 
 type outputRenderer func(*generationPlan) ([]byte, error)
 
+const executorTypeName = "octoqlExecutor"
+
 func freezeGenerationPlan(g *generator) *generationPlan {
 	config := cloneConfig(g.Config)
 	return &generationPlan{
@@ -495,6 +497,35 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 			enumValueNames[value.GoName] = true
 		}
 	}
+	if g.typeMap[executorTypeName] != nil {
+		return nil, errorf(
+			nil,
+			"generated executor type %q conflicts with a generated GraphQL type",
+			executorTypeName,
+		)
+	}
+	if operationNames[executorTypeName] {
+		return nil, errorf(
+			nil,
+			"generated executor type %q conflicts with operation %q",
+			executorTypeName,
+			executorTypeName,
+		)
+	}
+	if enumValueNames[executorTypeName] {
+		return nil, errorf(
+			nil,
+			"generated executor type %q conflicts with a generated enum value",
+			executorTypeName,
+		)
+	}
+	if enumValuesVariableNames[executorTypeName] {
+		return nil, errorf(
+			nil,
+			"generated executor type %q conflicts with a generated enum values variable",
+			executorTypeName,
+		)
+	}
 	for _, operation := range g.Operations {
 		name := operation.Name + "PartialDataError"
 		if g.typeMap[name] != nil {
@@ -569,6 +600,14 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 }
 
 func renderClientGenerator(g *generator) ([]byte, error) {
+	_, err := g.ref("context.Context")
+	if err != nil {
+		return nil, err
+	}
+	_, err = g.ref("github.com/willabides/octoql.Payload")
+	if err != nil {
+		return nil, err
+	}
 	typeDefinitions, err := renderTypeDefinitions(g)
 	if err != nil {
 		return nil, err

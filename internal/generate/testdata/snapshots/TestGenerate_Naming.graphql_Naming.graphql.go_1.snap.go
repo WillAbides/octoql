@@ -9,6 +9,10 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 type FirstRepository string
 
 // GitHubNamingResponse is returned by GitHubNaming on success.
@@ -122,7 +126,7 @@ func (e *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
 }
 
 func GitHubNaming(
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*GitHubNamingResponse, error) {
 	var response GitHubNamingResponse
 	hasData, err := client.Execute(
