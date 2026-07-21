@@ -12,6 +12,10 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // ActorDetails includes the GraphQL fields of Actor requested by the fragment ActorDetails.
 //
 // ActorDetails is implemented by the following types:
@@ -3139,7 +3143,7 @@ func (e *GetActorPartialDataError) PartialData() *GetActorResponse {
 }
 
 func GetActor(
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars GetActorVariables,
 ) (*GetActorResponse, error) {
 	var response GetActorResponse
@@ -3195,7 +3199,7 @@ func (e *GetNodePartialDataError) PartialData() *GetNodeResponse {
 }
 
 func GetNode(
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars GetNodeVariables,
 ) (*GetNodeResponse, error) {
 	var response GetNodeResponse
@@ -3251,7 +3255,7 @@ func (e *NestedNodeShapesPartialDataError) PartialData() *NestedNodeShapesRespon
 }
 
 func NestedNodeShapes(
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*NestedNodeShapesResponse, error) {
 	var response NestedNodeShapesResponse
 	hasData, err := client.Execute(
@@ -3306,7 +3310,7 @@ func (e *RecursiveRepositoryPartialDataError) PartialData() *RecursiveRepository
 }
 
 func RecursiveRepository(
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars RecursiveRepositoryVariables,
 ) (*RecursiveRepositoryResponse, error) {
 	var response RecursiveRepositoryResponse
@@ -3362,7 +3366,7 @@ func (e *RepositoryEventCovariancePartialDataError) PartialData() *RepositoryEve
 }
 
 func RepositoryEventCovariance(
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*RepositoryEventCovarianceResponse, error) {
 	var response RepositoryEventCovarianceResponse
 	hasData, err := client.Execute(
@@ -3417,7 +3421,7 @@ func (e *SearchRepositoriesPartialDataError) PartialData() *SearchRepositoriesRe
 }
 
 func SearchRepositories(
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars SearchRepositoriesVariables,
 ) (*SearchRepositoriesResponse, error) {
 	var response SearchRepositoriesResponse

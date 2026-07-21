@@ -8,6 +8,10 @@ import (
 	"github.com/willabides/octoql"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // Check that context_type from octoqlgen.yaml implements context.Context.
 var _ context.Context = (customContext)(nil)
 

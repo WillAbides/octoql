@@ -9,6 +9,10 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // anyResponse is returned by any on success.
 type anyResponse struct {
 	Viewer anyViewerUser `json:"viewer"`
@@ -72,7 +76,7 @@ func (e *anyPartialDataError) PartialData() *anyResponse {
 }
 
 func any(
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*anyResponse, error) {
 	var response anyResponse
 	hasData, err := client.Execute(
@@ -127,7 +131,7 @@ func (e *newPartialDataError) PartialData() *newResponse {
 }
 
 func new(
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*newResponse, error) {
 	var response newResponse
 	hasData, err := client.Execute(

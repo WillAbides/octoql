@@ -9,6 +9,10 @@ import (
 	"github.com/willabides/octoql"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // getUserResponse is returned by getUser on success.
 type getUserResponse struct {
 	// Lookup a user by login.
@@ -99,7 +103,7 @@ func (e *getUserPartialDataError) PartialData() *getUserResponse {
 // getUser gets the given user's name from their username.
 func getUser(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars getUserVariables,
 ) (*getUserResponse, error) {
 	var response getUserResponse
@@ -156,7 +160,7 @@ func (e *getViewerPartialDataError) PartialData() *getViewerResponse {
 
 func getViewer(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*getViewerResponse, error) {
 	var response getViewerResponse
 	hasData, err := client.Execute(

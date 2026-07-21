@@ -4,6 +4,10 @@ package {{.Config.Package}}
 
 {{.Imports}}
 
+type octoqlExecutor interface {
+	Execute({{ref "context.Context"}}, {{ref "github.com/willabides/octoql.Payload"}}, interface{}) (bool, error)
+}
+
 {{if and (ne .Config.ContextType "-") (ne .Config.ContextType "context.Context") }}
 // Check that context_type from octoqlgen.yaml implements context.Context.
 var _ {{ref "context.Context"}} = ({{ref .Config.ContextType}})(nil)

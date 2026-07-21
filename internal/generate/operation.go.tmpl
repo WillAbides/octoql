@@ -34,7 +34,7 @@ func {{.Name}}(
     ctx {{ref .Config.ContextType}},
     {{end}}
     {{- if not .Config.ClientGetter -}}
-    client *{{ref "github.com/willabides/octoql.Client"}},
+    client octoqlExecutor,
     {{end}}
     {{- if .Input -}}
     vars {{.Input.GoName}},

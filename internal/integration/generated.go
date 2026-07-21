@@ -13,6 +13,10 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // addCommentAddCommentAddCommentPayload includes the requested fields of the GraphQL type AddCommentPayload.
 type addCommentAddCommentAddCommentPayload struct {
 	CommentEdge *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge `json:"commentEdge"`
@@ -4717,7 +4721,7 @@ func (e *addCommentPartialDataError) PartialData() *addCommentResponse {
 
 func addComment(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars addCommentVariables,
 ) (*addCommentResponse, error) {
 	var response addCommentResponse
@@ -4774,7 +4778,7 @@ func (e *addStarPartialDataError) PartialData() *addStarResponse {
 
 func addStar(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars addStarVariables,
 ) (*addStarResponse, error) {
 	var response addStarResponse
@@ -4831,7 +4835,7 @@ func (e *failingQueryPartialDataError) PartialData() *failingQueryResponse {
 
 func failingQuery(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*failingQueryResponse, error) {
 	var response failingQueryResponse
 	hasData, err := client.Execute(
@@ -4887,7 +4891,7 @@ func (e *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
 
 func getRepository(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars getRepositoryVariables,
 ) (*getRepositoryResponse, error) {
 	var response getRepositoryResponse
@@ -4944,7 +4948,7 @@ func (e *queryWithCustomMarshalPartialDataError) PartialData() *queryWithCustomM
 
 func queryWithCustomMarshal(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithCustomMarshalVariables,
 ) (*queryWithCustomMarshalResponse, error) {
 	var response queryWithCustomMarshalResponse
@@ -5001,7 +5005,7 @@ func (e *queryWithCustomMarshalOptionalPartialDataError) PartialData() *queryWit
 
 func queryWithCustomMarshalOptional(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithCustomMarshalOptionalVariables,
 ) (*queryWithCustomMarshalOptionalResponse, error) {
 	var response queryWithCustomMarshalOptionalResponse
@@ -5058,7 +5062,7 @@ func (e *queryWithCustomMarshalSlicePartialDataError) PartialData() *queryWithCu
 
 func queryWithCustomMarshalSlice(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithCustomMarshalSliceVariables,
 ) (*queryWithCustomMarshalSliceResponse, error) {
 	var response queryWithCustomMarshalSliceResponse
@@ -5115,7 +5119,7 @@ func (e *queryWithFlattenPartialDataError) PartialData() *queryFragment {
 
 func queryWithFlatten(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithFlattenVariables,
 ) (*queryFragment, error) {
 	var response queryFragment
@@ -5172,7 +5176,7 @@ func (e *queryWithFragmentsPartialDataError) PartialData() *queryWithFragmentsRe
 
 func queryWithFragments(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithFragmentsVariables,
 ) (*queryWithFragmentsResponse, error) {
 	var response queryWithFragmentsResponse
@@ -5229,7 +5233,7 @@ func (e *queryWithInterfaceListFieldPartialDataError) PartialData() *queryWithIn
 
 func queryWithInterfaceListField(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithInterfaceListFieldVariables,
 ) (*queryWithInterfaceListFieldResponse, error) {
 	var response queryWithInterfaceListFieldResponse
@@ -5286,7 +5290,7 @@ func (e *queryWithInterfaceListPointerFieldPartialDataError) PartialData() *quer
 
 func queryWithInterfaceListPointerField(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithInterfaceListPointerFieldVariables,
 ) (*queryWithInterfaceListPointerFieldResponse, error) {
 	var response queryWithInterfaceListPointerFieldResponse
@@ -5343,7 +5347,7 @@ func (e *queryWithInterfaceNoFragmentsPartialDataError) PartialData() *queryWith
 
 func queryWithInterfaceNoFragments(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithInterfaceNoFragmentsVariables,
 ) (*queryWithInterfaceNoFragmentsResponse, error) {
 	var response queryWithInterfaceNoFragmentsResponse
@@ -5400,7 +5404,7 @@ func (e *queryWithNamedFragmentsPartialDataError) PartialData() *queryWithNamedF
 
 func queryWithNamedFragments(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithNamedFragmentsVariables,
 ) (*queryWithNamedFragmentsResponse, error) {
 	var response queryWithNamedFragmentsResponse
@@ -5457,7 +5461,7 @@ func (e *queryWithOmitemptyPartialDataError) PartialData() *queryWithOmitemptyRe
 
 func queryWithOmitempty(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithOmitemptyVariables,
 ) (*queryWithOmitemptyResponse, error) {
 	var response queryWithOmitemptyResponse
@@ -5514,7 +5518,7 @@ func (e *queryWithSearchPartialDataError) PartialData() *queryWithSearchResponse
 
 func queryWithSearch(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithSearchVariables,
 ) (*queryWithSearchResponse, error) {
 	var response queryWithSearchResponse
@@ -5571,7 +5575,7 @@ func (e *queryWithVariablesPartialDataError) PartialData() *queryWithVariablesRe
 
 func queryWithVariables(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars queryWithVariablesVariables,
 ) (*queryWithVariablesResponse, error) {
 	var response queryWithVariablesResponse
@@ -5628,7 +5632,7 @@ func (e *removeStarPartialDataError) PartialData() *removeStarResponse {
 
 func removeStar(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars removeStarVariables,
 ) (*removeStarResponse, error) {
 	var response removeStarResponse
