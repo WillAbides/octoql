@@ -1,0 +1,6 @@
+query FlattenField {
+  # @octoqlgen(flatten: true)
+  t {
+    f
+  }
+}
