@@ -1,0 +1,28 @@
+schema {
+  query: Query
+}
+
+scalar BigInt
+scalar DateTime
+scalar URI
+
+interface Actor {
+  login: String!
+  url: URI!
+}
+
+type Bot implements Actor {
+  login: String!
+  url: URI!
+}
+
+type Review {
+  fullDatabaseId: BigInt!
+  createdAt: DateTime!
+  author: Actor
+  editor: Actor
+}
+
+type Query {
+  review: Review!
+}
