@@ -16,7 +16,15 @@ import (
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
 	"github.com/willabides/octoql/internal/generate"
+	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
 	yamlv3 "gopkg.in/yaml.v3"
+)
+
+const (
+	rawSchemaBaseURL     = "https://raw.githubusercontent.com/WillAbides/octoql/"
+	mainConfigSchemaURL  = rawSchemaBaseURL + "main/octoqlgen.schema.yaml"
+	releaseSchemaBaseURL = "https://github.com/WillAbides/octoql/releases/download/"
 )
 
 type commandTree struct {
@@ -47,9 +55,10 @@ type remoteResolver interface {
 }
 
 type initCommand struct {
-	context  context.Context
-	resolver remoteResolver
-	stdout   io.Writer
+	context         context.Context
+	resolver        remoteResolver
+	stdout          io.Writer
+	configSchemaURL string
 
 	ConfigPath    string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path for the new octoqlgen configuration.'"`
 	SchemaVersion string `kong:"name='schema-version',default='fpt',placeholder='VERSION',help='GitHub Docs schema version (fpt, ghec, or ghes-X.Y). Defaults to fpt.'"`
@@ -93,6 +102,7 @@ func (cmd *initCommand) Run() (err error) {
 	if err != nil {
 		return fmt.Errorf("encoding generated config: %w", err)
 	}
+	configBytes = config.SetSchemaDirective(configBytes, cmd.configSchemaURL)
 	_, err = config.Parse(configBytes)
 	if err != nil {
 		return fmt.Errorf("validating generated config: %w", err)
@@ -235,11 +245,12 @@ func createFileNoReplace(destination string, data []byte) (err error) {
 }
 
 type schemaUpdateCommand struct {
-	context      context.Context
-	loadConfig   func(string) (*config.Config, error)
-	resolver     remoteResolver
-	outputWriter outputWriter
-	stdout       io.Writer
+	context         context.Context
+	loadConfig      func(string) (*config.Config, error)
+	resolver        remoteResolver
+	outputWriter    outputWriter
+	stdout          io.Writer
+	configSchemaURL string
 
 	Config string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path to an octoqlgen configuration file.'"`
 }
@@ -275,7 +286,32 @@ func (cmd *schemaUpdateCommand) Run() error {
 		return fmt.Errorf("reading configured schema: %w", err)
 	}
 	currentHash := fmt.Sprintf("%x", sha256.Sum256(originalSchema.data))
-	if originalSchema.exists && currentHash == result.SHA256 && loaded.Schema.SHA256Value() == result.SHA256 {
+	schemaUnchanged := originalSchema.exists && currentHash == result.SHA256
+	pinsUnchanged := loaded.Schema.SHA256Value() == result.SHA256 &&
+		sourceRevision(source) == result.Revision
+	if schemaUnchanged && pinsUnchanged {
+		updatedConfig := config.SetSchemaDirective(rawConfig, cmd.configSchemaURL)
+		_, err = config.Parse(updatedConfig)
+		if err != nil {
+			return fmt.Errorf("validating updated config: %w", err)
+		}
+		if !bytes.Equal(rawConfig, updatedConfig) {
+			currentConfig, readErr := os.ReadFile(configPath)
+			if readErr != nil {
+				return fmt.Errorf("checking config before update: %w", readErr)
+			}
+			if !bytes.Equal(currentConfig, rawConfig) {
+				return errors.New("config changed while updating schema")
+			}
+			writeErr := cmd.outputWriter.Write(configPath, updatedConfig)
+			if writeErr != nil {
+				return fmt.Errorf("config update failed: %w", writeErr)
+			}
+			_, loadErr := cmd.loadConfig(userConfigPath)
+			if loadErr != nil {
+				return fmt.Errorf("validating published config: %w", loadErr)
+			}
+		}
 		_, outputErr := fmt.Fprintln(cmd.stdout, "schema is unchanged")
 		return outputErr
 	}
@@ -283,6 +319,7 @@ func (cmd *schemaUpdateCommand) Run() error {
 	if err != nil {
 		return err
 	}
+	updatedConfig = config.SetSchemaDirective(updatedConfig, cmd.configSchemaURL)
 	_, err = config.Parse(updatedConfig)
 	if err != nil {
 		return fmt.Errorf("validating updated config: %w", err)
@@ -430,14 +467,16 @@ type outputWriter interface {
 }
 
 type Dependencies struct {
-	Context        context.Context
-	Stdout         io.Writer
-	Stderr         io.Writer
-	Generate       func(*generate.Config) (map[string][]byte, error)
-	LoadConfig     func(string) (*config.Config, error)
-	Materializer   materializer
-	RemoteResolver remoteResolver
-	OutputWriter   outputWriter
+	Context              context.Context
+	Stdout               io.Writer
+	Stderr               io.Writer
+	Generate             func(*generate.Config) (map[string][]byte, error)
+	LoadConfig           func(string) (*config.Config, error)
+	Materializer         materializer
+	RemoteResolver       remoteResolver
+	OutputWriter         outputWriter
+	ConfigSchemaRevision string
+	configSchemaURL      string
 }
 
 func Run(args []string, version string, dependencies *Dependencies) error {
@@ -445,6 +484,7 @@ func Run(args []string, version string, dependencies *Dependencies) error {
 		dependencies = &Dependencies{}
 	}
 	dependencies.setDefaults()
+	dependencies.configSchemaURL = configSchemaURL(version, dependencies.ConfigSchemaRevision)
 	command := newCommandTree(dependencies)
 	parser, err := newParser(
 		command,
@@ -487,9 +527,10 @@ func newCommandTree(dependencies *Dependencies) *commandTree {
 			outputWriter: dependencies.OutputWriter,
 		},
 		Init: initCommand{
-			context:  dependencies.Context,
-			resolver: dependencies.RemoteResolver,
-			stdout:   dependencies.Stdout,
+			context:         dependencies.Context,
+			resolver:        dependencies.RemoteResolver,
+			stdout:          dependencies.Stdout,
+			configSchemaURL: dependencies.configSchemaURL,
 		},
 		Schema: schemaCommand{
 			Fetch: schemaFetchCommand{
@@ -500,14 +541,25 @@ func newCommandTree(dependencies *Dependencies) *commandTree {
 				stdout:       dependencies.Stdout,
 			},
 			Update: schemaUpdateCommand{
-				context:      dependencies.Context,
-				loadConfig:   dependencies.LoadConfig,
-				resolver:     dependencies.RemoteResolver,
-				outputWriter: dependencies.OutputWriter,
-				stdout:       dependencies.Stdout,
+				context:         dependencies.Context,
+				loadConfig:      dependencies.LoadConfig,
+				resolver:        dependencies.RemoteResolver,
+				outputWriter:    dependencies.OutputWriter,
+				stdout:          dependencies.Stdout,
+				configSchemaURL: dependencies.configSchemaURL,
 			},
 		},
 	}
+}
+
+func configSchemaURL(version, revision string) string {
+	if !semver.IsValid(version) || module.IsPseudoVersion(version) {
+		if revision != "" {
+			return rawSchemaBaseURL + revision + "/octoqlgen.schema.yaml"
+		}
+		return mainConfigSchemaURL
+	}
+	return releaseSchemaBaseURL + version + "/octoqlgen.schema.yaml"
 }
 
 func newParser(command *commandTree, version string, options ...kong.Option) (*kong.Kong, error) {

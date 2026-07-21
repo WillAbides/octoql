@@ -19,13 +19,14 @@ import (
 )
 
 const (
-	cliRevision     = "45d83f459620340069df7c375a8867be62616d61"
-	cliSHA256       = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
-	cliSchema       = "type Query { viewer: String }\n"
-	cliSchemaSHA256 = "76d5d8240ac50f1721905f16acfb5674556feab2da90eff33e82755bcf701dfb"
-	updatedRevision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	updatedSchema   = "type Query { repository: String }\n"
-	updatedSHA256   = "b082461f59dcec42fd647c52ea85b373f052a824814813d78b71d48c3fc47bc4"
+	cliRevision      = "45d83f459620340069df7c375a8867be62616d61"
+	cliSHA256        = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
+	cliSchema        = "type Query { viewer: String }\n"
+	cliSchemaSHA256  = "76d5d8240ac50f1721905f16acfb5674556feab2da90eff33e82755bcf701dfb"
+	updatedRevision  = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	updatedSchema    = "type Query { repository: String }\n"
+	updatedSHA256    = "b082461f59dcec42fd647c52ea85b373f052a824814813d78b71d48c3fc47bc4"
+	releaseSchemaURL = "https://github.com/WillAbides/octoql/releases/download/v1.2.3/octoqlgen.schema.yaml"
 )
 
 func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
@@ -174,11 +175,12 @@ func TestInitCommandRun(t *testing.T) {
 		},
 	}
 	command := initCommand{
-		ConfigPath:    configPath,
-		SchemaVersion: "fpt",
-		context:       t.Context(),
-		resolver:      resolver,
-		stdout:        &stdout,
+		ConfigPath:      configPath,
+		SchemaVersion:   "fpt",
+		configSchemaURL: releaseSchemaURL,
+		context:         t.Context(),
+		resolver:        resolver,
+		stdout:          &stdout,
 	}
 
 	err := command.Run()
@@ -190,7 +192,8 @@ func TestInitCommandRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(
 		t,
-		"schema:\n"+
+		"# yaml-language-server: $schema="+releaseSchemaURL+"\n\n"+
+			"schema:\n"+
 			"  path: .octoql/schema.graphql\n"+
 			"  sha256: "+cliSchemaSHA256+"\n"+
 			"  source:\n"+
@@ -211,6 +214,42 @@ func TestInitCommandRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, cliSchema, string(schemaContent))
 	assert.Equal(t, "created "+configPath+", "+schemaPath+", and "+gitignorePath+"\n", stdout.String())
+}
+
+func TestConfigSchemaURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		version  string
+		revision string
+		want     string
+	}{
+		{
+			name:    "release",
+			version: "v1.2.3",
+			want:    releaseSchemaURL,
+		},
+		{
+			name:    "development",
+			version: "dev",
+			want:    "https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml",
+		},
+		{
+			name:     "clean development build",
+			version:  "dev",
+			revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			want: "https://raw.githubusercontent.com/WillAbides/octoql/" +
+				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/octoqlgen.schema.yaml",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, test.want, configSchemaURL(test.version, test.revision))
+		})
+	}
 }
 
 func TestRunInitSchemaVersion(t *testing.T) {
@@ -403,7 +442,8 @@ func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 	err = os.WriteFile(
 		configPath,
 		[]byte(
-			"schema:\n"+
+			"# yaml-language-server: $schema=https://example.com/old.yaml\n\n"+
+				"schema:\n"+
 				"  path: schema.graphql\n"+
 				"  sha256: "+cliSchemaSHA256+"\n"+
 				"  source:\n"+
@@ -424,12 +464,13 @@ func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 		},
 	}
 	command := schemaUpdateCommand{
-		Config:       configPath,
-		context:      t.Context(),
-		loadConfig:   config.Load,
-		resolver:     resolver,
-		outputWriter: atomicOutputWriter{},
-		stdout:       io.Discard,
+		Config:          configPath,
+		configSchemaURL: releaseSchemaURL,
+		context:         t.Context(),
+		loadConfig:      config.Load,
+		resolver:        resolver,
+		outputWriter:    atomicOutputWriter{},
+		stdout:          io.Discard,
 	}
 
 	err = command.Run()
@@ -444,6 +485,59 @@ func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 	schemaContent, err := os.ReadFile(schemaPath)
 	require.NoError(t, err)
 	assert.Equal(t, updatedSchema, string(schemaContent))
+	configContent, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
+}
+
+func TestSchemaUpdateCommandRefreshesDirectiveWhenSchemaIsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "octoqlgen.yaml")
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	err := os.WriteFile(schemaPath, []byte(cliSchema), 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(
+		configPath,
+		[]byte(
+			"# yaml-language-server: $schema=https://example.com/old.yaml\n\n"+
+				"schema:\n"+
+				"  path: schema.graphql\n"+
+				"  sha256: &checksum "+cliSchemaSHA256+"\n"+
+				"  source:\n"+
+				"    repository: github/docs\n"+
+				"    path: src/graphql/data/fpt/schema.docs.graphql\n"+
+				"    revision: &revision "+cliRevision+"\n"+
+				"operations: []\n"+
+				"generated: generated.go\n",
+		),
+		0o600,
+	)
+	require.NoError(t, err)
+	var stdout bytes.Buffer
+	command := schemaUpdateCommand{
+		Config:          configPath,
+		configSchemaURL: releaseSchemaURL,
+		context:         t.Context(),
+		loadConfig:      config.Load,
+		resolver: &stubRemoteResolver{
+			result: schema.RemoteResult{
+				Revision: cliRevision,
+				SHA256:   cliSchemaSHA256,
+				Data:     []byte(cliSchema),
+			},
+		},
+		outputWriter: atomicOutputWriter{},
+		stdout:       &stdout,
+	}
+
+	err = command.Run()
+	require.NoError(t, err)
+	configContent, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
+	assert.Equal(t, "schema is unchanged\n", stdout.String())
 }
 
 func TestHelpSnapshots(t *testing.T) {

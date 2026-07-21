@@ -334,6 +334,49 @@ func TestUpdatePinPreservesUnrelatedFormatting(t *testing.T) {
 	)
 }
 
+func TestSetSchemaDirective(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{
+			name:    "adds directive",
+			content: "schema:\n  path: schema.graphql\n",
+			want: "# yaml-language-server: $schema=https://example.com/octoqlgen.schema.yaml\n\n" +
+				"schema:\n  path: schema.graphql\n",
+		},
+		{
+			name: "updates directive",
+			content: "# yaml-language-server: $schema=https://example.com/old.yaml\n\n" +
+				"# keep this comment\nschema:\n  path: schema.graphql\n",
+			want: "# yaml-language-server: $schema=https://example.com/octoqlgen.schema.yaml\n\n" +
+				"# keep this comment\nschema:\n  path: schema.graphql\n",
+		},
+		{
+			name: "preserves CRLF",
+			content: "# yaml-language-server: $schema=https://example.com/old.yaml\r\n\r\n" +
+				"schema:\r\n  path: schema.graphql\r\n",
+			want: "# yaml-language-server: $schema=https://example.com/octoqlgen.schema.yaml\r\n\r\n" +
+				"schema:\r\n  path: schema.graphql\r\n",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			updated := SetSchemaDirective(
+				[]byte(test.content),
+				"https://example.com/octoqlgen.schema.yaml",
+			)
+			assert.Equal(t, test.want, string(updated))
+		})
+	}
+}
+
 func TestUpdatePinRejectsSharedAlias(t *testing.T) {
 	t.Parallel()
 

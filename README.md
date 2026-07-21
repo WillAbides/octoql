@@ -65,27 +65,7 @@ go tool octoqlgen init --schema-version ghec
 go tool octoqlgen init --schema-version ghes-3.21
 ```
 
-Add the JSON Schema directive to the generated `octoqlgen.yaml` for editor
-completion and validation. The initialized schema configuration has this form:
-
-```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml
-
-schema:
-  path: .octoql/schema.graphql
-  sha256: c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
-  source:
-    repository: github/docs
-    path: src/graphql/data/fpt/schema.docs.graphql
-    revision: 45d83f459620340069df7c375a8867be62616d61
-operations:
-  - graphql/**/*.graphql
-generated: internal/githubapi/generated.go
-```
-
-Repository checkouts can use
-`# yaml-language-server: $schema=./octoqlgen.schema.yaml` instead. All paths and
-globs are relative to `octoqlgen.yaml`. See
+All paths and globs in `octoqlgen.yaml` are relative to that file. See
 [`docs/octoqlgen.yaml`](docs/octoqlgen.yaml) for local schemas, other remote
 sources, and every configuration option.
 
