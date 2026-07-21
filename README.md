@@ -290,6 +290,19 @@ if err == nil {
 }
 ```
 
+> [!IMPORTANT]
+> A generated helper returns a nil response whenever its error is non-nil, even
+> when GitHub returned decodable, non-null partial GraphQL data. Do not expect
+> the regular `response` result to contain partial data. Instead, use
+> `errors.AsType` to extract the operation-specific partial-data error:
+
+```go
+partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
+if ok {
+	fmt.Printf("partial repository: %+v\n", partialErr.PartialData().Repository)
+}
+```
+
 Each `*octoql.Error` retains `Type`, `Message`, `Path`, `Locations`, and its own
 `Extensions`. `Error.Type` is an open string type so new GitHub values remain
 available without a runtime update.
