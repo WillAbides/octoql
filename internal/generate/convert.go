@@ -112,6 +112,16 @@ func (g *generator) convertOperation(
 		return nil, err
 	}
 
+	// It's uncommon to spread a fragment across the whole operation, but doing
+	// so allows multiple operations to return the same generated type.
+	if queryOptions.GetFlatten() {
+		fieldIndex, flattenErr := validateFlattenOption(
+			baseType, operation.SelectionSet, operation.Position)
+		if flattenErr == nil {
+			return fields[fieldIndex].GoType, nil
+		}
+	}
+
 	goType := &goStructType{
 		GoName: name,
 		descriptionInfo: descriptionInfo{
@@ -429,6 +439,12 @@ func (g *generator) convertDefinition(
 		if err != nil {
 			return nil, err
 		}
+		if options.GetFlatten() {
+			fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
+			if flattenErr == nil {
+				return fields[fieldIndex].GoType, nil
+			}
+		}
 		goType := &goStructType{
 			GoName:          name,
 			Fields:          fields,
@@ -511,6 +527,14 @@ func (g *generator) convertDefinition(
 			namePrefix, selectionSet, def, queryOptions)
 		if err != nil {
 			return nil, err
+		}
+		// Flattening an abstract selection is valid only when its single
+		// fragment spread applies to the whole abstract type.
+		if options.GetFlatten() {
+			fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
+			if flattenErr == nil {
+				return sharedFields[fieldIndex].GoType, nil
+			}
 		}
 		implementationTypes := g.schema.GetPossibleTypes(def)
 		// Make sure we generate stable output by sorting the types by name when we get them
@@ -1033,6 +1057,13 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 		newPrefixList(fragment.Name), fragment.SelectionSet, typ, directive)
 	if err != nil {
 		return nil, err
+	}
+	if directive.GetFlatten() {
+		fieldIndex, flattenErr := validateFlattenOption(
+			typ, fragment.SelectionSet, fragment.Position)
+		if flattenErr == nil {
+			return fields[fieldIndex].GoType, nil
+		}
 	}
 	switch typ.Kind {
 	case ast.Object:
