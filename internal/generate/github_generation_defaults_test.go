@@ -337,6 +337,34 @@ func TestNullClearsReusedAbstractField(t *testing.T) {
 		t.Fatalf("node = %#v after null", response.Node)
 	}
 }
+
+func TestTypedNilAbstractValuesMarshalAsNull(t *testing.T) {
+	tests := []struct {
+		name string
+		node RuntimeAbstractsNode
+	}{
+		{
+			name: "implementation",
+			node: (*RuntimeAbstractsNodeRepository)(nil),
+		},
+		{
+			name: "catch-all implementation",
+			node: (*RuntimeAbstractsNodeOctoqlOther)(nil),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := __marshalRuntimeAbstractsNode(&test.node)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != "null" {
+				t.Fatalf("marshal result = %s, want null", data)
+			}
+		})
+	}
+}
 `)
 
 	runGeneratedPackageTests(t, []byte(source), testSource)

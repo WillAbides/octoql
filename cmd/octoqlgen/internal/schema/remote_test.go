@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -93,4 +94,25 @@ func TestMaterializerLatestRevision(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, revision, actual)
+}
+
+func TestMaterializerLatestRevisionRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	materializer := testGitHubMaterializer(httpClientFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("unexpected GitHub request")
+		return nil, nil
+	}))
+	matDeps := materializer.dependencies()
+
+	_, err := materializer.latestRevision(t.Context(), config.GithubRepository{
+		Repository: "octo-owner/octo-repository",
+		Path:       "schema.graphql",
+	}, &matDeps)
+
+	require.EqualError(
+		t,
+		err,
+		"github graphql authentication is required; set GH_TOKEN, GITHUB_TOKEN, or authenticate with gh",
+	)
 }

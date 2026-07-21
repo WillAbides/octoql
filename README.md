@@ -202,7 +202,10 @@ order:
 1. `GH_TOKEN`
 2. `GITHUB_TOKEN`
 3. `gh auth token --hostname <host>`
-4. anonymous access when no token is available
+
+GitHub GraphQL requires authentication, including for public repositories.
+Materialization and updates fail with guidance when none of these token sources
+is available.
 
 `schema materialize` verifies an existing file or fetches a missing remote file.
 It never changes `octoqlgen.yaml`:

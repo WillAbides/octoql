@@ -186,30 +186,45 @@ func __unmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 func __marshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 
 	var typename string
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *GetNodeNodeIssue:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeIssue
-		}{typename, v}
+		}{
+			TypeName:         typename,
+			GetNodeNodeIssue: vv,
+		}
 		return json.Marshal(result)
 	case *GetNodeNodeRepository:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Repository"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeRepository
-		}{typename, v}
+		}{
+			TypeName:              typename,
+			GetNodeNodeRepository: vv,
+		}
 		return json.Marshal(result)
 	case *GetNodeNodeOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for GetNodeNode: "%T"`, v)
+			`unexpected concrete type for GetNodeNode: "%T"`, vv)
 	}
 }
 
@@ -615,30 +630,45 @@ func __unmarshalSearchSearchSearchResultItem(b []byte, v *SearchSearchSearchResu
 func __marshalSearchSearchSearchResultItem(v *SearchSearchSearchResultItem) ([]byte, error) {
 
 	var typename string
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *SearchSearchIssue:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*SearchSearchIssue
-		}{typename, v}
+		}{
+			TypeName:          typename,
+			SearchSearchIssue: vv,
+		}
 		return json.Marshal(result)
 	case *SearchSearchRepository:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Repository"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*SearchSearchRepository
-		}{typename, v}
+		}{
+			TypeName:               typename,
+			SearchSearchRepository: vv,
+		}
 		return json.Marshal(result)
 	case *SearchSearchSearchResultItemOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for SearchSearchSearchResultItem: "%T"`, v)
+			`unexpected concrete type for SearchSearchSearchResultItem: "%T"`, vv)
 	}
 }
 

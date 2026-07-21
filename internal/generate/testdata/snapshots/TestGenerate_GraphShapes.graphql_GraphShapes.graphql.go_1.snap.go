@@ -51,14 +51,17 @@ func __unmarshalActorDetails(b []byte, v *ActorDetails) error {
 
 func __marshalActorDetails(v *ActorDetails) ([]byte, error) {
 
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *ActorDetailsOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for ActorDetails: "%T"`, v)
+			`unexpected concrete type for ActorDetails: "%T"`, vv)
 	}
 }
 
@@ -133,57 +136,84 @@ func __unmarshalGetActorActor(b []byte, v *GetActorActor) error {
 func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
 
 	var typename string
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *GetActorActorBot:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Bot"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalGetActorActorBot
-		}{typename, premarshaled}
+		}{
+			TypeName:                     typename,
+			__premarshalGetActorActorBot: premarshaled,
+		}
 		return json.Marshal(result)
 	case *GetActorActorEnterpriseUserAccount:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "EnterpriseUserAccount"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalGetActorActorEnterpriseUserAccount
-		}{typename, premarshaled}
+		}{
+			TypeName: typename,
+			__premarshalGetActorActorEnterpriseUserAccount: premarshaled,
+		}
 		return json.Marshal(result)
 	case *GetActorActorOrganization:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Organization"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalGetActorActorOrganization
-		}{typename, premarshaled}
+		}{
+			TypeName:                              typename,
+			__premarshalGetActorActorOrganization: premarshaled,
+		}
 		return json.Marshal(result)
 	case *GetActorActorUser:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "User"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalGetActorActorUser
-		}{typename, premarshaled}
+		}{
+			TypeName:                      typename,
+			__premarshalGetActorActorUser: premarshaled,
+		}
 		return json.Marshal(result)
 	case *GetActorActorOctoqlOther:
-		premarshaled, err := v.__premarshalJSON()
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +222,7 @@ func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for GetActorActor: "%T"`, v)
+			`unexpected concrete type for GetActorActor: "%T"`, vv)
 	}
 }
 
@@ -578,45 +608,66 @@ func __unmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwner) er
 func __marshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error) {
 
 	var typename string
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *GetActorRepositoryOwnerEnterpriseUserAccount:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "EnterpriseUserAccount"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalGetActorRepositoryOwnerEnterpriseUserAccount
-		}{typename, premarshaled}
+		}{
+			TypeName: typename,
+			__premarshalGetActorRepositoryOwnerEnterpriseUserAccount: premarshaled,
+		}
 		return json.Marshal(result)
 	case *GetActorRepositoryOwnerOrganization:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Organization"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalGetActorRepositoryOwnerOrganization
-		}{typename, premarshaled}
+		}{
+			TypeName: typename,
+			__premarshalGetActorRepositoryOwnerOrganization: premarshaled,
+		}
 		return json.Marshal(result)
 	case *GetActorRepositoryOwnerUser:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "User"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalGetActorRepositoryOwnerUser
-		}{typename, premarshaled}
+		}{
+			TypeName:                                typename,
+			__premarshalGetActorRepositoryOwnerUser: premarshaled,
+		}
 		return json.Marshal(result)
 	case *GetActorRepositoryOwnerOctoqlOther:
-		premarshaled, err := v.__premarshalJSON()
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
@@ -625,7 +676,7 @@ func __marshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for GetActorRepositoryOwner: "%T"`, v)
+			`unexpected concrete type for GetActorRepositoryOwner: "%T"`, vv)
 	}
 }
 
@@ -1116,54 +1167,87 @@ func __unmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 func __marshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 
 	var typename string
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *GetNodeNodeIssue:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeIssue
-		}{typename, v}
+		}{
+			TypeName:         typename,
+			GetNodeNodeIssue: vv,
+		}
 		return json.Marshal(result)
 	case *GetNodeNodeOrganization:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Organization"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeOrganization
-		}{typename, v}
+		}{
+			TypeName:                typename,
+			GetNodeNodeOrganization: vv,
+		}
 		return json.Marshal(result)
 	case *GetNodeNodePullRequest:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "PullRequest"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodePullRequest
-		}{typename, v}
+		}{
+			TypeName:               typename,
+			GetNodeNodePullRequest: vv,
+		}
 		return json.Marshal(result)
 	case *GetNodeNodeRepository:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Repository"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeRepository
-		}{typename, v}
+		}{
+			TypeName:              typename,
+			GetNodeNodeRepository: vv,
+		}
 		return json.Marshal(result)
 	case *GetNodeNodeUser:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "User"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeUser
-		}{typename, v}
+		}{
+			TypeName:        typename,
+			GetNodeNodeUser: vv,
+		}
 		return json.Marshal(result)
 	case *GetNodeNodeOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for GetNodeNode: "%T"`, v)
+			`unexpected concrete type for GetNodeNode: "%T"`, vv)
 	}
 }
 
@@ -1378,14 +1462,17 @@ func __unmarshalNestedNodeShapesNestedNodesNode(b []byte, v *NestedNodeShapesNes
 
 func __marshalNestedNodeShapesNestedNodesNode(v *NestedNodeShapesNestedNodesNode) ([]byte, error) {
 
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *NestedNodeShapesNestedNodesNodeOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for NestedNodeShapesNestedNodesNode: "%T"`, v)
+			`unexpected concrete type for NestedNodeShapesNestedNodesNode: "%T"`, vv)
 	}
 }
 
@@ -1815,21 +1902,30 @@ func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(b []b
 func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) ([]byte, error) {
 
 	var typename string
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEvent:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "RepositoryEvent"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalRepositoryEventCovarianceLatestRepositoryEvent
-		}{typename, premarshaled}
+		}{
+			TypeName: typename,
+			__premarshalRepositoryEventCovarianceLatestRepositoryEvent: premarshaled,
+		}
 		return json.Marshal(result)
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther:
-		premarshaled, err := v.__premarshalJSON()
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
@@ -1838,7 +1934,7 @@ func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v *Repo
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItem: "%T"`, v)
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItem: "%T"`, vv)
 	}
 }
 
@@ -2030,14 +2126,17 @@ func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelate
 
 func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) ([]byte, error) {
 
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNodeOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode: "%T"`, v)
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode: "%T"`, vv)
 	}
 }
 
@@ -2097,14 +2196,17 @@ func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjec
 
 func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) ([]byte, error) {
 
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNodeOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode: "%T"`, v)
+			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode: "%T"`, vv)
 	}
 }
 
@@ -2241,14 +2343,17 @@ func __unmarshalRepositoryOwnerDetails(b []byte, v *RepositoryOwnerDetails) erro
 
 func __marshalRepositoryOwnerDetails(v *RepositoryOwnerDetails) ([]byte, error) {
 
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *RepositoryOwnerDetailsOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for RepositoryOwnerDetails: "%T"`, v)
+			`unexpected concrete type for RepositoryOwnerDetails: "%T"`, vv)
 	}
 }
 
@@ -2734,14 +2839,17 @@ func __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwn
 
 func __marshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) ([]byte, error) {
 
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwnerOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner: "%T"`, v)
+			`unexpected concrete type for SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner: "%T"`, vv)
 	}
 }
 
@@ -2828,42 +2936,63 @@ func __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultI
 func __marshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) ([]byte, error) {
 
 	var typename string
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *SearchRepositoriesSearchSearchResultConnectionNodesIssue:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*SearchRepositoriesSearchSearchResultConnectionNodesIssue
-		}{typename, v}
+		}{
+			TypeName: typename,
+			SearchRepositoriesSearchSearchResultConnectionNodesIssue: vv,
+		}
 		return json.Marshal(result)
 	case *SearchRepositoriesSearchSearchResultConnectionNodesPullRequest:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "PullRequest"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*SearchRepositoriesSearchSearchResultConnectionNodesPullRequest
-		}{typename, v}
+		}{
+			TypeName: typename,
+			SearchRepositoriesSearchSearchResultConnectionNodesPullRequest: vv,
+		}
 		return json.Marshal(result)
 	case *SearchRepositoriesSearchSearchResultConnectionNodesRepository:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Repository"
 
-		premarshaled, err := v.__premarshalJSON()
+		premarshaled, err := vv.__premarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository
-		}{typename, premarshaled}
+		}{
+			TypeName: typename,
+			__premarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository: premarshaled,
+		}
 		return json.Marshal(result)
 	case *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItemOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem: "%T"`, v)
+			`unexpected concrete type for SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem: "%T"`, vv)
 	}
 }
 

@@ -198,22 +198,31 @@ func __unmarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(b []byte, 
 func __marshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(v *LatestCommitRepositoryDefaultBranchRefTargetGitObject) ([]byte, error) {
 
 	var typename string
-	switch v := (*v).(type) {
+	switch vv := (*v).(type) {
 	case *LatestCommitRepositoryDefaultBranchRefTargetCommit:
+		if vv == nil {
+			return []byte("null"), nil
+		}
 		typename = "Commit"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*LatestCommitRepositoryDefaultBranchRefTargetCommit
-		}{typename, v}
+		}{
+			TypeName: typename,
+			LatestCommitRepositoryDefaultBranchRefTargetCommit: vv,
+		}
 		return json.Marshal(result)
 	case *LatestCommitRepositoryDefaultBranchRefTargetGitObjectOctoqlOther:
-		return json.Marshal(v)
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
 	case nil:
 		return []byte("null"), nil
 	default:
 		return nil, fmt.Errorf(
-			`unexpected concrete type for LatestCommitRepositoryDefaultBranchRefTargetGitObject: "%T"`, v)
+			`unexpected concrete type for LatestCommitRepositoryDefaultBranchRefTargetGitObject: "%T"`, vv)
 	}
 }
 

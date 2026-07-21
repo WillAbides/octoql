@@ -111,14 +111,17 @@ func (m *Materializer) latestRevision(
 	if err != nil {
 		return "", err
 	}
+	if token == "" {
+		return "", errors.New(
+			"github graphql authentication is required; set GH_TOKEN, GITHUB_TOKEN, or authenticate with gh",
+		)
+	}
 	client := octoql.NewClient(deps.githubGraphQLEndpoint(host), &http.Client{
 		Transport: httpClientTransport{client: deps.httpClient},
 	})
-	if token != "" {
-		err = client.SetBearerToken(token)
-		if err != nil {
-			return "", fmt.Errorf("configuring github graphql authentication: %w", err)
-		}
+	err = client.SetBearerToken(token)
+	if err != nil {
+		return "", fmt.Errorf("configuring github graphql authentication: %w", err)
 	}
 
 	result, err := githubapi.LatestCommit(ctx, client, githubapi.LatestCommitVariables{

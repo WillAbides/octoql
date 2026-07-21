@@ -19,6 +19,16 @@ import (
 	gqlserver "github.com/willabides/octoql/internal/integration/server"
 )
 
+func TestTypedNilPremarshaledAbstractValueMarshalsAsNull(t *testing.T) {
+	var organization *queryWithFragmentsActorsOrganization
+	var actor queryWithFragmentsActorsActor = organization
+
+	data, err := __marshalqueryWithFragmentsActorsActor(&actor)
+
+	require.NoError(t, err)
+	assert.JSONEq(t, "null", string(data))
+}
+
 func TestGetRepository(t *testing.T) {
 	_ = `# @octoqlgen
 	query getRepository($owner: String!, $name: String!) {
