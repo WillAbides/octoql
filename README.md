@@ -13,17 +13,6 @@ octoql is a standalone project derived from
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for exact source pins and
 attribution.
 
-## Contents
-
-- [Requirements and installation](#requirements-and-installation)
-- [Generate a client](#generate-a-client)
-- [Schema sources and updates](#schema-sources-and-updates)
-- [Call the generated client](#call-the-generated-client)
-- [Runtime responses and errors](#runtime-responses-and-errors)
-- [Generated types and GitHub defaults](#generated-types-and-github-defaults)
-- [Typed test handlers](#typed-test-handlers)
-- [Reference](#reference)
-
 ## Requirements and installation
 
 octoql requires Go 1.26 or newer. Add the runtime and pin `octoqlgen` as a Go
@@ -34,23 +23,23 @@ go get github.com/willabides/octoql
 go get -tool github.com/willabides/octoql/cmd/octoqlgen
 ```
 
-Run the pinned tool with `go tool octoqlgen`. To install a standalone binary
-from a release archive with [bindown](https://github.com/WillAbides/bindown):
+Run the pinned tool with `go tool octoqlgen`. The Go tool dependency is the
+recommended installation because the runtime and generator then resolve from the
+same module version.
+
+For a standalone binary, install a release archive with
+[bindown](https://github.com/WillAbides/bindown):
 
 ```sh
 bindown template-source add octoql https://github.com/WillAbides/octoql/releases/latest/download/bindown.yaml
 bindown dependency add octoqlgen --source octoql
 ```
 
-To install the standalone binary from source instead, use an explicit version or
-commit:
+Or build a standalone binary from source with an explicit version or commit:
 
 ```sh
 go install github.com/willabides/octoql/cmd/octoqlgen@<version-or-commit>
 ```
-
-The Go tool dependency remains the recommended installation because the runtime
-and generator then resolve from the same module version.
 
 ## Generate a client
 
@@ -117,102 +106,27 @@ writes code. Query and mutation operation names become generated helper names,
 so use an uppercase name when the helper must be exported. octoql does not
 support GraphQL subscriptions, and `octoqlgen` rejects subscription operations.
 
-`operations` may also select Go files. A string literal beginning with
-`# @octoqlgen` is parsed as an operation:
-
-```go
-const getViewerQuery = `# @octoqlgen
-query GetViewer {
-  viewer {
-    login
-  }
-}
-`
-```
-
-Use the `@octoqlgen` comment quasi-directive for per-operation options such as
-`pointer`, `omitempty`, `flatten`, `bind`, and `typename`. See the
-[directive reference](docs/octoqlgen_directive.graphql). It is written in a
-comment because server-defined GraphQL directives cannot configure the client
-generator.
+Operations may also be embedded in Go string literals. See the
+[directive reference](docs/octoqlgen_directive.graphql) for embedded operations
+and per-operation options.
 
 ## Schema sources and updates
 
 `schema.path` is always the schema used for generation. Keep it in the
 gitignored `.octoql` directory when the source is remote. A local schema needs
-no source:
+only its path:
 
 ```yaml
 schema:
   path: schema/github.graphql
 ```
 
-For a local schema, `sha256` is optional. When present, materialization verifies
-it. Remote sources require a SHA-256 digest and, for GitHub sources, a full
-commit SHA. Configure exactly one source variant.
+Remote sources require a SHA-256 digest and, for GitHub sources, a full commit
+SHA. GitHub Docs and repository sources use `GH_TOKEN`, `GITHUB_TOKEN`, or
+`gh auth token`. See the [configuration reference](docs/octoqlgen.yaml) for
+GitHub repository, GHES, and immutable URL sources.
 
-### GitHub Docs
-
-Use `fpt`, `ghec`, or a GHES version such as `ghes-3.17`:
-
-```yaml
-schema:
-  path: .octoql/schema.graphql
-  sha256: "<64-character-schema-sha256>"
-  source:
-    github_docs:
-      version: fpt
-      revision: "<full-github-docs-commit-sha>"
-```
-
-### GitHub repository or GHES
-
-Pin a schema file in a GitHub repository. Add `host` for GitHub Enterprise
-Server:
-
-```yaml
-schema:
-  path: .octoql/schema.graphql
-  sha256: "<64-character-schema-sha256>"
-  source:
-    github_repository:
-      repository: octo-org/graphql-schema
-      revision: "<full-commit-sha>"
-      path: schema/github.graphql
-      host: github.example.com
-```
-
-Omit `host` for `github.com`.
-
-### Immutable URL
-
-```yaml
-schema:
-  path: .octoql/schema.graphql
-  sha256: "<64-character-schema-sha256>"
-  source:
-    url: https://schemas.example.com/github/<revision>/schema.graphql
-```
-
-Prefer a URL whose content is immutable. Materialization refuses bytes that do
-not match the configured digest and validates the GraphQL SDL before writing
-`schema.path`.
-
-### Authentication, verification, and updates
-
-For GitHub Docs and repository sources, authentication is discovered in this
-order:
-
-1. `GH_TOKEN`
-2. `GITHUB_TOKEN`
-3. `gh auth token --hostname <host>`
-
-GitHub GraphQL requires authentication, including for public repositories.
-Materialization and updates fail with guidance when none of these token sources
-is available.
-
-`schema materialize` verifies an existing file or fetches a missing remote file.
-It never changes `octoqlgen.yaml`:
+`schema materialize` verifies an existing file or fetches a missing remote file:
 
 ```sh
 go tool octoqlgen schema materialize
@@ -262,41 +176,19 @@ fmt.Println(response.Repository.NameWithOwner)
 Pass a different endpoint to `octoql.NewClient` for GHES, a proxy, or an
 `httptest.Server`. Pass nil as the HTTP client to use `http.DefaultClient`.
 
-`SetBearerToken` accepts tokens containing letters, digits, `-`, `.`, `_`, `~`,
-`+`, or `/`, with optional trailing `=` padding. For basic authentication or
-another authentication scheme, configure the `http.Client` or
-`http.RoundTripper` passed to `NewClient`.
+For basic authentication or another authentication scheme, configure the
+`http.Client` or `http.RoundTripper` passed to `NewClient`.
 
 ## Runtime responses and errors
 
 Generated helpers return a pointer to the concrete operation response and an
-error. On success, GraphQL data is available directly:
-
-```go
-response, err := githubapi.GetRepository(ctx, client, githubapi.GetRepositoryVariables{
-	Owner: owner,
-	Name:  name,
-	First: 10,
-})
-if err == nil {
-	fmt.Println(response.Repository.NameWithOwner)
-}
-```
-
-The response is nil when the error is non-nil. Sometimes GitHub will return
+error. The response is nil when the error is non-nil. Sometimes GitHub returns
 partial data with an error. Use `errors.AsType` to check for partial data:
 
 ```go
-_, err := githubapi.GetRepository(ctx, client, githubapi.GetRepositoryVariables{
-	Owner: owner,
-	Name:  name,
-	First: 10,
-})
-if err != nil {
-	partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
-	if ok {
-		fmt.Printf("partial repository: %+v\n", partialErr.PartialData().Repository)
-	}
+partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
+if ok {
+	fmt.Printf("partial repository: %+v\n", partialErr.PartialData().Repository)
 }
 ```
 
@@ -387,34 +279,8 @@ An expectation defaults to one call. Pass `Times(n)` to require exactly `n`,
 `Default<Operation>` is an unlimited fallback. Cleanup verifies unmet
 expectations, and expectation state is safe for concurrent requests.
 
-Partial data and errors, per-error extensions, headers, status, and rate limits
-are configurable:
-
-```go
-handler.ExpectGetRepository(variables).
-	WithOptions(
-		githubapitest.WithStatus(http.StatusForbidden),
-		githubapitest.WithHeader("X-GitHub-Request-ID", "request-123"),
-		githubapitest.WithPrimaryRateLimit(octoql.RateLimit{
-			Limit:     5000,
-			Remaining: 0,
-			Used:      5000,
-			Resource:  "graphql",
-		}),
-	).
-	RespondDataAndErrors(
-		partialData,
-		octoql.Error{
-			Type:       "FORBIDDEN",
-			Message:    "one field is unavailable",
-			Extensions: map[string]any{"code": "missing"},
-		},
-	)
-```
-
-`WithHeaders` replaces multiple headers. `WithSecondaryRateLimit` writes
-`Retry-After`. `RespondError` returns errors without data, and `Handle` provides
-complete control of the `http.ResponseWriter`.
+Expectations can also configure partial data, errors, headers, status, and rate
+limits.
 
 ## Reference
 
