@@ -12,6 +12,8 @@ import (
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/cli"
 )
 
+var buildVersion string
+
 func run(args []string, stdout, stderr io.Writer) error {
 	return cli.Run(args, version(), &cli.Dependencies{
 		Context: context.Background(),
@@ -29,6 +31,9 @@ func main() {
 }
 
 func version() string {
+	if buildVersion != "" {
+		return buildVersion
+	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return "dev"

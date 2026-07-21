@@ -65,8 +65,10 @@ go tool octoqlgen init --schema-version ghec
 go tool octoqlgen init --schema-version ghes-3.21
 ```
 
-Add the JSON Schema directive to the generated `octoqlgen.yaml` for editor
-completion and validation. The initialized schema configuration has this form:
+The generated `octoqlgen.yaml` includes a JSON Schema directive for editor
+completion and validation. Release builds point to the schema artifact from the
+same octoqlgen release; development builds point to the schema on `main`.
+A development build initializes this form:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml

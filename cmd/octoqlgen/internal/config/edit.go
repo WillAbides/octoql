@@ -9,6 +9,35 @@ import (
 	yamlv3 "gopkg.in/yaml.v3"
 )
 
+const schemaDirectivePrefix = "# yaml-language-server: $schema="
+
+// SetSchemaDirective adds or replaces the yaml-language-server schema directive.
+func SetSchemaDirective(content []byte, schemaURL string) []byte {
+	directive := []byte(schemaDirectivePrefix + schemaURL)
+	lines := bytes.SplitAfter(content, []byte("\n"))
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(string(line))
+		if !strings.HasPrefix(trimmed, schemaDirectivePrefix) {
+			continue
+		}
+		lineEnding := line[len(bytes.TrimRight(line, "\r\n")):]
+		lines[index] = append(append([]byte{}, directive...), lineEnding...)
+		return bytes.Join(lines, nil)
+	}
+
+	lineEnding := firstLineEnding(content)
+	prefix := append(append(append([]byte{}, directive...), lineEnding...), lineEnding...)
+	return append(prefix, content...)
+}
+
+func firstLineEnding(content []byte) []byte {
+	newline := bytes.IndexByte(content, '\n')
+	if newline > 0 && content[newline-1] == '\r' {
+		return []byte("\r\n")
+	}
+	return []byte("\n")
+}
+
 // UpdatePin preserves the original YAML while replacing only schema checksum
 // and an applicable remote revision.
 func UpdatePin(content []byte, sha256, revision string) ([]byte, error) {
