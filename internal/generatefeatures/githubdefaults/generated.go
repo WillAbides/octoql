@@ -9,6 +9,10 @@ import (
 	"github.com/willabides/octoql"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // GetReviewResponse is returned by GetReview on success.
 type GetReviewResponse struct {
 	Review GetReviewReview `json:"review"`
@@ -101,7 +105,7 @@ func (e *GetReviewPartialDataError) PartialData() *GetReviewResponse {
 
 func GetReview(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*GetReviewResponse, error) {
 	var response GetReviewResponse
 	hasData, err := client.Execute(
