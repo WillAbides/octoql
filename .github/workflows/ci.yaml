@@ -115,6 +115,7 @@ jobs:
           create-release: true
           release-refs: main
           pre-tag-hook: script/release-hook
+          v0: true
       - name: add bindown template
         env:
           RELEASE_TAG: ${{ steps.release-train.outputs.release-tag }}
