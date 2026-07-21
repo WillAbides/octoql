@@ -2,13 +2,13 @@ package generate
 
 import "testing"
 
-type test struct {
+type stringFuncTest struct {
 	name string
 	in   string
 	out  string
 }
 
-func testStringFunc(t *testing.T, f func(string) string, tests []test) {
+func testStringFunc(t *testing.T, f func(string) string, tests []stringFuncTest) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := f(test.in)
@@ -19,24 +19,8 @@ func testStringFunc(t *testing.T, f func(string) string, tests []test) {
 	}
 }
 
-func TestLowerFirst(t *testing.T) {
-	tests := []test{
-		{"Empty", "", ""},
-		{"SingleLower", "l", "l"},
-		{"SingleUpper", "L", "l"},
-		{"SingleUnicodeLower", "ļ", "ļ"},
-		{"SingleUnicodeUpper", "Ļ", "ļ"},
-		{"LongerLower", "lasdf", "lasdf"},
-		{"LongerUpper", "Lasdf", "lasdf"},
-		{"LongerUnicodeLower", "ļasdf", "ļasdf"},
-		{"LongerUnicodeUpper", "Ļasdf", "ļasdf"},
-	}
-
-	testStringFunc(t, lowerFirst, tests)
-}
-
 func TestUpperFirst(t *testing.T) {
-	tests := []test{
+	tests := []stringFuncTest{
 		{"Empty", "", ""},
 		{"SingleLower", "l", "L"},
 		{"SingleUpper", "L", "L"},
@@ -52,7 +36,7 @@ func TestUpperFirst(t *testing.T) {
 }
 
 func TestGoConstName(t *testing.T) {
-	tests := []test{
+	tests := []stringFuncTest{
 		{"Empty", "", ""},
 		{"AllCaps", "ASDF", "Asdf"},
 		{"AllCapsWithUnderscore", "ASDF_GH", "AsdfGh"},

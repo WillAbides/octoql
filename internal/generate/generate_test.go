@@ -124,18 +124,43 @@ func generatedStringConstant(t *testing.T, source []byte, name string) string {
 // with `UPDATE_SNAPS=true`. Generated Go snapshots are compiled, so the test
 // verifies the snapshot rather than only the in-memory generated output.
 func TestGenerate(t *testing.T) {
-	for _, sourceFilename := range []string{
-		"GraphShapes.graphql",
-		"Naming.graphql",
-		"PredeclaredOperationNames.graphql",
+	for _, test := range []struct {
+		name               string
+		sourceFilenames    []string
+		checkQueryManifest bool
+	}{
+		{
+			name:               "GraphShapes.graphql",
+			sourceFilenames:    []string{"GraphShapes.graphql"},
+			checkQueryManifest: true,
+		},
+		{
+			name:            "Naming.graphql",
+			sourceFilenames: []string{"Naming.graphql"},
+		},
+		{
+			name:            "PredeclaredOperationNames.graphql",
+			sourceFilenames: []string{"PredeclaredOperationNames.graphql"},
+		},
+		{
+			name: "MultipleOperationFiles",
+			sourceFilenames: []string{
+				"Naming.graphql",
+				"PredeclaredOperationNames.graphql",
+			},
+		},
 	} {
-		goFilename := sourceFilename + ".go"
-		queriesFilename := sourceFilename + ".json"
+		goFilename := test.name + ".go"
+		queriesFilename := test.name + ".json"
+		operationFilenames := make([]string, 0, len(test.sourceFilenames))
+		for _, sourceFilename := range test.sourceFilenames {
+			operationFilenames = append(operationFilenames, filepath.Join(dataDir, sourceFilename))
+		}
 
-		t.Run(sourceFilename, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			generated, err := Generate(&Config{
 				Schema:           []string{filepath.Join(dataDir, "schema.graphql")},
-				Operations:       []string{filepath.Join(dataDir, sourceFilename)},
+				Operations:       operationFilenames,
 				Package:          "test",
 				Generated:        goFilename,
 				ExportOperations: queriesFilename,
@@ -148,7 +173,7 @@ func TestGenerate(t *testing.T) {
 
 			for filename, content := range generated {
 				t.Run(filename, func(t *testing.T) {
-					if filepath.Ext(filename) == ".json" && sourceFilename != "GraphShapes.graphql" {
+					if filepath.Ext(filename) == ".json" && !test.checkQueryManifest {
 						return
 					}
 					matchGeneratedSnapshot(t, filename, content)
