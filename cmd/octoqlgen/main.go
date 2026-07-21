@@ -7,18 +7,23 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
-	"strings"
 
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/cli"
+	"golang.org/x/mod/module"
 )
 
-var buildVersion string
+type buildMetadata struct {
+	version  string
+	revision string
+}
 
 func run(args []string, stdout, stderr io.Writer) error {
-	return cli.Run(args, version(), &cli.Dependencies{
-		Context: context.Background(),
-		Stdout:  stdout,
-		Stderr:  stderr,
+	metadata := currentBuildMetadata()
+	return cli.Run(args, metadata.version, &cli.Dependencies{
+		Context:              context.Background(),
+		Stdout:               stdout,
+		Stderr:               stderr,
+		ConfigSchemaRevision: metadata.revision,
 	})
 }
 
@@ -30,18 +35,42 @@ func main() {
 	}
 }
 
-func version() string {
-	if buildVersion != "" {
-		return buildVersion
-	}
+func currentBuildMetadata() buildMetadata {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return "dev"
+		return buildMetadata{version: "dev"}
+	}
+	return metadataFromBuildInfo(info)
+}
+
+func metadataFromBuildInfo(info *debug.BuildInfo) buildMetadata {
+	metadata := buildMetadata{version: "dev"}
+	modified := false
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			metadata.revision = setting.Value
+		case "vcs.modified":
+			modified = setting.Value == "true"
+		}
+	}
+	if modified {
+		return buildMetadata{version: "dev"}
 	}
 
 	version := info.Main.Version
-	if version == "" || version == "(devel)" || strings.HasPrefix(version, "v0.0.0-") {
-		return "dev"
+	if module.IsPseudoVersion(version) {
+		if metadata.revision == "" {
+			revision, err := module.PseudoVersionRev(version)
+			if err == nil {
+				metadata.revision = revision
+			}
+		}
+		return metadata
 	}
-	return version
+	if version == "" || version == "(devel)" {
+		return metadata
+	}
+	metadata.version = version
+	return metadata
 }

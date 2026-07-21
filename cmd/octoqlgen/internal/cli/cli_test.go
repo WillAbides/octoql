@@ -220,9 +220,10 @@ func TestConfigSchemaURL(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		version string
-		want    string
+		name     string
+		version  string
+		revision string
+		want     string
 	}{
 		{
 			name:    "release",
@@ -235,21 +236,18 @@ func TestConfigSchemaURL(t *testing.T) {
 			want:    "https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml",
 		},
 		{
-			name:    "pseudo version",
-			version: "v0.0.0-20260721120000-aaaaaaaaaaaa",
-			want:    "https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml",
-		},
-		{
-			name:    "pseudo version after release",
-			version: "v1.2.4-0.20260721120000-aaaaaaaaaaaa",
-			want:    "https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml",
+			name:     "clean development build",
+			version:  "dev",
+			revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			want: "https://raw.githubusercontent.com/WillAbides/octoql/" +
+				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/octoqlgen.schema.yaml",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, test.want, configSchemaURL(test.version))
+			assert.Equal(t, test.want, configSchemaURL(test.version, test.revision))
 		})
 	}
 }

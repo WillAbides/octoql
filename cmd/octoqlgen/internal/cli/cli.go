@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	mainConfigSchemaURL  = "https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml"
+	rawSchemaBaseURL     = "https://raw.githubusercontent.com/WillAbides/octoql/"
+	mainConfigSchemaURL  = rawSchemaBaseURL + "main/octoqlgen.schema.yaml"
 	releaseSchemaBaseURL = "https://github.com/WillAbides/octoql/releases/download/"
 )
 
@@ -466,15 +467,16 @@ type outputWriter interface {
 }
 
 type Dependencies struct {
-	Context         context.Context
-	Stdout          io.Writer
-	Stderr          io.Writer
-	Generate        func(*generate.Config) (map[string][]byte, error)
-	LoadConfig      func(string) (*config.Config, error)
-	Materializer    materializer
-	RemoteResolver  remoteResolver
-	OutputWriter    outputWriter
-	configSchemaURL string
+	Context              context.Context
+	Stdout               io.Writer
+	Stderr               io.Writer
+	Generate             func(*generate.Config) (map[string][]byte, error)
+	LoadConfig           func(string) (*config.Config, error)
+	Materializer         materializer
+	RemoteResolver       remoteResolver
+	OutputWriter         outputWriter
+	ConfigSchemaRevision string
+	configSchemaURL      string
 }
 
 func Run(args []string, version string, dependencies *Dependencies) error {
@@ -482,7 +484,7 @@ func Run(args []string, version string, dependencies *Dependencies) error {
 		dependencies = &Dependencies{}
 	}
 	dependencies.setDefaults()
-	dependencies.configSchemaURL = configSchemaURL(version)
+	dependencies.configSchemaURL = configSchemaURL(version, dependencies.ConfigSchemaRevision)
 	command := newCommandTree(dependencies)
 	parser, err := newParser(
 		command,
@@ -550,8 +552,11 @@ func newCommandTree(dependencies *Dependencies) *commandTree {
 	}
 }
 
-func configSchemaURL(version string) string {
+func configSchemaURL(version, revision string) string {
 	if !semver.IsValid(version) || module.IsPseudoVersion(version) {
+		if revision != "" {
+			return rawSchemaBaseURL + revision + "/octoqlgen.schema.yaml"
+		}
 		return mainConfigSchemaURL
 	}
 	return releaseSchemaBaseURL + version + "/octoqlgen.schema.yaml"
