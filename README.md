@@ -39,15 +39,22 @@ go get -tool github.com/willabides/octoql/cmd/octoqlgen
 ```
 
 Run the pinned tool with `go tool octoqlgen`. To install a standalone binary
-from source instead, use an explicit version or commit:
+from a release archive with [bindown](https://github.com/WillAbides/bindown):
+
+```sh
+bindown template-source add octoql https://github.com/WillAbides/octoql/releases/latest/download/bindown.yaml
+bindown dependency add octoqlgen --source octoql
+```
+
+To install the standalone binary from source instead, use an explicit version
+or commit:
 
 ```sh
 go install github.com/willabides/octoql/cmd/octoqlgen@<version-or-commit>
 ```
 
-octoql does not currently publish prebuilt release archives. The Go tool
-dependency is the recommended installation because the runtime and generator
-then resolve from the same module version.
+The Go tool dependency remains the recommended installation because the runtime
+and generator then resolve from the same module version.
 
 ## Generate a client
 
