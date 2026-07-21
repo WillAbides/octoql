@@ -124,18 +124,43 @@ func generatedStringConstant(t *testing.T, source []byte, name string) string {
 // with `UPDATE_SNAPS=true`. Generated Go snapshots are compiled, so the test
 // verifies the snapshot rather than only the in-memory generated output.
 func TestGenerate(t *testing.T) {
-	for _, sourceFilename := range []string{
-		"GraphShapes.graphql",
-		"Naming.graphql",
-		"PredeclaredOperationNames.graphql",
+	for _, test := range []struct {
+		name               string
+		sourceFilenames    []string
+		checkQueryManifest bool
+	}{
+		{
+			name:               "GraphShapes.graphql",
+			sourceFilenames:    []string{"GraphShapes.graphql"},
+			checkQueryManifest: true,
+		},
+		{
+			name:            "Naming.graphql",
+			sourceFilenames: []string{"Naming.graphql"},
+		},
+		{
+			name:            "PredeclaredOperationNames.graphql",
+			sourceFilenames: []string{"PredeclaredOperationNames.graphql"},
+		},
+		{
+			name: "MultipleOperationFiles",
+			sourceFilenames: []string{
+				"Naming.graphql",
+				"PredeclaredOperationNames.graphql",
+			},
+		},
 	} {
-		goFilename := sourceFilename + ".go"
-		queriesFilename := sourceFilename + ".json"
+		goFilename := test.name + ".go"
+		queriesFilename := test.name + ".json"
+		operationFilenames := make([]string, 0, len(test.sourceFilenames))
+		for _, sourceFilename := range test.sourceFilenames {
+			operationFilenames = append(operationFilenames, filepath.Join(dataDir, sourceFilename))
+		}
 
-		t.Run(sourceFilename, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			generated, err := Generate(&Config{
 				Schema:           []string{filepath.Join(dataDir, "schema.graphql")},
-				Operations:       []string{filepath.Join(dataDir, sourceFilename)},
+				Operations:       operationFilenames,
 				Package:          "test",
 				Generated:        goFilename,
 				ExportOperations: queriesFilename,
@@ -148,7 +173,7 @@ func TestGenerate(t *testing.T) {
 
 			for filename, content := range generated {
 				t.Run(filename, func(t *testing.T) {
-					if filepath.Ext(filename) == ".json" && sourceFilename != "GraphShapes.graphql" {
+					if filepath.Ext(filename) == ".json" && !test.checkQueryManifest {
 						return
 					}
 					matchGeneratedSnapshot(t, filename, content)
@@ -236,12 +261,40 @@ query Value(
 	assert.Contains(t, source, "Variables:     &vars,")
 	assert.NotContains(t, source, "variables_2 := ValueVariables")
 	assert.Contains(t, source, "var response ValueResponse")
+	assert.Contains(t, source, "type octoqlExecutor interface {\n\tExecute(context.Context, octoql.Payload, interface{}) (bool, error)\n}")
+	assert.Contains(t, source, "client octoqlExecutor,")
 	assert.Contains(t, source, "hasData, err := client.Execute(")
 	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialData() *ValueResponse")
 	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
+}
+
+func TestGenerateRejectsExecutorNameCollision(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`
+type Query {
+  value: String!
+}
+`), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(`
+query octoqlExecutor {
+  value
+}
+`), 0o600))
+
+	_, err := Generate(&Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "collision",
+		ContextType: "-",
+	})
+
+	require.EqualError(t, err, `generated executor type "octoqlExecutor" conflicts with operation "octoqlExecutor"`)
 }
 
 func TestGenerateQuotesOperationText(t *testing.T) {

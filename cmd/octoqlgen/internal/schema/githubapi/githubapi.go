@@ -10,6 +10,10 @@ import (
 	"github.com/willabides/octoql"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // LatestCommitRepository includes the requested fields of the GraphQL type Repository.
 // The GraphQL type's documentation follows.
 //
@@ -284,7 +288,7 @@ func (e *LatestCommitPartialDataError) PartialData() *LatestCommitResponse {
 
 func LatestCommit(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars LatestCommitVariables,
 ) (*LatestCommitResponse, error) {
 	var response LatestCommitResponse

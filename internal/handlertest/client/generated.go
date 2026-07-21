@@ -11,6 +11,10 @@ import (
 	"github.com/willabides/octoql"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // CreateRepositoryCreateRepositoryCreateRepositoryPayload includes the requested fields of the GraphQL type CreateRepositoryPayload.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayload struct {
 	Repository       *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository `json:"repository"`
@@ -795,7 +799,7 @@ func (e *CreateRepositoryPartialDataError) PartialData() *CreateRepositoryRespon
 
 func CreateRepository(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars CreateRepositoryVariables,
 ) (*CreateRepositoryResponse, error) {
 	var response CreateRepositoryResponse
@@ -852,7 +856,7 @@ func (e *EchoAnyPartialDataError) PartialData() *EchoAnyResponse {
 
 func EchoAny(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars EchoAnyVariables,
 ) (*EchoAnyResponse, error) {
 	var response EchoAnyResponse
@@ -909,7 +913,7 @@ func (e *EchoAtPartialDataError) PartialData() *EchoAtResponse {
 
 func EchoAt(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars EchoAtVariables,
 ) (*EchoAtResponse, error) {
 	var response EchoAtResponse
@@ -966,7 +970,7 @@ func (e *EchoPropertyPartialDataError) PartialData() *EchoPropertyResponse {
 
 func EchoProperty(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars EchoPropertyVariables,
 ) (*EchoPropertyResponse, error) {
 	var response EchoPropertyResponse
@@ -1023,7 +1027,7 @@ func (e *GetNodePartialDataError) PartialData() *GetNodeResponse {
 
 func GetNode(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars GetNodeVariables,
 ) (*GetNodeResponse, error) {
 	var response GetNodeResponse
@@ -1080,7 +1084,7 @@ func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
 
 func GetRepository(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars GetRepositoryVariables,
 ) (*GetRepositoryResponse, error) {
 	var response GetRepositoryResponse
@@ -1137,7 +1141,7 @@ func (e *SearchPartialDataError) PartialData() *SearchResponse {
 
 func Search(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars SearchVariables,
 ) (*SearchResponse, error) {
 	var response SearchResponse
@@ -1194,7 +1198,7 @@ func (e *ViewerPartialDataError) PartialData() *ViewerResponse {
 
 func Viewer(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 ) (*ViewerResponse, error) {
 	var response ViewerResponse
 	hasData, err := client.Execute(

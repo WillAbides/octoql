@@ -95,6 +95,38 @@ func (v *GitHubNamingResponseSnake_case_type) GetName() *string { return v.Name 
 
 type SecondRepository string
 
+// anyResponse is returned by any on success.
+type anyResponse struct {
+	Viewer anyViewerUser `json:"viewer"`
+}
+
+// GetViewer returns anyResponse.Viewer, and is useful for accessing the field via an interface.
+func (v *anyResponse) GetViewer() anyViewerUser { return v.Viewer }
+
+// anyViewerUser includes the requested fields of the GraphQL type User.
+type anyViewerUser struct {
+	Id testutil.ID `json:"id"`
+}
+
+// GetId returns anyViewerUser.Id, and is useful for accessing the field via an interface.
+func (v *anyViewerUser) GetId() testutil.ID { return v.Id }
+
+// newResponse is returned by new on success.
+type newResponse struct {
+	Viewer newViewerUser `json:"viewer"`
+}
+
+// GetViewer returns newResponse.Viewer, and is useful for accessing the field via an interface.
+func (v *newResponse) GetViewer() newViewerUser { return v.Viewer }
+
+// newViewerUser includes the requested fields of the GraphQL type User.
+type newViewerUser struct {
+	Id testutil.ID `json:"id"`
+}
+
+// GetId returns newViewerUser.Id, and is useful for accessing the field via an interface.
+func (v *newViewerUser) GetId() testutil.ID { return v.Id }
+
 // The query executed by GitHubNaming.
 const GitHubNaming_Operation = "\nquery GitHubNaming {\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n\tfirst: repository(owner: \"octo\", name: \"one\") {\n\t\tnameWithOwner\n\t}\n\tsecond: repository(owner: \"octo\", name: \"two\") {\n\t\tnameWithOwner\n\t}\n\tsnake_case_type {\n\t\tid\n\t\tname\n\t}\n\tobject {\n\t\tsnake_case_field {\n\t\t\tid\n\t\t}\n\t}\n}\n"
 
@@ -143,6 +175,116 @@ func GitHubNaming(
 	}
 	if err != nil {
 		return nil, &GitHubNamingPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
+}
+
+// The query executed by any.
+const any_Operation = "\nquery any {\n\tviewer {\n\t\tid\n\t}\n}\n"
+
+// anyPartialDataError contains partial data returned by any.
+type anyPartialDataError struct {
+	data *anyResponse
+	err  error
+}
+
+func (e *anyPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *anyPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *anyPartialDataError) PartialData() *anyResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
+}
+
+func any(
+	client octoqlExecutor,
+) (*anyResponse, error) {
+	var response anyResponse
+	hasData, err := client.Execute(
+		context.Background(),
+		octoql.Payload{
+			OperationName: "any",
+			Query:         any_Operation,
+			Variables:     nil,
+		},
+		&response,
+	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &anyPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
+}
+
+// The query executed by new.
+const new_Operation = "\nquery new {\n\tviewer {\n\t\tid\n\t}\n}\n"
+
+// newPartialDataError contains partial data returned by new.
+type newPartialDataError struct {
+	data *newResponse
+	err  error
+}
+
+func (e *newPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *newPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *newPartialDataError) PartialData() *newResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
+}
+
+func new(
+	client octoqlExecutor,
+) (*newResponse, error) {
+	var response newResponse
+	hasData, err := client.Execute(
+		context.Background(),
+		octoql.Payload{
+			OperationName: "new",
+			Query:         new_Operation,
+			Variables:     nil,
+		},
+		&response,
+	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &newPartialDataError{
 			data: &response,
 			err:  err,
 		}

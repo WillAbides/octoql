@@ -12,6 +12,10 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // CreateGitHubRepositoryCreateRepository includes the requested fields of the GraphQL type Repository.
 type CreateGitHubRepositoryCreateRepository struct {
 	Id            testutil.ID `json:"id"`
@@ -832,7 +836,7 @@ func (e *CreateGitHubRepositoryPartialDataError) PartialData() *CreateGitHubRepo
 
 func CreateGitHubRepository(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars CreateGitHubRepositoryVariables,
 ) (*CreateGitHubRepositoryResponse, error) {
 	var response CreateGitHubRepositoryResponse
@@ -889,7 +893,7 @@ func (e *GitHubInputsPartialDataError) PartialData() *GitHubInputResponse {
 
 func GitHubInputs(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars GitHubInputsVariables,
 ) (*GitHubInputResponse, error) {
 	var response GitHubInputResponse
@@ -946,7 +950,7 @@ func (e *UpdateIssueWithCollidingNamesPartialDataError) PartialData() *UpdateIss
 
 func UpdateIssueWithCollidingNames(
 	ctx context.Context,
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars UpdateIssueWithCollidingNamesVariables,
 ) (*UpdateIssueWithCollidingNamesResponse, error) {
 	var response UpdateIssueWithCollidingNamesResponse

@@ -20,10 +20,6 @@ func changeFirst(s string, f func(rune) rune) string {
 	return string(f(c)) + s[n:]
 }
 
-func lowerFirst(s string) string {
-	return changeFirst(strings.TrimLeft(s, "_"), unicode.ToLower)
-}
-
 func upperFirst(s string) string {
 	return changeFirst(strings.TrimLeft(s, "_"), unicode.ToUpper)
 }

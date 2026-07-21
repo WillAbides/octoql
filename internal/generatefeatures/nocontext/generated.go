@@ -8,6 +8,10 @@ import (
 	"github.com/willabides/octoql"
 )
 
+type octoqlExecutor interface {
+	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+}
+
 // GetRepositoryRepository includes the requested fields of the GraphQL type Repository.
 type GetRepositoryRepository struct {
 	NameWithOwner string `json:"nameWithOwner"`
@@ -61,7 +65,7 @@ func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
 }
 
 func GetRepository(
-	client *octoql.Client,
+	client octoqlExecutor,
 	vars GetRepositoryVariables,
 ) (*GetRepositoryResponse, error) {
 	var response GetRepositoryResponse
