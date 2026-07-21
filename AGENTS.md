@@ -131,10 +131,15 @@
 
 - Edit `.bindown.yaml` only through `script/bindown`; do not edit it directly.
   Update checksums with `script/bindown checksums sync`.
-- Keep release publication disabled. Snapshot and configuration checks are
-  allowed, but do not add publication credentials, triggers, or jobs. Release
-  archives must contain `LICENSE` and `THIRD_PARTY_NOTICES.md`.
-- CI runs independent `test`, `lint`, `generate`, and `release` jobs.
+- Publish releases only through release-train in CI. Keep direct GoReleaser
+  publication disabled; its release hook stages archives and checksums for
+  release-train. Release archives must contain `LICENSE` and
+  `THIRD_PARTY_NOTICES.md`.
+- Release pull requests use one of the canonical `semver:breaking`,
+  `semver:minor`, `semver:patch`, or `semver:none` labels.
+- CI runs independent `test`, `lint`, `generate`, and `release` validation
+  jobs. The main-only `publish` job receives write permission and runs only
+  after all validation jobs pass.
 - Remove generated local tool and build artifacts such as `bin/`, `.bindown/`,
   `dist/`, and root-level binaries before finishing work.
 

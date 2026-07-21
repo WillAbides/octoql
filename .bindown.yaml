@@ -4,6 +4,10 @@ systems:
   - linux/amd64
   - windows/amd64
 dependencies:
+  gh:
+    template: origin#gh
+    vars:
+      version: 2.88.1
   gofumpt:
     template: origin#gofumpt
     vars:
@@ -40,6 +44,51 @@ templates:
         dependency:
           vars:
             archivePathSuffix: .exe
+    systems:
+      - darwin/amd64
+      - darwin/arm64
+      - linux/386
+      - linux/amd64
+      - linux/arm64
+      - windows/386
+      - windows/amd64
+      - windows/arm64
+    required_vars:
+      - version
+  origin#gh:
+    homepage: https://github.com/cli/cli
+    description: GitHub’s official command line tool
+    url: https://github.com/cli/cli/releases/download/v{{.version}}/gh_{{.version}}_{{.os}}_{{.arch}}{{.urlSuffix}}
+    archive_path: gh_{{.version}}_{{.os}}_{{.arch}}/bin/gh{{.archivePathSuffix}}
+    bin: gh
+    vars:
+      archivePathSuffix: ""
+      urlSuffix: .zip
+    overrides:
+      - matcher:
+          os:
+            - windows
+        dependency:
+          archive_path: bin/gh{{.archivePathSuffix}}
+          vars:
+            archivePathSuffix: .exe
+      - matcher:
+          os:
+            - linux
+        dependency:
+          vars:
+            urlSuffix: .tar.gz
+      - matcher:
+          os:
+            - darwin
+          version:
+            - < 2.28.0
+        dependency:
+          vars:
+            urlSuffix: .tar.gz
+    substitutions:
+      os:
+        darwin: macOS
     systems:
       - darwin/amd64
       - darwin/arm64
@@ -126,6 +175,10 @@ url_checksums:
   https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_darwin_arm64.tar.gz: ed0800be4e46e2339035a04f5a4480ed7144d5eae49ade983f0fbbdb2a991def
   https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_linux_amd64.tar.gz: 964e4154abd2ad7cca30c37c674441dde7e019143393d365e21232907f705512
   https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_windows_amd64.tar.gz: 472bd30dd320f1777d459fc16ca349825436cf5e3674099209ae0f1305a30fa2
+  https://github.com/cli/cli/releases/download/v2.88.1/gh_2.88.1_linux_amd64.tar.gz: 36352a993b97e9758793cdb87f9ba674bd6d88c914488e122be78a1962203803
+  https://github.com/cli/cli/releases/download/v2.88.1/gh_2.88.1_macOS_amd64.zip: ff0fc4bdb9699f0c02e5bcdcbd09d0f8e4c4659aa5d30bcd39a3557ed7379b2e
+  https://github.com/cli/cli/releases/download/v2.88.1/gh_2.88.1_macOS_arm64.zip: bdbeed4821d450ef0d14821d856c05b308ab449fbf60527f298d96fbf5d2447b
+  https://github.com/cli/cli/releases/download/v2.88.1/gh_2.88.1_windows_amd64.zip: 8fdaac525d8919f9f8c265f99ffa26189e5f1fd3a35636adad4fd890a141a555
   https://github.com/golangci/golangci-lint/releases/download/v2.11.3/golangci-lint-2.11.3-darwin-amd64.tar.gz: f93bda1f2cc981fd1326464020494be62f387bbf262706e1b3b644e5afacc440
   https://github.com/golangci/golangci-lint/releases/download/v2.11.3/golangci-lint-2.11.3-darwin-arm64.tar.gz: 30ee39979c516b9d1adca289a3f93429d130c4c0fda5e57d637850894221f6cc
   https://github.com/golangci/golangci-lint/releases/download/v2.11.3/golangci-lint-2.11.3-linux-amd64.tar.gz: 87bb8cddbcc825d5778b64e8a91b46c0526b247f4e2f2904dea74ec7450475d1
