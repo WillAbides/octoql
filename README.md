@@ -294,11 +294,11 @@ if err == nil {
 > A generated helper returns a nil response whenever its error is non-nil, even
 > when GitHub returned decodable, non-null partial GraphQL data. Do not expect
 > the regular `response` result to contain partial data. Instead, use
-> `errors.As` to extract the operation-specific partial-data error:
+> `errors.AsType` to extract the operation-specific partial-data error:
 
 ```go
-var partialErr *githubapi.GetRepositoryPartialDataError
-if errors.As(err, &partialErr) {
+partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
+if ok {
 	fmt.Printf("partial repository: %+v\n", partialErr.PartialData().Repository)
 }
 ```
