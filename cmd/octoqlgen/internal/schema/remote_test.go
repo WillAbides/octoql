@@ -11,33 +11,21 @@ import (
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi/githubapitest"
 )
 
-func TestMaterializerResolveRejectsInvalidSourceVariants(t *testing.T) {
-	t.Parallel()
-
-	url := "https://example.test/schema.graphql"
+func TestMaterializerResolveRequiresSourceFields(t *testing.T) {
 	tests := []struct {
-		source config.Source
-		name   string
+		source        config.Source
+		name          string
+		expectedError string
 	}{
 		{
-			name: "local only",
+			name:          "repository",
+			source:        config.Source{Path: "schema.graphql"},
+			expectedError: "repository is required",
 		},
 		{
-			name: "docs and url",
-			source: config.Source{
-				GithubDocs: &config.GithubDocs{Version: "fpt"},
-				Url:        &url,
-			},
-		},
-		{
-			name: "repository and url",
-			source: config.Source{
-				GithubRepository: &config.GithubRepository{
-					Repository: "owner/repository",
-					Path:       "schema.graphql",
-				},
-				Url: &url,
-			},
+			name:          "path",
+			source:        config.Source{Repository: "owner/repository"},
+			expectedError: "path is required",
 		},
 	}
 	for _, test := range tests {
@@ -46,7 +34,7 @@ func TestMaterializerResolveRejectsInvalidSourceVariants(t *testing.T) {
 
 			_, err := NewMaterializer().Resolve(t.Context(), test.source)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "exactly one remote source")
+			assert.Contains(t, err.Error(), test.expectedError)
 		})
 	}
 }
@@ -87,7 +75,7 @@ func TestMaterializerLatestRevision(t *testing.T) {
 	})
 	matDeps := materializer.dependencies()
 
-	actual, err := materializer.latestRevision(t.Context(), config.GithubRepository{
+	actual, err := materializer.latestRevision(t.Context(), config.Source{
 		Repository: "octo-owner/octo-repository",
 		Path:       "schema.graphql",
 	}, &matDeps)
@@ -105,7 +93,7 @@ func TestMaterializerLatestRevisionRequiresAuthentication(t *testing.T) {
 	}))
 	matDeps := materializer.dependencies()
 
-	_, err := materializer.latestRevision(t.Context(), config.GithubRepository{
+	_, err := materializer.latestRevision(t.Context(), config.Source{
 		Repository: "octo-owner/octo-repository",
 		Path:       "schema.graphql",
 	}, &matDeps)

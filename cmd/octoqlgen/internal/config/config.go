@@ -131,25 +131,14 @@ func validateRequiredFields(content []byte, loaded *Config) error {
 	if source == nil {
 		return nil
 	}
-	if source.GithubDocs != nil {
-		if source.GithubDocs.Version == "" {
-			return errors.New("schema.source.github_docs.version is required")
-		}
-		if source.GithubDocs.Revision == "" {
-			return errors.New("schema.source.github_docs.revision is required")
-		}
+	if source.Repository == "" {
+		return errors.New("schema.source.repository is required")
 	}
-	if source.GithubRepository == nil {
-		return nil
+	if source.Revision == "" {
+		return errors.New("schema.source.revision is required")
 	}
-	if source.GithubRepository.Repository == "" {
-		return errors.New("schema.source.github_repository.repository is required")
-	}
-	if source.GithubRepository.Revision == "" {
-		return errors.New("schema.source.github_repository.revision is required")
-	}
-	if source.GithubRepository.Path == "" {
-		return errors.New("schema.source.github_repository.path is required")
+	if source.Path == "" {
+		return errors.New("schema.source.path is required")
 	}
 	return nil
 }

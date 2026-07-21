@@ -102,7 +102,7 @@ $defs:
         additionalProperties:
           type: string
   schema:
-    description: Local schema path and optional pinned remote source.
+    description: Local schema path and optional pinned GitHub.com source.
     type: object
     additionalProperties: false
     required:
@@ -121,41 +121,7 @@ $defs:
       source:
         $ref: '#/$defs/source'
   source:
-    description: Remote source for the GraphQL schema.
-    type: object
-    additionalProperties: false
-    properties:
-      github_docs:
-        $ref: '#/$defs/githubDocs'
-      github_repository:
-        $ref: '#/$defs/githubRepository'
-      url:
-        description: URL for the schema bytes.
-        type: string
-        examples:
-          - https://schemas.example.com/github.graphql
-  githubDocs:
-    description: GitHub Docs GraphQL schema source.
-    type: object
-    additionalProperties: false
-    required:
-      - version
-      - revision
-    properties:
-      version:
-        description: GitHub product schema version.
-        type: string
-        examples:
-          - fpt
-          - ghec
-          - ghes-3.17
-      revision:
-        description: Git revision in github/docs.
-        type: string
-        examples:
-          - 45d83f459620340069df7c375a8867be62616d61
-  githubRepository:
-    description: Schema file in a GitHub or GitHub Enterprise repository.
+    description: Schema file in a GitHub.com repository.
     type: object
     additionalProperties: false
     required:
@@ -178,12 +144,6 @@ $defs:
         type: string
         examples:
           - schema/github.graphql
-      host:
-        description: GitHub host and optional port.
-        type: string
-        examples:
-          - github.example.com
-          - 192.0.2.10:8443
   testHandler:
     description: Generated test handler configuration.
     type: object

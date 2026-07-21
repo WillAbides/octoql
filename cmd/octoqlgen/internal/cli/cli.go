@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
@@ -20,29 +21,25 @@ import (
 
 type commandTree struct {
 	Generate generateCommand  `kong:"cmd,help='Generate GraphQL client code.'"`
-	Init     initCommand      `kong:"cmd,help='Create an octoqlgen configuration and materialized schema.'"`
-	Schema   schemaCommand    `kong:"cmd,help='Materialize or verify a pinned GraphQL schema.'"`
+	Init     initCommand      `kong:"cmd,help='Create an octoqlgen configuration and fetch its schema.'"`
+	Schema   schemaCommand    `kong:"cmd,help='Fetch or verify a pinned GraphQL schema.'"`
 	Version  kong.VersionFlag `kong:"name='version',help='Show version information.'"`
 }
 
 type schemaCommand struct {
-	Materialize schemaMaterializeCommand `kong:"cmd,default='1',help='Materialize or verify a pinned GraphQL schema.'"`
-	Update      schemaUpdateCommand      `kong:"cmd,help='Update a configured remote schema pin.'"`
+	Fetch  schemaFetchCommand  `kong:"cmd,default='1',help='Fetch or verify a pinned GraphQL schema.'"`
+	Update schemaUpdateCommand `kong:"cmd,help='Fetch the latest configured GitHub schema and update its revision and checksum.'"`
 }
 
-type schemaMaterializeCommand struct {
+type schemaFetchCommand struct {
 	context      context.Context
 	loadConfig   func(string) (*config.Config, error)
 	materializer materializer
 	outputWriter outputWriter
 	stdout       io.Writer
 
-	Config        string `kong:"name='config',type='path',placeholder='PATH',help='Path to an octoqlgen configuration file. Defaults to octoqlgen.yaml.'"`
-	Output        string `kong:"short='o',name='output',type='path',placeholder='PATH',help='Write the exact schema bytes to a file instead of stdout.'"`
-	GitHubVersion string `kong:"name='github-version',placeholder='VERSION',help='Fetch a pinned github/docs schema version (fpt, ghec, or ghes-X.Y).'"`
-	SourceURL     string `kong:"name='source-url',placeholder='URL',help='Fetch a schema from an immutable URL.'"`
-	Revision      string `kong:"name='revision',placeholder='SHA',help='Full github/docs commit revision for --github-version.'"`
-	SHA256        string `kong:"name='sha256',placeholder='HEX',help='Expected SHA-256 for a direct remote source.'"`
+	Config string `kong:"name='config',type='path',placeholder='PATH',help='Path to an octoqlgen configuration file. Defaults to octoqlgen.yaml.'"`
+	Output string `kong:"short='o',name='output',type='path',placeholder='PATH',help='Write the exact schema bytes to a file instead of stdout.'"`
 }
 
 type remoteResolver interface {
@@ -50,22 +47,44 @@ type remoteResolver interface {
 }
 
 type initCommand struct {
-	stdout io.Writer
+	context  context.Context
+	resolver remoteResolver
+	stdout   io.Writer
 
-	ConfigPath string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path for the new octoqlgen configuration.'"`
+	ConfigPath    string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path for the new octoqlgen configuration.'"`
+	SchemaVersion string `kong:"name='schema-version',default='fpt',placeholder='VERSION',help='GitHub Docs schema version (fpt, ghec, or ghes-X.Y). Defaults to fpt.'"`
 }
 
-func (cmd *initCommand) Run() error {
-	_, err := os.Lstat(cmd.ConfigPath)
+func githubDocsSource(version, revision string) config.Source {
+	filename := "schema.docs.graphql"
+	if strings.HasPrefix(version, "ghes-") {
+		filename = "schema.docs-enterprise.graphql"
+	}
+	return config.Source{
+		Repository: "github/docs",
+		Path:       "src/graphql/data/" + version + "/" + filename,
+		Revision:   revision,
+	}
+}
+
+func (cmd *initCommand) Run() (err error) {
+	_, err = os.Lstat(cmd.ConfigPath)
 	if err == nil || !errors.Is(err, os.ErrNotExist) {
 		if err != nil {
 			return fmt.Errorf("checking config path %q: %w", cmd.ConfigPath, err)
 		}
 		return fmt.Errorf("refusing to overwrite existing config %q", cmd.ConfigPath)
 	}
+	source := githubDocsSource(cmd.SchemaVersion, "")
+	result, err := cmd.resolver.Resolve(cmd.context, source)
+	if err != nil {
+		return fmt.Errorf("resolving GitHub Docs schema: %w", err)
+	}
 	model := config.Config{
 		Schema: config.Schema{
-			Path: ".octoql/schema.graphql",
+			Path:   ".octoql/schema.graphql",
+			Sha256: new(result.SHA256),
+			Source: new(githubDocsSource(cmd.SchemaVersion, result.Revision)),
 		},
 		Operations: []string{"graphql/**/*.graphql"},
 		Generated:  "internal/githubapi/generated.go",
@@ -79,6 +98,28 @@ func (cmd *initCommand) Run() error {
 		return fmt.Errorf("validating generated config: %w", err)
 	}
 	configDir := filepath.Dir(cmd.ConfigPath)
+	schemaPath := filepath.Join(configDir, model.Schema.Path)
+	schemaCreated := false
+	existingSchema, err := os.ReadFile(schemaPath)
+	if err == nil && !bytes.Equal(existingSchema, result.Data) {
+		return fmt.Errorf("refusing to overwrite existing schema %q", schemaPath)
+	}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("checking schema path %q: %w", schemaPath, err)
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		err = createFileNoReplace(schemaPath, result.Data)
+		if err != nil {
+			return err
+		}
+		schemaCreated = true
+	}
+	initializationComplete := false
+	defer func() {
+		if schemaCreated && !initializationComplete {
+			err = errors.Join(err, os.Remove(schemaPath))
+		}
+	}()
 	gitignorePath := filepath.Join(configDir, ".octoql", ".gitignore")
 	err = os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
 	if err != nil {
@@ -97,7 +138,8 @@ func (cmd *initCommand) Run() error {
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(cmd.stdout, "created %s and %s\n", cmd.ConfigPath, gitignorePath)
+	initializationComplete = true
+	_, err = fmt.Fprintf(cmd.stdout, "created %s, %s, and %s\n", cmd.ConfigPath, schemaPath, gitignorePath)
 	return err
 }
 
@@ -113,6 +155,20 @@ func minimalConfigBytes(model *config.Config) ([]byte, error) {
 					Content: []*yamlv3.Node{
 						{Kind: yamlv3.ScalarNode, Value: "path"},
 						{Kind: yamlv3.ScalarNode, Value: model.Schema.Path},
+						{Kind: yamlv3.ScalarNode, Value: "sha256"},
+						{Kind: yamlv3.ScalarNode, Value: model.Schema.SHA256Value()},
+						{Kind: yamlv3.ScalarNode, Value: "source"},
+						{
+							Kind: yamlv3.MappingNode,
+							Content: []*yamlv3.Node{
+								{Kind: yamlv3.ScalarNode, Value: "repository"},
+								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Repository},
+								{Kind: yamlv3.ScalarNode, Value: "path"},
+								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Path},
+								{Kind: yamlv3.ScalarNode, Value: "revision"},
+								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Revision},
+							},
+						},
 					},
 				},
 				{Kind: yamlv3.ScalarNode, Value: "operations"},
@@ -314,17 +370,11 @@ func sameFileSnapshot(left, right fileSnapshot) bool {
 }
 
 func sourceRevision(source config.Source) string {
-	if source.GithubDocs != nil {
-		return source.GithubDocs.Revision
-	}
-	if source.GithubRepository != nil {
-		return source.GithubRepository.Revision
-	}
-	return ""
+	return source.Revision
 }
 
 func hasRemoteSource(source config.Source) bool {
-	return source.GithubDocs != nil || source.GithubRepository != nil || source.Url != nil
+	return source.Repository != "" || source.Path != "" || source.Revision != ""
 }
 
 func displayRevision(revision string) string {
@@ -334,13 +384,13 @@ func displayRevision(revision string) string {
 	return revision
 }
 
-func (cmd *schemaMaterializeCommand) Run() error {
+func (cmd *schemaFetchCommand) Run() error {
 	request, err := cmd.request()
 	if err != nil {
 		return err
 	}
 
-	data, err := cmd.materializer.Materialize(cmd.context, request)
+	data, err := cmd.materializer.Materialize(cmd.context, &request)
 	if err != nil {
 		return err
 	}
@@ -359,59 +409,20 @@ func (cmd *schemaMaterializeCommand) Run() error {
 	return nil
 }
 
-func (cmd *schemaMaterializeCommand) request() (schema.Request, error) {
-	hasGitHubVersion := cmd.GitHubVersion != ""
-	hasSourceURL := cmd.SourceURL != ""
-	if hasGitHubVersion && hasSourceURL {
-		return schema.Request{}, errors.New("--github-version and --source-url are mutually exclusive")
-	}
-
-	if !hasGitHubVersion && !hasSourceURL {
-		if cmd.Revision != "" || cmd.SHA256 != "" {
-			return schema.Request{}, errors.New("--revision and --sha256 require a direct remote source")
-		}
-		loaded, err := cmd.loadConfig(cmd.Config)
-		if err != nil {
-			return schema.Request{}, err
-		}
-		return schema.Request{
-			Path:   loaded.SchemaPath(),
-			SHA256: loaded.Schema.SHA256Value(),
-			Source: loaded.Schema.SourceValue(),
-		}, nil
-	}
-
-	if cmd.SHA256 == "" {
-		return schema.Request{}, errors.New("--sha256 is required with a direct remote source")
-	}
-	if cmd.Config != "" {
-		return schema.Request{}, errors.New("--config cannot be combined with a direct remote source")
-	}
-	if hasGitHubVersion {
-		if cmd.Revision == "" {
-			return schema.Request{}, errors.New("--revision is required with --github-version")
-		}
-		return schema.Request{
-			SHA256: cmd.SHA256,
-			Source: config.Source{
-				GithubDocs: &config.GithubDocs{
-					Version:  cmd.GitHubVersion,
-					Revision: cmd.Revision,
-				},
-			},
-		}, nil
-	}
-	if cmd.Revision != "" {
-		return schema.Request{}, errors.New("--revision is only valid with --github-version")
+func (cmd *schemaFetchCommand) request() (schema.Request, error) {
+	loaded, err := cmd.loadConfig(cmd.Config)
+	if err != nil {
+		return schema.Request{}, err
 	}
 	return schema.Request{
-		SHA256: cmd.SHA256,
-		Source: config.Source{Url: new(cmd.SourceURL)},
+		Path:   loaded.SchemaPath(),
+		SHA256: loaded.Schema.SHA256Value(),
+		Source: loaded.Schema.SourceValue(),
 	}, nil
 }
 
 type materializer interface {
-	Materialize(context.Context, schema.Request) ([]byte, error)
+	Materialize(context.Context, *schema.Request) ([]byte, error)
 }
 
 type outputWriter interface {
@@ -455,13 +466,13 @@ func normalizeArgs(args []string) []string {
 		return args
 	}
 	if len(args) == 1 {
-		return []string{"schema", "materialize"}
+		return []string{"schema", "fetch"}
 	}
-	if args[1] == "update" || args[1] == "materialize" || args[1] == "--help" {
+	if args[1] == "update" || args[1] == "fetch" || args[1] == "--help" {
 		return args
 	}
 	normalized := make([]string, 0, len(args)+1)
-	normalized = append(normalized, "schema", "materialize")
+	normalized = append(normalized, "schema", "fetch")
 	normalized = append(normalized, args[1:]...)
 	return normalized
 }
@@ -476,10 +487,12 @@ func newCommandTree(dependencies *Dependencies) *commandTree {
 			outputWriter: dependencies.OutputWriter,
 		},
 		Init: initCommand{
-			stdout: dependencies.Stdout,
+			context:  dependencies.Context,
+			resolver: dependencies.RemoteResolver,
+			stdout:   dependencies.Stdout,
 		},
 		Schema: schemaCommand{
-			Materialize: schemaMaterializeCommand{
+			Fetch: schemaFetchCommand{
 				context:      dependencies.Context,
 				loadConfig:   dependencies.LoadConfig,
 				materializer: dependencies.Materializer,

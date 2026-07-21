@@ -27,53 +27,22 @@ type RemoteResult struct {
 // Resolve fetches a remote schema. GitHub-backed sources are pinned to the
 // latest commit that changed the selected path before their content is fetched.
 func (m *Materializer) Resolve(ctx context.Context, source config.Source) (RemoteResult, error) {
-	sourceCount := sourceVariantCount(source)
-	if sourceCount != 1 {
-		return RemoteResult{}, errors.New("schema source must set exactly one remote source variant")
+	if source.Repository == "" {
+		return RemoteResult{}, errors.New("schema source repository is required")
+	}
+	if source.Path == "" {
+		return RemoteResult{}, errors.New("schema source path is required")
 	}
 	deps := m.dependencies()
 	timeoutContext, cancel := context.WithTimeout(ctx, deps.timeout)
 	defer cancel()
 
-	if source.Url != nil {
-		data, err := m.fetch(timeoutContext, source, &deps)
-		if err != nil {
-			return RemoteResult{}, err
-		}
-		err = validateSDL(data)
-		if err != nil {
-			return RemoteResult{}, err
-		}
-		return remoteResult(data, ""), nil
-	}
-
-	repository := source.GithubRepository
-	if source.GithubDocs != nil {
-		repository = githubDocsRepository(*source.GithubDocs)
-	}
-	if repository == nil {
-		return RemoteResult{}, errors.New("remote schema source is missing")
-	}
-
-	revision, err := m.latestRevision(timeoutContext, *repository, &deps)
+	revision, err := m.latestRevision(timeoutContext, source, &deps)
 	if err != nil {
 		return RemoteResult{}, err
 	}
 	pinned := source
-	if pinned.GithubDocs != nil {
-		pinned.GithubDocs = &config.GithubDocs{
-			Version:  pinned.GithubDocs.Version,
-			Revision: revision,
-		}
-	}
-	if pinned.GithubRepository != nil {
-		pinned.GithubRepository = &config.GithubRepository{
-			Host:       pinned.GithubRepository.Host,
-			Path:       pinned.GithubRepository.Path,
-			Repository: pinned.GithubRepository.Repository,
-			Revision:   revision,
-		}
-	}
+	pinned.Revision = revision
 	data, err := m.fetch(timeoutContext, pinned, &deps)
 	if err != nil {
 		return RemoteResult{}, err
@@ -96,18 +65,14 @@ func remoteResult(data []byte, revision string) RemoteResult {
 
 func (m *Materializer) latestRevision(
 	ctx context.Context,
-	repository config.GithubRepository,
+	source config.Source,
 	deps *dependencies,
 ) (string, error) {
-	owner, name, err := githubRepositoryParts(repository.Repository)
+	owner, name, err := githubRepositoryParts(source.Repository)
 	if err != nil {
 		return "", err
 	}
-	host := "github.com"
-	if repository.Host != nil {
-		host = *repository.Host
-	}
-	token, err := discoverToken(ctx, host, deps.lookupEnvironment, deps.commandRunner)
+	token, err := discoverToken(ctx, "github.com", deps.lookupEnvironment, deps.commandRunner)
 	if err != nil {
 		return "", err
 	}
@@ -116,7 +81,7 @@ func (m *Materializer) latestRevision(
 			"github graphql authentication is required; set GH_TOKEN, GITHUB_TOKEN, or authenticate with gh",
 		)
 	}
-	client := octoql.NewClient(deps.githubGraphQLEndpoint(host), &http.Client{
+	client := octoql.NewClient(deps.githubGraphQLEndpoint("github.com"), &http.Client{
 		Transport: httpClientTransport{client: deps.httpClient},
 	})
 	err = client.SetBearerToken(token)
@@ -127,7 +92,7 @@ func (m *Materializer) latestRevision(
 	result, err := githubapi.LatestCommit(ctx, client, githubapi.LatestCommitVariables{
 		Owner: owner,
 		Name:  name,
-		Path:  repository.Path,
+		Path:  source.Path,
 	})
 	if err != nil {
 		return "", fmt.Errorf("resolving schema revision: %w", err)

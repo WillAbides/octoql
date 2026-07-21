@@ -37,7 +37,7 @@ func TestMaterializerExistingFile(t *testing.T) {
 	require.NoError(t, err)
 
 	materializer := NewMaterializer()
-	data, err := materializer.Materialize(t.Context(), Request{
+	data, err := materializer.Materialize(t.Context(), &Request{
 		Path:   destination,
 		SHA256: checksum(exactSchema),
 	})
@@ -55,7 +55,7 @@ func TestMaterializerExistingFileMismatch(t *testing.T) {
 	actual := checksum(exactSchema)
 
 	materializer := NewMaterializer()
-	_, err = materializer.Materialize(t.Context(), Request{
+	_, err = materializer.Materialize(t.Context(), &Request{
 		Path:   destination,
 		SHA256: expected,
 	})
@@ -75,7 +75,7 @@ func TestMaterializerReadError(t *testing.T) {
 	materializer := NewMaterializer()
 	materializer.FileSystem = &readErrorFileSystem{err: expectedErr}
 
-	_, err := materializer.Materialize(t.Context(), Request{
+	_, err := materializer.Materialize(t.Context(), &Request{
 		Path: filepath.Join(t.TempDir(), "schema.graphql"),
 	})
 	require.ErrorIs(t, err, expectedErr)
@@ -87,27 +87,34 @@ func TestMaterializerMissingLocalFile(t *testing.T) {
 
 	destination := filepath.Join(t.TempDir(), "schema.graphql")
 	materializer := NewMaterializer()
-	_, err := materializer.Materialize(t.Context(), Request{Path: destination})
+	_, err := materializer.Materialize(t.Context(), &Request{Path: destination})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "local schema file")
 	assert.Contains(t, err.Error(), "does not exist")
 }
 
-func TestMaterializerURLFetch(t *testing.T) {
+func TestMaterializerGitHubFetch(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		assert.Empty(t, request.Header.Get("Accept"))
+		assert.Equal(t, "application/vnd.github.raw+json", request.Header.Get("Accept"))
 		_, _ = response.Write(exactSchema)
 	}))
 	t.Cleanup(server.Close)
 
 	destination := filepath.Join(t.TempDir(), "nested", "schema.graphql")
-	materializer := NewMaterializer()
-	data, err := materializer.Materialize(t.Context(), Request{
+	materializer := testGitHubMaterializer(server.Client())
+	materializer.GitHubAPIBaseURL = func(string) string {
+		return server.URL
+	}
+	data, err := materializer.Materialize(t.Context(), &Request{
 		Path:   destination,
 		SHA256: checksum(exactSchema),
-		Source: config.Source{Url: new(server.URL + "/schema.graphql")},
+		Source: config.Source{
+			Repository: "octo-org/octo-repo",
+			Path:       "schema.graphql",
+			Revision:   schemaRevision,
+		},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, data)
@@ -278,7 +285,10 @@ func TestMaterializerDownloadFailures(t *testing.T) {
 			server := httptest.NewServer(test.handler)
 			t.Cleanup(server.Close)
 			destination := filepath.Join(t.TempDir(), "schema.graphql")
-			materializer := NewMaterializer()
+			materializer := testGitHubMaterializer(server.Client())
+			materializer.GitHubAPIBaseURL = func(string) string {
+				return server.URL
+			}
 			if test.maxBytes != 0 {
 				materializer.MaxResponseBytes = test.maxBytes
 			}
@@ -286,10 +296,14 @@ func TestMaterializerDownloadFailures(t *testing.T) {
 				materializer.Timeout = test.timeout
 			}
 
-			_, err := materializer.Materialize(t.Context(), Request{
+			_, err := materializer.Materialize(t.Context(), &Request{
 				Path:   destination,
 				SHA256: test.sha256,
-				Source: config.Source{Url: new(server.URL)},
+				Source: config.Source{
+					Repository: "octo-org/octo-repo",
+					Path:       "schema.graphql",
+					Revision:   schemaRevision,
+				},
 			})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.expectedError)
@@ -300,131 +314,28 @@ func TestMaterializerDownloadFailures(t *testing.T) {
 	}
 }
 
-func TestMaterializerRejectsConflictingSources(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		source config.Source
-		name   string
-	}{
-		{
-			name: "url and github docs",
-			source: config.Source{
-				Url:        new("https://example.test/schema.graphql"),
-				GithubDocs: &config.GithubDocs{},
-			},
-		},
-		{
-			name: "url and github repository",
-			source: config.Source{
-				Url:              new("https://example.test/schema.graphql"),
-				GithubRepository: &config.GithubRepository{},
-			},
-		},
-		{
-			name: "github docs and github repository",
-			source: config.Source{
-				GithubDocs:       &config.GithubDocs{},
-				GithubRepository: &config.GithubRepository{},
-			},
-		},
-		{
-			name: "all variants",
-			source: config.Source{
-				Url:              new("https://example.test/schema.graphql"),
-				GithubDocs:       &config.GithubDocs{},
-				GithubRepository: &config.GithubRepository{},
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			_, err := NewMaterializer().Materialize(t.Context(), Request{
-				Source: test.source,
-				SHA256: "checksum",
-			})
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "multiple remote source variants")
-		})
-	}
-}
-
-func TestMaterializerGitHubDocsPaths(t *testing.T) {
-	tests := []struct {
-		version      string
-		expectedPath string
-	}{
-		{
-			version:      "fpt",
-			expectedPath: "/repos/github/docs/contents/src/graphql/data/fpt/schema.docs.graphql",
-		},
-		{
-			version:      "ghec",
-			expectedPath: "/repos/github/docs/contents/src/graphql/data/ghec/schema.docs.graphql",
-		},
-		{
-			version:      "ghes-3.21",
-			expectedPath: "/repos/github/docs/contents/src/graphql/data/ghes-3.21/schema.docs-enterprise.graphql",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.version, func(t *testing.T) {
-			t.Parallel()
-
-			var requestedPath string
-			var requestedRevision string
-			client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
-				requestedPath = request.URL.Path
-				requestedRevision = request.URL.Query().Get("ref")
-				assert.Equal(t, "application/vnd.github.raw+json", request.Header.Get("Accept"))
-				return response(http.StatusOK, exactSchema), nil
-			})
-			materializer := testGitHubMaterializer(client)
-
-			data, err := materializer.Materialize(t.Context(), Request{
-				SHA256: checksum(exactSchema),
-				Source: config.Source{
-					GithubDocs: &config.GithubDocs{
-						Version:  test.version,
-						Revision: schemaRevision,
-					},
-				},
-			})
-			require.NoError(t, err)
-			assert.Equal(t, exactSchema, data)
-			assert.Equal(t, test.expectedPath, requestedPath)
-			assert.Equal(t, schemaRevision, requestedRevision)
-		})
-	}
-}
-
 func TestGitHubRepositoryRequestEscaping(t *testing.T) {
 	t.Parallel()
 
 	requestURL, err := githubContentsURL(
-		"https://github.example.com/api/v3",
-		config.GithubRepository{
+		"https://api.github.com",
+		config.Source{
 			Repository: "octo-org/octo.repo",
 			Revision:   schemaRevision,
 			Path:       "schema dir/schema#one.graphql",
-			Host:       new("github.example.com"),
 		},
 	)
 	require.NoError(t, err)
 	assert.Equal(
 		t,
-		"https://github.example.com/api/v3/repos/octo-org/octo.repo/contents/"+
+		"https://api.github.com/repos/octo-org/octo.repo/contents/"+
 			"schema%20dir/schema%23one.graphql?ref="+schemaRevision,
 		requestURL,
 	)
 
 	_, err = githubContentsURL(
-		"https://github.example.com/api/v3",
-		config.GithubRepository{Repository: "invalid"},
+		"https://api.github.com",
+		config.Source{Repository: "invalid"},
 	)
 	require.Error(t, err)
 }
@@ -549,14 +460,12 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 			materializer := testGitHubMaterializer(client)
 			materializer.LookupEnvironment = environmentLookup(test.environment)
 
-			data, err := materializer.Materialize(t.Context(), Request{
+			data, err := materializer.Materialize(t.Context(), &Request{
 				SHA256: checksum(exactSchema),
 				Source: config.Source{
-					GithubRepository: &config.GithubRepository{
-						Repository: "octo-org/private-repo",
-						Revision:   schemaRevision,
-						Path:       "schema.graphql",
-					},
+					Repository: "octo-org/private-repo",
+					Revision:   schemaRevision,
+					Path:       "schema.graphql",
 				},
 			})
 			if test.expectedError != "" {
@@ -612,13 +521,20 @@ func TestMaterializerAtomicWriteFailures(t *testing.T) {
 			}))
 			t.Cleanup(server.Close)
 			destination := filepath.Join(t.TempDir(), "schema.graphql")
-			materializer := NewMaterializer()
+			materializer := testGitHubMaterializer(server.Client())
+			materializer.GitHubAPIBaseURL = func(string) string {
+				return server.URL
+			}
 			materializer.FileSystem = &wrappingFileSystem{wrap: test.wrap}
 
-			_, err := materializer.Materialize(t.Context(), Request{
+			_, err := materializer.Materialize(t.Context(), &Request{
 				Path:   destination,
 				SHA256: checksum(exactSchema),
-				Source: config.Source{Url: new(server.URL)},
+				Source: config.Source{
+					Repository: "octo-org/octo-repo",
+					Path:       "schema.graphql",
+					Revision:   schemaRevision,
+				},
 			})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.expectedError)
@@ -644,11 +560,18 @@ func TestMaterializerConcurrent(t *testing.T) {
 	var waitGroup sync.WaitGroup
 	for worker := range workers {
 		waitGroup.Go(func() {
-			materializer := NewMaterializer()
-			results[worker], errorsByWorker[worker] = materializer.Materialize(t.Context(), Request{
+			materializer := testGitHubMaterializer(server.Client())
+			materializer.GitHubAPIBaseURL = func(string) string {
+				return server.URL
+			}
+			results[worker], errorsByWorker[worker] = materializer.Materialize(t.Context(), &Request{
 				Path:   destination,
 				SHA256: checksum(exactSchema),
-				Source: config.Source{Url: new(server.URL)},
+				Source: config.Source{
+					Repository: "octo-org/octo-repo",
+					Path:       "schema.graphql",
+					Revision:   schemaRevision,
+				},
 			})
 		})
 	}
@@ -669,26 +592,34 @@ func TestMaterializerConcurrentDifferentBytes(t *testing.T) {
 
 	firstSchema := []byte("type Query { first: String }\n")
 	secondSchema := []byte("type Query { second: String }\n")
-	firstServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		_, _ = response.Write(firstSchema)
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		schemaData := firstSchema
+		if strings.Contains(request.URL.Path, "/second/") {
+			schemaData = secondSchema
+		}
+		_, _ = response.Write(schemaData)
 	}))
-	t.Cleanup(firstServer.Close)
-	secondServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		_, _ = response.Write(secondSchema)
-	}))
-	t.Cleanup(secondServer.Close)
+	t.Cleanup(server.Close)
 
 	destination := filepath.Join(t.TempDir(), "schema.graphql")
 	requests := []Request{
 		{
 			Path:   destination,
 			SHA256: checksum(firstSchema),
-			Source: config.Source{Url: new(firstServer.URL)},
+			Source: config.Source{
+				Repository: "octo-org/first",
+				Path:       "schema.graphql",
+				Revision:   schemaRevision,
+			},
 		},
 		{
 			Path:   destination,
 			SHA256: checksum(secondSchema),
-			Source: config.Source{Url: new(secondServer.URL)},
+			Source: config.Source{
+				Repository: "octo-org/second",
+				Path:       "schema.graphql",
+				Revision:   schemaRevision,
+			},
 		},
 	}
 	results := make([][]byte, len(requests))
@@ -696,8 +627,11 @@ func TestMaterializerConcurrentDifferentBytes(t *testing.T) {
 	var waitGroup sync.WaitGroup
 	for index, request := range requests {
 		waitGroup.Go(func() {
-			materializer := NewMaterializer()
-			results[index], resultErrors[index] = materializer.Materialize(t.Context(), request)
+			materializer := testGitHubMaterializer(server.Client())
+			materializer.GitHubAPIBaseURL = func(string) string {
+				return server.URL
+			}
+			results[index], resultErrors[index] = materializer.Materialize(t.Context(), &request)
 		})
 	}
 	waitGroup.Wait()

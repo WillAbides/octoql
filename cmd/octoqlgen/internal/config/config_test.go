@@ -124,9 +124,9 @@ func TestLoadGeneratorOptions(t *testing.T) {
 		"schema:\n" +
 			"  path: .octoql/schema.graphql\n" +
 			"  source:\n" +
-			"    github_docs:\n" +
-			"      version: fpt\n" +
-			"      revision: " + testRevision + "\n" +
+			"    repository: github/docs\n" +
+			"    path: src/graphql/data/fpt/schema.docs.graphql\n" +
+			"    revision: " + testRevision + "\n" +
 			"operations:\n" +
 			"  - graphql/**/*.graphql\n" +
 			"generated: generated/client.go\n" +
@@ -161,8 +161,8 @@ func TestLoadGeneratorOptions(t *testing.T) {
 
 	assert.Equal(t, filepath.Join(directory, ".octoql", "schema.graphql"), loaded.SchemaPath())
 	require.NotNil(t, loaded.Schema.Source)
-	require.NotNil(t, loaded.Schema.Source.GithubDocs)
-	assert.Equal(t, "fpt", loaded.Schema.Source.GithubDocs.Version)
+	assert.Equal(t, "github/docs", loaded.Schema.Source.Repository)
+	assert.Equal(t, "src/graphql/data/fpt/schema.docs.graphql", loaded.Schema.Source.Path)
 	assert.Equal(
 		t,
 		[]string{filepath.Join(directory, "graphql", "**", "*.graphql")},
@@ -252,62 +252,37 @@ func TestParseRequiresSchemaFields(t *testing.T) {
 			wantError: "package_bindings[0].package is required",
 		},
 		{
-			name: "github docs version",
+			name: "source repository",
 			content: "schema:\n" +
 				"  path: schema.graphql\n" +
 				"  source:\n" +
-				"    github_docs:\n" +
-				"      revision: " + testRevision + "\n" +
+				"    path: schema.graphql\n" +
+				"    revision: " + testRevision + "\n" +
 				"operations: []\n" +
 				"generated: generated.go\n",
-			wantError: "schema.source.github_docs.version is required",
+			wantError: "schema.source.repository is required",
 		},
 		{
-			name: "github docs revision",
+			name: "source revision",
 			content: "schema:\n" +
 				"  path: schema.graphql\n" +
 				"  source:\n" +
-				"    github_docs:\n" +
-				"      version: fpt\n" +
+				"    repository: octo-org/octo-repo\n" +
+				"    path: schema.graphql\n" +
 				"operations: []\n" +
 				"generated: generated.go\n",
-			wantError: "schema.source.github_docs.revision is required",
+			wantError: "schema.source.revision is required",
 		},
 		{
-			name: "github repository repository",
+			name: "source path",
 			content: "schema:\n" +
 				"  path: schema.graphql\n" +
 				"  source:\n" +
-				"    github_repository:\n" +
-				"      revision: " + testRevision + "\n" +
-				"      path: schema.graphql\n" +
+				"    repository: octo-org/octo-repo\n" +
+				"    revision: " + testRevision + "\n" +
 				"operations: []\n" +
 				"generated: generated.go\n",
-			wantError: "schema.source.github_repository.repository is required",
-		},
-		{
-			name: "github repository revision",
-			content: "schema:\n" +
-				"  path: schema.graphql\n" +
-				"  source:\n" +
-				"    github_repository:\n" +
-				"      repository: octo-org/octo-repo\n" +
-				"      path: schema.graphql\n" +
-				"operations: []\n" +
-				"generated: generated.go\n",
-			wantError: "schema.source.github_repository.revision is required",
-		},
-		{
-			name: "github repository path",
-			content: "schema:\n" +
-				"  path: schema.graphql\n" +
-				"  source:\n" +
-				"    github_repository:\n" +
-				"      repository: octo-org/octo-repo\n" +
-				"      revision: " + testRevision + "\n" +
-				"operations: []\n" +
-				"generated: generated.go\n",
-			wantError: "schema.source.github_repository.path is required",
+			wantError: "schema.source.path is required",
 		},
 	}
 
@@ -332,9 +307,9 @@ func TestUpdatePinPreservesUnrelatedFormatting(t *testing.T) {
 			"  path: '.octoql/schema.graphql'\n" +
 			"  sha256: \"" + testSHA256 + "\" # keep this too\n" +
 			"  source:\n" +
-			"    github_docs:\n" +
-			"      version: fpt\n" +
-			"      revision: '" + testRevision + "'\n" +
+			"    repository: github/docs\n" +
+			"    path: src/graphql/data/fpt/schema.docs.graphql\n" +
+			"    revision: '" + testRevision + "'\n" +
 			"operations: [graphql/**/*.graphql]\n" +
 			"generated: internal/githubapi/generated.go\n",
 	)
@@ -350,9 +325,9 @@ func TestUpdatePinPreservesUnrelatedFormatting(t *testing.T) {
 			"  path: '.octoql/schema.graphql'\n"+
 			"  sha256: \""+newSHA+"\" # keep this too\n"+
 			"  source:\n"+
-			"    github_docs:\n"+
-			"      version: fpt\n"+
-			"      revision: '"+newRevision+"'\n"+
+			"    repository: github/docs\n"+
+			"    path: src/graphql/data/fpt/schema.docs.graphql\n"+
+			"    revision: '"+newRevision+"'\n"+
 			"operations: [graphql/**/*.graphql]\n"+
 			"generated: internal/githubapi/generated.go\n",
 		string(updated),
@@ -399,9 +374,9 @@ func validConfigYAML() string {
 		"  path: .octoql/schema.graphql\n" +
 		"  sha256: " + testSHA256 + "\n" +
 		"  source:\n" +
-		"    github_docs:\n" +
-		"      version: fpt\n" +
-		"      revision: " + testRevision + "\n" +
+		"    repository: github/docs\n" +
+		"    path: src/graphql/data/fpt/schema.docs.graphql\n" +
+		"    revision: " + testRevision + "\n" +
 		"operations:\n" +
 		"  - graphql/**/*.graphql\n" +
 		"generated: githubapi/generated.go\n" +

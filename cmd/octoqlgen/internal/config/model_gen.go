@@ -15,26 +15,14 @@ type Casing struct {
 	Enums    *map[string]string `json:"enums"`
 }
 
-type GithubDocs struct {
-	Revision string `json:"revision"`
-	Version  string `json:"version"`
-}
-
-type GithubRepository struct {
-	Host       *string `json:"host"`
-	Path       string  `json:"path"`
-	Repository string  `json:"repository"`
-	Revision   string  `json:"revision"`
-}
-
 type PackageBinding struct {
 	Package string `json:"package"`
 }
 
 type Source struct {
-	GithubDocs       *GithubDocs       `json:"github_docs"`
-	GithubRepository *GithubRepository `json:"github_repository"`
-	Url              *string           `json:"url"`
+	Path       string `json:"path"`
+	Repository string `json:"repository"`
+	Revision   string `json:"revision"`
 }
 
 type Schema struct {
