@@ -41,23 +41,15 @@ func UpdatePin(content []byte, sha256, revision string) ([]byte, error) {
 			return nil, sourceErr
 		}
 		sourceNode = dereference(sourceNode)
-		for _, key := range []string{"github_docs", "github_repository"} {
-			var variant *yamlv3.Node
-			variant, sourceErr = mappingValue(sourceNode, key)
-			if sourceErr == nil {
-				var revisionNode *yamlv3.Node
-				revisionNode, sourceErr = mappingValue(dereference(variant), "revision")
-				if sourceErr != nil {
-					return nil, sourceErr
-				}
-				sourceErr = ensureUnanchoredPin(revisionNode)
-				if sourceErr != nil {
-					return nil, sourceErr
-				}
-				replacements = append(replacements, scalarReplacement{node: revisionNode, value: revision})
-				break
-			}
+		revisionNode, sourceErr := mappingValue(sourceNode, "revision")
+		if sourceErr != nil {
+			return nil, sourceErr
 		}
+		sourceErr = ensureUnanchoredPin(revisionNode)
+		if sourceErr != nil {
+			return nil, sourceErr
+		}
+		replacements = append(replacements, scalarReplacement{node: revisionNode, value: revision})
 	}
 	return replaceScalars(content, replacements)
 }

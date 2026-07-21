@@ -49,13 +49,24 @@ Initialize a project:
 go tool octoqlgen init
 ```
 
-This creates `octoqlgen.yaml` and `.octoql/.gitignore`. It does not fetch a
-schema. The generated config uses the gitignored `.octoql/schema.graphql` path,
-`graphql/**/*.graphql` for operations, and
-`internal/githubapi/generated.go` for output.
+GitHub authentication must be available through `GH_TOKEN`, `GITHUB_TOKEN`, or
+the `gh` CLI.
 
-Add the JSON Schema directive to `octoqlgen.yaml` for editor completion and
-validation, then configure the GitHub Docs schema:
+This resolves and fetches the latest GitHub Docs Free, Pro, & Team (`fpt`)
+schema, then creates a configuration containing its commit revision and SHA-256
+digest. It also creates `.octoql/.gitignore`; the generated config uses the
+gitignored `.octoql/schema.graphql` path, `graphql/**/*.graphql` for operations,
+and `internal/githubapi/generated.go` for output.
+
+Choose another GitHub Docs schema version with `--schema-version`:
+
+```sh
+go tool octoqlgen init --schema-version ghec
+go tool octoqlgen init --schema-version ghes-3.21
+```
+
+Add the JSON Schema directive to the generated `octoqlgen.yaml` for editor
+completion and validation. The initialized schema configuration has this form:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml
@@ -64,9 +75,9 @@ schema:
   path: .octoql/schema.graphql
   sha256: c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
   source:
-    github_docs:
-      version: fpt
-      revision: 45d83f459620340069df7c375a8867be62616d61
+    repository: github/docs
+    path: src/graphql/data/fpt/schema.docs.graphql
+    revision: 45d83f459620340069df7c375a8867be62616d61
 operations:
   - graphql/**/*.graphql
 generated: internal/githubapi/generated.go
@@ -94,15 +105,15 @@ query GetRepository($owner: String!, $name: String!, $first: Int!) {
 }
 ```
 
-Materialize or verify the configured schema, then generate:
+Fetch or verify the configured schema, then generate:
 
 ```sh
-go tool octoqlgen schema materialize
+go tool octoqlgen schema fetch
 go tool octoqlgen generate
 ```
 
-Generation performs the same schema verification or materialization before it
-writes code. Query and mutation operation names become generated helper names,
+Generation performs the same schema verification or fetch before it writes
+code. Query and mutation operation names become generated helper names,
 so use an uppercase name when the helper must be exported. octoql does not
 support GraphQL subscriptions, and `octoqlgen` rejects subscription operations.
 
@@ -121,21 +132,22 @@ schema:
   path: schema/github.graphql
 ```
 
-Remote sources require a SHA-256 digest and, for GitHub sources, a full commit
-SHA. GitHub Docs and repository sources use `GH_TOKEN`, `GITHUB_TOKEN`, or
-`gh auth token`. See the [configuration reference](docs/octoqlgen.yaml) for
-GitHub repository, GHES, and immutable URL sources.
+GitHub.com sources require a SHA-256 digest and full commit SHA. Authentication
+uses `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`. See the
+[configuration reference](docs/octoqlgen.yaml) for all schema settings.
 
-`schema materialize` verifies an existing file or fetches a missing remote file:
+`octoqlgen init` configures and fetches the latest `fpt` schema by default.
+Pass `--schema-version` to initialize with another GitHub Docs version.
+
+`schema fetch` verifies an existing file or fetches a missing remote file:
 
 ```sh
-go tool octoqlgen schema materialize
+go tool octoqlgen schema fetch
 ```
 
-`schema update` fetches and validates the current remote source, then updates
-the materialized schema and its configuration pin: `sha256` for every remote
-source and the GitHub revision for GitHub-backed sources. Run schema updates
-serially.
+`schema update` fetches the latest version of the configured repository path
+from its default branch, validates and writes it, then updates the configuration
+revision and `sha256`. Run schema updates serially.
 
 ```sh
 go tool octoqlgen schema update
@@ -144,8 +156,8 @@ go tool octoqlgen generate
 ```
 
 The `.octoql` schema normally remains ignored while the reviewed pin in
-`octoqlgen.yaml` is committed. Use `--config PATH` with materialize, update, or
-generate when the config has another name or location.
+`octoqlgen.yaml` is committed. Use `--config PATH` with fetch, update, or generate
+when the config has another name or location.
 
 ## Call the generated client
 

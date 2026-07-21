@@ -136,32 +136,9 @@ func (m *Materializer) fetch(
 	source config.Source,
 	dependencies *dependencies,
 ) ([]byte, error) {
-	if source.Url != nil {
-		return fetchURL(
-			ctx,
-			dependencies.httpClient,
-			*source.Url,
-			"",
-			false,
-			dependencies.maxResponseBytes,
-		)
-	}
-
-	repository := source.GithubRepository
-	if source.GithubDocs != nil {
-		repository = githubDocsRepository(*source.GithubDocs)
-	}
-	if repository == nil {
-		return nil, errors.New("remote schema source is missing")
-	}
-	host := "github.com"
-	if repository.Host != nil {
-		host = *repository.Host
-	}
-
 	token, err := discoverToken(
 		ctx,
-		host,
+		"github.com",
 		dependencies.lookupEnvironment,
 		dependencies.commandRunner,
 	)
@@ -170,8 +147,8 @@ func (m *Materializer) fetch(
 	}
 
 	requestURL, err := githubContentsURL(
-		dependencies.githubAPIBaseURL(host),
-		*repository,
+		dependencies.githubAPIBaseURL("github.com"),
+		source,
 	)
 	if err != nil {
 		return nil, err
@@ -236,19 +213,7 @@ func fetchURL(
 	return data, nil
 }
 
-func githubDocsRepository(source config.GithubDocs) *config.GithubRepository {
-	filename := "schema.docs.graphql"
-	if strings.HasPrefix(source.Version, "ghes-") {
-		filename = "schema.docs-enterprise.graphql"
-	}
-	return &config.GithubRepository{
-		Repository: "github/docs",
-		Revision:   source.Revision,
-		Path:       "src/graphql/data/" + source.Version + "/" + filename,
-	}
-}
-
-func githubContentsURL(baseURL string, source config.GithubRepository) (string, error) {
+func githubContentsURL(baseURL string, source config.Source) (string, error) {
 	base, err := url.Parse(baseURL)
 	if err != nil {
 		return "", fmt.Errorf("parsing github api base url: %w", err)
@@ -269,16 +234,10 @@ func githubContentsURL(baseURL string, source config.GithubRepository) (string, 
 	return base.String(), nil
 }
 
-func defaultGitHubAPIBaseURL(host string) string {
-	if host == "github.com" {
-		return "https://api.github.com"
-	}
-	return "https://" + host + "/api/v3"
+func defaultGitHubAPIBaseURL(string) string {
+	return "https://api.github.com"
 }
 
-func defaultGitHubGraphQLEndpoint(host string) string {
-	if host == "github.com" {
-		return "https://api.github.com/graphql"
-	}
-	return "https://" + host + "/api/graphql"
+func defaultGitHubGraphQLEndpoint(string) string {
+	return "https://api.github.com/graphql"
 }
