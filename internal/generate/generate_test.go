@@ -266,7 +266,7 @@ query Value(
 	assert.Contains(t, source, "type Client struct {")
 	assert.Contains(t, source, "func NewClient(endpoint string, httpClient *http.Client) *Client")
 	assert.Contains(t, source, "func (c *Client) Value(")
-	assert.Contains(t, source, "hasData, err := c.execute(")
+	assert.Contains(t, source, "hasData, err := c._octoqlExecute(")
 	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
@@ -342,6 +342,63 @@ query RateLimit {
 	})
 
 	require.EqualError(t, err, `generated Client method "RateLimit" conflicts with operation "RateLimit"`)
+}
+
+func TestGenerateRejectsPrivateRuntimeDeclarationCollision(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`
+type Query {
+  value: String!
+}
+`), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(`
+# @octoqlgen(typename: "_octoqlPayload")
+query Value {
+  value
+}
+`), 0o600))
+
+	_, err := Generate(&Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "collision",
+		ContextType: "-",
+	})
+
+	require.EqualError(t, err, `generated identifier "_octoqlPayload" uses reserved prefix "_octoql"`)
+}
+
+func TestGenerateRejectsReservedRuntimeOperationPrefix(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`
+type Query {
+  value: String!
+}
+`), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(`
+query _octoqlOperation {
+  value
+}
+`), 0o600))
+
+	_, err := Generate(&Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "collision",
+		ContextType: "-",
+	})
+
+	require.EqualError(
+		t,
+		err,
+		`generated identifier "_octoqlOperation" uses reserved prefix "_octoql"`,
+	)
 }
 
 func TestGenerateQuotesOperationText(t *testing.T) {

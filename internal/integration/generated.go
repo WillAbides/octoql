@@ -23,31 +23,31 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
-// noUnmarshalJSON is for generated code only.
+// _octoqlNoUnmarshalJSON is for generated code only.
 //
-// Embedding noUnmarshalJSON alongside a type with an UnmarshalJSON method
+// Embedding _octoqlNoUnmarshalJSON alongside a type with an UnmarshalJSON method
 // prevents that sibling method from being promoted.
-type noUnmarshalJSON struct{}
+type _octoqlNoUnmarshalJSON struct{}
 
 // UnmarshalJSON should never be called. It exists only to prevent a sibling
 // UnmarshalJSON method from being promoted.
-func (noUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("noUnmarshalJSON.UnmarshalJSON should never be called!")
+func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
-// noMarshalJSON is for generated code only.
+// _octoqlNoMarshalJSON is for generated code only.
 //
-// Embedding noMarshalJSON alongside a type with a MarshalJSON method prevents
+// Embedding _octoqlNoMarshalJSON alongside a type with a MarshalJSON method prevents
 // that sibling method from being promoted.
-type noMarshalJSON struct{}
+type _octoqlNoMarshalJSON struct{}
 
 // MarshalJSON should never be called. It exists only to prevent a sibling
 // MarshalJSON method from being promoted.
-func (noMarshalJSON) MarshalJSON() ([]byte, error) {
-	panic("noUnmarshalJSON.MarshalJSON should never be called!")
+func (_octoqlNoMarshalJSON) MarshalJSON() ([]byte, error) {
+	panic("_octoqlNoMarshalJSON.MarshalJSON should never be called!")
 }
 
-const maxResponseErrorRawBody = 64 * 1024
+const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
 // type so values introduced by GitHub remain available to callers.
@@ -263,7 +263,7 @@ func (e *ResponseError) Error() string {
 	}
 
 	message := "graphql response failed"
-	if !isSuccessfulStatus(e.StatusCode) {
+	if !_octoqlIsSuccessfulStatus(e.StatusCode) {
 		message = fmt.Sprintf(
 			"graphql response failed with status %d",
 			e.StatusCode,
@@ -284,7 +284,7 @@ func (e *ResponseError) Unwrap() error {
 	return e.err
 }
 
-type responseErrorParams struct {
+type _octoqlResponseErrorParams struct {
 	statusCode    int
 	requestID     string
 	body          []byte
@@ -293,14 +293,14 @@ type responseErrorParams struct {
 	err           error
 }
 
-func newResponseError(params responseErrorParams) *ResponseError {
+func _octoqlNewResponseError(params _octoqlResponseErrorParams) *ResponseError {
 	var rawBody []byte
 	isTruncated := false
 	if params.retainBody {
 		rawBody = params.body
 		isTruncated = params.bodyTruncated
-		if len(rawBody) > maxResponseErrorRawBody {
-			rawBody = rawBody[:maxResponseErrorRawBody]
+		if len(rawBody) > _octoqlMaxResponseErrorRawBody {
+			rawBody = rawBody[:_octoqlMaxResponseErrorRawBody]
 			isTruncated = true
 		}
 		rawBody = bytes.Clone(rawBody)
@@ -339,7 +339,7 @@ type RateLimit struct {
 	RetryAt    time.Time
 }
 
-type parsedRateLimit struct {
+type _octoqlParsedRateLimit struct {
 	RateLimit
 
 	remainingValid  bool
@@ -372,36 +372,36 @@ func (e *RateLimitError) Unwrap() error {
 	return e.Err
 }
 
-var rateLimitNow = time.Now
+var _octoqlRateLimitNow = time.Now
 
-func maxUnixSeconds() uint64 {
+func _octoqlMaxUnixSeconds() uint64 {
 	firstUnixSecond := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC).Unix()
 	return uint64(math.MaxInt64 + firstUnixSecond)
 }
 
-func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
-	rateLimit := parsedRateLimit{}
+func _octoqlRateLimitFromHeader(header http.Header, now time.Time) _octoqlParsedRateLimit {
+	rateLimit := _octoqlParsedRateLimit{}
 
-	limit, valid := nonnegativeHeaderInt(header, "X-RateLimit-Limit")
+	limit, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Limit")
 	if valid {
 		rateLimit.Limit = limit
 	}
-	remaining, valid := nonnegativeHeaderInt(header, "X-RateLimit-Remaining")
+	remaining, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Remaining")
 	if valid {
 		rateLimit.Remaining = remaining
 		rateLimit.remainingValid = true
 	}
-	used, valid := nonnegativeHeaderInt(header, "X-RateLimit-Used")
+	used, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Used")
 	if valid {
 		rateLimit.Used = used
 	}
-	reset, valid := nonnegativeHeaderUnix(header, "X-RateLimit-Reset")
+	reset, valid := _octoqlNonnegativeHeaderUnix(header, "X-RateLimit-Reset")
 	if valid {
 		rateLimit.Reset = reset
 	}
-	rateLimit.Resource = strings.TrimSpace(headerValue(header, "X-RateLimit-Resource"))
+	rateLimit.Resource = strings.TrimSpace(_octoqlHeaderValue(header, "X-RateLimit-Resource"))
 
-	retryAfter, retryAt, valid := retryAfterFromHeader(header, now)
+	retryAfter, retryAt, valid := _octoqlRetryAfterFromHeader(header, now)
 	if valid {
 		rateLimit.RetryAfter = retryAfter
 		rateLimit.RetryAt = retryAt
@@ -411,39 +411,39 @@ func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
 	return rateLimit
 }
 
-func (r *parsedRateLimit) primarySnapshot() RateLimit {
+func (r *_octoqlParsedRateLimit) _octoqlPrimarySnapshot() RateLimit {
 	snapshot := r.RateLimit
 	snapshot.RetryAfter = 0
 	snapshot.RetryAt = time.Time{}
 	return snapshot
 }
 
-func nonnegativeHeaderInt(header http.Header, name string) (int, bool) {
-	value, valid := parseNonnegativeDecimal(headerValue(header, name), strconv.IntSize)
+func _octoqlNonnegativeHeaderInt(header http.Header, name string) (int, bool) {
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), strconv.IntSize)
 	if !valid {
 		return 0, false
 	}
 	return int(value), true
 }
 
-func nonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
-	value, valid := parseNonnegativeDecimal(headerValue(header, name), 63)
+func _octoqlNonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), 63)
 	if !valid {
 		return time.Time{}, false
 	}
-	if value > maxUnixSeconds() {
+	if value > _octoqlMaxUnixSeconds() {
 		return time.Time{}, false
 	}
 	return time.Unix(int64(value), 0).UTC(), true
 }
 
-func retryAfterFromHeader(header http.Header, now time.Time) (time.Duration, time.Time, bool) {
-	value := strings.TrimSpace(headerValue(header, "Retry-After"))
+func _octoqlRetryAfterFromHeader(header http.Header, now time.Time) (time.Duration, time.Time, bool) {
+	value := strings.TrimSpace(_octoqlHeaderValue(header, "Retry-After"))
 	if value == "" {
 		return 0, time.Time{}, false
 	}
 
-	seconds, valid := parseNonnegativeDecimal(value, 64)
+	seconds, valid := _octoqlParseNonnegativeDecimal(value, 64)
 	if valid {
 		maxSeconds := uint64(math.MaxInt64 / int64(time.Second))
 		if seconds > maxSeconds {
@@ -465,7 +465,7 @@ func retryAfterFromHeader(header http.Header, now time.Time) (time.Duration, tim
 	return retryAfter, retryAt, true
 }
 
-func parseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
+func _octoqlParseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return 0, false
@@ -482,7 +482,7 @@ func parseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
 	return parsed, true
 }
 
-func headerValue(header http.Header, name string) string {
+func _octoqlHeaderValue(header http.Header, name string) string {
 	for headerName, values := range header {
 		if strings.EqualFold(headerName, name) && len(values) > 0 {
 			return values[0]
@@ -491,12 +491,12 @@ func headerValue(header http.Header, name string) string {
 	return ""
 }
 
-func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) error {
+func _octoqlClassifyRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit, err error) error {
 	if err == nil {
 		return nil
 	}
 
-	isSecondaryResponse := isSecondaryRateLimitStatus(statusCode)
+	isSecondaryResponse := _octoqlIsSecondaryRateLimitStatus(statusCode)
 	if rateLimit.retryAfterValid && isSecondaryResponse {
 		return &RateLimitError{
 			Kind:      RateLimitSecondary,
@@ -505,8 +505,8 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 		}
 	}
 
-	isPrimaryStatus := isPrimaryRateLimitStatus(statusCode)
-	isPrimaryGraphQLError := hasGraphQLRateLimitError(err)
+	isPrimaryStatus := _octoqlIsPrimaryRateLimitStatus(statusCode)
+	isPrimaryGraphQLError := _octoqlHasGraphQLRateLimitError(err)
 	hasNoRemaining := rateLimit.remainingValid && rateLimit.Remaining == 0
 	hasPrimarySignal := isPrimaryStatus || isPrimaryGraphQLError
 	isPrimaryLimit := hasNoRemaining && hasPrimarySignal
@@ -520,7 +520,7 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 	return err
 }
 
-func isSecondaryRateLimitStatus(statusCode int) bool {
+func _octoqlIsSecondaryRateLimitStatus(statusCode int) bool {
 	switch statusCode {
 	case http.StatusOK, http.StatusForbidden, http.StatusTooManyRequests:
 		return true
@@ -529,7 +529,7 @@ func isSecondaryRateLimitStatus(statusCode int) bool {
 	}
 }
 
-func isPrimaryRateLimitStatus(statusCode int) bool {
+func _octoqlIsPrimaryRateLimitStatus(statusCode int) bool {
 	switch statusCode {
 	case http.StatusForbidden, http.StatusTooManyRequests:
 		return true
@@ -538,7 +538,7 @@ func isPrimaryRateLimitStatus(statusCode int) bool {
 	}
 }
 
-func hasGraphQLRateLimitError(err error) bool {
+func _octoqlHasGraphQLRateLimitError(err error) bool {
 	graphqlErrors, ok := errors.AsType[Errors](err)
 	if !ok {
 		return false
@@ -589,12 +589,12 @@ func NewClient(endpoint string, httpClient *http.Client) *Client {
 
 // SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
 // token must use the RFC 6750 b64token syntax. It may be called concurrently
-// with [Client.execute] to rotate credentials.
+// with [Client._octoqlExecute] to rotate credentials.
 func (c *Client) SetBearerToken(token string) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
 	}
-	if !validBearerToken(token) {
+	if !_octoqlValidBearerToken(token) {
 		return errors.New("octoql: invalid bearer token")
 	}
 
@@ -618,7 +618,7 @@ func (c *Client) ResponseSizeLimit() int64 {
 
 // SetResponseSizeLimit configures the maximum HTTP response body size Client
 // accepts for decoding. limit must be greater than zero. It may be called
-// concurrently with [Client.execute].
+// concurrently with [Client._octoqlExecute].
 func (c *Client) SetResponseSizeLimit(limit int64) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -650,23 +650,23 @@ func (c *Client) RateLimit() (RateLimit, bool) {
 	return *c.rateLimit, true
 }
 
-// payload is the GraphQL request body used by generated clients.
-type payload struct {
+// _octoqlPayload is the GraphQL request body used by generated clients.
+type _octoqlPayload struct {
 	Query         string `json:"query"`
 	OperationName string `json:"operationName"`
 	Variables     any    `json:"variables,omitempty"`
 }
 
-// execute runs operation and decodes its response data into response.
+// _octoqlExecute runs operation and decodes its response data into response.
 //
-// execute is a generated-code contract. Response must be a non-nil pointer.
+// _octoqlExecute is a generated-code contract. Response must be a non-nil pointer.
 // The returned boolean reports whether the GraphQL data field decoded
 // successfully and response is usable, including when GraphQL errors are also
 // returned.
 // Every failure after the server returns an HTTP response includes
 // [ResponseError]. GraphQL errors and rate limits remain discoverable in that
 // error chain as [Errors] and [RateLimitError].
-func (c *Client) execute(ctx context.Context, payload payload, response any) (bool, error) {
+func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, response any) (bool, error) {
 	if c == nil {
 		return false, errors.New("octoql: client is nil")
 	}
@@ -695,7 +695,7 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	//nolint:bodyclose // readAndClose closes the body and preserves close errors.
+	//nolint:bodyclose // _octoqlReadAndClose closes the body and preserves close errors.
 	httpResponse, sendErr := httpClient.Do(request)
 	if httpResponse == nil {
 		if sendErr == nil {
@@ -705,39 +705,39 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	}
 
 	observation := c.responseObservation.Add(1)
-	rateLimit := rateLimitFromHeader(httpResponse.Header, rateLimitNow())
-	c.observeRateLimit(observation, &rateLimit)
+	rateLimit := _octoqlRateLimitFromHeader(httpResponse.Header, _octoqlRateLimitNow())
+	c._octoqlObserveRateLimit(observation, &rateLimit)
 
 	statusCode := httpResponse.StatusCode
-	requestID := requestIDFromHeader(httpResponse.Header)
+	requestID := _octoqlRequestIDFromHeader(httpResponse.Header)
 	if sendErr != nil {
 		cause := fmt.Errorf("send graphql request: %w", sendErr)
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode: statusCode,
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
 	if httpResponse.Body == nil {
 		cause := errors.New("read graphql response: response body is nil")
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode: statusCode,
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
-	body, readErr, closeErr := readAndClose(
+	body, readErr, closeErr := _octoqlReadAndClose(
 		httpResponse.Body,
 		c.ResponseSizeLimit(),
 	)
 	if readErr != nil {
 		cause := errors.Join(readErr, closeErr)
 		_, responseTooLarge := errors.AsType[*ResponseSizeLimitError](readErr)
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode:    statusCode,
 			requestID:     requestID,
 			body:          body,
@@ -745,16 +745,16 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 			bodyTruncated: responseTooLarge,
 			err:           cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
-	data, graphqlErrors, decodeErr := decodeResponse(body)
+	data, graphqlErrors, decodeErr := _octoqlDecodeResponse(body)
 
 	hasData := data != nil && !bytes.Equal(bytes.TrimSpace(data), []byte("null"))
 	hasErrors := len(graphqlErrors) > 0
 	hasUsableData := false
 	if hasData {
-		dataErr := decodeData(data, response)
+		dataErr := _octoqlDecodeData(data, response)
 		hasUsableData = dataErr == nil
 		decodeErr = errors.Join(decodeErr, dataErr)
 	}
@@ -766,7 +766,7 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	}
 	cause = errors.Join(cause, closeErr)
 
-	isSuccessful := isSuccessfulStatus(statusCode)
+	isSuccessful := _octoqlIsSuccessfulStatus(statusCode)
 	haspayload := hasData || hasErrors
 	missingpayload := decodeErr == nil && !haspayload
 	if isSuccessful && missingpayload {
@@ -780,22 +780,22 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 
 	hasDecodeFailure := decodeErr != nil || missingpayload
 	retainBody := !isSuccessful || hasDecodeFailure
-	responseError := newResponseError(responseErrorParams{
+	responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 		statusCode: statusCode,
 		requestID:  requestID,
 		body:       body,
 		retainBody: retainBody,
 		err:        cause,
 	})
-	return hasUsableData, classifyRateLimit(statusCode, &rateLimit, responseError)
+	return hasUsableData, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 }
 
-func (c *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
+func (c *Client) _octoqlObserveRateLimit(observation uint64, parsed *_octoqlParsedRateLimit) {
 	if c == nil || parsed == nil || !parsed.remainingValid {
 		return
 	}
 
-	rateLimit := parsed.primarySnapshot()
+	rateLimit := parsed._octoqlPrimarySnapshot()
 	c.rateLimitMu.Lock()
 	defer c.rateLimitMu.Unlock()
 
@@ -808,7 +808,7 @@ func (c *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
 	c.rateLimitObservation = observation
 }
 
-func requestIDFromHeader(header http.Header) string {
+func _octoqlRequestIDFromHeader(header http.Header) string {
 	for name, values := range header {
 		if strings.EqualFold(name, "X-GitHub-Request-ID") && len(values) > 0 {
 			return values[0]
@@ -817,7 +817,7 @@ func requestIDFromHeader(header http.Header) string {
 	return ""
 }
 
-func validBearerToken(token string) bool {
+func _octoqlValidBearerToken(token string) bool {
 	if token == "" {
 		return false
 	}
@@ -830,7 +830,7 @@ func validBearerToken(token string) bool {
 			padding = true
 			continue
 		}
-		if padding || !validBearerTokenCharacter(character) {
+		if padding || !_octoqlValidBearerTokenCharacter(character) {
 			return false
 		}
 		hasTokenCharacter = true
@@ -838,7 +838,7 @@ func validBearerToken(token string) bool {
 	return hasTokenCharacter
 }
 
-func validBearerTokenCharacter(character byte) bool {
+func _octoqlValidBearerTokenCharacter(character byte) bool {
 	switch {
 	case character >= 'a' && character <= 'z':
 		return true
@@ -853,7 +853,7 @@ func validBearerTokenCharacter(character byte) bool {
 	}
 }
 
-func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
+func _octoqlReadAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
 	payload, readErr := io.ReadAll(io.LimitReader(body, limit))
 	if readErr == nil {
 		var excess [1]byte
@@ -875,7 +875,7 @@ func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
 	return payload, readErr, closeErr
 }
 
-func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
+func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	var envelope struct {
 		Data   json.RawMessage `json:"data"`
 		Errors json.RawMessage `json:"errors"`
@@ -900,7 +900,7 @@ func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	return envelope.Data, graphqlErrors, err
 }
 
-func decodeData(data json.RawMessage, response any) error {
+func _octoqlDecodeData(data json.RawMessage, response any) error {
 	err := json.Unmarshal(data, response)
 	if err != nil {
 		return fmt.Errorf("decode graphql response data: %w", err)
@@ -908,7 +908,7 @@ func decodeData(data json.RawMessage, response any) error {
 	return nil
 }
 
-func isSuccessfulStatus(statusCode int) bool {
+func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
@@ -1070,7 +1070,7 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*addStarAddStarAddStarPayload
 		Starrable json.RawMessage `json:"starrable"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.addStarAddStarAddStarPayload = v
 
@@ -1086,7 +1086,7 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshaladdStarAddStarAddStarPayloadStarrable(
+			err = _octoqlUnmarshaladdStarAddStarAddStarPayloadStarrable(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -1097,27 +1097,27 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshaladdStarAddStarAddStarPayload struct {
+type _octoqlPremarshaladdStarAddStarAddStarPayload struct {
 	Starrable json.RawMessage `json:"starrable"`
 }
 
 func (v *addStarAddStarAddStarPayload) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *addStarAddStarAddStarPayload) __premarshalJSON() (*__premarshaladdStarAddStarAddStarPayload, error) {
-	var retval __premarshaladdStarAddStarAddStarPayload
+func (v *addStarAddStarAddStarPayload) _octoqlPremarshalJSON() (*_octoqlPremarshaladdStarAddStarAddStarPayload, error) {
+	var retval _octoqlPremarshaladdStarAddStarAddStarPayload
 
 	{
 
 		dst := &retval.Starrable
 		src := v.Starrable
 		var err error
-		*dst, err = __marshaladdStarAddStarAddStarPayloadStarrable(
+		*dst, err = _octoqlMarshaladdStarAddStarAddStarPayloadStarrable(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -1146,7 +1146,7 @@ type addStarAddStarAddStarPayloadStarrable interface {
 func (v *addStarAddStarAddStarPayloadStarrableRepository) implementsGraphQLInterfaceaddStarAddStarAddStarPayloadStarrable() {
 }
 
-func __unmarshaladdStarAddStarAddStarPayloadStarrable(b []byte, v *addStarAddStarAddStarPayloadStarrable) error {
+func _octoqlUnmarshaladdStarAddStarAddStarPayloadStarrable(b []byte, v *addStarAddStarAddStarPayloadStarrable) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -1172,7 +1172,7 @@ func __unmarshaladdStarAddStarAddStarPayloadStarrable(b []byte, v *addStarAddSta
 	}
 }
 
-func __marshaladdStarAddStarAddStarPayloadStarrable(v *addStarAddStarAddStarPayloadStarrable) ([]byte, error) {
+func _octoqlMarshaladdStarAddStarAddStarPayloadStarrable(v *addStarAddStarAddStarPayloadStarrable) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -1284,7 +1284,7 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*getRepositoryRepository
 		Owner json.RawMessage `json:"owner"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.getRepositoryRepository = v
 
@@ -1300,7 +1300,7 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalgetRepositoryRepositoryOwner(
+			err = _octoqlUnmarshalgetRepositoryRepositoryOwner(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -1311,7 +1311,7 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalgetRepositoryRepository struct {
+type _octoqlPremarshalgetRepositoryRepository struct {
 	Id string `json:"id"`
 
 	Name string `json:"name"`
@@ -1322,15 +1322,15 @@ type __premarshalgetRepositoryRepository struct {
 }
 
 func (v *getRepositoryRepository) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *getRepositoryRepository) __premarshalJSON() (*__premarshalgetRepositoryRepository, error) {
-	var retval __premarshalgetRepositoryRepository
+func (v *getRepositoryRepository) _octoqlPremarshalJSON() (*_octoqlPremarshalgetRepositoryRepository, error) {
+	var retval _octoqlPremarshalgetRepositoryRepository
 
 	retval.Id = v.Id
 	retval.Name = v.Name
@@ -1340,7 +1340,7 @@ func (v *getRepositoryRepository) __premarshalJSON() (*__premarshalgetRepository
 		dst := &retval.Owner
 		src := v.Owner
 		var err error
-		*dst, err = __marshalgetRepositoryRepositoryOwner(
+		*dst, err = _octoqlMarshalgetRepositoryRepositoryOwner(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -1367,7 +1367,7 @@ func (v *getRepositoryRepositoryOwnerOrganization) implementsGraphQLInterfaceget
 }
 func (v *getRepositoryRepositoryOwnerUser) implementsGraphQLInterfacegetRepositoryRepositoryOwner() {}
 
-func __unmarshalgetRepositoryRepositoryOwner(b []byte, v *getRepositoryRepositoryOwner) error {
+func _octoqlUnmarshalgetRepositoryRepositoryOwner(b []byte, v *getRepositoryRepositoryOwner) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -1396,7 +1396,7 @@ func __unmarshalgetRepositoryRepositoryOwner(b []byte, v *getRepositoryRepositor
 	}
 }
 
-func __marshalgetRepositoryRepositoryOwner(v *getRepositoryRepositoryOwner) ([]byte, error) {
+func _octoqlMarshalgetRepositoryRepositoryOwner(v *getRepositoryRepositoryOwner) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -1492,7 +1492,7 @@ func (v *innerActorFieldsBot) implementsGraphQLInterfaceinnerActorFields()      
 func (v *innerActorFieldsOrganization) implementsGraphQLInterfaceinnerActorFields() {}
 func (v *innerActorFieldsUser) implementsGraphQLInterfaceinnerActorFields()         {}
 
-func __unmarshalinnerActorFields(b []byte, v *innerActorFields) error {
+func _octoqlUnmarshalinnerActorFields(b []byte, v *innerActorFields) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -1524,7 +1524,7 @@ func __unmarshalinnerActorFields(b []byte, v *innerActorFields) error {
 	}
 }
 
-func __marshalinnerActorFields(v *innerActorFields) ([]byte, error) {
+func _octoqlMarshalinnerActorFields(v *innerActorFields) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -1633,7 +1633,7 @@ func (v *innerRepositoryOwnerFieldsOrganization) implementsGraphQLInterfaceinner
 }
 func (v *innerRepositoryOwnerFieldsUser) implementsGraphQLInterfaceinnerRepositoryOwnerFields() {}
 
-func __unmarshalinnerRepositoryOwnerFields(b []byte, v *innerRepositoryOwnerFields) error {
+func _octoqlUnmarshalinnerRepositoryOwnerFields(b []byte, v *innerRepositoryOwnerFields) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -1662,7 +1662,7 @@ func __unmarshalinnerRepositoryOwnerFields(b []byte, v *innerRepositoryOwnerFiel
 	}
 }
 
-func __marshalinnerRepositoryOwnerFields(v *innerRepositoryOwnerFields) ([]byte, error) {
+func _octoqlMarshalinnerRepositoryOwnerFields(v *innerRepositoryOwnerFields) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -1767,7 +1767,7 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*organizationFields
 		TopContributor json.RawMessage `json:"topContributor"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.organizationFields = v
 
@@ -1783,7 +1783,7 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalorganizationFieldsTopContributorActor(
+			err = _octoqlUnmarshalorganizationFieldsTopContributorActor(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -1794,7 +1794,7 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalorganizationFields struct {
+type _octoqlPremarshalorganizationFields struct {
 	Id string `json:"id"`
 
 	Plan *organizationFieldsPlan `json:"plan"`
@@ -1803,15 +1803,15 @@ type __premarshalorganizationFields struct {
 }
 
 func (v *organizationFields) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *organizationFields) __premarshalJSON() (*__premarshalorganizationFields, error) {
-	var retval __premarshalorganizationFields
+func (v *organizationFields) _octoqlPremarshalJSON() (*_octoqlPremarshalorganizationFields, error) {
+	var retval _octoqlPremarshalorganizationFields
 
 	retval.Id = v.Id
 	retval.Plan = v.Plan
@@ -1820,7 +1820,7 @@ func (v *organizationFields) __premarshalJSON() (*__premarshalorganizationFields
 		dst := &retval.TopContributor
 		src := v.TopContributor
 		var err error
-		*dst, err = __marshalorganizationFieldsTopContributorActor(
+		*dst, err = _octoqlMarshalorganizationFieldsTopContributorActor(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -1859,7 +1859,7 @@ func (v *organizationFieldsTopContributorOrganization) implementsGraphQLInterfac
 func (v *organizationFieldsTopContributorUser) implementsGraphQLInterfaceorganizationFieldsTopContributorActor() {
 }
 
-func __unmarshalorganizationFieldsTopContributorActor(b []byte, v *organizationFieldsTopContributorActor) error {
+func _octoqlUnmarshalorganizationFieldsTopContributorActor(b []byte, v *organizationFieldsTopContributorActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -1891,7 +1891,7 @@ func __unmarshalorganizationFieldsTopContributorActor(b []byte, v *organizationF
 	}
 }
 
-func __marshalorganizationFieldsTopContributorActor(v *organizationFieldsTopContributorActor) ([]byte, error) {
+func _octoqlMarshalorganizationFieldsTopContributorActor(v *organizationFieldsTopContributorActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -1915,16 +1915,16 @@ func __marshalorganizationFieldsTopContributorActor(v *organizationFieldsTopCont
 		}
 		typename = "Organization"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalorganizationFieldsTopContributorOrganization
+			*_octoqlPremarshalorganizationFieldsTopContributorOrganization
 		}{
 			TypeName: typename,
-			__premarshalorganizationFieldsTopContributorOrganization: premarshaled,
+			_octoqlPremarshalorganizationFieldsTopContributorOrganization: premarshaled,
 		}
 		return json.Marshal(result)
 	case *organizationFieldsTopContributorUser:
@@ -1933,16 +1933,16 @@ func __marshalorganizationFieldsTopContributorActor(v *organizationFieldsTopCont
 		}
 		typename = "User"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalorganizationFieldsTopContributorUser
+			*_octoqlPremarshalorganizationFieldsTopContributorUser
 		}{
 			TypeName: typename,
-			__premarshalorganizationFieldsTopContributorUser: premarshaled,
+			_octoqlPremarshalorganizationFieldsTopContributorUser: premarshaled,
 		}
 		return json.Marshal(result)
 	case nil:
@@ -1991,7 +1991,7 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 
 	var firstPass struct {
 		*organizationFieldsTopContributorOrganization
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.organizationFieldsTopContributorOrganization = v
 
@@ -2008,7 +2008,7 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 	return nil
 }
 
-type __premarshalorganizationFieldsTopContributorOrganization struct {
+type _octoqlPremarshalorganizationFieldsTopContributorOrganization struct {
 	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
@@ -2017,15 +2017,15 @@ type __premarshalorganizationFieldsTopContributorOrganization struct {
 }
 
 func (v *organizationFieldsTopContributorOrganization) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *organizationFieldsTopContributorOrganization) __premarshalJSON() (*__premarshalorganizationFieldsTopContributorOrganization, error) {
-	var retval __premarshalorganizationFieldsTopContributorOrganization
+func (v *organizationFieldsTopContributorOrganization) _octoqlPremarshalJSON() (*_octoqlPremarshalorganizationFieldsTopContributorOrganization, error) {
+	var retval _octoqlPremarshalorganizationFieldsTopContributorOrganization
 
 	retval.Typename = v.Typename
 	retval.Id = v.Id
@@ -2065,7 +2065,7 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*organizationFieldsTopContributorUser
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.organizationFieldsTopContributorUser = v
 
@@ -2087,7 +2087,7 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalorganizationFieldsTopContributorUser struct {
+type _octoqlPremarshalorganizationFieldsTopContributorUser struct {
 	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
@@ -2098,15 +2098,15 @@ type __premarshalorganizationFieldsTopContributorUser struct {
 }
 
 func (v *organizationFieldsTopContributorUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *organizationFieldsTopContributorUser) __premarshalJSON() (*__premarshalorganizationFieldsTopContributorUser, error) {
-	var retval __premarshalorganizationFieldsTopContributorUser
+func (v *organizationFieldsTopContributorUser) _octoqlPremarshalJSON() (*_octoqlPremarshalorganizationFieldsTopContributorUser, error) {
+	var retval _octoqlPremarshalorganizationFieldsTopContributorUser
 
 	retval.Typename = v.Typename
 	retval.Id = v.Id
@@ -2132,7 +2132,7 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryFragment
 		Actors json.RawMessage `json:"actors"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryFragment = v
 
@@ -2162,7 +2162,7 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalqueryFragmentActorsActor(
+							err = _octoqlUnmarshalqueryFragmentActorsActor(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -2177,20 +2177,20 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryFragment struct {
+type _octoqlPremarshalqueryFragment struct {
 	Actors []json.RawMessage `json:"actors"`
 }
 
 func (v *queryFragment) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryFragment) __premarshalJSON() (*__premarshalqueryFragment, error) {
-	var retval __premarshalqueryFragment
+func (v *queryFragment) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryFragment, error) {
+	var retval _octoqlPremarshalqueryFragment
 
 	{
 
@@ -2203,7 +2203,7 @@ func (v *queryFragment) __premarshalJSON() (*__premarshalqueryFragment, error) {
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalqueryFragmentActorsActor(
+				*dst, err = _octoqlMarshalqueryFragmentActorsActor(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -2233,7 +2233,7 @@ func (v *queryFragmentActorsBot) implementsGraphQLInterfacequeryFragmentActorsAc
 func (v *queryFragmentActorsOrganization) implementsGraphQLInterfacequeryFragmentActorsActor() {}
 func (v *queryFragmentActorsUser) implementsGraphQLInterfacequeryFragmentActorsActor()         {}
 
-func __unmarshalqueryFragmentActorsActor(b []byte, v *queryFragmentActorsActor) error {
+func _octoqlUnmarshalqueryFragmentActorsActor(b []byte, v *queryFragmentActorsActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -2265,7 +2265,7 @@ func __unmarshalqueryFragmentActorsActor(b []byte, v *queryFragmentActorsActor) 
 	}
 }
 
-func __marshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte, error) {
+func _octoqlMarshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -2289,16 +2289,16 @@ func __marshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte, err
 		}
 		typename = "Organization"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalqueryFragmentActorsOrganization
+			*_octoqlPremarshalqueryFragmentActorsOrganization
 		}{
 			TypeName: typename,
-			__premarshalqueryFragmentActorsOrganization: premarshaled,
+			_octoqlPremarshalqueryFragmentActorsOrganization: premarshaled,
 		}
 		return json.Marshal(result)
 	case *queryFragmentActorsUser:
@@ -2307,16 +2307,16 @@ func __marshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte, err
 		}
 		typename = "User"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalqueryFragmentActorsUser
+			*_octoqlPremarshalqueryFragmentActorsUser
 		}{
-			TypeName:                            typename,
-			__premarshalqueryFragmentActorsUser: premarshaled,
+			TypeName:                                 typename,
+			_octoqlPremarshalqueryFragmentActorsUser: premarshaled,
 		}
 		return json.Marshal(result)
 	case nil:
@@ -2366,7 +2366,7 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryFragmentActorsOrganization
 		TopContributor json.RawMessage `json:"topContributor"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryFragmentActorsOrganization = v
 
@@ -2382,7 +2382,7 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalinnerActorFields(
+			err = _octoqlUnmarshalinnerActorFields(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -2393,7 +2393,7 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryFragmentActorsOrganization struct {
+type _octoqlPremarshalqueryFragmentActorsOrganization struct {
 	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
@@ -2402,15 +2402,15 @@ type __premarshalqueryFragmentActorsOrganization struct {
 }
 
 func (v *queryFragmentActorsOrganization) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryFragmentActorsOrganization) __premarshalJSON() (*__premarshalqueryFragmentActorsOrganization, error) {
-	var retval __premarshalqueryFragmentActorsOrganization
+func (v *queryFragmentActorsOrganization) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryFragmentActorsOrganization, error) {
+	var retval _octoqlPremarshalqueryFragmentActorsOrganization
 
 	retval.Typename = v.Typename
 	retval.Id = v.Id
@@ -2419,7 +2419,7 @@ func (v *queryFragmentActorsOrganization) __premarshalJSON() (*__premarshalquery
 		dst := &retval.TopContributor
 		src := v.TopContributor
 		var err error
-		*dst, err = __marshalinnerActorFields(
+		*dst, err = _octoqlMarshalinnerActorFields(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -2455,7 +2455,7 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryFragmentActorsUser
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryFragmentActorsUser = v
 
@@ -2472,7 +2472,7 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryFragmentActorsUser struct {
+type _octoqlPremarshalqueryFragmentActorsUser struct {
 	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
@@ -2481,15 +2481,15 @@ type __premarshalqueryFragmentActorsUser struct {
 }
 
 func (v *queryFragmentActorsUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryFragmentActorsUser) __premarshalJSON() (*__premarshalqueryFragmentActorsUser, error) {
-	var retval __premarshalqueryFragmentActorsUser
+func (v *queryFragmentActorsUser) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryFragmentActorsUser, error) {
+	var retval _octoqlPremarshalqueryFragmentActorsUser
 
 	retval.Typename = v.Typename
 	retval.Id = v.Id
@@ -2532,7 +2532,7 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) e
 	var firstPass struct {
 		*queryWithCustomMarshalOptionalUserSearchUser
 		CreatedAt json.RawMessage `json:"createdAt"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalOptionalUserSearchUser = v
 
@@ -2560,7 +2560,7 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) e
 	return nil
 }
 
-type __premarshalqueryWithCustomMarshalOptionalUserSearchUser struct {
+type _octoqlPremarshalqueryWithCustomMarshalOptionalUserSearchUser struct {
 	Id string `json:"id"`
 
 	Login string `json:"login"`
@@ -2569,15 +2569,15 @@ type __premarshalqueryWithCustomMarshalOptionalUserSearchUser struct {
 }
 
 func (v *queryWithCustomMarshalOptionalUserSearchUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithCustomMarshalOptionalUserSearchUser) __premarshalJSON() (*__premarshalqueryWithCustomMarshalOptionalUserSearchUser, error) {
-	var retval __premarshalqueryWithCustomMarshalOptionalUserSearchUser
+func (v *queryWithCustomMarshalOptionalUserSearchUser) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalOptionalUserSearchUser, error) {
+	var retval _octoqlPremarshalqueryWithCustomMarshalOptionalUserSearchUser
 
 	retval.Id = v.Id
 	retval.Login = v.Login
@@ -2613,7 +2613,7 @@ func (v *queryWithCustomMarshalOptionalVariables) UnmarshalJSON(b []byte) error 
 	var firstPass struct {
 		*queryWithCustomMarshalOptionalVariables
 		Date json.RawMessage `json:"date"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalOptionalVariables = v
 
@@ -2641,22 +2641,22 @@ func (v *queryWithCustomMarshalOptionalVariables) UnmarshalJSON(b []byte) error 
 	return nil
 }
 
-type __premarshalqueryWithCustomMarshalOptionalVariables struct {
+type _octoqlPremarshalqueryWithCustomMarshalOptionalVariables struct {
 	Date json.RawMessage `json:"date"`
 
 	Login *string `json:"login"`
 }
 
 func (v *queryWithCustomMarshalOptionalVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithCustomMarshalOptionalVariables) __premarshalJSON() (*__premarshalqueryWithCustomMarshalOptionalVariables, error) {
-	var retval __premarshalqueryWithCustomMarshalOptionalVariables
+func (v *queryWithCustomMarshalOptionalVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalOptionalVariables, error) {
+	var retval _octoqlPremarshalqueryWithCustomMarshalOptionalVariables
 
 	{
 
@@ -2723,7 +2723,7 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []b
 	var firstPass struct {
 		*queryWithCustomMarshalSliceUsersCreatedOnDatesUser
 		CreatedAt json.RawMessage `json:"createdAt"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalSliceUsersCreatedOnDatesUser = v
 
@@ -2751,7 +2751,7 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []b
 	return nil
 }
 
-type __premarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser struct {
+type _octoqlPremarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser struct {
 	Id string `json:"id"`
 
 	Login string `json:"login"`
@@ -2760,15 +2760,15 @@ type __premarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser struct {
 }
 
 func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) __premarshalJSON() (*__premarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser, error) {
-	var retval __premarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser
+func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser, error) {
+	var retval _octoqlPremarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser
 
 	retval.Id = v.Id
 	retval.Login = v.Login
@@ -2803,7 +2803,7 @@ func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithCustomMarshalSliceVariables
 		Dates json.RawMessage `json:"dates"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalSliceVariables = v
 
@@ -2848,20 +2848,20 @@ func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithCustomMarshalSliceVariables struct {
+type _octoqlPremarshalqueryWithCustomMarshalSliceVariables struct {
 	Dates []json.RawMessage `json:"dates"`
 }
 
 func (v *queryWithCustomMarshalSliceVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithCustomMarshalSliceVariables) __premarshalJSON() (*__premarshalqueryWithCustomMarshalSliceVariables, error) {
-	var retval __premarshalqueryWithCustomMarshalSliceVariables
+func (v *queryWithCustomMarshalSliceVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalSliceVariables, error) {
+	var retval _octoqlPremarshalqueryWithCustomMarshalSliceVariables
 
 	{
 
@@ -2911,7 +2911,7 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error
 	var firstPass struct {
 		*queryWithCustomMarshalUsersCreatedOnUser
 		CreatedAt json.RawMessage `json:"createdAt"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalUsersCreatedOnUser = v
 
@@ -2939,7 +2939,7 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error
 	return nil
 }
 
-type __premarshalqueryWithCustomMarshalUsersCreatedOnUser struct {
+type _octoqlPremarshalqueryWithCustomMarshalUsersCreatedOnUser struct {
 	Id string `json:"id"`
 
 	Login string `json:"login"`
@@ -2948,15 +2948,15 @@ type __premarshalqueryWithCustomMarshalUsersCreatedOnUser struct {
 }
 
 func (v *queryWithCustomMarshalUsersCreatedOnUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithCustomMarshalUsersCreatedOnUser) __premarshalJSON() (*__premarshalqueryWithCustomMarshalUsersCreatedOnUser, error) {
-	var retval __premarshalqueryWithCustomMarshalUsersCreatedOnUser
+func (v *queryWithCustomMarshalUsersCreatedOnUser) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalUsersCreatedOnUser, error) {
+	var retval _octoqlPremarshalqueryWithCustomMarshalUsersCreatedOnUser
 
 	retval.Id = v.Id
 	retval.Login = v.Login
@@ -2991,7 +2991,7 @@ func (v *queryWithCustomMarshalVariables) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithCustomMarshalVariables
 		Date json.RawMessage `json:"date"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithCustomMarshalVariables = v
 
@@ -3015,20 +3015,20 @@ func (v *queryWithCustomMarshalVariables) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithCustomMarshalVariables struct {
+type _octoqlPremarshalqueryWithCustomMarshalVariables struct {
 	Date json.RawMessage `json:"date"`
 }
 
 func (v *queryWithCustomMarshalVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithCustomMarshalVariables) __premarshalJSON() (*__premarshalqueryWithCustomMarshalVariables, error) {
-	var retval __premarshalqueryWithCustomMarshalVariables
+func (v *queryWithCustomMarshalVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalVariables, error) {
+	var retval _octoqlPremarshalqueryWithCustomMarshalVariables
 
 	{
 
@@ -3071,7 +3071,7 @@ func (v *queryWithFragmentsActorsOrganization) implementsGraphQLInterfacequeryWi
 }
 func (v *queryWithFragmentsActorsUser) implementsGraphQLInterfacequeryWithFragmentsActorsActor() {}
 
-func __unmarshalqueryWithFragmentsActorsActor(b []byte, v *queryWithFragmentsActorsActor) error {
+func _octoqlUnmarshalqueryWithFragmentsActorsActor(b []byte, v *queryWithFragmentsActorsActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3103,7 +3103,7 @@ func __unmarshalqueryWithFragmentsActorsActor(b []byte, v *queryWithFragmentsAct
 	}
 }
 
-func __marshalqueryWithFragmentsActorsActor(v *queryWithFragmentsActorsActor) ([]byte, error) {
+func _octoqlMarshalqueryWithFragmentsActorsActor(v *queryWithFragmentsActorsActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -3127,16 +3127,16 @@ func __marshalqueryWithFragmentsActorsActor(v *queryWithFragmentsActorsActor) ([
 		}
 		typename = "Organization"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalqueryWithFragmentsActorsOrganization
+			*_octoqlPremarshalqueryWithFragmentsActorsOrganization
 		}{
 			TypeName: typename,
-			__premarshalqueryWithFragmentsActorsOrganization: premarshaled,
+			_octoqlPremarshalqueryWithFragmentsActorsOrganization: premarshaled,
 		}
 		return json.Marshal(result)
 	case *queryWithFragmentsActorsUser:
@@ -3220,7 +3220,7 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithFragmentsActorsOrganization
 		TopContributor json.RawMessage `json:"topContributor"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithFragmentsActorsOrganization = v
 
@@ -3236,7 +3236,7 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(
+			err = _octoqlUnmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -3247,7 +3247,7 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithFragmentsActorsOrganization struct {
+type _octoqlPremarshalqueryWithFragmentsActorsOrganization struct {
 	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
@@ -3262,15 +3262,15 @@ type __premarshalqueryWithFragmentsActorsOrganization struct {
 }
 
 func (v *queryWithFragmentsActorsOrganization) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithFragmentsActorsOrganization) __premarshalJSON() (*__premarshalqueryWithFragmentsActorsOrganization, error) {
-	var retval __premarshalqueryWithFragmentsActorsOrganization
+func (v *queryWithFragmentsActorsOrganization) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithFragmentsActorsOrganization, error) {
+	var retval _octoqlPremarshalqueryWithFragmentsActorsOrganization
 
 	retval.Typename = v.Typename
 	retval.Id = v.Id
@@ -3281,7 +3281,7 @@ func (v *queryWithFragmentsActorsOrganization) __premarshalJSON() (*__premarshal
 		dst := &retval.TopContributor
 		src := v.TopContributor
 		var err error
-		*dst, err = __marshalqueryWithFragmentsActorsOrganizationTopContributorActor(
+		*dst, err = _octoqlMarshalqueryWithFragmentsActorsOrganizationTopContributorActor(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -3323,7 +3323,7 @@ func (v *queryWithFragmentsActorsOrganizationTopContributorOrganization) impleme
 func (v *queryWithFragmentsActorsOrganizationTopContributorUser) implementsGraphQLInterfacequeryWithFragmentsActorsOrganizationTopContributorActor() {
 }
 
-func __unmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(b []byte, v *queryWithFragmentsActorsOrganizationTopContributorActor) error {
+func _octoqlUnmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(b []byte, v *queryWithFragmentsActorsOrganizationTopContributorActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3355,7 +3355,7 @@ func __unmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(b []byte
 	}
 }
 
-func __marshalqueryWithFragmentsActorsOrganizationTopContributorActor(v *queryWithFragmentsActorsOrganizationTopContributorActor) ([]byte, error) {
+func _octoqlMarshalqueryWithFragmentsActorsOrganizationTopContributorActor(v *queryWithFragmentsActorsOrganizationTopContributorActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -3522,7 +3522,7 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithFragmentsResponse
 		Actors json.RawMessage `json:"actors"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithFragmentsResponse = v
 
@@ -3552,7 +3552,7 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalqueryWithFragmentsActorsActor(
+							err = _octoqlUnmarshalqueryWithFragmentsActorsActor(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -3567,20 +3567,20 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithFragmentsResponse struct {
+type _octoqlPremarshalqueryWithFragmentsResponse struct {
 	Actors []json.RawMessage `json:"actors"`
 }
 
 func (v *queryWithFragmentsResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithFragmentsResponse) __premarshalJSON() (*__premarshalqueryWithFragmentsResponse, error) {
-	var retval __premarshalqueryWithFragmentsResponse
+func (v *queryWithFragmentsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithFragmentsResponse, error) {
+	var retval _octoqlPremarshalqueryWithFragmentsResponse
 
 	{
 
@@ -3593,7 +3593,7 @@ func (v *queryWithFragmentsResponse) __premarshalJSON() (*__premarshalqueryWithF
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalqueryWithFragmentsActorsActor(
+				*dst, err = _octoqlMarshalqueryWithFragmentsActorsActor(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -3633,7 +3633,7 @@ func (v *queryWithInterfaceListFieldActorsOrganization) implementsGraphQLInterfa
 func (v *queryWithInterfaceListFieldActorsUser) implementsGraphQLInterfacequeryWithInterfaceListFieldActorsActor() {
 }
 
-func __unmarshalqueryWithInterfaceListFieldActorsActor(b []byte, v *queryWithInterfaceListFieldActorsActor) error {
+func _octoqlUnmarshalqueryWithInterfaceListFieldActorsActor(b []byte, v *queryWithInterfaceListFieldActorsActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3665,7 +3665,7 @@ func __unmarshalqueryWithInterfaceListFieldActorsActor(b []byte, v *queryWithInt
 	}
 }
 
-func __marshalqueryWithInterfaceListFieldActorsActor(v *queryWithInterfaceListFieldActorsActor) ([]byte, error) {
+func _octoqlMarshalqueryWithInterfaceListFieldActorsActor(v *queryWithInterfaceListFieldActorsActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -3786,7 +3786,7 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithInterfaceListFieldResponse
 		Actors json.RawMessage `json:"actors"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceListFieldResponse = v
 
@@ -3816,7 +3816,7 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalqueryWithInterfaceListFieldActorsActor(
+							err = _octoqlUnmarshalqueryWithInterfaceListFieldActorsActor(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -3831,20 +3831,20 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithInterfaceListFieldResponse struct {
+type _octoqlPremarshalqueryWithInterfaceListFieldResponse struct {
 	Actors []json.RawMessage `json:"actors"`
 }
 
 func (v *queryWithInterfaceListFieldResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithInterfaceListFieldResponse) __premarshalJSON() (*__premarshalqueryWithInterfaceListFieldResponse, error) {
-	var retval __premarshalqueryWithInterfaceListFieldResponse
+func (v *queryWithInterfaceListFieldResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithInterfaceListFieldResponse, error) {
+	var retval _octoqlPremarshalqueryWithInterfaceListFieldResponse
 
 	{
 
@@ -3857,7 +3857,7 @@ func (v *queryWithInterfaceListFieldResponse) __premarshalJSON() (*__premarshalq
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalqueryWithInterfaceListFieldActorsActor(
+				*dst, err = _octoqlMarshalqueryWithInterfaceListFieldActorsActor(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -3897,7 +3897,7 @@ func (v *queryWithInterfaceListPointerFieldActorsOrganization) implementsGraphQL
 func (v *queryWithInterfaceListPointerFieldActorsUser) implementsGraphQLInterfacequeryWithInterfaceListPointerFieldActorsActor() {
 }
 
-func __unmarshalqueryWithInterfaceListPointerFieldActorsActor(b []byte, v *queryWithInterfaceListPointerFieldActorsActor) error {
+func _octoqlUnmarshalqueryWithInterfaceListPointerFieldActorsActor(b []byte, v *queryWithInterfaceListPointerFieldActorsActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3929,7 +3929,7 @@ func __unmarshalqueryWithInterfaceListPointerFieldActorsActor(b []byte, v *query
 	}
 }
 
-func __marshalqueryWithInterfaceListPointerFieldActorsActor(v *queryWithInterfaceListPointerFieldActorsActor) ([]byte, error) {
+func _octoqlMarshalqueryWithInterfaceListPointerFieldActorsActor(v *queryWithInterfaceListPointerFieldActorsActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -4052,7 +4052,7 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 	var firstPass struct {
 		*queryWithInterfaceListPointerFieldResponse
 		Actors json.RawMessage `json:"actors"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceListPointerFieldResponse = v
 
@@ -4082,7 +4082,7 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalqueryWithInterfaceListPointerFieldActorsActor(
+							err = _octoqlUnmarshalqueryWithInterfaceListPointerFieldActorsActor(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -4097,20 +4097,20 @@ func (v *queryWithInterfaceListPointerFieldResponse) UnmarshalJSON(b []byte) err
 	return nil
 }
 
-type __premarshalqueryWithInterfaceListPointerFieldResponse struct {
+type _octoqlPremarshalqueryWithInterfaceListPointerFieldResponse struct {
 	Actors []json.RawMessage `json:"actors"`
 }
 
 func (v *queryWithInterfaceListPointerFieldResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithInterfaceListPointerFieldResponse) __premarshalJSON() (*__premarshalqueryWithInterfaceListPointerFieldResponse, error) {
-	var retval __premarshalqueryWithInterfaceListPointerFieldResponse
+func (v *queryWithInterfaceListPointerFieldResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithInterfaceListPointerFieldResponse, error) {
+	var retval _octoqlPremarshalqueryWithInterfaceListPointerFieldResponse
 
 	{
 
@@ -4123,7 +4123,7 @@ func (v *queryWithInterfaceListPointerFieldResponse) __premarshalJSON() (*__prem
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalqueryWithInterfaceListPointerFieldActorsActor(
+				*dst, err = _octoqlMarshalqueryWithInterfaceListPointerFieldActorsActor(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -4163,7 +4163,7 @@ func (v *queryWithInterfaceNoFragmentsActorOrganization) implementsGraphQLInterf
 func (v *queryWithInterfaceNoFragmentsActorUser) implementsGraphQLInterfacequeryWithInterfaceNoFragmentsActor() {
 }
 
-func __unmarshalqueryWithInterfaceNoFragmentsActor(b []byte, v *queryWithInterfaceNoFragmentsActor) error {
+func _octoqlUnmarshalqueryWithInterfaceNoFragmentsActor(b []byte, v *queryWithInterfaceNoFragmentsActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -4195,7 +4195,7 @@ func __unmarshalqueryWithInterfaceNoFragmentsActor(b []byte, v *queryWithInterfa
 	}
 }
 
-func __marshalqueryWithInterfaceNoFragmentsActor(v *queryWithInterfaceNoFragmentsActor) ([]byte, error) {
+func _octoqlMarshalqueryWithInterfaceNoFragmentsActor(v *queryWithInterfaceNoFragmentsActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -4322,7 +4322,7 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithInterfaceNoFragmentsResponse
 		Actor json.RawMessage `json:"actor"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithInterfaceNoFragmentsResponse = v
 
@@ -4338,7 +4338,7 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalqueryWithInterfaceNoFragmentsActor(
+			err = _octoqlUnmarshalqueryWithInterfaceNoFragmentsActor(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -4349,29 +4349,29 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithInterfaceNoFragmentsResponse struct {
+type _octoqlPremarshalqueryWithInterfaceNoFragmentsResponse struct {
 	Actor json.RawMessage `json:"actor"`
 
 	Viewer queryWithInterfaceNoFragmentsViewerUser `json:"viewer"`
 }
 
 func (v *queryWithInterfaceNoFragmentsResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithInterfaceNoFragmentsResponse) __premarshalJSON() (*__premarshalqueryWithInterfaceNoFragmentsResponse, error) {
-	var retval __premarshalqueryWithInterfaceNoFragmentsResponse
+func (v *queryWithInterfaceNoFragmentsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithInterfaceNoFragmentsResponse, error) {
+	var retval _octoqlPremarshalqueryWithInterfaceNoFragmentsResponse
 
 	{
 
 		dst := &retval.Actor
 		src := v.Actor
 		var err error
-		*dst, err = __marshalqueryWithInterfaceNoFragmentsActor(
+		*dst, err = _octoqlMarshalqueryWithInterfaceNoFragmentsActor(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -4420,7 +4420,7 @@ func (v *queryWithNamedFragmentsActorsOrganization) implementsGraphQLInterfacequ
 func (v *queryWithNamedFragmentsActorsUser) implementsGraphQLInterfacequeryWithNamedFragmentsActorsActor() {
 }
 
-func __unmarshalqueryWithNamedFragmentsActorsActor(b []byte, v *queryWithNamedFragmentsActorsActor) error {
+func _octoqlUnmarshalqueryWithNamedFragmentsActorsActor(b []byte, v *queryWithNamedFragmentsActorsActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -4452,7 +4452,7 @@ func __unmarshalqueryWithNamedFragmentsActorsActor(b []byte, v *queryWithNamedFr
 	}
 }
 
-func __marshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragmentsActorsActor) ([]byte, error) {
+func _octoqlMarshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragmentsActorsActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -4476,16 +4476,16 @@ func __marshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragmentsActor
 		}
 		typename = "Organization"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalqueryWithNamedFragmentsActorsOrganization
+			*_octoqlPremarshalqueryWithNamedFragmentsActorsOrganization
 		}{
 			TypeName: typename,
-			__premarshalqueryWithNamedFragmentsActorsOrganization: premarshaled,
+			_octoqlPremarshalqueryWithNamedFragmentsActorsOrganization: premarshaled,
 		}
 		return json.Marshal(result)
 	case *queryWithNamedFragmentsActorsUser:
@@ -4494,16 +4494,16 @@ func __marshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragmentsActor
 		}
 		typename = "User"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalqueryWithNamedFragmentsActorsUser
+			*_octoqlPremarshalqueryWithNamedFragmentsActorsUser
 		}{
 			TypeName: typename,
-			__premarshalqueryWithNamedFragmentsActorsUser: premarshaled,
+			_octoqlPremarshalqueryWithNamedFragmentsActorsUser: premarshaled,
 		}
 		return json.Marshal(result)
 	case nil:
@@ -4557,7 +4557,7 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 
 	var firstPass struct {
 		*queryWithNamedFragmentsActorsOrganization
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithNamedFragmentsActorsOrganization = v
 
@@ -4574,7 +4574,7 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 	return nil
 }
 
-type __premarshalqueryWithNamedFragmentsActorsOrganization struct {
+type _octoqlPremarshalqueryWithNamedFragmentsActorsOrganization struct {
 	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
@@ -4585,15 +4585,15 @@ type __premarshalqueryWithNamedFragmentsActorsOrganization struct {
 }
 
 func (v *queryWithNamedFragmentsActorsOrganization) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithNamedFragmentsActorsOrganization) __premarshalJSON() (*__premarshalqueryWithNamedFragmentsActorsOrganization, error) {
-	var retval __premarshalqueryWithNamedFragmentsActorsOrganization
+func (v *queryWithNamedFragmentsActorsOrganization) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithNamedFragmentsActorsOrganization, error) {
+	var retval _octoqlPremarshalqueryWithNamedFragmentsActorsOrganization
 
 	retval.Typename = v.Typename
 	retval.Id = v.Id
@@ -4603,7 +4603,7 @@ func (v *queryWithNamedFragmentsActorsOrganization) __premarshalJSON() (*__prema
 		dst := &retval.TopContributor
 		src := v.organizationFields.TopContributor
 		var err error
-		*dst, err = __marshalorganizationFieldsTopContributorActor(
+		*dst, err = _octoqlMarshalorganizationFieldsTopContributorActor(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -4644,7 +4644,7 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*queryWithNamedFragmentsActorsUser
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithNamedFragmentsActorsUser = v
 
@@ -4661,7 +4661,7 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithNamedFragmentsActorsUser struct {
+type _octoqlPremarshalqueryWithNamedFragmentsActorsUser struct {
 	Typename string `json:"__typename"`
 
 	Id string `json:"id"`
@@ -4672,15 +4672,15 @@ type __premarshalqueryWithNamedFragmentsActorsUser struct {
 }
 
 func (v *queryWithNamedFragmentsActorsUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithNamedFragmentsActorsUser) __premarshalJSON() (*__premarshalqueryWithNamedFragmentsActorsUser, error) {
-	var retval __premarshalqueryWithNamedFragmentsActorsUser
+func (v *queryWithNamedFragmentsActorsUser) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithNamedFragmentsActorsUser, error) {
+	var retval _octoqlPremarshalqueryWithNamedFragmentsActorsUser
 
 	retval.Typename = v.Typename
 	retval.Id = v.Id
@@ -4708,7 +4708,7 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithNamedFragmentsResponse
 		Actors json.RawMessage `json:"actors"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithNamedFragmentsResponse = v
 
@@ -4738,7 +4738,7 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalqueryWithNamedFragmentsActorsActor(
+							err = _octoqlUnmarshalqueryWithNamedFragmentsActorsActor(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -4753,20 +4753,20 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithNamedFragmentsResponse struct {
+type _octoqlPremarshalqueryWithNamedFragmentsResponse struct {
 	Actors []json.RawMessage `json:"actors"`
 }
 
 func (v *queryWithNamedFragmentsResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithNamedFragmentsResponse) __premarshalJSON() (*__premarshalqueryWithNamedFragmentsResponse, error) {
-	var retval __premarshalqueryWithNamedFragmentsResponse
+func (v *queryWithNamedFragmentsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithNamedFragmentsResponse, error) {
+	var retval _octoqlPremarshalqueryWithNamedFragmentsResponse
 
 	{
 
@@ -4779,7 +4779,7 @@ func (v *queryWithNamedFragmentsResponse) __premarshalJSON() (*__premarshalquery
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalqueryWithNamedFragmentsActorsActor(
+				*dst, err = _octoqlMarshalqueryWithNamedFragmentsActorsActor(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -4844,7 +4844,7 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*queryWithSearchResponse
 		Search json.RawMessage `json:"search"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.queryWithSearchResponse = v
 
@@ -4874,7 +4874,7 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalqueryWithSearchSearchSearchResultItem(
+							err = _octoqlUnmarshalqueryWithSearchSearchSearchResultItem(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -4889,20 +4889,20 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalqueryWithSearchResponse struct {
+type _octoqlPremarshalqueryWithSearchResponse struct {
 	Search []json.RawMessage `json:"search"`
 }
 
 func (v *queryWithSearchResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *queryWithSearchResponse) __premarshalJSON() (*__premarshalqueryWithSearchResponse, error) {
-	var retval __premarshalqueryWithSearchResponse
+func (v *queryWithSearchResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithSearchResponse, error) {
+	var retval _octoqlPremarshalqueryWithSearchResponse
 
 	{
 
@@ -4915,7 +4915,7 @@ func (v *queryWithSearchResponse) __premarshalJSON() (*__premarshalqueryWithSear
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalqueryWithSearchSearchSearchResultItem(
+				*dst, err = _octoqlMarshalqueryWithSearchSearchSearchResultItem(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -5049,7 +5049,7 @@ func (v *queryWithSearchSearchRepository) implementsGraphQLInterfacequeryWithSea
 func (v *queryWithSearchSearchUser) implementsGraphQLInterfacequeryWithSearchSearchSearchResultItem() {
 }
 
-func __unmarshalqueryWithSearchSearchSearchResultItem(b []byte, v *queryWithSearchSearchSearchResultItem) error {
+func _octoqlUnmarshalqueryWithSearchSearchSearchResultItem(b []byte, v *queryWithSearchSearchSearchResultItem) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -5090,7 +5090,7 @@ func __unmarshalqueryWithSearchSearchSearchResultItem(b []byte, v *queryWithSear
 	}
 }
 
-func __marshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearchSearchResultItem) ([]byte, error) {
+func _octoqlMarshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearchSearchResultItem) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -5256,7 +5256,7 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*removeStarRemoveStarRemoveStarPayload
 		Starrable json.RawMessage `json:"starrable"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.removeStarRemoveStarRemoveStarPayload = v
 
@@ -5272,7 +5272,7 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(
+			err = _octoqlUnmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -5283,27 +5283,27 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalremoveStarRemoveStarRemoveStarPayload struct {
+type _octoqlPremarshalremoveStarRemoveStarRemoveStarPayload struct {
 	Starrable json.RawMessage `json:"starrable"`
 }
 
 func (v *removeStarRemoveStarRemoveStarPayload) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *removeStarRemoveStarRemoveStarPayload) __premarshalJSON() (*__premarshalremoveStarRemoveStarRemoveStarPayload, error) {
-	var retval __premarshalremoveStarRemoveStarRemoveStarPayload
+func (v *removeStarRemoveStarRemoveStarPayload) _octoqlPremarshalJSON() (*_octoqlPremarshalremoveStarRemoveStarRemoveStarPayload, error) {
+	var retval _octoqlPremarshalremoveStarRemoveStarRemoveStarPayload
 
 	{
 
 		dst := &retval.Starrable
 		src := v.Starrable
 		var err error
-		*dst, err = __marshalremoveStarRemoveStarRemoveStarPayloadStarrable(
+		*dst, err = _octoqlMarshalremoveStarRemoveStarRemoveStarPayloadStarrable(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -5332,7 +5332,7 @@ type removeStarRemoveStarRemoveStarPayloadStarrable interface {
 func (v *removeStarRemoveStarRemoveStarPayloadStarrableRepository) implementsGraphQLInterfaceremoveStarRemoveStarRemoveStarPayloadStarrable() {
 }
 
-func __unmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(b []byte, v *removeStarRemoveStarRemoveStarPayloadStarrable) error {
+func _octoqlUnmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(b []byte, v *removeStarRemoveStarRemoveStarPayloadStarrable) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -5358,7 +5358,7 @@ func __unmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(b []byte, v *remo
 	}
 }
 
-func __marshalremoveStarRemoveStarRemoveStarPayloadStarrable(v *removeStarRemoveStarRemoveStarPayloadStarrable) ([]byte, error) {
+func _octoqlMarshalremoveStarRemoveStarRemoveStarPayloadStarrable(v *removeStarRemoveStarRemoveStarPayloadStarrable) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -5451,7 +5451,7 @@ type repositoryOwnerFields interface {
 func (v *repositoryOwnerFieldsOrganization) implementsGraphQLInterfacerepositoryOwnerFields() {}
 func (v *repositoryOwnerFieldsUser) implementsGraphQLInterfacerepositoryOwnerFields()         {}
 
-func __unmarshalrepositoryOwnerFields(b []byte, v *repositoryOwnerFields) error {
+func _octoqlUnmarshalrepositoryOwnerFields(b []byte, v *repositoryOwnerFields) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -5480,7 +5480,7 @@ func __unmarshalrepositoryOwnerFields(b []byte, v *repositoryOwnerFields) error 
 	}
 }
 
-func __marshalrepositoryOwnerFields(v *repositoryOwnerFields) ([]byte, error) {
+func _octoqlMarshalrepositoryOwnerFields(v *repositoryOwnerFields) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -5504,16 +5504,16 @@ func __marshalrepositoryOwnerFields(v *repositoryOwnerFields) ([]byte, error) {
 		}
 		typename = "User"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalrepositoryOwnerFieldsUser
+			*_octoqlPremarshalrepositoryOwnerFieldsUser
 		}{
-			TypeName:                              typename,
-			__premarshalrepositoryOwnerFieldsUser: premarshaled,
+			TypeName: typename,
+			_octoqlPremarshalrepositoryOwnerFieldsUser: premarshaled,
 		}
 		return json.Marshal(result)
 	case nil:
@@ -5557,7 +5557,7 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*repositoryOwnerFieldsUser
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.repositoryOwnerFieldsUser = v
 
@@ -5574,7 +5574,7 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalrepositoryOwnerFieldsUser struct {
+type _octoqlPremarshalrepositoryOwnerFieldsUser struct {
 	ContributionCount *int `json:"contributionCount"`
 
 	Id string `json:"id"`
@@ -5583,15 +5583,15 @@ type __premarshalrepositoryOwnerFieldsUser struct {
 }
 
 func (v *repositoryOwnerFieldsUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *repositoryOwnerFieldsUser) __premarshalJSON() (*__premarshalrepositoryOwnerFieldsUser, error) {
-	var retval __premarshalrepositoryOwnerFieldsUser
+func (v *repositoryOwnerFieldsUser) _octoqlPremarshalJSON() (*_octoqlPremarshalrepositoryOwnerFieldsUser, error) {
+	var retval _octoqlPremarshalrepositoryOwnerFieldsUser
 
 	retval.ContributionCount = v.ContributionCount
 	retval.Id = v.moreUserFields.Id
@@ -5625,7 +5625,7 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*userFields
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.userFields = v
 
@@ -5647,7 +5647,7 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshaluserFields struct {
+type _octoqlPremarshaluserFields struct {
 	Id string `json:"id"`
 
 	ContributionCount *int `json:"contributionCount"`
@@ -5656,15 +5656,15 @@ type __premarshaluserFields struct {
 }
 
 func (v *userFields) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *userFields) __premarshalJSON() (*__premarshaluserFields, error) {
-	var retval __premarshaluserFields
+func (v *userFields) _octoqlPremarshalJSON() (*_octoqlPremarshaluserFields, error) {
+	var retval _octoqlPremarshaluserFields
 
 	retval.Id = v.Id
 	retval.ContributionCount = v.repositoryOwnerFieldsUser.ContributionCount
@@ -5712,9 +5712,9 @@ func (c *Client) addComment(
 	vars addCommentVariables,
 ) (*addCommentResponse, error) {
 	var response addCommentResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "addComment",
 			Query:         addComment_Operation,
 			Variables:     &vars,
@@ -5773,9 +5773,9 @@ func (c *Client) addStar(
 	vars addStarVariables,
 ) (*addStarResponse, error) {
 	var response addStarResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "addStar",
 			Query:         addStar_Operation,
 			Variables:     &vars,
@@ -5833,9 +5833,9 @@ func (c *Client) failingQuery(
 	ctx context.Context,
 ) (*failingQueryResponse, error) {
 	var response failingQueryResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "failingQuery",
 			Query:         failingQuery_Operation,
 			Variables:     nil,
@@ -5894,9 +5894,9 @@ func (c *Client) getRepository(
 	vars getRepositoryVariables,
 ) (*getRepositoryResponse, error) {
 	var response getRepositoryResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "getRepository",
 			Query:         getRepository_Operation,
 			Variables:     &vars,
@@ -5955,9 +5955,9 @@ func (c *Client) queryWithCustomMarshal(
 	vars queryWithCustomMarshalVariables,
 ) (*queryWithCustomMarshalResponse, error) {
 	var response queryWithCustomMarshalResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithCustomMarshal",
 			Query:         queryWithCustomMarshal_Operation,
 			Variables:     &vars,
@@ -6016,9 +6016,9 @@ func (c *Client) queryWithCustomMarshalOptional(
 	vars queryWithCustomMarshalOptionalVariables,
 ) (*queryWithCustomMarshalOptionalResponse, error) {
 	var response queryWithCustomMarshalOptionalResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithCustomMarshalOptional",
 			Query:         queryWithCustomMarshalOptional_Operation,
 			Variables:     &vars,
@@ -6077,9 +6077,9 @@ func (c *Client) queryWithCustomMarshalSlice(
 	vars queryWithCustomMarshalSliceVariables,
 ) (*queryWithCustomMarshalSliceResponse, error) {
 	var response queryWithCustomMarshalSliceResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithCustomMarshalSlice",
 			Query:         queryWithCustomMarshalSlice_Operation,
 			Variables:     &vars,
@@ -6138,9 +6138,9 @@ func (c *Client) queryWithFlatten(
 	vars queryWithFlattenVariables,
 ) (*queryFragment, error) {
 	var response queryFragment
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithFlatten",
 			Query:         queryWithFlatten_Operation,
 			Variables:     &vars,
@@ -6199,9 +6199,9 @@ func (c *Client) queryWithFragments(
 	vars queryWithFragmentsVariables,
 ) (*queryWithFragmentsResponse, error) {
 	var response queryWithFragmentsResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithFragments",
 			Query:         queryWithFragments_Operation,
 			Variables:     &vars,
@@ -6260,9 +6260,9 @@ func (c *Client) queryWithInterfaceListField(
 	vars queryWithInterfaceListFieldVariables,
 ) (*queryWithInterfaceListFieldResponse, error) {
 	var response queryWithInterfaceListFieldResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithInterfaceListField",
 			Query:         queryWithInterfaceListField_Operation,
 			Variables:     &vars,
@@ -6321,9 +6321,9 @@ func (c *Client) queryWithInterfaceListPointerField(
 	vars queryWithInterfaceListPointerFieldVariables,
 ) (*queryWithInterfaceListPointerFieldResponse, error) {
 	var response queryWithInterfaceListPointerFieldResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithInterfaceListPointerField",
 			Query:         queryWithInterfaceListPointerField_Operation,
 			Variables:     &vars,
@@ -6382,9 +6382,9 @@ func (c *Client) queryWithInterfaceNoFragments(
 	vars queryWithInterfaceNoFragmentsVariables,
 ) (*queryWithInterfaceNoFragmentsResponse, error) {
 	var response queryWithInterfaceNoFragmentsResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithInterfaceNoFragments",
 			Query:         queryWithInterfaceNoFragments_Operation,
 			Variables:     &vars,
@@ -6443,9 +6443,9 @@ func (c *Client) queryWithNamedFragments(
 	vars queryWithNamedFragmentsVariables,
 ) (*queryWithNamedFragmentsResponse, error) {
 	var response queryWithNamedFragmentsResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithNamedFragments",
 			Query:         queryWithNamedFragments_Operation,
 			Variables:     &vars,
@@ -6504,9 +6504,9 @@ func (c *Client) queryWithOmitempty(
 	vars queryWithOmitemptyVariables,
 ) (*queryWithOmitemptyResponse, error) {
 	var response queryWithOmitemptyResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithOmitempty",
 			Query:         queryWithOmitempty_Operation,
 			Variables:     &vars,
@@ -6565,9 +6565,9 @@ func (c *Client) queryWithSearch(
 	vars queryWithSearchVariables,
 ) (*queryWithSearchResponse, error) {
 	var response queryWithSearchResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithSearch",
 			Query:         queryWithSearch_Operation,
 			Variables:     &vars,
@@ -6626,9 +6626,9 @@ func (c *Client) queryWithVariables(
 	vars queryWithVariablesVariables,
 ) (*queryWithVariablesResponse, error) {
 	var response queryWithVariablesResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "queryWithVariables",
 			Query:         queryWithVariables_Operation,
 			Variables:     &vars,
@@ -6687,9 +6687,9 @@ func (c *Client) removeStar(
 	vars removeStarVariables,
 ) (*removeStarResponse, error) {
 	var response removeStarResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "removeStar",
 			Query:         removeStar_Operation,
 			Variables:     &vars,

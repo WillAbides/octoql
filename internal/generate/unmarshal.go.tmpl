@@ -50,7 +50,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
         {{end -}}
         {{/* TODO(benkraft): In principle you might have a field-name that
              conflicts with this one; avoid that. */ -}}
-        noUnmarshalJSON
+        _octoqlNoUnmarshalJSON
     }
     firstPass.{{.GoName}} = v
 
@@ -99,7 +99,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
                 dst := &(*dst)[i]
            
                 // (now we have `dst *MyType` and `src json.RawMessage`)
-                __unmarshalMyType(dst, src)
+                _octoqlUnmarshalMyType(dst, src)
 
             } // (also n times)
 

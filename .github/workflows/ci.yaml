@@ -69,6 +69,8 @@ jobs:
           key: ${{ runner.os }}-generate-${{ hashFiles('go.*', '.github/workflows/ci.yaml', 'script/*', '.bindown.yaml', '.goreleaser.yaml') }}
           restore-keys: ${{ runner.os }}-generate-
       - run: script/generate --check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     runs-on: ubuntu-24.04

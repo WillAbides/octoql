@@ -18,7 +18,7 @@ func (marshalJSONEmbed) MarshalJSON() ([]byte, error) {
 }
 
 type guardedMarshalJSON struct {
-	noMarshalJSON //nolint:unused // Embedding prevents MarshalJSON promotion.
+	_octoqlNoMarshalJSON //nolint:unused // Embedding prevents MarshalJSON promotion.
 	marshalJSONEmbed
 }
 
@@ -33,7 +33,7 @@ func (e *unmarshalJSONEmbed) UnmarshalJSON([]byte) error {
 }
 
 type guardedUnmarshalJSON struct {
-	noUnmarshalJSON //nolint:unused // Embedding prevents UnmarshalJSON promotion.
+	_octoqlNoUnmarshalJSON //nolint:unused // Embedding prevents UnmarshalJSON promotion.
 	unmarshalJSONEmbed
 }
 
@@ -65,9 +65,9 @@ func TestNoUnmarshalJSONPreventsMethodPromotion(t *testing.T) {
 func TestMarshalGuardPanicsWhenCalled(t *testing.T) {
 	assert.PanicsWithValue(
 		t,
-		"noUnmarshalJSON.MarshalJSON should never be called!",
+		"_octoqlNoMarshalJSON.MarshalJSON should never be called!",
 		func() {
-			_, _ = (noMarshalJSON{}).MarshalJSON()
+			_, _ = (_octoqlNoMarshalJSON{}).MarshalJSON()
 		},
 	)
 }
@@ -75,9 +75,9 @@ func TestMarshalGuardPanicsWhenCalled(t *testing.T) {
 func TestUnmarshalGuardPanicsWhenCalled(t *testing.T) {
 	assert.PanicsWithValue(
 		t,
-		"noUnmarshalJSON.UnmarshalJSON should never be called!",
+		"_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!",
 		func() {
-			_ = (noUnmarshalJSON{}).UnmarshalJSON(nil)
+			_ = (_octoqlNoUnmarshalJSON{}).UnmarshalJSON(nil)
 		},
 	)
 }

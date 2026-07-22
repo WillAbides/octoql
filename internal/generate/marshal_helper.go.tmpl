@@ -3,7 +3,7 @@
      consistency with unmarshaling and with the API we expect of custom
      marshalers. */}}
 
-func __marshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
+func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
     {{/* Determine the GraphQL typename, which the unmarshaler will need should
          it be called on our output. */}}
     {{if .Implementations -}}
@@ -21,19 +21,19 @@ func __marshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
              marshals embeds the way we want if they're structs.)  Except that
              won't work right if the implementation-type has its own
              MarshalJSON method (maybe it in turn has an interface-typed
-             field), so we call the helper __premarshalJSON directly (see
+             field), so we call the helper _octoqlPremarshalJSON directly (see
              marshal.go.tmpl). */}}
         {{if .NeedsMarshaling -}}
-        premarshaled, err := vv.__premarshalJSON()
+        premarshaled, err := vv._octoqlPremarshalJSON()
         if err != nil {
             return nil, err
         }
         result := struct {
             TypeName string `json:"__typename"`
-            *__premarshal{{.GoName}}
+            *_octoqlPremarshal{{.GoName}}
         }{
             TypeName: typename,
-            __premarshal{{.GoName}}: premarshaled,
+            _octoqlPremarshal{{.GoName}}: premarshaled,
         }
         {{else -}}
         result := struct {
@@ -52,7 +52,7 @@ func __marshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
             return []byte("null"), nil
         }
         {{if .OtherImplementation.NeedsMarshaling -}}
-        premarshaled, err := vv.__premarshalJSON()
+        premarshaled, err := vv._octoqlPremarshalJSON()
         if err != nil {
             return nil, err
         }

@@ -36,7 +36,7 @@ func TestGeneratedGitHubDefaultsWireDecoding(t *testing.T) {
 
 	httpClient := &http.Client{
 		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			var requestPayload payload
+			var requestPayload _octoqlPayload
 			err := json.NewDecoder(request.Body).Decode(&requestPayload)
 			require.NoError(t, err)
 			assert.Equal(t, "GetReview", requestPayload.OperationName)

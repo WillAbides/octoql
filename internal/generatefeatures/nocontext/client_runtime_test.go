@@ -272,9 +272,9 @@ func TestClientExecuteNilClient(t *testing.T) {
 	var client *Client
 	var response testData
 
-	hasData, err := client.execute(
+	hasData, err := client._octoqlExecute(
 		t.Context(),
-		payload{
+		_octoqlPayload{
 			OperationName: validOperationName,
 			Query:         validOperationQuery,
 		},
@@ -443,7 +443,7 @@ func doOperation[T any](
 	variables any,
 ) (*T, error) {
 	response := new(T)
-	hasData, err := client.execute(ctx, payload{
+	hasData, err := client._octoqlExecute(ctx, _octoqlPayload{
 		OperationName: operationName,
 		Query:         query,
 		Variables:     variables,

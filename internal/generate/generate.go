@@ -528,13 +528,36 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 			)
 		}
 	}
+	const reservedRuntimePrefix = "_octoql"
+	generatedNames := make([]string, 0, len(g.typeMap)+len(enumValueNames)+len(enumValuesVariableNames)+len(operationNames))
+	for name := range g.typeMap {
+		generatedNames = append(generatedNames, name)
+	}
+	for name := range enumValueNames {
+		generatedNames = append(generatedNames, name)
+	}
+	for name := range enumValuesVariableNames {
+		generatedNames = append(generatedNames, name)
+	}
+	for name := range operationNames {
+		generatedNames = append(generatedNames, name)
+	}
+	sort.Strings(generatedNames)
+	for _, name := range generatedNames {
+		if strings.HasPrefix(name, reservedRuntimePrefix) {
+			return nil, errorf(
+				nil,
+				"generated identifier %q uses reserved prefix %q",
+				name,
+				reservedRuntimePrefix,
+			)
+		}
+	}
 	runtimeMethodNames := map[string]bool{
 		"RateLimit":            true,
 		"ResponseSizeLimit":    true,
 		"SetBearerToken":       true,
 		"SetResponseSizeLimit": true,
-		"execute":              true,
-		"observeRateLimit":     true,
 	}
 	for _, operation := range g.Operations {
 		if runtimeMethodNames[operation.Name] {
