@@ -1,4 +1,4 @@
-package octoql_test
+package nocontext
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -46,10 +45,10 @@ func TestDoHTTPResponses(t *testing.T) {
 			body:       `{"errors":[{"type":"A_FUTURE_GITHUB_ERROR","message":"future failure"}]}`,
 			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				var graphqlErrors octoql.Errors
+				var graphqlErrors Errors
 				require.ErrorAs(t, err, &graphqlErrors)
 				require.Len(t, graphqlErrors, 1)
-				assert.Equal(t, octoql.ErrorType("A_FUTURE_GITHUB_ERROR"), graphqlErrors[0].Type)
+				assert.Equal(t, ErrorType("A_FUTURE_GITHUB_ERROR"), graphqlErrors[0].Type)
 				encoded, marshalErr := json.Marshal(graphqlErrors[0])
 				require.NoError(t, marshalErr)
 				assert.Contains(t, string(encoded), `"type":"A_FUTURE_GITHUB_ERROR"`)
@@ -62,7 +61,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			requestID:  "request-invalid-json",
 			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				responseError, ok := errors.AsType[*octoql.ResponseError](err)
+				responseError, ok := errors.AsType[*ResponseError](err)
 				require.True(t, ok)
 				assert.Equal(t, `{"errors":[`, string(responseError.RawBody))
 				assert.Equal(t, http.StatusServiceUnavailable, responseError.StatusCode)
@@ -78,7 +77,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
 				require.Error(t, err)
-				_, responseErrorFound := errors.AsType[*octoql.ResponseError](err)
+				_, responseErrorFound := errors.AsType[*ResponseError](err)
 				assert.True(t, responseErrorFound)
 				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
 				assert.True(t, syntaxErrorFound)
@@ -93,10 +92,10 @@ func TestDoHTTPResponses(t *testing.T) {
 			}`,
 			check: func(t *testing.T, _ *testData, err error) {
 				t.Helper()
-				var graphqlErrors octoql.Errors
+				var graphqlErrors Errors
 				require.ErrorAs(t, err, &graphqlErrors)
 				require.Len(t, graphqlErrors, 1)
-				assert.Equal(t, octoql.ErrorType("PARTIAL"), graphqlErrors[0].Type)
+				assert.Equal(t, ErrorType("PARTIAL"), graphqlErrors[0].Type)
 				_, typeErrorFound := errors.AsType[*json.UnmarshalTypeError](err)
 				assert.True(t, typeErrorFound)
 			},
@@ -116,7 +115,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := octoql.NewClient(server.URL, nil)
+			client := NewClient(server.URL, nil)
 			response, err := doOperation[testData](
 				t.Context(),
 				client,
@@ -127,7 +126,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			assert.Nil(t, response)
 			test.check(t, response, err)
 
-			responseError, ok := errors.AsType[*octoql.ResponseError](err)
+			responseError, ok := errors.AsType[*ResponseError](err)
 			require.True(t, ok)
 			assert.Equal(t, test.statusCode, responseError.StatusCode)
 			assert.Equal(t, test.requestID, responseError.RequestID)
@@ -168,7 +167,7 @@ func TestDoRequest(t *testing.T) {
 		}),
 	}
 
-	client := octoql.NewClient("https://github.example/api/graphql", httpClient)
+	client := NewClient("https://github.example/api/graphql", httpClient)
 	operationName := "Repository"
 	query := "query Repository($owner: String!) { repository(owner: $owner) { name } }"
 	_, err := doOperation[struct{}](
@@ -211,7 +210,7 @@ func TestClientBearerToken(t *testing.T) {
 			}, nil
 		}),
 	}
-	client := octoql.NewClient("https://github.example/api/graphql", httpClient)
+	client := NewClient("https://github.example/api/graphql", httpClient)
 
 	err := client.SetBearerToken("github_pat_first")
 	require.NoError(t, err)
@@ -239,7 +238,7 @@ func TestClientBearerToken(t *testing.T) {
 }
 
 func TestClientSetBearerTokenValidation(t *testing.T) {
-	client := octoql.NewClient("https://github.example/api/graphql", nil)
+	client := NewClient("https://github.example/api/graphql", nil)
 	err := client.SetBearerToken("github_pat_valid")
 	require.NoError(t, err)
 
@@ -264,18 +263,18 @@ func TestClientSetBearerTokenValidation(t *testing.T) {
 }
 
 func TestNilClientSetBearerToken(t *testing.T) {
-	var client *octoql.Client
+	var client *Client
 	err := client.SetBearerToken("github_pat_valid")
 	assert.EqualError(t, err, "octoql: client is nil")
 }
 
 func TestClientExecuteNilClient(t *testing.T) {
-	var client *octoql.Client
+	var client *Client
 	var response testData
 
-	hasData, err := client.Execute(
+	hasData, err := client.execute(
 		t.Context(),
-		octoql.Payload{
+		payload{
 			OperationName: validOperationName,
 			Query:         validOperationQuery,
 		},
@@ -291,7 +290,7 @@ func TestDoFailurePhases(t *testing.T) {
 	transportError := errors.New("transport failed")
 
 	tests := []struct {
-		client            *octoql.Client
+		client            *Client
 		ctx               context.Context
 		variables         any
 		wantCause         error
@@ -301,7 +300,7 @@ func TestDoFailurePhases(t *testing.T) {
 		{
 			name: "variables cannot be encoded",
 			ctx:  t.Context(),
-			client: octoql.NewClient(
+			client: NewClient(
 				"https://api.github.com/graphql",
 				&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 					require.FailNow(t, "transport called for unencodable variables")
@@ -313,7 +312,7 @@ func TestDoFailurePhases(t *testing.T) {
 		{
 			name: "transport error",
 			ctx:  t.Context(),
-			client: octoql.NewClient(
+			client: NewClient(
 				"https://api.github.com/graphql",
 				&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 					return nil, transportError
@@ -359,7 +358,7 @@ func TestDoFailurePhases(t *testing.T) {
 			if test.wantCause != nil {
 				assert.ErrorIs(t, err, test.wantCause)
 			}
-			responseError, hasResponseError := errors.AsType[*octoql.ResponseError](err)
+			responseError, hasResponseError := errors.AsType[*ResponseError](err)
 			assert.Equal(t, test.wantResponseError, hasResponseError)
 			if test.wantResponseError {
 				require.NotNil(t, responseError)
@@ -389,7 +388,7 @@ func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return redirectError
 	}
-	client := octoql.NewClient(server.URL, httpClient)
+	client := NewClient(server.URL, httpClient)
 
 	response, err := doOperation[struct{}](
 		t.Context(),
@@ -400,7 +399,7 @@ func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 	)
 	assert.Nil(t, response)
 	assert.ErrorIs(t, err, redirectError)
-	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusFound, responseError.StatusCode)
 	assert.Equal(t, "redirect-request", responseError.RequestID)
@@ -430,21 +429,21 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 	require.NotNil(t, response)
 	assert.Equal(t, "partial", response.Repository.Name)
 	assert.ErrorIs(t, err, closeError)
-	_, graphqlErrorsFound := errors.AsType[octoql.Errors](err)
+	_, graphqlErrorsFound := errors.AsType[Errors](err)
 	assert.True(t, graphqlErrorsFound)
-	_, responseErrorFound := errors.AsType[*octoql.ResponseError](err)
+	_, responseErrorFound := errors.AsType[*ResponseError](err)
 	assert.True(t, responseErrorFound)
 }
 
 func doOperation[T any](
 	ctx context.Context,
-	client *octoql.Client,
+	client *Client,
 	operationName string,
 	query string,
 	variables any,
 ) (*T, error) {
 	response := new(T)
-	hasData, err := client.Execute(ctx, octoql.Payload{
+	hasData, err := client.execute(ctx, payload{
 		OperationName: operationName,
 		Query:         query,
 		Variables:     variables,
@@ -455,8 +454,8 @@ func doOperation[T any](
 	return response, err
 }
 
-func newStaticResponseClient(statusCode int, header http.Header, body io.ReadCloser) *octoql.Client {
-	return octoql.NewClient(
+func newStaticResponseClient(statusCode int, header http.Header, body io.ReadCloser) *Client {
+	return NewClient(
 		"https://api.github.com/graphql",
 		&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 			return &http.Response{

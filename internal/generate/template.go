@@ -7,7 +7,6 @@ import (
 	"text/template"
 )
 
-//go:generate go run runtime_source_generate.go
 //go:embed *.tmpl
 var templates embed.FS
 

@@ -620,29 +620,6 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 }
 
 func renderClientGenerator(g *generator) ([]byte, error) {
-	runtimeReferences := []string{
-		"bytes.Equal",
-		"context.Context",
-		"encoding/json.Marshal",
-		"errors.Join",
-		"fmt.Errorf",
-		"io.ReadAll",
-		"maps.Clone",
-		"math.MaxInt64",
-		"net/http.Client",
-		"slices.Clone",
-		"strconv.Itoa",
-		"strings.Builder",
-		"sync.RWMutex",
-		"sync/atomic.Pointer",
-		"time.Time",
-	}
-	for _, reference := range runtimeReferences {
-		_, err := g.ref(reference)
-		if err != nil {
-			return nil, err
-		}
-	}
 	typeDefinitions, err := renderTypeDefinitions(g)
 	if err != nil {
 		return nil, err

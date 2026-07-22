@@ -6,10 +6,10 @@
   attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`.
 - The module path is `github.com/willabides/octoql`, with Go version `1.26.0`.
 - Generated clients are self-contained and do not import the root `octoql`
-  package. Their runtime template is derived from the root runtime sources; do
-  not maintain a second handwritten HTTP implementation or create a separate
-  public `graphql` runtime package. Generated private JSON guards prevent method
-  promotion while preserving `encoding/json` semantics.
+  package. `internal/generate/runtime.go.tmpl` is the canonical HTTP runtime; do
+  not maintain a second handwritten implementation or create a public runtime
+  package. Generated private JSON guards prevent method promotion while
+  preserving `encoding/json` semantics.
   Generator implementation belongs in `internal/generate`; users invoke
   `cmd/octoqlgen`. Do not recreate a public `generate` package.
 - The root `README.md` is the primary user guide. Keep `docs/` for specialized

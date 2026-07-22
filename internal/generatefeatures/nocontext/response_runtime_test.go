@@ -1,4 +1,4 @@
-package octoql_test
+package nocontext
 
 import (
 	"errors"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql"
 )
 
 type responseData struct {
@@ -95,7 +94,7 @@ func TestDoPointerData(t *testing.T) {
 		)
 
 		assert.Nil(t, response)
-		_, hasErrors := errors.AsType[octoql.Errors](err)
+		_, hasErrors := errors.AsType[Errors](err)
 		assert.True(t, hasErrors)
 	})
 }
@@ -120,19 +119,19 @@ func TestDoReturnsResponseErrorFacets(t *testing.T) {
 	require.NotNil(t, response)
 	assert.Equal(t, "partial", response.Repository.Name)
 
-	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusOK, responseError.StatusCode)
 	assert.Equal(t, "request-partial", responseError.RequestID)
 	assert.Empty(t, responseError.RawBody)
 
-	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
+	graphqlErrors, ok := errors.AsType[Errors](err)
 	require.True(t, ok)
 	require.Len(t, graphqlErrors, 1)
-	assert.Equal(t, octoql.ErrorType("FORBIDDEN"), graphqlErrors[0].Type)
+	assert.Equal(t, ErrorType("FORBIDDEN"), graphqlErrors[0].Type)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
 
-	_, ok = errors.AsType[*octoql.RateLimitError](err)
+	_, ok = errors.AsType[*RateLimitError](err)
 	assert.False(t, ok)
 }
 
@@ -147,13 +146,13 @@ func TestDoNonSuccessfulResponseError(t *testing.T) {
 	response, err := responseAPIData[responseData](t, client)
 
 	assert.Nil(t, response)
-	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusForbidden, responseError.StatusCode)
 	assert.Equal(t, "request-forbidden", responseError.RequestID)
 	assert.Equal(t, body, string(responseError.RawBody))
 
-	_, ok = errors.AsType[octoql.Errors](err)
+	_, ok = errors.AsType[Errors](err)
 	assert.True(t, ok)
 }
 
@@ -167,7 +166,7 @@ func TestResponseErrorBoundsRawBody(t *testing.T) {
 
 	_, err := responseAPIData[responseData](t, client)
 
-	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Len(t, responseError.RawBody, 64*1024)
 	assert.True(t, responseError.RawBodyTruncated)
@@ -189,7 +188,7 @@ func TestClientResponseSizeLimit(t *testing.T) {
 			`"}}}`,
 	)
 
-	assert.Equal(t, octoql.DefaultResponseSizeLimit, client.ResponseSizeLimit())
+	assert.Equal(t, DefaultResponseSizeLimit, client.ResponseSizeLimit())
 	err := client.SetResponseSizeLimit(responseSizeLimit)
 	require.NoError(t, err)
 	assert.Equal(t, responseSizeLimit, client.ResponseSizeLimit())
@@ -199,20 +198,20 @@ func TestClientResponseSizeLimit(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, response)
 
-	limitError, ok := errors.AsType[*octoql.ResponseSizeLimitError](err)
+	limitError, ok := errors.AsType[*ResponseSizeLimitError](err)
 	require.True(t, ok)
 	assert.Equal(t, responseSizeLimit, limitError.Limit)
 
-	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusOK, responseError.StatusCode)
 	assert.Equal(t, "request-too-large", responseError.RequestID)
 	assert.Len(t, responseError.RawBody, int(responseSizeLimit))
 	assert.True(t, responseError.RawBodyTruncated)
 
-	rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
+	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)
-	assert.Equal(t, octoql.RateLimitSecondary, rateLimitError.Kind)
+	assert.Equal(t, RateLimitSecondary, rateLimitError.Kind)
 
 	rateLimit, known := client.RateLimit()
 	require.True(t, known)
@@ -220,12 +219,12 @@ func TestClientResponseSizeLimit(t *testing.T) {
 }
 
 func TestClientSetResponseSizeLimitRejectsNonpositiveValues(t *testing.T) {
-	client := octoql.NewClient("https://api.github.com/graphql", nil)
+	client := NewClient("https://api.github.com/graphql", nil)
 
 	for _, limit := range []int64{0, -1} {
 		err := client.SetResponseSizeLimit(limit)
 		assert.EqualError(t, err, "octoql: response size limit must be greater than zero")
-		assert.Equal(t, octoql.DefaultResponseSizeLimit, client.ResponseSizeLimit())
+		assert.Equal(t, DefaultResponseSizeLimit, client.ResponseSizeLimit())
 	}
 }
 
@@ -245,7 +244,7 @@ func TestDoRejectsExtensionsOnlyResponse(t *testing.T) {
 		nil,
 	)
 	assert.Nil(t, response)
-	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, body, string(responseError.RawBody))
 }
@@ -282,7 +281,7 @@ func TestDoRejectsEmptyErrorOnlyResponse(t *testing.T) {
 			)
 
 			assert.Nil(t, response)
-			responseError, ok := errors.AsType[*octoql.ResponseError](err)
+			responseError, ok := errors.AsType[*ResponseError](err)
 			require.True(t, ok)
 			assert.Equal(t, test.body, string(responseError.RawBody))
 		})
@@ -316,11 +315,11 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 			}, nil
 		}),
 	}
-	client := octoql.NewClient("https://api.github.com/graphql", httpClient)
+	client := NewClient("https://api.github.com/graphql", httpClient)
 
 	rateLimit, known := client.RateLimit()
 	assert.False(t, known)
-	assert.Equal(t, octoql.RateLimit{}, rateLimit)
+	assert.Equal(t, RateLimit{}, rateLimit)
 
 	_, err := doOperation[struct{}](
 		t.Context(),
@@ -356,8 +355,8 @@ func responseAPIClient(
 	statusCode int,
 	header http.Header,
 	body string,
-) *octoql.Client {
-	return octoql.NewClient(
+) *Client {
+	return NewClient(
 		"https://api.github.com/graphql",
 		&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 			return &http.Response{
@@ -371,7 +370,7 @@ func responseAPIClient(
 
 func responseAPIData[T any](
 	t *testing.T,
-	client *octoql.Client,
+	client *Client,
 ) (*T, error) {
 	return doOperation[T](
 		t.Context(),

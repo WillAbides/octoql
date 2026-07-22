@@ -278,6 +278,46 @@ query Value(
 	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
 }
 
+func TestGenerateRuntimeImportAliasCollision(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`
+scalar JSON
+
+type Query {
+  value(input: JSON!): JSON!
+}
+`), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(`
+query Value($input: JSON!) {
+  value(input: $input)
+}
+`), 0o600))
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "collision",
+		ContextType: "-",
+		Bindings: map[string]*TypeBinding{
+			"JSON": {
+				Type: "github.com/willabides/octoql/internal/generate/testdata/json.Value",
+			},
+		},
+	}
+	generated, err := Generate(config)
+	require.NoError(t, err)
+
+	source := generated[config.Generated]
+	assert.Contains(t, string(source), `"github.com/willabides/octoql/internal/generate/testdata/json"`)
+	assert.Contains(t, string(source), `json2 "encoding/json"`)
+	assert.Contains(t, string(source), "Input json.Value")
+	assert.Contains(t, string(source), "json2.Marshal")
+	require.NoError(t, buildGoFile("runtime_import_alias_collision", source))
+}
+
 func TestGenerateRejectsRuntimeMethodCollision(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := filepath.Join(dir, "schema.graphql")

@@ -1,4 +1,3 @@
-[![Go Reference](https://pkg.go.dev/badge/github.com/willabides/octoql.svg)](https://pkg.go.dev/github.com/willabides/octoql)
 [![Test Status](https://github.com/willabides/octoql/actions/workflows/ci.yaml/badge.svg)](https://github.com/willabides/octoql/actions)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](docs/CODE_OF_CONDUCT.md)
 
