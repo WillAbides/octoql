@@ -943,10 +943,13 @@ func (e *RateLimitError) RateLimitKind() string {
 	return string(e.Kind)
 }
 
-// RetryAt returns when GitHub advised retrying the request.
+// RetryAt returns the primary reset time or secondary retry time.
 func (e *RateLimitError) RetryAt() time.Time {
 	if e == nil {
 		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		return e.RateLimit.Reset
 	}
 	return e.RateLimit.RetryAt
 }

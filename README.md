@@ -347,6 +347,9 @@ if errors.As(err, &rateLimitErr) {
 }
 ```
 
+`RetryAt` returns the primary rate-limit reset time or the secondary rate-limit
+retry time, depending on `RateLimitKind`.
+
 Response errors similarly expose `HTTPStatusCode` and `GitHubRequestID`;
 GraphQL error lists expose `GraphQLErrorCount` and `GraphQLError`.
 

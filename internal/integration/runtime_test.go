@@ -57,17 +57,6 @@ func TestGeneratedErrorFacetsArePackageNeutral(t *testing.T) {
 	assert.Equal(t, "field unavailable", graphqlError.GraphQLMessage())
 	assert.Equal(t, []any{"repository", "name"}, graphqlError.GraphQLPath())
 
-	rateLimitError := &githubclient.RateLimitError{
-		Kind: githubclient.RateLimitSecondary,
-		RateLimit: githubclient.RateLimit{
-			RetryAt: time.Date(2026, time.July, 22, 10, 0, 0, 0, time.UTC),
-		},
-	}
-	var rateLimit rateLimitFacet
-	require.ErrorAs(t, rateLimitError, &rateLimit)
-	assert.Equal(t, "secondary", rateLimit.RateLimitKind())
-	assert.Equal(t, rateLimitError.RateLimit.RetryAt, rateLimit.RetryAt())
-
 	responseError := &githubclient.ResponseError{
 		StatusCode: http.StatusForbidden,
 		RequestID:  "request-123",
@@ -76,6 +65,49 @@ func TestGeneratedErrorFacetsArePackageNeutral(t *testing.T) {
 	require.ErrorAs(t, responseError, &response)
 	assert.Equal(t, http.StatusForbidden, response.HTTPStatusCode())
 	assert.Equal(t, "request-123", response.GitHubRequestID())
+}
+
+func TestGeneratedRateLimitFacetRetryAt(t *testing.T) {
+	primaryReset := time.Date(2026, time.July, 22, 10, 0, 0, 0, time.UTC)
+	secondaryRetryAt := time.Date(2026, time.July, 22, 11, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name      string
+		kind      githubclient.RateLimitKind
+		rateLimit githubclient.RateLimit
+		want      time.Time
+	}{
+		{
+			name: "primary uses reset",
+			kind: githubclient.RateLimitPrimary,
+			rateLimit: githubclient.RateLimit{
+				Reset:   primaryReset,
+				RetryAt: secondaryRetryAt,
+			},
+			want: primaryReset,
+		},
+		{
+			name: "secondary uses retry at",
+			kind: githubclient.RateLimitSecondary,
+			rateLimit: githubclient.RateLimit{
+				Reset:   primaryReset,
+				RetryAt: secondaryRetryAt,
+			},
+			want: secondaryRetryAt,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rateLimitError := &githubclient.RateLimitError{
+				Kind:      test.kind,
+				RateLimit: test.rateLimit,
+			}
+			var rateLimit rateLimitFacet
+			require.ErrorAs(t, rateLimitError, &rateLimit)
+			assert.Equal(t, string(test.kind), rateLimit.RateLimitKind())
+			assert.Equal(t, test.want, rateLimit.RetryAt())
+		})
+	}
 }
 
 func (f integrationRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
