@@ -368,29 +368,21 @@ query Value {
 		ContextType: "-",
 	})
 
-	require.EqualError(t, err, `generated runtime declaration "_octoqlPayload" conflicts with a generated GraphQL type`)
+	require.EqualError(t, err, `generated identifier "_octoqlPayload" uses reserved prefix "_octoql"`)
 }
 
-func TestGenerateRejectsDynamicRuntimeDeclarationCollision(t *testing.T) {
+func TestGenerateRejectsReservedRuntimeOperationPrefix(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := filepath.Join(dir, "schema.graphql")
 	operationPath := filepath.Join(dir, "operation.graphql")
 	require.NoError(t, os.WriteFile(schemaPath, []byte(`
-scalar Custom
-
 type Query {
-  first: Custom!
-  second: String!
+  value: String!
 }
 `), 0o600))
 	require.NoError(t, os.WriteFile(operationPath, []byte(`
-query First {
-  first
-}
-
-# @octoqlgen(typename: "_octoqlPremarshalFirstResponse")
-query Second {
-  second
+query _octoqlOperation {
+  value
 }
 `), 0o600))
 
@@ -400,19 +392,12 @@ query Second {
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "collision",
 		ContextType: "-",
-		Bindings: map[string]*TypeBinding{
-			"Custom": {
-				Type:        "string",
-				Marshaler:   "example.com/scalar.Marshal",
-				Unmarshaler: "example.com/scalar.Unmarshal",
-			},
-		},
 	})
 
 	require.EqualError(
 		t,
 		err,
-		`generated runtime declaration "_octoqlPremarshalFirstResponse" conflicts with a generated GraphQL type`,
+		`generated identifier "_octoqlOperation" uses reserved prefix "_octoql"`,
 	)
 }
 

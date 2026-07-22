@@ -511,48 +511,7 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 		"RateLimitSecondary",
 		"ResponseError",
 		"ResponseSizeLimitError",
-		"_octoqlClassifyRateLimit",
-		"_octoqlDecodeData",
-		"_octoqlDecodeResponse",
-		"_octoqlHasGraphQLRateLimitError",
-		"_octoqlHeaderValue",
-		"_octoqlIsPrimaryRateLimitStatus",
-		"_octoqlIsSecondaryRateLimitStatus",
-		"_octoqlIsSuccessfulStatus",
-		"_octoqlMaxResponseErrorRawBody",
-		"_octoqlMaxUnixSeconds",
-		"_octoqlNewResponseError",
-		"_octoqlNoMarshalJSON",
-		"_octoqlNoUnmarshalJSON",
-		"_octoqlNonnegativeHeaderInt",
-		"_octoqlNonnegativeHeaderUnix",
-		"_octoqlParseNonnegativeDecimal",
-		"_octoqlParsedRateLimit",
-		"_octoqlPayload",
-		"_octoqlRateLimitFromHeader",
-		"_octoqlRateLimitNow",
-		"_octoqlReadAndClose",
-		"_octoqlRequestIDFromHeader",
-		"_octoqlResponseErrorParams",
-		"_octoqlRetryAfterFromHeader",
-		"_octoqlValidBearerToken",
-		"_octoqlValidBearerTokenCharacter",
 	}
-	for _, typ := range g.typeMap {
-		switch typed := typ.(type) {
-		case *goStructType:
-			if typed.NeedsMarshaling() {
-				runtimeNames = append(runtimeNames, "_octoqlPremarshal"+typed.GoName)
-			}
-		case *goInterfaceType:
-			runtimeNames = append(
-				runtimeNames,
-				"_octoqlMarshal"+typed.GoName,
-				"_octoqlUnmarshal"+typed.GoName,
-			)
-		}
-	}
-	sort.Strings(runtimeNames)
 	for _, name := range runtimeNames {
 		if g.typeMap[name] != nil {
 			return nil, errorf(
@@ -569,13 +528,36 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 			)
 		}
 	}
+	const reservedRuntimePrefix = "_octoql"
+	generatedNames := make([]string, 0, len(g.typeMap)+len(enumValueNames)+len(enumValuesVariableNames)+len(operationNames))
+	for name := range g.typeMap {
+		generatedNames = append(generatedNames, name)
+	}
+	for name := range enumValueNames {
+		generatedNames = append(generatedNames, name)
+	}
+	for name := range enumValuesVariableNames {
+		generatedNames = append(generatedNames, name)
+	}
+	for name := range operationNames {
+		generatedNames = append(generatedNames, name)
+	}
+	sort.Strings(generatedNames)
+	for _, name := range generatedNames {
+		if strings.HasPrefix(name, reservedRuntimePrefix) {
+			return nil, errorf(
+				nil,
+				"generated identifier %q uses reserved prefix %q",
+				name,
+				reservedRuntimePrefix,
+			)
+		}
+	}
 	runtimeMethodNames := map[string]bool{
-		"RateLimit":               true,
-		"ResponseSizeLimit":       true,
-		"SetBearerToken":          true,
-		"SetResponseSizeLimit":    true,
-		"_octoqlExecute":          true,
-		"_octoqlObserveRateLimit": true,
+		"RateLimit":            true,
+		"ResponseSizeLimit":    true,
+		"SetBearerToken":       true,
+		"SetResponseSizeLimit": true,
 	}
 	for _, operation := range g.Operations {
 		if runtimeMethodNames[operation.Name] {
