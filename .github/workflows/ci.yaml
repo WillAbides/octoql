@@ -7,6 +7,12 @@ on:
   pull_request:
     branches:
       - main
+    types:
+      - synchronize
+      - opened
+      - reopened
+      - labeled
+      - unlabeled
   workflow_dispatch:
 
 permissions:
@@ -83,3 +89,49 @@ jobs:
           restore-keys: ${{ runner.os }}-release-
       - run: script/bindown -q install goreleaser
       - run: bin/goreleaser build --snapshot --clean
+      - uses: WillAbides/release-train@v3.9.0
+        if: github.event_name == 'pull_request'
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs:
+      - test
+      - lint
+      - generate
+      - release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: WillAbides/setup-go-faster@v1
+        with:
+          go-version-file: go.mod
+      - uses: WillAbides/release-train@v3.9.0
+        id: release-train
+        with:
+          create-release: true
+          release-refs: main
+          pre-tag-hook: script/release-hook
+          v0: true
+      - name: add bindown template
+        env:
+          RELEASE_TAG: ${{ steps.release-train.outputs.release-tag }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        if: steps.release-train.outputs.created-release == 'true'
+        run: |
+          #!/bin/sh
+          set -e
+          script/bindown -q install gh
+          CONFIG_FILE="$(pwd)/tmp/add-tmpl/bindown.yaml"
+          mkdir -p "$(dirname "$CONFIG_FILE")"
+          echo '{}' > "$CONFIG_FILE"
+          yes '' | script/bindown dependency add-by-github-release \
+            "$GITHUB_REPOSITORY@$RELEASE_TAG" \
+            --name octoqlgen \
+            --configfile "$CONFIG_FILE" \
+            --experimental
+          bin/gh release upload "$RELEASE_TAG" "$CONFIG_FILE"

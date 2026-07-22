@@ -1,35 +1,27 @@
 # yaml-language-server: $schema=../octoqlgen.schema.yaml
 # octoqlgen.yaml is octoqlgen's only user-facing configuration file.
 #
-# Run `go tool octoqlgen init` to create a minimal local configuration. Edit
-# schema.source and its pin when using a remote schema, then run
-# `go tool octoqlgen schema materialize` followed by
-# `go tool octoqlgen generate`. Pass `--config PATH` to either command when the
-# file is not named octoqlgen.yaml. init never fetches a schema.
+# Run `go tool octoqlgen init` to pin and fetch the latest GitHub Docs fpt
+# schema. Pass `--schema-version ghec` or a version such as
+# `--schema-version ghes-3.21` to initialize another GitHub Docs schema. Then run
+# `go tool octoqlgen generate`. Pass `--config PATH` when the file is not named
+# octoqlgen.yaml.
 #
 # Every path and glob below is resolved relative to this file.
 
-# The local GraphQL schema in SDL format. Materialization verifies an existing
-# file or fetches a missing file from the pinned source.
+# The local GraphQL schema in SDL format. Schema fetching verifies an existing
+# file or downloads a missing file from the pinned source.
 schema:
   path: .octoql/schema.graphql
-  # Remote sources require the exact SHA-256 of the schema bytes.
+  # GitHub.com sources require the exact SHA-256 of the schema bytes.
   sha256: c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18
   source:
-    # Supported versions are fpt, ghec, and ghes-X.Y.
-    github_docs:
-      version: fpt
-      revision: 45d83f459620340069df7c375a8867be62616d61
-    # Use exactly one source variant. A repository source may set host for
-    # GitHub Enterprise.
-    #
-    # github_repository:
-    #   repository: owner/repository
-    #   revision: 45d83f459620340069df7c375a8867be62616d61
-    #   path: path/to/schema.graphql
-    #   host: github.example.com
-    #
-    # url: https://example.com/schema.graphql
+    # GitHub.com repository in owner/name form.
+    repository: github/docs
+    # Path to the schema within the repository.
+    path: src/graphql/data/fpt/schema.docs.graphql
+    # Full commit SHA pinning the schema.
+    revision: 45d83f459620340069df7c375a8867be62616d61
 #
 # Omit schema.source for a local-only schema. schema.sha256 is optional for a
 # local-only schema and is verified when present.

@@ -191,7 +191,9 @@ func TestGenerateCommandRefusesSchemaOutputBeforeMaterialization(t *testing.T) {
 				"  path: generated.go\n"+
 				"  sha256: 559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd\n"+
 				"  source:\n"+
-				"    url: https://example.test/schema.graphql\n"+
+				"    repository: octo-org/octo-repo\n"+
+				"    path: schema.graphql\n"+
+				"    revision: "+cliRevision+"\n"+
 				"operations: []\n"+
 				"generated: generated.go\n",
 		),
@@ -286,84 +288,40 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 func TestGenerateCommandMaterializesConfiguredSources(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		source config.Source
-		assert func(*testing.T, config.Source)
-		name   string
-	}{
-		{
-			name: "github docs",
-			source: config.Source{
-				GithubDocs: &config.GithubDocs{
-					Version:  "fpt",
-					Revision: cliRevision,
-				},
-			},
-			assert: func(t *testing.T, source config.Source) {
-				require.NotNil(t, source.GithubDocs)
-				assert.Equal(t, cliRevision, source.GithubDocs.Revision)
-			},
-		},
-		{
-			name: "github repository",
-			source: config.Source{
-				GithubRepository: &config.GithubRepository{
-					Repository: "octo-org/octo-repo",
-					Revision:   cliRevision,
-					Path:       "schema.graphql",
-				},
-			},
-			assert: func(t *testing.T, source config.Source) {
-				require.NotNil(t, source.GithubRepository)
-				assert.Equal(t, "octo-org/octo-repo", source.GithubRepository.Repository)
-			},
-		},
-		{
-			name: "url",
-			source: config.Source{
-				Url: new("https://example.test/schema.graphql"),
-			},
-			assert: func(t *testing.T, source config.Source) {
-				require.NotNil(t, source.Url)
-				assert.Equal(t, "https://example.test/schema.graphql", *source.Url)
-			},
-		},
+	source := config.Source{
+		Repository: "octo-org/octo-repo",
+		Revision:   cliRevision,
+		Path:       "schema.graphql",
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			directory := t.TempDir()
-			packageName := "client"
-			materializer := &stubMaterializer{}
-			command := generateCommand{
-				context: t.Context(),
-				loadConfig: func(string) (*config.Config, error) {
-					return &config.Config{
-						Schema: config.Schema{
-							Path:   filepath.Join(directory, "schema.graphql"),
-							Sha256: new(cliSHA256),
-							Source: &test.source,
-						},
-						Operations: []string{filepath.Join(directory, "operation.graphql")},
-						Generated:  filepath.Join(directory, "generated.go"),
-						Package:    &packageName,
-					}, nil
+	directory := t.TempDir()
+	packageName := "client"
+	materializer := &stubMaterializer{}
+	command := generateCommand{
+		context: t.Context(),
+		loadConfig: func(string) (*config.Config, error) {
+			return &config.Config{
+				Schema: config.Schema{
+					Path:   filepath.Join(directory, "schema.graphql"),
+					Sha256: new(cliSHA256),
+					Source: &source,
 				},
-				materializer: materializer,
-				generate: func(*generate.Config) (map[string][]byte, error) {
-					return map[string][]byte{}, nil
-				},
-				outputWriter: &recordingOutputWriter{},
-			}
-
-			err := command.Run()
-			require.NoError(t, err)
-			assert.Equal(t, cliSHA256, materializer.request.SHA256)
-			test.assert(t, materializer.request.Source)
-		})
+				Operations: []string{filepath.Join(directory, "operation.graphql")},
+				Generated:  filepath.Join(directory, "generated.go"),
+				Package:    &packageName,
+			}, nil
+		},
+		materializer: materializer,
+		generate: func(*generate.Config) (map[string][]byte, error) {
+			return map[string][]byte{}, nil
+		},
+		outputWriter: &recordingOutputWriter{},
 	}
+
+	err := command.Run()
+	require.NoError(t, err)
+	assert.Equal(t, cliSHA256, materializer.request.SHA256)
+	assert.Equal(t, source, materializer.request.Source)
 }
 
 func TestGenerateSubdirectoryConfig(t *testing.T) {
@@ -480,7 +438,7 @@ func TestGenerateCommandMissingLocalSchema(t *testing.T) {
 	err := command.Run()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "local schema file")
-	assert.Contains(t, err.Error(), "edit schema.source or run octoqlgen schema materialize")
+	assert.Contains(t, err.Error(), "edit schema.source or run octoqlgen schema fetch")
 }
 
 func TestGenerateRejectsPositionalConfig(t *testing.T) {
@@ -541,16 +499,19 @@ func TestMinimalInitConfigGenerates(t *testing.T) {
 	directory := t.TempDir()
 	configPath := filepath.Join(directory, config.DefaultFilename)
 	initCmd := initCommand{
-		ConfigPath: configPath,
-		stdout:     io.Discard,
+		ConfigPath:    configPath,
+		SchemaVersion: "fpt",
+		context:       t.Context(),
+		resolver: &stubRemoteResolver{
+			result: schema.RemoteResult{
+				Revision: cliRevision,
+				SHA256:   "b21acab241b1703103b168e57541425e1593bcb6ea720351a753c45c446c15b4",
+				Data:     []byte("type Query { viewer: User }\ntype User { login: String! }\n"),
+			},
+		},
+		stdout: io.Discard,
 	}
 	err := initCmd.Run()
-	require.NoError(t, err)
-	err = os.WriteFile(
-		filepath.Join(directory, ".octoql", "schema.graphql"),
-		[]byte("type Query { viewer: User }\ntype User { login: String! }\n"),
-		0o600,
-	)
 	require.NoError(t, err)
 	err = os.MkdirAll(filepath.Join(directory, "graphql"), 0o755)
 	require.NoError(t, err)

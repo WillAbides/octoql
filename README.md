@@ -35,15 +35,26 @@ the module that owns the generated client:
 go get -tool github.com/willabides/octoql/cmd/octoqlgen
 ```
 
-Run the pinned tool with `go tool octoqlgen`. To install a standalone binary
-from source instead, use an explicit version or commit:
+Run the pinned tool with `go tool octoqlgen`. The Go tool dependency is the
+recommended installation because the runtime and generator then resolve from the
+same module version.
+
+For a standalone binary, install a release archive with
+[bindown](https://github.com/WillAbides/bindown):
+
+```sh
+bindown template-source add octoql https://github.com/WillAbides/octoql/releases/latest/download/bindown.yaml
+bindown dependency add octoqlgen --source octoql
+```
+
+Or build a standalone binary from source with an explicit version or commit:
 
 ```sh
 go install github.com/willabides/octoql/cmd/octoqlgen@<version-or-commit>
 ```
 
-octoql does not currently publish prebuilt release archives. Generated clients
-use only the standard library unless configured scalar bindings add imports;
+Generated clients use only the standard library unless configured scalar
+bindings add imports;
 application code does not import `github.com/willabides/octoql`.
 
 ## Generate a client
@@ -54,30 +65,25 @@ Initialize a project:
 go tool octoqlgen init
 ```
 
-This creates `octoqlgen.yaml` and `.octoql/.gitignore`. It does not fetch a
-schema. The generated config uses the gitignored `.octoql/schema.graphql` path,
-`graphql/**/*.graphql` for operations, and
-`internal/githubapi/generated.go` for output.
+GitHub authentication must be available through `GH_TOKEN`, `GITHUB_TOKEN`, or
+the `gh` CLI.
 
-Add the JSON Schema directive to `octoqlgen.yaml` for editor completion and
-validation, then configure a local or remote schema:
+This resolves and fetches the latest GitHub Docs Free, Pro, & Team (`fpt`)
+schema, then creates a configuration containing its commit revision and SHA-256
+digest. It also creates `.octoql/.gitignore`; the generated config uses the
+gitignored `.octoql/schema.graphql` path, `graphql/**/*.graphql` for operations,
+and `internal/githubapi/generated.go` for output.
 
-```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WillAbides/octoql/main/octoqlgen.schema.yaml
+Choose another GitHub Docs schema version with `--schema-version`:
 
-schema:
-  path: .octoql/schema.graphql
-operations:
-  - graphql/**/*.graphql
-generated: internal/githubapi/generated.go
+```sh
+go tool octoqlgen init --schema-version ghec
+go tool octoqlgen init --schema-version ghes-3.21
 ```
 
-Repository checkouts can use
-`# yaml-language-server: $schema=./octoqlgen.schema.yaml` instead. All paths and
-globs are relative to `octoqlgen.yaml`. The committed
-[`octoqlgen.schema.yaml`](octoqlgen.schema.yaml) is the canonical structural
-schema, and the annotated
-[`docs/octoqlgen.yaml`](docs/octoqlgen.yaml) explains every option.
+All paths and globs in `octoqlgen.yaml` are relative to that file. See
+[`docs/octoqlgen.yaml`](docs/octoqlgen.yaml) for local schemas, other remote
+sources, and every configuration option.
 
 Create `graphql/repository.graphql`:
 
@@ -95,137 +101,49 @@ query GetRepository($owner: String!, $name: String!, $first: Int!) {
 }
 ```
 
-Materialize or verify the configured schema, then generate:
+Fetch or verify the configured schema, then generate:
 
 ```sh
-go tool octoqlgen schema materialize
+go tool octoqlgen schema fetch
 go tool octoqlgen generate
 ```
 
-Generation performs the same schema verification or materialization before it
-writes code. Query and mutation operation names become generated helper names,
+Generation performs the same schema verification or fetch before it writes
+code. Query and mutation operation names become generated helper names,
 so use an uppercase name when the helper must be exported. octoql does not
 support GraphQL subscriptions, and `octoqlgen` rejects subscription operations.
-Generation also refuses output paths that alias `octoqlgen.yaml`, the schema,
-or any expanded operation input. Operation manifests record source paths
-relative to the configuration directory so checked-in manifests stay portable.
 
-`operations` may also select Go files. A string literal beginning with
-`# @octoqlgen` is parsed as an operation:
-
-```go
-const getViewerQuery = `# @octoqlgen
-query GetViewer {
-  viewer {
-    login
-  }
-}
-`
-```
-
-Use the `@octoqlgen` comment quasi-directive for per-operation options such
-as `pointer`, `omitempty`, `flatten`, `bind`, and `typename`. See the
-[directive reference](docs/octoqlgen_directive.graphql). It is written in a
-comment because server-defined GraphQL directives cannot configure the client
-generator.
+Operations may also be embedded in Go string literals. See the
+[directive reference](docs/octoqlgen_directive.graphql) for embedded operations
+and per-operation options.
 
 ## Schema sources and updates
 
 `schema.path` is always the schema used for generation. Keep it in the
 gitignored `.octoql` directory when the source is remote. A local schema needs
-no source:
+only its path:
 
 ```yaml
 schema:
   path: schema/github.graphql
 ```
 
-For a local schema, `sha256` is optional. When present, materialization verifies
-it. Remote sources require a SHA-256 digest and, for GitHub sources, a full
-commit SHA. Configure exactly one source variant.
+GitHub.com sources require a SHA-256 digest and full commit SHA. Authentication
+uses `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`. See the
+[configuration reference](docs/octoqlgen.yaml) for all schema settings.
 
-### GitHub Docs
+`octoqlgen init` configures and fetches the latest `fpt` schema by default.
+Pass `--schema-version` to initialize with another GitHub Docs version.
 
-Use `fpt`, `ghec`, or a GHES version such as `ghes-3.17`:
-
-```yaml
-schema:
-  path: .octoql/schema.graphql
-  sha256: "<64-character-schema-sha256>"
-  source:
-    github_docs:
-      version: fpt
-      revision: "<full-github-docs-commit-sha>"
-```
-
-### GitHub repository or GHES
-
-Pin a schema file in a GitHub repository. Add `host` for GitHub Enterprise
-Server:
-
-```yaml
-schema:
-  path: .octoql/schema.graphql
-  sha256: "<64-character-schema-sha256>"
-  source:
-    github_repository:
-      repository: octo-org/graphql-schema
-      revision: "<full-commit-sha>"
-      path: schema/github.graphql
-      host: github.example.com
-```
-
-Omit `host` for `github.com`.
-
-### Immutable URL
-
-```yaml
-schema:
-  path: .octoql/schema.graphql
-  sha256: "<64-character-schema-sha256>"
-  source:
-    url: https://schemas.example.com/github/<revision>/schema.graphql
-```
-
-Prefer a URL whose content is immutable. Materialization refuses bytes that do
-not match the configured digest and validates the GraphQL SDL before writing
-`schema.path`.
-
-### Authentication, verification, and updates
-
-For GitHub Docs and repository sources, authentication is discovered in this
-order:
-
-1. `GH_TOKEN`
-2. `GITHUB_TOKEN`
-3. `gh auth token --hostname <host>`
-
-GitHub GraphQL requires authentication, including for public repositories.
-Materialization and updates fail with guidance when none of these token sources
-is available.
-
-`schema materialize` verifies an existing file or fetches a missing remote file.
-It never changes `octoqlgen.yaml`:
+`schema fetch` verifies an existing file or fetches a missing remote file:
 
 ```sh
-go tool octoqlgen schema materialize
+go tool octoqlgen schema fetch
 ```
 
-`schema update` fetches and validates the current remote source. It atomically
-publishes the materialized schema, then atomically updates the configuration
-pin: `sha256` for every remote source and the GitHub revision for GitHub-backed
-sources:
-
-The schema/config pair is not published atomically. `schema update` takes no
-lock and maintains no journal, rollback, or automatic recovery. Concurrent
-schema commands are unsupported, and a failure after schema publication, such
-as a failed config write, can leave an incoherent schema/config pair. Simultaneous
-invocations targeting the same schema or config can be last-writer-wins, leave
-an incoherent pair even when all commands succeed, or result in a
-verification/materialization failure. After concurrent activity or a failure
-after schema publication, fix the underlying write failure or other error, then
-run one `schema update` serially to establish a coherent schema/config pair.
-Then rerun any command that failed.
+`schema update` fetches the latest version of the configured repository path
+from its default branch, validates and writes it, then updates the configuration
+revision and `sha256`. Run schema updates serially.
 
 ```sh
 go tool octoqlgen schema update
@@ -234,8 +152,8 @@ go tool octoqlgen generate
 ```
 
 The `.octoql` schema normally remains ignored while the reviewed pin in
-`octoqlgen.yaml` is committed. Use `--config PATH` with materialize, update, or
-generate when the config has another name or location.
+`octoqlgen.yaml` is committed. Use `--config PATH` with fetch, update, or generate
+when the config has another name or location.
 
 ## Call the generated client
 
@@ -265,10 +183,8 @@ fmt.Println(response.Repository.NameWithOwner)
 Pass a different endpoint to `githubapi.NewClient` for GHES, a proxy, or an
 `httptest.Server`. Pass nil as the HTTP client to use `http.DefaultClient`.
 
-`SetBearerToken` accepts tokens containing letters, digits, `-`, `.`, `_`, `~`,
-`+`, or `/`, with optional trailing `=` padding. For basic authentication or
-another authentication scheme, configure the `http.Client` or
-`http.RoundTripper` passed to `NewClient`.
+For basic authentication or another authentication scheme, configure the
+`http.Client` or `http.RoundTripper` passed to `NewClient`.
 
 ## Runtime responses and errors
 
@@ -375,7 +291,7 @@ categories. A rate-limited response can match `*githubapi.RateLimitError`,
 | GraphQL errors with decodable non-null data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `ResponseError`, `Errors` |
 | Any error without decodable data | `nil` | `ResponseError` and available causes |
 | Primary or secondary rate limit with decodable data | `nil`; inspect the generated operation partial-data error | operation partial-data error, `RateLimitError`, `ResponseError`, and possibly `Errors` |
-| Client getter, encoding, or transport failure before a response | `nil` | Wrapped underlying error; no `ResponseError` |
+| Client configuration, encoding, or transport failure before a response | `nil` | Wrapped underlying error; no `ResponseError` |
 
 Primary and secondary GitHub limits wrap `*githubapi.ResponseError` in
 `*githubapi.RateLimitError`. Primary limits require
@@ -438,12 +354,12 @@ GraphQL error lists expose `GraphQLErrorCount` and `GraphQLError`.
 
 GraphQL's built-in scalars map to ordinary Go values:
 
-| GraphQL | Go |
-| --- | --- |
-| `Int` | `int` |
-| `Float` | `float64` |
-| `String`, `ID` | `string` |
-| `Boolean` | `bool` |
+| GraphQL        | Go        |
+|----------------|-----------|
+| `Int`          | `int`     |
+| `Float`        | `float64` |
+| `String`, `ID` | `string`  |
+| `Boolean`      | `bool`    |
 
 Nullable named values generate as pointers by default. Generated abstract
 interface values are the exception: their nil interface value represents
@@ -493,8 +409,7 @@ needed to prevent method promotion from changing `encoding/json` behavior.
 
 ## Typed test handlers
 
-Generate a typed `http.Handler` from the same immutable operation plan as the
-client:
+Generate a typed `http.Handler` from the configured operations:
 
 ```yaml
 generated: internal/githubapi/generated.go
@@ -503,12 +418,10 @@ test_handler:
   types: client
 ```
 
-`types: client` is the default. It imports the generated client package and
-aliases operation types, so handler response values are directly assignable to
-client types.
+`types: client` is the default and makes handler response values assignable to
+generated client types.
 
-Use `types: local` to generate distinct wire-equivalent types in the handler
-package without importing the client:
+Use `types: local` to generate separate handler types:
 
 ```yaml
 test_handler:
@@ -516,15 +429,9 @@ test_handler:
   types: local
 ```
 
-Local handler values are intentionally not assignable to client types. Local
-mode also rejects reachable bindings or marshal helpers owned by the generated
-client package because those references would recreate the dependency.
-
-When `test_handler` is configured, every query or mutation name must begin
-with an uppercase letter. This applies to both `types: client` and
-`types: local`; the strategy changes type ownership, not the generated handler
-API's exported naming rule. Client types also need the restriction because the
-separate handler package aliases generated client types.
+Local handler values are not assignable to client types. Test-handler
+configuration requires query and mutation names to begin with an uppercase
+letter.
 
 After `go tool octoqlgen generate`, each handler operation has matching
 `Expect<Operation>`, `Default<Operation>`, and `Reset<Operation>` methods:
@@ -560,8 +467,8 @@ An expectation defaults to one call. Pass `Times(n)` to require exactly `n`,
 `Default<Operation>` is an unlimited fallback. Cleanup verifies unmet
 expectations, and expectation state is safe for concurrent requests.
 
-Partial data and errors, per-error extensions, headers, status, and rate limits
-are configurable:
+Expectations can also configure partial data, errors, headers, status, and rate
+limits.
 
 ```go
 handler.ExpectGetRepository(variables).
@@ -635,7 +542,3 @@ for commands and repository conventions.
 - [Security policy](docs/SECURITY.md)
 - [Code of conduct](docs/CODE_OF_CONDUCT.md)
 - [License](LICENSE)
-
-The root README is the primary user guide. The `docs/` directory is limited to
-specialized references and project policies. Project history remains available
-in Git.

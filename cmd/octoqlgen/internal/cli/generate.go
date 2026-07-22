@@ -43,14 +43,14 @@ func (cmd *generateCommand) Run() error {
 		return fmt.Errorf("validating generation config: %w", err)
 	}
 
-	_, err = cmd.materializer.Materialize(cmd.context, schema.Request{
+	_, err = cmd.materializer.Materialize(cmd.context, &schema.Request{
 		Path:   loaded.SchemaPath(),
 		SHA256: loaded.Schema.SHA256Value(),
 		Source: loaded.Schema.SourceValue(),
 	})
 	if err != nil {
 		return fmt.Errorf(
-			"materializing configured schema: %w; edit schema.source or run octoqlgen schema materialize",
+			"fetching configured schema: %w; edit schema.source or run octoqlgen schema fetch",
 			err,
 		)
 	}

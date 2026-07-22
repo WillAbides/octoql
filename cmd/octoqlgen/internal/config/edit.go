@@ -9,6 +9,35 @@ import (
 	yamlv3 "gopkg.in/yaml.v3"
 )
 
+const schemaDirectivePrefix = "# yaml-language-server: $schema="
+
+// SetSchemaDirective adds or replaces the yaml-language-server schema directive.
+func SetSchemaDirective(content []byte, schemaURL string) []byte {
+	directive := []byte(schemaDirectivePrefix + schemaURL)
+	lines := bytes.SplitAfter(content, []byte("\n"))
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(string(line))
+		if !strings.HasPrefix(trimmed, schemaDirectivePrefix) {
+			continue
+		}
+		lineEnding := line[len(bytes.TrimRight(line, "\r\n")):]
+		lines[index] = append(append([]byte{}, directive...), lineEnding...)
+		return bytes.Join(lines, nil)
+	}
+
+	lineEnding := firstLineEnding(content)
+	prefix := append(append(append([]byte{}, directive...), lineEnding...), lineEnding...)
+	return append(prefix, content...)
+}
+
+func firstLineEnding(content []byte) []byte {
+	newline := bytes.IndexByte(content, '\n')
+	if newline > 0 && content[newline-1] == '\r' {
+		return []byte("\r\n")
+	}
+	return []byte("\n")
+}
+
 // UpdatePin preserves the original YAML while replacing only schema checksum
 // and an applicable remote revision.
 func UpdatePin(content []byte, sha256, revision string) ([]byte, error) {
@@ -41,23 +70,15 @@ func UpdatePin(content []byte, sha256, revision string) ([]byte, error) {
 			return nil, sourceErr
 		}
 		sourceNode = dereference(sourceNode)
-		for _, key := range []string{"github_docs", "github_repository"} {
-			var variant *yamlv3.Node
-			variant, sourceErr = mappingValue(sourceNode, key)
-			if sourceErr == nil {
-				var revisionNode *yamlv3.Node
-				revisionNode, sourceErr = mappingValue(dereference(variant), "revision")
-				if sourceErr != nil {
-					return nil, sourceErr
-				}
-				sourceErr = ensureUnanchoredPin(revisionNode)
-				if sourceErr != nil {
-					return nil, sourceErr
-				}
-				replacements = append(replacements, scalarReplacement{node: revisionNode, value: revision})
-				break
-			}
+		revisionNode, sourceErr := mappingValue(sourceNode, "revision")
+		if sourceErr != nil {
+			return nil, sourceErr
 		}
+		sourceErr = ensureUnanchoredPin(revisionNode)
+		if sourceErr != nil {
+			return nil, sourceErr
+		}
+		replacements = append(replacements, scalarReplacement{node: revisionNode, value: revision})
 	}
 	return replaceScalars(content, replacements)
 }
