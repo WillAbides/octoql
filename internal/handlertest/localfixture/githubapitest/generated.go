@@ -13,8 +13,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/willabides/octoql"
 )
 
 // CreateRepositoryCreateRepositoryCreateRepositoryPayload includes the requested fields of the GraphQL type CreateRepositoryPayload.
@@ -295,7 +293,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*GetNodeResponse
 		Node json.RawMessage `json:"node"`
-		octoql.NoUnmarshalJSON
+		noUnmarshalJSON
 	}
 	firstPass.GetNodeResponse = v
 
@@ -472,7 +470,7 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*SearchResponse
 		Search json.RawMessage `json:"search"`
-		octoql.NoUnmarshalJSON
+		noUnmarshalJSON
 	}
 	firstPass.SearchResponse = v
 
@@ -730,7 +728,7 @@ func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*ViewerViewerUser
-		octoql.NoUnmarshalJSON
+		noUnmarshalJSON
 	}
 	firstPass.ViewerViewerUser = v
 
@@ -767,6 +765,39 @@ func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, er
 	retval.Id = v.ViewerVariables.Id
 	retval.Login = v.ViewerVariables.Login
 	return &retval, nil
+}
+
+type ErrorType string
+
+type noUnmarshalJSON struct{}
+
+func (noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("noUnmarshalJSON.UnmarshalJSON should never be called!")
+}
+
+type Path []any
+
+type Location struct {
+	Line   int `json:"line,omitempty"`
+	Column int `json:"column,omitempty"`
+}
+
+type Error struct {
+	Type       ErrorType      `json:"type,omitempty"`
+	Message    string         `json:"message"`
+	Path       Path           `json:"path,omitempty"`
+	Locations  []Location     `json:"locations,omitempty"`
+	Extensions map[string]any `json:"extensions,omitempty"`
+}
+
+type RateLimit struct {
+	Limit      int
+	Remaining  int
+	Used       int
+	Reset      time.Time
+	Resource   string
+	RetryAfter time.Duration
+	RetryAt    time.Time
 }
 
 type testTB interface {
@@ -1052,7 +1083,7 @@ func WithHeaders(header http.Header) ResponseOption {
 	}
 }
 
-func WithPrimaryRateLimit(rateLimit octoql.RateLimit) ResponseOption {
+func WithPrimaryRateLimit(rateLimit RateLimit) ResponseOption {
 	return func(options *responseOptions) {
 		hasNegativeValue := rateLimit.Limit < 0 ||
 			rateLimit.Remaining < 0 ||
@@ -1121,7 +1152,7 @@ func combineResponseOptions(
 func writeGraphQLResponse(
 	writer http.ResponseWriter,
 	data any,
-	graphqlErrors []octoql.Error,
+	graphqlErrors []Error,
 	options responseOptions,
 ) error {
 	if options.err != nil {
@@ -1156,7 +1187,7 @@ func writeRequestError(
 	return writeGraphQLResponse(
 		writer,
 		nil,
-		[]octoql.Error{{Message: message}},
+		[]Error{{Message: message}},
 		buildResponseOptions(WithStatus(status)),
 	)
 }
@@ -1668,7 +1699,7 @@ func (b *CreateRepositoryExpectation) Respond(
 }
 
 func (b *CreateRepositoryExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -1679,7 +1710,7 @@ func (b *CreateRepositoryExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1688,7 +1719,7 @@ func (b *CreateRepositoryExpectation) RespondError(
 
 func (b *CreateRepositoryExpectation) RespondDataAndErrors(
 	data CreateRepositoryResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
@@ -1780,7 +1811,7 @@ func (b *EchoAnyExpectation) Respond(
 }
 
 func (b *EchoAnyExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -1791,7 +1822,7 @@ func (b *EchoAnyExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1800,7 +1831,7 @@ func (b *EchoAnyExpectation) RespondError(
 
 func (b *EchoAnyExpectation) RespondDataAndErrors(
 	data EchoAnyResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
@@ -1892,7 +1923,7 @@ func (b *EchoAtExpectation) Respond(
 }
 
 func (b *EchoAtExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -1903,7 +1934,7 @@ func (b *EchoAtExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1912,7 +1943,7 @@ func (b *EchoAtExpectation) RespondError(
 
 func (b *EchoAtExpectation) RespondDataAndErrors(
 	data EchoAtResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
@@ -2004,7 +2035,7 @@ func (b *EchoPropertyExpectation) Respond(
 }
 
 func (b *EchoPropertyExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -2015,7 +2046,7 @@ func (b *EchoPropertyExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -2024,7 +2055,7 @@ func (b *EchoPropertyExpectation) RespondError(
 
 func (b *EchoPropertyExpectation) RespondDataAndErrors(
 	data EchoPropertyResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
@@ -2116,7 +2147,7 @@ func (b *GetNodeExpectation) Respond(
 }
 
 func (b *GetNodeExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -2127,7 +2158,7 @@ func (b *GetNodeExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -2136,7 +2167,7 @@ func (b *GetNodeExpectation) RespondError(
 
 func (b *GetNodeExpectation) RespondDataAndErrors(
 	data GetNodeResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
@@ -2228,7 +2259,7 @@ func (b *GetRepositoryExpectation) Respond(
 }
 
 func (b *GetRepositoryExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -2239,7 +2270,7 @@ func (b *GetRepositoryExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -2248,7 +2279,7 @@ func (b *GetRepositoryExpectation) RespondError(
 
 func (b *GetRepositoryExpectation) RespondDataAndErrors(
 	data GetRepositoryResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
@@ -2340,7 +2371,7 @@ func (b *SearchExpectation) Respond(
 }
 
 func (b *SearchExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -2351,7 +2382,7 @@ func (b *SearchExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -2360,7 +2391,7 @@ func (b *SearchExpectation) RespondError(
 
 func (b *SearchExpectation) RespondDataAndErrors(
 	data SearchResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
@@ -2451,7 +2482,7 @@ func (b *ViewerExpectation) Respond(
 }
 
 func (b *ViewerExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -2462,7 +2493,7 @@ func (b *ViewerExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -2471,7 +2502,7 @@ func (b *ViewerExpectation) RespondError(
 
 func (b *ViewerExpectation) RespondDataAndErrors(
 	data ViewerResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(

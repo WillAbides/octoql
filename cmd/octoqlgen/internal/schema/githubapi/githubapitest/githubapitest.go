@@ -14,9 +14,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi"
 )
+
+type Error = githubapi.Error
+type ErrorType = githubapi.ErrorType
+type Location = githubapi.Location
+type Path = githubapi.Path
+type RateLimit = githubapi.RateLimit
 
 type LatestCommitRepository = githubapi.LatestCommitRepository
 
@@ -319,7 +324,7 @@ func WithHeaders(header http.Header) ResponseOption {
 	}
 }
 
-func WithPrimaryRateLimit(rateLimit octoql.RateLimit) ResponseOption {
+func WithPrimaryRateLimit(rateLimit RateLimit) ResponseOption {
 	return func(options *responseOptions) {
 		hasNegativeValue := rateLimit.Limit < 0 ||
 			rateLimit.Remaining < 0 ||
@@ -388,7 +393,7 @@ func combineResponseOptions(
 func writeGraphQLResponse(
 	writer http.ResponseWriter,
 	data any,
-	graphqlErrors []octoql.Error,
+	graphqlErrors []Error,
 	options responseOptions,
 ) error {
 	if options.err != nil {
@@ -423,7 +428,7 @@ func writeRequestError(
 	return writeGraphQLResponse(
 		writer,
 		nil,
-		[]octoql.Error{{Message: message}},
+		[]Error{{Message: message}},
 		buildResponseOptions(WithStatus(status)),
 	)
 }
@@ -627,7 +632,7 @@ func (b *LatestCommitExpectation) Respond(
 }
 
 func (b *LatestCommitExpectation) RespondError(
-	graphqlError octoql.Error,
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -638,7 +643,7 @@ func (b *LatestCommitExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]octoql.Error{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -647,7 +652,7 @@ func (b *LatestCommitExpectation) RespondError(
 
 func (b *LatestCommitExpectation) RespondDataAndErrors(
 	data LatestCommitResponse,
-	graphqlErrors ...octoql.Error,
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(

@@ -87,8 +87,6 @@ type planBuilder func(*Config) (*generationPlan, error)
 
 type outputRenderer func(*generationPlan) ([]byte, error)
 
-const executorTypeName = "octoqlExecutor"
-
 func freezeGenerationPlan(g *generator) *generationPlan {
 	config := cloneConfig(g.Config)
 	return &generationPlan{
@@ -497,34 +495,56 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 			enumValueNames[value.GoName] = true
 		}
 	}
-	if g.typeMap[executorTypeName] != nil {
-		return nil, errorf(
-			nil,
-			"generated executor type %q conflicts with a generated GraphQL type",
-			executorTypeName,
-		)
+	runtimeNames := []string{
+		"Client",
+		"DefaultResponseSizeLimit",
+		"Error",
+		"Errors",
+		"ErrorType",
+		"Location",
+		"NewClient",
+		"Path",
+		"RateLimit",
+		"RateLimitError",
+		"RateLimitKind",
+		"RateLimitPrimary",
+		"RateLimitSecondary",
+		"ResponseError",
+		"ResponseSizeLimitError",
 	}
-	if operationNames[executorTypeName] {
-		return nil, errorf(
-			nil,
-			"generated executor type %q conflicts with operation %q",
-			executorTypeName,
-			executorTypeName,
-		)
+	for _, name := range runtimeNames {
+		if g.typeMap[name] != nil {
+			return nil, errorf(
+				nil,
+				"generated runtime declaration %q conflicts with a generated GraphQL type",
+				name,
+			)
+		}
+		if enumValueNames[name] || enumValuesVariableNames[name] {
+			return nil, errorf(
+				nil,
+				"generated runtime declaration %q conflicts with a generated enum declaration",
+				name,
+			)
+		}
 	}
-	if enumValueNames[executorTypeName] {
-		return nil, errorf(
-			nil,
-			"generated executor type %q conflicts with a generated enum value",
-			executorTypeName,
-		)
+	runtimeMethodNames := map[string]bool{
+		"RateLimit":            true,
+		"ResponseSizeLimit":    true,
+		"SetBearerToken":       true,
+		"SetResponseSizeLimit": true,
+		"execute":              true,
+		"observeRateLimit":     true,
 	}
-	if enumValuesVariableNames[executorTypeName] {
-		return nil, errorf(
-			nil,
-			"generated executor type %q conflicts with a generated enum values variable",
-			executorTypeName,
-		)
+	for _, operation := range g.Operations {
+		if runtimeMethodNames[operation.Name] {
+			return nil, errorf(
+				nil,
+				"generated Client method %q conflicts with operation %q",
+				operation.Name,
+				operation.Name,
+			)
+		}
 	}
 	for _, operation := range g.Operations {
 		name := operation.Name + "PartialDataError"
@@ -600,19 +620,23 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 }
 
 func renderClientGenerator(g *generator) ([]byte, error) {
-	_, err := g.ref("context.Context")
-	if err != nil {
-		return nil, err
-	}
-	_, err = g.ref("github.com/willabides/octoql.Payload")
-	if err != nil {
-		return nil, err
-	}
 	typeDefinitions, err := renderTypeDefinitions(g)
 	if err != nil {
 		return nil, err
 	}
 	var bodyBuf bytes.Buffer
+	err = g.render("runtime.go.tmpl", &bodyBuf, g)
+	if err != nil {
+		return nil, err
+	}
+	_, err = bodyBuf.WriteString("\n")
+	if err != nil {
+		return nil, err
+	}
+	err = g.render("runtime_facets.go.tmpl", &bodyBuf, g)
+	if err != nil {
+		return nil, err
+	}
 	_, err = bodyBuf.Write(typeDefinitions)
 	if err != nil {
 		return nil, err

@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql"
 	githubapi "github.com/willabides/octoql/internal/handlertest/client"
 	clienttypes "github.com/willabides/octoql/internal/handlertest/githubapitest"
 	localtypes "github.com/willabides/octoql/internal/handlertest/localfixture/githubapitest"
@@ -70,7 +69,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					clienttypes.WithHeaders(http.Header{
 						"x-handler-mode": {"client"},
 					}),
-					clienttypes.WithPrimaryRateLimit(octoql.RateLimit{
+					clienttypes.WithPrimaryRateLimit(clienttypes.RateLimit{
 						Limit:     5000,
 						Remaining: 4999,
 						Used:      1,
@@ -92,7 +91,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					localtypes.WithHeaders(http.Header{
 						"x-handler-mode": {"client"},
 					}),
-					localtypes.WithPrimaryRateLimit(octoql.RateLimit{
+					localtypes.WithPrimaryRateLimit(localtypes.RateLimit{
 						Limit:     5000,
 						Remaining: 4999,
 						Used:      1,
@@ -262,10 +261,10 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 							FullName: "octo-org/partial",
 						}),
 					},
-					octoql.Error{
+					clienttypes.Error{
 						Type:       "FORBIDDEN",
 						Message:    "field hidden",
-						Path:       octoql.Path{"repository", "propertyValue"},
+						Path:       clienttypes.Path{"repository", "propertyValue"},
 						Extensions: map[string]any{"code": "hidden"},
 					},
 				)
@@ -283,10 +282,10 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 							FullName: "octo-org/partial",
 						}),
 					},
-					octoql.Error{
+					localtypes.Error{
 						Type:       "FORBIDDEN",
 						Message:    "field hidden",
-						Path:       octoql.Path{"repository", "propertyValue"},
+						Path:       localtypes.Path{"repository", "propertyValue"},
 						Extensions: map[string]any{"code": "hidden"},
 					},
 				)
@@ -299,14 +298,14 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			configureClient: func(handler *clienttypes.TestHandler) {
 				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "secondary-200"}).
 					RespondError(
-						octoql.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
+						clienttypes.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
 						clienttypes.WithSecondaryRateLimit(30*time.Second),
 					)
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
 				handler.ExpectGetNode(localtypes.GetNodeVariables{Id: "secondary-200"}).
 					RespondError(
-						octoql.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
+						localtypes.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
 						localtypes.WithSecondaryRateLimit(30*time.Second),
 					)
 			},
@@ -348,7 +347,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		handler.ServeHTTP(writer, request)
 	}))
 	t.Cleanup(server.Close)
-	client := octoql.NewClient(server.URL, server.Client())
+	client := githubapi.NewClient(server.URL, server.Client())
 	updatedAt := time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC)
 
 	variables := localtypes.GetRepositoryVariables{
@@ -358,9 +357,8 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		After: ptr("cursor-1"),
 	}
 	handler.ExpectGetRepository(variables).Respond(localRepositoryResponse(updatedAt))
-	response, err := githubapi.GetRepository(
+	response, err := client.GetRepository(
 		t.Context(),
-		client,
 		githubapi.GetRepositoryVariables{
 			Owner: variables.Owner,
 			Name:  variables.Name,
@@ -393,7 +391,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	handler.ExpectGetNode(nodeVariables).Respond(localtypes.GetNodeResponse{
 		Node: localNode,
 	})
-	nodeResponse, err := githubapi.GetNode(t.Context(), client, githubapi.GetNodeVariables{
+	nodeResponse, err := client.GetNode(t.Context(), githubapi.GetNodeVariables{
 		Id: nodeVariables.Id,
 	})
 	require.NoError(t, err)
@@ -415,9 +413,10 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 			&localtypes.SearchSearchSearchResultItemOctoqlOther{Typename: "User"},
 		},
 	})
-	searchResponse, err := githubapi.Search(t.Context(), client, githubapi.SearchVariables{
+	searchResponse, err := client.Search(t.Context(), githubapi.SearchVariables{
 		Query: searchVariables.Query,
 	})
+
 	require.NoError(t, err)
 	require.Len(t, searchResponse.Search, 3)
 	searchRepository, ok := searchResponse.Search[0].(*githubapi.SearchSearchRepository)
@@ -431,7 +430,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	property := json.RawMessage(`["one","two"]`)
 	handler.ExpectEchoProperty(localtypes.EchoPropertyVariables{Value: property}).
 		Respond(localtypes.EchoPropertyResponse{EchoProperty: property})
-	propertyResponse, err := githubapi.EchoProperty(t.Context(), client, githubapi.EchoPropertyVariables{
+	propertyResponse, err := client.EchoProperty(t.Context(), githubapi.EchoPropertyVariables{
 		Value: property,
 	})
 	require.NoError(t, err)
@@ -446,7 +445,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 
 	handler.ExpectEchoAt(localtypes.EchoAtVariables{Value: updatedAt}).
 		Respond(localtypes.EchoAtResponse{EchoAt: updatedAt})
-	temporalResponse, err := githubapi.EchoAt(t.Context(), client, githubapi.EchoAtVariables{
+	temporalResponse, err := client.EchoAt(t.Context(), githubapi.EchoAtVariables{
 		Value: updatedAt,
 	})
 	require.NoError(t, err)
@@ -465,7 +464,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 			"count": 42,
 			"items": []any{"one", true},
 		}})
-	arbitraryResponse, err := githubapi.EchoAny(t.Context(), client, githubapi.EchoAnyVariables{
+	arbitraryResponse, err := client.EchoAny(t.Context(), githubapi.EchoAnyVariables{
 		Value: largeInteger,
 	})
 	require.NoError(t, err)
@@ -482,16 +481,16 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	)
 
 	errorVariables := localtypes.GetNodeVariables{Id: "missing"}
-	handler.ExpectGetNode(errorVariables).RespondError(octoql.Error{
+	handler.ExpectGetNode(errorVariables).RespondError(localtypes.Error{
 		Type:       "NOT_FOUND",
 		Message:    "missing",
 		Extensions: map[string]any{"code": "missing"},
 	})
-	errorResponse, err := githubapi.GetNode(t.Context(), client, githubapi.GetNodeVariables{
+	errorResponse, err := client.GetNode(t.Context(), githubapi.GetNodeVariables{
 		Id: errorVariables.Id,
 	})
 	assert.Nil(t, errorResponse)
-	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
+	graphqlErrors, ok := errors.AsType[githubapi.Errors](err)
 	require.True(t, ok)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
 	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"missing"}`)

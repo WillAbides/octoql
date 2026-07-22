@@ -1,4 +1,4 @@
-package octoql_test
+package nocontext
 
 import (
 	"encoding/json"
@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql"
 )
 
 func TestPathJSONRoundTrip(t *testing.T) {
@@ -18,14 +17,14 @@ func TestPathJSONRoundTrip(t *testing.T) {
 		"path":["repository","issues",2,"title"],
 		"locations":[{"line":4,"column":9}]
 	}`)
-	var graphqlError octoql.Error
+	var graphqlError Error
 	err := json.Unmarshal(input, &graphqlError)
 	require.NoError(t, err)
 
-	wantPath := octoql.Path{"repository", "issues", 2, "title"}
+	wantPath := Path{"repository", "issues", 2, "title"}
 	assert.Equal(t, wantPath, graphqlError.Path)
 	require.Len(t, graphqlError.Locations, 1)
-	assert.Equal(t, octoql.Location{Line: 4, Column: 9}, graphqlError.Locations[0])
+	assert.Equal(t, Location{Line: 4, Column: 9}, graphqlError.Locations[0])
 
 	output, err := json.Marshal(graphqlError)
 	require.NoError(t, err)
@@ -39,7 +38,7 @@ func TestPathRejectsInvalidSegments(t *testing.T) {
 	}{
 		{
 			name: "marshal boolean",
-			path: octoql.Path{"repository", true},
+			path: Path{"repository", true},
 		},
 		{
 			name: "null",
@@ -78,11 +77,11 @@ func TestPathRejectsInvalidSegments(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			switch path := test.path.(type) {
-			case octoql.Path:
+			case Path:
 				_, err := json.Marshal(path)
 				require.Error(t, err)
 			case json.RawMessage:
-				var pathValue octoql.Path
+				var pathValue Path
 				err := json.Unmarshal(path, &pathValue)
 				require.Error(t, err)
 			default:
@@ -93,14 +92,14 @@ func TestPathRejectsInvalidSegments(t *testing.T) {
 }
 
 func TestErrorsFormattingAndInspection(t *testing.T) {
-	graphqlErrors := octoql.Errors{
-		&octoql.Error{
-			Type:    octoql.ErrorType("FORBIDDEN"),
+	graphqlErrors := Errors{
+		&Error{
+			Type:    ErrorType("FORBIDDEN"),
 			Message: "owner is unavailable",
-			Path:    octoql.Path{"repository", "owner"},
+			Path:    Path{"repository", "owner"},
 		},
 		nil,
-		&octoql.Error{Message: "another failure"},
+		&Error{Message: "another failure"},
 	}
 
 	gotMessage := graphqlErrors.Error()
@@ -108,12 +107,12 @@ func TestErrorsFormattingAndInspection(t *testing.T) {
 	assert.Equal(t, wantMessage, gotMessage)
 
 	wrapped := fmt.Errorf("execute query: %w", graphqlErrors)
-	var inspectedErrors octoql.Errors
+	var inspectedErrors Errors
 	require.ErrorAs(t, wrapped, &inspectedErrors)
-	typedErrors, ok := errors.AsType[octoql.Errors](wrapped)
+	typedErrors, ok := errors.AsType[Errors](wrapped)
 	require.True(t, ok)
 	assert.Len(t, typedErrors, 3)
-	typedError, ok := errors.AsType[*octoql.Error](wrapped)
+	typedError, ok := errors.AsType[*Error](wrapped)
 	require.True(t, ok)
 	assert.Equal(t, "owner is unavailable", typedError.Message)
 }

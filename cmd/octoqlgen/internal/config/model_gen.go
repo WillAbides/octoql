@@ -39,7 +39,6 @@ type TestHandler struct {
 type Config struct {
 	Bindings                        *map[string]*Binding `json:"bindings"`
 	Casing                          *Casing              `json:"casing"`
-	ClientGetter                    *string              `json:"client_getter"`
 	ContextType                     *string              `json:"context_type"`
 	ExportOperations                *string              `json:"export_operations"`
 	Generated                       string               `json:"generated"`

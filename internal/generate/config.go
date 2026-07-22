@@ -31,7 +31,6 @@ type Config struct {
 	Package                         string
 	ExportOperations                string
 	ContextType                     string
-	ClientGetter                    string
 	Bindings                        map[string]*TypeBinding
 	PackageBindings                 []*PackageBinding
 	Casing                          Casing

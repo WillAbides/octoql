@@ -54,19 +54,17 @@ func TestGitHubScalarDefaults(t *testing.T) {
 
 func TestGitHubScalarOverrides(t *testing.T) {
 	tests := []struct {
-		binding        *TypeBinding
-		name           string
-		scalar         string
-		wantField      string
-		wantImport     string
-		unwantedImport string
+		binding    *TypeBinding
+		name       string
+		scalar     string
+		wantField  string
+		wantImport string
 	}{
 		{
-			name:           "temporal scalar",
-			scalar:         "DateTime",
-			binding:        &TypeBinding{Type: "string"},
-			wantField:      "Value string",
-			unwantedImport: `"time"`,
+			name:      "temporal scalar",
+			scalar:    "DateTime",
+			binding:   &TypeBinding{Type: "string"},
+			wantField: "Value string",
 		},
 		{
 			name:       "textual scalar",
@@ -89,9 +87,6 @@ func TestGitHubScalarOverrides(t *testing.T) {
 			assert.Contains(t, source, test.wantField)
 			if test.wantImport != "" {
 				assert.Contains(t, source, test.wantImport)
-			}
-			if test.unwantedImport != "" {
-				assert.NotContains(t, source, test.unwantedImport)
 			}
 			require.NoError(t, buildGoFile("github_scalar_override", []byte(source)))
 		})

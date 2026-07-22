@@ -205,7 +205,7 @@ func TestGenerateDeterministic(t *testing.T) {
 	}
 }
 
-func TestGenerateInlinesExecutionWithOperationVariableNames(t *testing.T) {
+func TestGenerateSelfContainedClientWithOperationVariableNames(t *testing.T) {
 	dir := t.TempDir()
 	schema := `
 type Query {
@@ -256,22 +256,69 @@ query Value(
 	source := string(generated[config.Generated])
 	assert.NotContains(t, source, "func __octoqlDo")
 	assert.NotContains(t, source, "__octoqlPartialDataError")
+	assert.NotContains(t, source, `"github.com/willabides/octoql"`)
+	assert.NotContains(t, source, "type octoqlExecutor interface")
 	assert.Contains(t, source, "type ValueVariables struct")
 	assert.Contains(t, source, "vars ValueVariables,")
 	assert.Contains(t, source, "Variables:     &vars,")
 	assert.NotContains(t, source, "variables_2 := ValueVariables")
 	assert.Contains(t, source, "var response ValueResponse")
-	assert.Contains(t, source, "type octoqlExecutor interface {\n\tExecute(context.Context, octoql.Payload, interface{}) (bool, error)\n}")
-	assert.Contains(t, source, "client octoqlExecutor,")
-	assert.Contains(t, source, "hasData, err := client.Execute(")
+	assert.Contains(t, source, "type Client struct {")
+	assert.Contains(t, source, "func NewClient(endpoint string, httpClient *http.Client) *Client")
+	assert.Contains(t, source, "func (c *Client) Value(")
+	assert.Contains(t, source, "hasData, err := c.execute(")
 	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialData() *ValueResponse")
+	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialDataValue() any")
+	assert.Contains(t, source, "func (e *ResponseError) HTTPStatusCode() int")
+	assert.Contains(t, source, "func (e *RateLimitError) RateLimitKind() string")
+	assert.Contains(t, source, "func (e Errors) GraphQLError(index int) error")
 	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
 }
 
-func TestGenerateRejectsExecutorNameCollision(t *testing.T) {
+func TestGenerateRuntimeImportAliasCollision(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`
+scalar JSON
+
+type Query {
+  value(input: JSON!): JSON!
+}
+`), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(`
+query Value($input: JSON!) {
+  value(input: $input)
+}
+`), 0o600))
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "collision",
+		ContextType: "-",
+		Bindings: map[string]*TypeBinding{
+			"JSON": {
+				Type: "github.com/willabides/octoql/internal/generate/testdata/json.Value",
+			},
+		},
+	}
+	generated, err := Generate(config)
+	require.NoError(t, err)
+
+	source := generated[config.Generated]
+	assert.Contains(t, string(source), `"github.com/willabides/octoql/internal/generate/testdata/json"`)
+	assert.Contains(t, string(source), `json2 "encoding/json"`)
+	assert.Contains(t, string(source), "Input json.Value")
+	assert.Contains(t, string(source), "json2.Marshal")
+	require.NoError(t, buildGoFile("runtime_import_alias_collision", source))
+}
+
+func TestGenerateRejectsRuntimeMethodCollision(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := filepath.Join(dir, "schema.graphql")
 	operationPath := filepath.Join(dir, "operation.graphql")
@@ -281,7 +328,7 @@ type Query {
 }
 `), 0o600))
 	require.NoError(t, os.WriteFile(operationPath, []byte(`
-query octoqlExecutor {
+query RateLimit {
   value
 }
 `), 0o600))
@@ -294,7 +341,7 @@ query octoqlExecutor {
 		ContextType: "-",
 	})
 
-	require.EqualError(t, err, `generated executor type "octoqlExecutor" conflicts with operation "octoqlExecutor"`)
+	require.EqualError(t, err, `generated Client method "RateLimit" conflicts with operation "RateLimit"`)
 }
 
 func TestGenerateQuotesOperationText(t *testing.T) {

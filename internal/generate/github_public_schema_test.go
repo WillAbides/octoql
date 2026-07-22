@@ -94,10 +94,10 @@ func TestGenerateGitHubPublicSchema(t *testing.T) {
 
 	output := string(firstSource)
 	for _, want := range []string{
-		"func RepositorySummary(",
-		"func NodesByID(",
-		"func StarRepository(",
-		"func GitHubAbstractCorpus(",
+		"func (c *Client) RepositorySummary(",
+		"func (c *Client) NodesByID(",
+		"func (c *Client) StarRepository(",
+		"func (c *Client) GitHubAbstractCorpus(",
 		"CreatedAt time.Time",
 		"Oid string",
 		"Url string",

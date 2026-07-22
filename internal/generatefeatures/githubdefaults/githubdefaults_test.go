@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -37,11 +36,11 @@ func TestGeneratedGitHubDefaultsWireDecoding(t *testing.T) {
 
 	httpClient := &http.Client{
 		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			var payload octoql.Payload
-			err := json.NewDecoder(request.Body).Decode(&payload)
+			var requestPayload payload
+			err := json.NewDecoder(request.Body).Decode(&requestPayload)
 			require.NoError(t, err)
-			assert.Equal(t, "GetReview", payload.OperationName)
-			assert.Equal(t, 2, strings.Count(payload.Query, "__typename"))
+			assert.Equal(t, "GetReview", requestPayload.OperationName)
+			assert.Equal(t, 2, strings.Count(requestPayload.Query, "__typename"))
 
 			return &http.Response{
 				StatusCode: http.StatusOK,
@@ -50,9 +49,9 @@ func TestGeneratedGitHubDefaultsWireDecoding(t *testing.T) {
 			}, nil
 		}),
 	}
-	client := octoql.NewClient("https://api.github.example/graphql", httpClient)
+	client := NewClient("https://api.github.example/graphql", httpClient)
 
-	response, err := GetReview(t.Context(), client)
+	response, err := client.GetReview(t.Context())
 
 	require.NoError(t, err)
 	require.NotNil(t, response)

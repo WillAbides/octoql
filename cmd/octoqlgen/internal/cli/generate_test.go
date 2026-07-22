@@ -21,7 +21,6 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	exportOperations := "operations.json"
 	packageName := "githubapi"
 	contextType := "github.com/example/context.Type"
-	clientGetter := "github.com/example/client.Get"
 	useStructReferences := true
 	omitUnreferencedImplementations := false
 	bindingType := "github.com/example/scalar.DateTime"
@@ -49,7 +48,6 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 		Package:          &packageName,
 		ExportOperations: &exportOperations,
 		ContextType:      &contextType,
-		ClientGetter:     &clientGetter,
 		Bindings:         &bindings,
 		PackageBindings: []config.PackageBinding{{
 			Package: "github.com/example/models",
@@ -77,7 +75,6 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	assert.Equal(t, packageName, actual.Package)
 	assert.Equal(t, exportOperations, actual.ExportOperations)
 	assert.Equal(t, contextType, actual.ContextType)
-	assert.Equal(t, clientGetter, actual.ClientGetter)
 	assert.True(t, actual.StructReferences)
 	require.NotNil(t, actual.OmitUnreferencedImplementations)
 	assert.False(t, *actual.OmitUnreferencedImplementations)
@@ -537,7 +534,7 @@ func TestMinimalInitConfigGenerates(t *testing.T) {
 	require.NoError(t, err)
 	generated, err := os.ReadFile(filepath.Join(directory, "internal", "githubapi", "generated.go"))
 	require.NoError(t, err)
-	assert.Contains(t, string(generated), "func Viewer(")
+	assert.Contains(t, string(generated), "func (c *Client) Viewer(")
 }
 
 func TestGenerateOperationManifestPathsRelativeToConfig(t *testing.T) {

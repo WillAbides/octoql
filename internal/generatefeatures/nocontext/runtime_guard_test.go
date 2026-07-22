@@ -1,4 +1,4 @@
-package octoql_test
+package nocontext
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql"
 )
 
 type marshalJSONEmbed struct {
@@ -19,7 +18,7 @@ func (marshalJSONEmbed) MarshalJSON() ([]byte, error) {
 }
 
 type guardedMarshalJSON struct {
-	octoql.NoMarshalJSON
+	noMarshalJSON //nolint:unused // Embedding prevents MarshalJSON promotion.
 	marshalJSONEmbed
 }
 
@@ -34,7 +33,7 @@ func (e *unmarshalJSONEmbed) UnmarshalJSON([]byte) error {
 }
 
 type guardedUnmarshalJSON struct {
-	octoql.NoUnmarshalJSON
+	noUnmarshalJSON //nolint:unused // Embedding prevents UnmarshalJSON promotion.
 	unmarshalJSONEmbed
 }
 
@@ -66,9 +65,9 @@ func TestNoUnmarshalJSONPreventsMethodPromotion(t *testing.T) {
 func TestMarshalGuardPanicsWhenCalled(t *testing.T) {
 	assert.PanicsWithValue(
 		t,
-		"NoUnmarshalJSON.MarshalJSON should never be called!",
+		"noUnmarshalJSON.MarshalJSON should never be called!",
 		func() {
-			_, _ = (octoql.NoMarshalJSON{}).MarshalJSON()
+			_, _ = (noMarshalJSON{}).MarshalJSON()
 		},
 	)
 }
@@ -76,9 +75,9 @@ func TestMarshalGuardPanicsWhenCalled(t *testing.T) {
 func TestUnmarshalGuardPanicsWhenCalled(t *testing.T) {
 	assert.PanicsWithValue(
 		t,
-		"NoUnmarshalJSON.UnmarshalJSON should never be called!",
+		"noUnmarshalJSON.UnmarshalJSON should never be called!",
 		func() {
-			_ = (octoql.NoUnmarshalJSON{}).UnmarshalJSON(nil)
+			_ = (noUnmarshalJSON{}).UnmarshalJSON(nil)
 		},
 	)
 }

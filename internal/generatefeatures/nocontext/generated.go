@@ -3,13 +3,998 @@
 package nocontext
 
 import (
+	"bytes"
 	"context"
-
-	"github.com/willabides/octoql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"maps"
+	"math"
+	"net/http"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
-type octoqlExecutor interface {
-	Execute(context.Context, octoql.Payload, interface{}) (bool, error)
+// noUnmarshalJSON is for generated code only.
+//
+// Embedding noUnmarshalJSON alongside a type with an UnmarshalJSON method
+// prevents that sibling method from being promoted.
+type noUnmarshalJSON struct{}
+
+// UnmarshalJSON should never be called. It exists only to prevent a sibling
+// UnmarshalJSON method from being promoted.
+func (noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("noUnmarshalJSON.UnmarshalJSON should never be called!")
+}
+
+// noMarshalJSON is for generated code only.
+//
+// Embedding noMarshalJSON alongside a type with a MarshalJSON method prevents
+// that sibling method from being promoted.
+type noMarshalJSON struct{}
+
+// MarshalJSON should never be called. It exists only to prevent a sibling
+// MarshalJSON method from being promoted.
+func (noMarshalJSON) MarshalJSON() ([]byte, error) {
+	panic("noUnmarshalJSON.MarshalJSON should never be called!")
+}
+
+const maxResponseErrorRawBody = 64 * 1024
+
+// ErrorType identifies a GitHub GraphQL error category. It is an open string
+// type so values introduced by GitHub remain available to callers.
+type ErrorType string
+
+// Path is a GraphQL response path. Each segment is either a string field name
+// or an integer list index.
+type Path []any
+
+// Location identifies a line and column in a GraphQL document.
+type Location struct {
+	Line   int `json:"line,omitempty"`
+	Column int `json:"column,omitempty"`
+}
+
+// Error describes an error returned in a GraphQL response.
+type Error struct {
+	Type       ErrorType      `json:"type,omitempty"`
+	Message    string         `json:"message"`
+	Path       Path           `json:"path,omitempty"`
+	Locations  []Location     `json:"locations,omitempty"`
+	Extensions map[string]any `json:"extensions,omitempty"`
+}
+
+// Errors is the list of errors returned in a GraphQL response.
+type Errors []*Error
+
+// ResponseError describes a failed GraphQL HTTP response.
+type ResponseError struct {
+	// StatusCode is the HTTP response status.
+	StatusCode int
+	// RequestID is GitHub's X-GitHub-Request-ID value, when present.
+	RequestID string
+	// RawBody contains at most the first 64 KiB of a non-successful, over-limit,
+	// or undecodable response. It is omitted for ordinary GraphQL errors.
+	RawBody []byte
+	// RawBodyTruncated reports whether RawBody omits trailing response bytes.
+	RawBodyTruncated bool
+
+	err error
+}
+
+// ResponseSizeLimitError reports that a GraphQL HTTP response exceeded Client's
+// configured response-size limit.
+type ResponseSizeLimitError struct {
+	// Limit is the configured maximum response size in bytes.
+	Limit int64
+}
+
+// Error reports that the response exceeded its configured limit.
+func (e *ResponseSizeLimitError) Error() string {
+	if e == nil {
+		return "graphql response exceeds its size limit"
+	}
+	return fmt.Sprintf("graphql response exceeds %d-byte limit", e.Limit)
+}
+
+// MarshalJSON encodes string and integer path segments in GraphQL wire format.
+func (p Path) MarshalJSON() ([]byte, error) {
+	if p == nil {
+		return []byte("null"), nil
+	}
+
+	segments := make([]json.RawMessage, len(p))
+	for index, segment := range p {
+		var encoded []byte
+		var err error
+		switch value := segment.(type) {
+		case string:
+			encoded, err = json.Marshal(value)
+		case int:
+			encoded, err = json.Marshal(value)
+		default:
+			return nil, fmt.Errorf(
+				"encode graphql path segment %d: expected string or int, got %T",
+				index,
+				segment,
+			)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("encode graphql path segment %d: %w", index, err)
+		}
+		segments[index] = encoded
+	}
+
+	encoded, err := json.Marshal(segments)
+	if err != nil {
+		return nil, fmt.Errorf("encode graphql path: %w", err)
+	}
+	return encoded, nil
+}
+
+// UnmarshalJSON decodes GraphQL string and integer path segments.
+func (p *Path) UnmarshalJSON(data []byte) error {
+	if p == nil {
+		return errors.New("decode graphql path: nil destination")
+	}
+
+	var rawSegments []json.RawMessage
+	err := json.Unmarshal(data, &rawSegments)
+	if err != nil {
+		return fmt.Errorf("decode graphql path: %w", err)
+	}
+	if rawSegments == nil {
+		*p = nil
+		return nil
+	}
+
+	segments := make(Path, len(rawSegments))
+	for index, rawSegment := range rawSegments {
+		trimmed := bytes.TrimSpace(rawSegment)
+		if len(trimmed) > 0 && trimmed[0] == '"' {
+			var field string
+			err = json.Unmarshal(trimmed, &field)
+			if err != nil {
+				return fmt.Errorf("decode graphql path segment %d: %w", index, err)
+			}
+			segments[index] = field
+			continue
+		}
+
+		var listIndex int
+		var parsed int64
+		parsed, err = strconv.ParseInt(string(trimmed), 10, strconv.IntSize)
+		if err != nil {
+			return fmt.Errorf(
+				"decode graphql path segment %d: expected string or integer: %w",
+				index,
+				err,
+			)
+		}
+		listIndex = int(parsed)
+		segments[index] = listIndex
+	}
+
+	*p = segments
+	return nil
+}
+
+// String formats a path using dotted fields and bracketed list indexes.
+func (p Path) String() string {
+	var result strings.Builder
+	for _, segment := range p {
+		switch value := segment.(type) {
+		case string:
+			if result.Len() > 0 {
+				result.WriteByte('.')
+			}
+			result.WriteString(value)
+		case int:
+			result.WriteByte('[')
+			result.WriteString(strconv.Itoa(value))
+			result.WriteByte(']')
+		default:
+			if result.Len() > 0 {
+				result.WriteByte('.')
+			}
+			result.WriteString("<invalid>")
+		}
+	}
+	return result.String()
+}
+
+// Error returns the GraphQL error message and response path.
+func (e *Error) Error() string {
+	if e == nil {
+		return "<nil>"
+	}
+
+	message := e.Message
+	if message == "" {
+		message = "graphql error"
+	}
+	path := e.Path.String()
+	if path == "" {
+		return message
+	}
+	return fmt.Sprintf("%s (path %s)", message, path)
+}
+
+// Error returns a stable summary of all GraphQL errors.
+func (e Errors) Error() string {
+	if len(e) == 0 {
+		return "graphql request failed"
+	}
+
+	messages := make([]string, 0, len(e))
+	for _, graphqlError := range e {
+		messages = append(messages, graphqlError.Error())
+	}
+	if len(messages) == 1 {
+		return "graphql error: " + messages[0]
+	}
+	return "graphql errors: " + strings.Join(messages, "; ")
+}
+
+// Unwrap exposes individual GraphQL errors to [errors.Is], [errors.As], and
+// [errors.AsType].
+func (e Errors) Unwrap() []error {
+	unwrapped := make([]error, 0, len(e))
+	for _, graphqlError := range e {
+		if graphqlError != nil {
+			unwrapped = append(unwrapped, graphqlError)
+		}
+	}
+	return unwrapped
+}
+
+// Error returns a stable summary of the failed response.
+func (e *ResponseError) Error() string {
+	if e == nil {
+		return "graphql response failed"
+	}
+
+	message := "graphql response failed"
+	if !isSuccessfulStatus(e.StatusCode) {
+		message = fmt.Sprintf(
+			"graphql response failed with status %d",
+			e.StatusCode,
+		)
+	}
+	if e.err != nil {
+		return message + ": " + e.err.Error()
+	}
+	return message
+}
+
+// Unwrap exposes decoded GraphQL errors and response processing failures to
+// [errors.Is], [errors.As], and [errors.AsType].
+func (e *ResponseError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+type responseErrorParams struct {
+	statusCode    int
+	requestID     string
+	body          []byte
+	retainBody    bool
+	bodyTruncated bool
+	err           error
+}
+
+func newResponseError(params responseErrorParams) *ResponseError {
+	var rawBody []byte
+	isTruncated := false
+	if params.retainBody {
+		rawBody = params.body
+		isTruncated = params.bodyTruncated
+		if len(rawBody) > maxResponseErrorRawBody {
+			rawBody = rawBody[:maxResponseErrorRawBody]
+			isTruncated = true
+		}
+		rawBody = bytes.Clone(rawBody)
+	}
+
+	return &ResponseError{
+		StatusCode:       params.statusCode,
+		RequestID:        params.requestID,
+		RawBody:          rawBody,
+		RawBodyTruncated: isTruncated,
+		err:              params.err,
+	}
+}
+
+// RateLimitKind identifies the GitHub rate limit that rejected a request.
+type RateLimitKind string
+
+const (
+	// RateLimitPrimary identifies exhaustion of GitHub's primary rate limit.
+	RateLimitPrimary RateLimitKind = "primary"
+	// RateLimitSecondary identifies GitHub's secondary rate limit.
+	RateLimitSecondary RateLimitKind = "secondary"
+)
+
+// RateLimit describes the rate-limit headers returned by GitHub.
+//
+// Missing or malformed response headers leave their corresponding fields at
+// their zero values.
+type RateLimit struct {
+	Limit      int
+	Remaining  int
+	Used       int
+	Reset      time.Time
+	Resource   string
+	RetryAfter time.Duration
+	RetryAt    time.Time
+}
+
+type parsedRateLimit struct {
+	RateLimit
+
+	remainingValid  bool
+	retryAfterValid bool
+}
+
+// RateLimitError describes a response rejected because of a GitHub rate limit.
+type RateLimitError struct {
+	Kind      RateLimitKind
+	RateLimit RateLimit
+	Err       error
+}
+
+// Error returns a summary of the rate-limit failure.
+func (e *RateLimitError) Error() string {
+	if e == nil {
+		return "github rate limit exceeded"
+	}
+	if e.Err == nil {
+		return fmt.Sprintf("github %s rate limit exceeded", e.Kind)
+	}
+	return fmt.Sprintf("github %s rate limit exceeded: %v", e.Kind, e.Err)
+}
+
+// Unwrap exposes the response failure and its GraphQL or processing causes.
+func (e *RateLimitError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+var rateLimitNow = time.Now
+
+func maxUnixSeconds() uint64 {
+	firstUnixSecond := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC).Unix()
+	return uint64(math.MaxInt64 + firstUnixSecond)
+}
+
+func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
+	rateLimit := parsedRateLimit{}
+
+	limit, valid := nonnegativeHeaderInt(header, "X-RateLimit-Limit")
+	if valid {
+		rateLimit.Limit = limit
+	}
+	remaining, valid := nonnegativeHeaderInt(header, "X-RateLimit-Remaining")
+	if valid {
+		rateLimit.Remaining = remaining
+		rateLimit.remainingValid = true
+	}
+	used, valid := nonnegativeHeaderInt(header, "X-RateLimit-Used")
+	if valid {
+		rateLimit.Used = used
+	}
+	reset, valid := nonnegativeHeaderUnix(header, "X-RateLimit-Reset")
+	if valid {
+		rateLimit.Reset = reset
+	}
+	rateLimit.Resource = strings.TrimSpace(headerValue(header, "X-RateLimit-Resource"))
+
+	retryAfter, retryAt, valid := retryAfterFromHeader(header, now)
+	if valid {
+		rateLimit.RetryAfter = retryAfter
+		rateLimit.RetryAt = retryAt
+		rateLimit.retryAfterValid = true
+	}
+
+	return rateLimit
+}
+
+func (r *parsedRateLimit) primarySnapshot() RateLimit {
+	snapshot := r.RateLimit
+	snapshot.RetryAfter = 0
+	snapshot.RetryAt = time.Time{}
+	return snapshot
+}
+
+func nonnegativeHeaderInt(header http.Header, name string) (int, bool) {
+	value, valid := parseNonnegativeDecimal(headerValue(header, name), strconv.IntSize)
+	if !valid {
+		return 0, false
+	}
+	return int(value), true
+}
+
+func nonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
+	value, valid := parseNonnegativeDecimal(headerValue(header, name), 63)
+	if !valid {
+		return time.Time{}, false
+	}
+	if value > maxUnixSeconds() {
+		return time.Time{}, false
+	}
+	return time.Unix(int64(value), 0).UTC(), true
+}
+
+func retryAfterFromHeader(header http.Header, now time.Time) (time.Duration, time.Time, bool) {
+	value := strings.TrimSpace(headerValue(header, "Retry-After"))
+	if value == "" {
+		return 0, time.Time{}, false
+	}
+
+	seconds, valid := parseNonnegativeDecimal(value, 64)
+	if valid {
+		maxSeconds := uint64(math.MaxInt64 / int64(time.Second))
+		if seconds > maxSeconds {
+			return 0, time.Time{}, false
+		}
+		retryAfter := time.Duration(seconds) * time.Second
+		return retryAfter, now.Add(retryAfter), true
+	}
+
+	retryAt, err := http.ParseTime(value)
+	if err != nil {
+		return 0, time.Time{}, false
+	}
+	retryAt = retryAt.UTC()
+	retryAfter := retryAt.Sub(now)
+	if retryAfter < 0 {
+		retryAfter = 0
+	}
+	return retryAfter, retryAt, true
+}
+
+func parseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+	for _, char := range value {
+		if char < '0' || char > '9' {
+			return 0, false
+		}
+	}
+	parsed, err := strconv.ParseUint(value, 10, bitSize)
+	if err != nil {
+		return 0, false
+	}
+	return parsed, true
+}
+
+func headerValue(header http.Header, name string) string {
+	for headerName, values := range header {
+		if strings.EqualFold(headerName, name) && len(values) > 0 {
+			return values[0]
+		}
+	}
+	return ""
+}
+
+func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	isSecondaryResponse := isSecondaryRateLimitStatus(statusCode)
+	if rateLimit.retryAfterValid && isSecondaryResponse {
+		return &RateLimitError{
+			Kind:      RateLimitSecondary,
+			RateLimit: rateLimit.RateLimit,
+			Err:       err,
+		}
+	}
+
+	isPrimaryStatus := isPrimaryRateLimitStatus(statusCode)
+	isPrimaryGraphQLError := hasGraphQLRateLimitError(err)
+	hasNoRemaining := rateLimit.remainingValid && rateLimit.Remaining == 0
+	hasPrimarySignal := isPrimaryStatus || isPrimaryGraphQLError
+	isPrimaryLimit := hasNoRemaining && hasPrimarySignal
+	if isPrimaryLimit {
+		return &RateLimitError{
+			Kind:      RateLimitPrimary,
+			RateLimit: rateLimit.RateLimit,
+			Err:       err,
+		}
+	}
+	return err
+}
+
+func isSecondaryRateLimitStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusOK, http.StatusForbidden, http.StatusTooManyRequests:
+		return true
+	default:
+		return false
+	}
+}
+
+func isPrimaryRateLimitStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusForbidden, http.StatusTooManyRequests:
+		return true
+	default:
+		return false
+	}
+}
+
+func hasGraphQLRateLimitError(err error) bool {
+	graphqlErrors, ok := errors.AsType[Errors](err)
+	if !ok {
+		return false
+	}
+	for _, graphqlError := range graphqlErrors {
+		if graphqlError != nil && graphqlError.Type == ErrorType("RATE_LIMITED") {
+			return true
+		}
+	}
+	return false
+}
+
+// DefaultResponseSizeLimit is the maximum GraphQL HTTP response body size a
+// Client accepts for decoding unless configured otherwise. It is 10 MiB.
+const DefaultResponseSizeLimit int64 = 10 * 1024 * 1024
+
+// Client executes GraphQL operations against an HTTP endpoint.
+//
+// Configure bearer authentication with [Client.SetBearerToken]. Other request
+// behavior, including other authentication schemes, belongs on the supplied
+// [http.Client] or its [http.RoundTripper]. A Client may be used concurrently
+// after construction.
+type Client struct {
+	httpClient *http.Client
+	rateLimit  *RateLimit
+	endpoint   string
+
+	bearerToken          atomic.Pointer[string]
+	responseObservation  atomic.Uint64
+	responseSizeLimit    atomic.Int64
+	rateLimitMu          sync.RWMutex
+	rateLimitObservation uint64
+}
+
+// NewClient returns a client for endpoint. A nil httpClient uses
+// [http.DefaultClient].
+func NewClient(endpoint string, httpClient *http.Client) *Client {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	client := &Client{
+		endpoint:   endpoint,
+		httpClient: httpClient,
+	}
+	client.responseSizeLimit.Store(DefaultResponseSizeLimit)
+	return client
+}
+
+// SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
+// token must use the RFC 6750 b64token syntax. It may be called concurrently
+// with [Client.execute] to rotate credentials.
+func (c *Client) SetBearerToken(token string) error {
+	if c == nil {
+		return errors.New("octoql: client is nil")
+	}
+	if !validBearerToken(token) {
+		return errors.New("octoql: invalid bearer token")
+	}
+
+	c.bearerToken.Store(&token)
+	return nil
+}
+
+// ResponseSizeLimit returns the maximum HTTP response body size Client accepts
+// for decoding. A newly constructed Client uses [DefaultResponseSizeLimit].
+func (c *Client) ResponseSizeLimit() int64 {
+	if c == nil {
+		return 0
+	}
+
+	limit := c.responseSizeLimit.Load()
+	if limit > 0 {
+		return limit
+	}
+	return DefaultResponseSizeLimit
+}
+
+// SetResponseSizeLimit configures the maximum HTTP response body size Client
+// accepts for decoding. limit must be greater than zero. It may be called
+// concurrently with [Client.execute].
+func (c *Client) SetResponseSizeLimit(limit int64) error {
+	if c == nil {
+		return errors.New("octoql: client is nil")
+	}
+	if limit <= 0 {
+		return errors.New("octoql: response size limit must be greater than zero")
+	}
+
+	c.responseSizeLimit.Store(limit)
+	return nil
+}
+
+// RateLimit returns the latest valid primary rate-limit snapshot observed by
+// client. The boolean is false until a response includes a valid
+// X-RateLimit-Remaining header.
+//
+// The snapshot is advisory: other clients and processes can consume the same
+// GitHub rate-limit budget after it is observed.
+func (c *Client) RateLimit() (RateLimit, bool) {
+	if c == nil {
+		return RateLimit{}, false
+	}
+
+	c.rateLimitMu.RLock()
+	defer c.rateLimitMu.RUnlock()
+	if c.rateLimit == nil {
+		return RateLimit{}, false
+	}
+	return *c.rateLimit, true
+}
+
+// payload is the GraphQL request body used by generated clients.
+type payload struct {
+	Query         string `json:"query"`
+	OperationName string `json:"operationName"`
+	Variables     any    `json:"variables,omitempty"`
+}
+
+// execute runs operation and decodes its response data into response.
+//
+// execute is a generated-code contract. Response must be a non-nil pointer.
+// The returned boolean reports whether the GraphQL data field decoded
+// successfully and response is usable, including when GraphQL errors are also
+// returned.
+// Every failure after the server returns an HTTP response includes
+// [ResponseError]. GraphQL errors and rate limits remain discoverable in that
+// error chain as [Errors] and [RateLimitError].
+func (c *Client) execute(ctx context.Context, payload payload, response any) (bool, error) {
+	if c == nil {
+		return false, errors.New("octoql: client is nil")
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return false, fmt.Errorf("encode graphql request: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		c.endpoint,
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return false, fmt.Errorf("create graphql request: %w", err)
+	}
+	request.Header.Set("Accept", "application/json")
+	request.Header.Set("Content-Type", "application/json")
+	bearerToken := c.bearerToken.Load()
+	if bearerToken != nil {
+		request.Header.Set("Authorization", "Bearer "+*bearerToken)
+	}
+
+	httpClient := c.httpClient
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	//nolint:bodyclose // readAndClose closes the body and preserves close errors.
+	httpResponse, sendErr := httpClient.Do(request)
+	if httpResponse == nil {
+		if sendErr == nil {
+			return false, errors.New("send graphql request: HTTP client returned no response")
+		}
+		return false, fmt.Errorf("send graphql request: %w", sendErr)
+	}
+
+	observation := c.responseObservation.Add(1)
+	rateLimit := rateLimitFromHeader(httpResponse.Header, rateLimitNow())
+	c.observeRateLimit(observation, &rateLimit)
+
+	statusCode := httpResponse.StatusCode
+	requestID := requestIDFromHeader(httpResponse.Header)
+	if sendErr != nil {
+		cause := fmt.Errorf("send graphql request: %w", sendErr)
+		responseError := newResponseError(responseErrorParams{
+			statusCode: statusCode,
+			requestID:  requestID,
+			err:        cause,
+		})
+		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+	}
+
+	if httpResponse.Body == nil {
+		cause := errors.New("read graphql response: response body is nil")
+		responseError := newResponseError(responseErrorParams{
+			statusCode: statusCode,
+			requestID:  requestID,
+			err:        cause,
+		})
+		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+	}
+
+	body, readErr, closeErr := readAndClose(
+		httpResponse.Body,
+		c.ResponseSizeLimit(),
+	)
+	if readErr != nil {
+		cause := errors.Join(readErr, closeErr)
+		_, responseTooLarge := errors.AsType[*ResponseSizeLimitError](readErr)
+		responseError := newResponseError(responseErrorParams{
+			statusCode:    statusCode,
+			requestID:     requestID,
+			body:          body,
+			retainBody:    true,
+			bodyTruncated: responseTooLarge,
+			err:           cause,
+		})
+		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+	}
+
+	data, graphqlErrors, decodeErr := decodeResponse(body)
+
+	hasData := data != nil && !bytes.Equal(bytes.TrimSpace(data), []byte("null"))
+	hasErrors := len(graphqlErrors) > 0
+	hasUsableData := false
+	if hasData {
+		dataErr := decodeData(data, response)
+		hasUsableData = dataErr == nil
+		decodeErr = errors.Join(decodeErr, dataErr)
+	}
+
+	cause := decodeErr
+	if len(graphqlErrors) > 0 {
+		var left error = graphqlErrors
+		cause = errors.Join(left, cause)
+	}
+	cause = errors.Join(cause, closeErr)
+
+	isSuccessful := isSuccessfulStatus(statusCode)
+	haspayload := hasData || hasErrors
+	missingpayload := decodeErr == nil && !haspayload
+	if isSuccessful && missingpayload {
+		payloadErr := errors.New("decode graphql response: response contains neither data nor errors")
+		cause = errors.Join(cause, payloadErr)
+	}
+
+	if isSuccessful && cause == nil {
+		return hasUsableData, nil
+	}
+
+	hasDecodeFailure := decodeErr != nil || missingpayload
+	retainBody := !isSuccessful || hasDecodeFailure
+	responseError := newResponseError(responseErrorParams{
+		statusCode: statusCode,
+		requestID:  requestID,
+		body:       body,
+		retainBody: retainBody,
+		err:        cause,
+	})
+	return hasUsableData, classifyRateLimit(statusCode, &rateLimit, responseError)
+}
+
+func (c *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
+	if c == nil || parsed == nil || !parsed.remainingValid {
+		return
+	}
+
+	rateLimit := parsed.primarySnapshot()
+	c.rateLimitMu.Lock()
+	defer c.rateLimitMu.Unlock()
+
+	hasNewerObservation := c.rateLimit != nil &&
+		c.rateLimitObservation >= observation
+	if hasNewerObservation {
+		return
+	}
+	c.rateLimit = &rateLimit
+	c.rateLimitObservation = observation
+}
+
+func requestIDFromHeader(header http.Header) string {
+	for name, values := range header {
+		if strings.EqualFold(name, "X-GitHub-Request-ID") && len(values) > 0 {
+			return values[0]
+		}
+	}
+	return ""
+}
+
+func validBearerToken(token string) bool {
+	if token == "" {
+		return false
+	}
+
+	hasTokenCharacter := false
+	padding := false
+	for i := range len(token) {
+		character := token[i]
+		if character == '=' {
+			padding = true
+			continue
+		}
+		if padding || !validBearerTokenCharacter(character) {
+			return false
+		}
+		hasTokenCharacter = true
+	}
+	return hasTokenCharacter
+}
+
+func validBearerTokenCharacter(character byte) bool {
+	switch {
+	case character >= 'a' && character <= 'z':
+		return true
+	case character >= 'A' && character <= 'Z':
+		return true
+	case character >= '0' && character <= '9':
+		return true
+	case strings.ContainsRune("-._~+/", rune(character)):
+		return true
+	default:
+		return false
+	}
+}
+
+func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
+	payload, readErr := io.ReadAll(io.LimitReader(body, limit))
+	if readErr == nil {
+		var excess [1]byte
+		count, excessErr := io.ReadFull(body, excess[:])
+		switch {
+		case count > 0:
+			readErr = &ResponseSizeLimitError{Limit: limit}
+		case excessErr != nil && !errors.Is(excessErr, io.EOF):
+			readErr = excessErr
+		}
+	}
+	closeErr := body.Close()
+	if readErr != nil {
+		readErr = fmt.Errorf("read graphql response: %w", readErr)
+	}
+	if closeErr != nil {
+		closeErr = fmt.Errorf("close graphql response: %w", closeErr)
+	}
+	return payload, readErr, closeErr
+}
+
+func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
+	var envelope struct {
+		Data   json.RawMessage `json:"data"`
+		Errors json.RawMessage `json:"errors"`
+	}
+	err := json.Unmarshal(body, &envelope)
+	if err != nil {
+		return nil, nil, fmt.Errorf(
+			"decode graphql response envelope: %w",
+			err,
+		)
+	}
+
+	var graphqlErrors Errors
+	if envelope.Errors == nil {
+		return envelope.Data, graphqlErrors, nil
+	}
+
+	err = json.Unmarshal(envelope.Errors, &graphqlErrors)
+	if err != nil {
+		err = fmt.Errorf("decode graphql response errors: %w", err)
+	}
+	return envelope.Data, graphqlErrors, err
+}
+
+func decodeData(data json.RawMessage, response any) error {
+	err := json.Unmarshal(data, response)
+	if err != nil {
+		return fmt.Errorf("decode graphql response data: %w", err)
+	}
+	return nil
+}
+
+func isSuccessfulStatus(statusCode int) bool {
+	return statusCode >= 200 && statusCode < 300
+}
+
+// HTTPStatusCode returns the failed HTTP response status.
+func (e *ResponseError) HTTPStatusCode() int {
+	if e == nil {
+		return 0
+	}
+	return e.StatusCode
+}
+
+// GitHubRequestID returns the response's X-GitHub-Request-ID value.
+func (e *ResponseError) GitHubRequestID() string {
+	if e == nil {
+		return ""
+	}
+	return e.RequestID
+}
+
+// ResponseSizeLimit returns the configured response-size limit.
+func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
+	if e == nil {
+		return 0
+	}
+	return e.Limit
+}
+
+// RateLimitKind returns the kind of rate limit that rejected the request.
+func (e *RateLimitError) RateLimitKind() string {
+	if e == nil {
+		return ""
+	}
+	return string(e.Kind)
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		return e.RateLimit.Reset
+	}
+	return e.RateLimit.RetryAt
+}
+
+// GraphQLErrorCount returns the number of GraphQL errors.
+func (e Errors) GraphQLErrorCount() int {
+	return len(e)
+}
+
+// GraphQLError returns one GraphQL error as a package-neutral error value.
+func (e Errors) GraphQLError(index int) error {
+	if index < 0 || index >= len(e) {
+		return nil
+	}
+	return e[index]
+}
+
+// GraphQLType returns GitHub's GraphQL error category.
+func (e *Error) GraphQLType() string {
+	if e == nil {
+		return ""
+	}
+	return string(e.Type)
+}
+
+// GraphQLMessage returns the GraphQL error message.
+func (e *Error) GraphQLMessage() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+// GraphQLPath returns a defensive copy of the GraphQL response path.
+func (e *Error) GraphQLPath() []any {
+	if e == nil {
+		return nil
+	}
+	return slices.Clone(e.Path)
+}
+
+// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
+func (e *Error) GraphQLExtensions() map[string]any {
+	if e == nil {
+		return nil
+	}
+	return maps.Clone(e.Extensions)
 }
 
 // GetRepositoryRepository includes the requested fields of the GraphQL type Repository.
@@ -64,14 +1049,18 @@ func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
 	return e.data
 }
 
-func GetRepository(
-	client octoqlExecutor,
+// PartialDataValue returns the partial response as an untyped value.
+func (e *GetRepositoryPartialDataError) PartialDataValue() any {
+	return e.PartialData()
+}
+
+func (c *Client) GetRepository(
 	vars GetRepositoryVariables,
 ) (*GetRepositoryResponse, error) {
 	var response GetRepositoryResponse
-	hasData, err := client.Execute(
+	hasData, err := c.execute(
 		context.Background(),
-		octoql.Payload{
+		payload{
 			OperationName: "GetRepository",
 			Query:         GetRepository_Operation,
 			Variables:     &vars,

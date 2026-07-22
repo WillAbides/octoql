@@ -1,4 +1,4 @@
-package octoql_test
+package nocontext
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-
-	"github.com/willabides/octoql"
 )
 
 type exampleViewerResponse struct {
@@ -55,7 +53,7 @@ func ExampleNewClient() {
 	}))
 	defer server.Close()
 
-	client := octoql.NewClient(server.URL, server.Client())
+	client := NewClient(server.URL, server.Client())
 	response, err := getViewer(context.Background(), client)
 	if err != nil {
 		fmt.Println(err)
@@ -79,10 +77,10 @@ func ExampleErrors_partialData() {
 	}))
 	defer server.Close()
 
-	client := octoql.NewClient(server.URL, server.Client())
+	client := NewClient(server.URL, server.Client())
 	response, err := getRepository(context.Background(), client)
 
-	var graphqlErrors octoql.Errors
+	var graphqlErrors Errors
 	if errors.As(err, &graphqlErrors) {
 		fmt.Println(response == nil)
 		partialErr, ok := errors.AsType[*exampleRepositoryPartialDataError](err)
@@ -107,10 +105,10 @@ func ExampleRateLimitError() {
 	}))
 	defer server.Close()
 
-	client := octoql.NewClient(server.URL, server.Client())
+	client := NewClient(server.URL, server.Client())
 	_, err := getViewer(context.Background(), client)
 
-	rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
+	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	fmt.Println(ok)
 	fmt.Println(rateLimitError.Kind)
 	// Output:
@@ -132,15 +130,15 @@ func ExampleResponseError() {
 	}))
 	defer server.Close()
 
-	client := octoql.NewClient(server.URL, server.Client())
+	client := NewClient(server.URL, server.Client())
 	_, err := getViewer(context.Background(), client)
 
-	responseError, ok := errors.AsType[*octoql.ResponseError](err)
+	responseError, ok := errors.AsType[*ResponseError](err)
 	if !ok {
 		fmt.Println("response error not found")
 		return
 	}
-	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
+	graphqlErrors, ok := errors.AsType[Errors](err)
 	if !ok {
 		fmt.Println("graphql errors not found")
 		return
@@ -169,7 +167,7 @@ func ExampleClient_RateLimit() {
 	}))
 	defer server.Close()
 
-	client := octoql.NewClient(server.URL, server.Client())
+	client := NewClient(server.URL, server.Client())
 	_, err := getViewer(context.Background(), client)
 	if err != nil {
 		fmt.Println(err)
@@ -188,7 +186,7 @@ func ExampleClient_RateLimit() {
 
 func getViewer(
 	ctx context.Context,
-	client *octoql.Client,
+	client *Client,
 ) (*exampleViewerResponse, error) {
 	return executeExample[exampleViewerResponse](
 		ctx,
@@ -203,7 +201,7 @@ func getViewer(
 
 func getRepository(
 	ctx context.Context,
-	client *octoql.Client,
+	client *Client,
 ) (*exampleRepositoryResponse, error) {
 	return executeExample[exampleRepositoryResponse](
 		ctx,
@@ -218,13 +216,13 @@ func getRepository(
 
 func executeExample[T any](
 	ctx context.Context,
-	client *octoql.Client,
+	client *Client,
 	operationName string,
 	query string,
 	newPartialDataError func(*T, error) error,
 ) (*T, error) {
 	response := new(T)
-	hasData, err := client.Execute(ctx, octoql.Payload{
+	hasData, err := client.execute(ctx, payload{
 		OperationName: operationName,
 		Query:         query,
 	}, response)

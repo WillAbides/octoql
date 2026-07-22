@@ -1,4 +1,4 @@
-package octoql
+package nocontext
 
 import (
 	"errors"
@@ -421,9 +421,9 @@ func rateLimitClient(statusCode int, header http.Header, body string) *Client {
 
 func doRateLimitOperation[T any](t *testing.T, client *Client) (*T, error) {
 	response := new(T)
-	hasData, err := client.Execute(
+	hasData, err := client.execute(
 		t.Context(),
-		Payload{
+		payload{
 			OperationName: "Viewer",
 			Query:         "query Viewer { viewer { login } }",
 		},
