@@ -4,14 +4,12 @@ package integration
 
 import (
 	"net/http"
-
-	"github.com/willabides/octoql"
 )
 
-func newRoundtripClients(endpoint string) []*octoql.Client {
-	return []*octoql.Client{newRoundtripClient(endpoint)}
+func newRoundtripClients(endpoint string) []*Client {
+	return []*Client{newRoundtripClient(endpoint)}
 }
 
-func newRoundtripClient(endpoint string) *octoql.Client {
-	return octoql.NewClient(endpoint, http.DefaultClient)
+func newRoundtripClient(endpoint string) *Client {
+	return NewClient(endpoint, http.DefaultClient)
 }

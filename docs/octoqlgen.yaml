@@ -105,23 +105,6 @@ export_operations: operations.json
 # context.Context.
 context_type: context.Context
 
-# If set, a function to get an *octoql.Client, perhaps from the context.
-# By default, the client must be passed explicitly to each octoqlgen
-# generated query-helper.
-#
-# This is useful if you have a shared client, either a global, or
-# available from context, and don't want to pass it explicitly.  In this
-# case the signature of the generated helpers will omit the
-# client argument and they will call this function instead.
-#
-# Must be the fully-qualified name of a function which accepts a context
-# (of the type configured as ContextType (above), which defaults to
-# `context.Context`, or a function of no arguments if context_type is set
-# to "-") and returns (*octoql.Client, error).  If the
-# client-getter returns an error, the helper will return the error
-# without making a query.
-client_getter: "github.com/you/yourpkg.GetClient"
-
 # If set, fields with a struct type will default to having
 # the "pointer: true, omitempty: true" flag.
 #

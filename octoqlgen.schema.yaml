@@ -32,9 +32,6 @@ properties:
   context_type:
     description: Fully qualified generated helper context type, or "-" to omit context arguments.
     type: string
-  client_getter:
-    description: Fully qualified function used by generated helpers to obtain a client.
-    type: string
   bindings:
     description: GraphQL type bindings keyed by GraphQL type name.
     type: object

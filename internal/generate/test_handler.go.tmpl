@@ -6,10 +6,49 @@ package {{.Package}}
 
 {{if .LocalTypes -}}
 {{.LocalTypeDefinitions}}
+type ErrorType string
+
+type noUnmarshalJSON struct{}
+
+func (noUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("noUnmarshalJSON.UnmarshalJSON should never be called!")
+}
+
+type Path []any
+
+type Location struct {
+	Line   int `json:"line,omitempty"`
+	Column int `json:"column,omitempty"`
+}
+
+type Error struct {
+	Type       ErrorType      `json:"type,omitempty"`
+	Message    string         `json:"message"`
+	Path       Path           `json:"path,omitempty"`
+	Locations  []Location     `json:"locations,omitempty"`
+	Extensions map[string]any `json:"extensions,omitempty"`
+}
+
+type RateLimit struct {
+	Limit      int
+	Remaining  int
+	Used       int
+	Reset      {{ref "time.Time"}}
+	Resource   string
+	RetryAfter {{ref "time.Duration"}}
+	RetryAt    {{ref "time.Time"}}
+}
+
 {{range .LocalAliases -}}
 type {{.Name}} = {{.ClientName}}
 {{end}}
 {{else -}}
+type Error = {{.ClientPackage}}.Error
+type ErrorType = {{.ClientPackage}}.ErrorType
+type Location = {{.ClientPackage}}.Location
+type Path = {{.ClientPackage}}.Path
+type RateLimit = {{.ClientPackage}}.RateLimit
+
 {{range .Types -}}
 type {{.Name}} = {{$.ClientPackage}}.{{.ClientName}}
 {{if .EnumValues}}
@@ -305,7 +344,7 @@ func WithHeaders(header {{ref "net/http.Header"}}) ResponseOption {
 	}
 }
 
-func WithPrimaryRateLimit(rateLimit {{ref "github.com/willabides/octoql.RateLimit"}}) ResponseOption {
+func WithPrimaryRateLimit(rateLimit RateLimit) ResponseOption {
 	return func(options *responseOptions) {
 		hasNegativeValue := rateLimit.Limit < 0 ||
 			rateLimit.Remaining < 0 ||
@@ -374,7 +413,7 @@ func combineResponseOptions(
 func writeGraphQLResponse(
 	writer {{ref "net/http.ResponseWriter"}},
 	data any,
-	graphqlErrors []{{ref "github.com/willabides/octoql.Error"}},
+	graphqlErrors []Error,
 	options responseOptions,
 ) error {
 	if options.err != nil {
@@ -409,7 +448,7 @@ func writeRequestError(
 	return writeGraphQLResponse(
 		writer,
 		nil,
-		[]{{ref "github.com/willabides/octoql.Error"}}{ {Message: message} },
+		[]Error{ {Message: message} },
 		buildResponseOptions(WithStatus(status)),
 	)
 }
@@ -630,7 +669,7 @@ func (b *{{.Name}}Expectation) Respond(
 }
 
 func (b *{{.Name}}Expectation) RespondError(
-	graphqlError {{ref "github.com/willabides/octoql.Error"}},
+	graphqlError Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -641,7 +680,7 @@ func (b *{{.Name}}Expectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]{{ref "github.com/willabides/octoql.Error"}}{graphqlError},
+				[]Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -650,7 +689,7 @@ func (b *{{.Name}}Expectation) RespondError(
 
 func (b *{{.Name}}Expectation) RespondDataAndErrors(
 	data {{.ResponseName}},
-	graphqlErrors ...{{ref "github.com/willabides/octoql.Error"}},
+	graphqlErrors ...Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(

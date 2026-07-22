@@ -271,7 +271,6 @@ func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTempla
 		"sync.Mutex",
 		"testing.TB",
 		"time.Duration",
-		"github.com/willabides/octoql.Error",
 	} {
 		_, err := handlerGenerator.ref(reference)
 		if err != nil {

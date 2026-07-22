@@ -133,7 +133,6 @@ func TestLoadGeneratorOptions(t *testing.T) {
 			"package: githubapi\n" +
 			"export_operations: generated/operations.json\n" +
 			"context_type: github.com/example/context.Type\n" +
-			"client_getter: github.com/example/client.Get\n" +
 			"bindings:\n" +
 			"  DateTime:\n" +
 			"    type: github.com/example/scalar.DateTime\n" +

@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/willabides/octoql"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi"
 )
@@ -116,7 +115,7 @@ func (m *Materializer) latestRevision(
 			"github graphql authentication is required; set GH_TOKEN, GITHUB_TOKEN, or authenticate with gh",
 		)
 	}
-	client := octoql.NewClient(deps.githubGraphQLEndpoint(host), &http.Client{
+	client := githubapi.NewClient(deps.githubGraphQLEndpoint(host), &http.Client{
 		Transport: httpClientTransport{client: deps.httpClient},
 	})
 	err = client.SetBearerToken(token)
@@ -124,7 +123,7 @@ func (m *Materializer) latestRevision(
 		return "", fmt.Errorf("configuring github graphql authentication: %w", err)
 	}
 
-	result, err := githubapi.LatestCommit(ctx, client, githubapi.LatestCommitVariables{
+	result, err := client.LatestCommit(ctx, githubapi.LatestCommitVariables{
 		Owner: owner,
 		Name:  name,
 		Path:  repository.Path,

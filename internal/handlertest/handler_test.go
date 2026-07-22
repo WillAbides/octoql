@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql"
 	githubapi "github.com/willabides/octoql/internal/handlertest/client"
 	"github.com/willabides/octoql/internal/handlertest/githubapitest"
 )
@@ -20,7 +19,7 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	handler := githubapitest.NewTestHandler(t)
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	client := octoql.NewClient(server.URL, http.DefaultClient)
+	client := githubapi.NewClient(server.URL, http.DefaultClient)
 
 	handler.ExpectViewer().Respond(githubapitest.ViewerResponse{
 		Viewer: githubapitest.ViewerViewerUser{
@@ -30,7 +29,7 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 			},
 		},
 	})
-	viewerResponse, err := githubapi.Viewer(t.Context(), client)
+	viewerResponse, err := client.Viewer(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "octocat", viewerResponse.Viewer.Login)
 
@@ -38,11 +37,11 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	data := repositoryData()
 	handler.ExpectGetRepository(variables).Respond(data)
 
-	response, err := githubapi.GetRepository(
+	response, err := client.GetRepository(
 		t.Context(),
-		client,
-		variables,
-	)
+
+		variables)
+
 	require.NoError(t, err)
 	require.NotNil(t, response.Repository)
 	assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
@@ -72,9 +71,10 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 		Input: input,
 	}).Respond(mutationData)
 
-	mutationResponse, err := githubapi.CreateRepository(t.Context(), client, githubapitest.CreateRepositoryVariables{
+	mutationResponse, err := client.CreateRepository(t.Context(), githubapitest.CreateRepositoryVariables{
 		Input: input,
 	})
+
 	require.NoError(t, err)
 	require.NotNil(t, mutationResponse.CreateRepository.Repository)
 	assert.Equal(t, "octo-org/created", mutationResponse.CreateRepository.Repository.NameWithOwner)
@@ -87,9 +87,10 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 		EchoProperty: property,
 	})
 
-	propertyResponse, err := githubapi.EchoProperty(t.Context(), client, githubapitest.EchoPropertyVariables{
+	propertyResponse, err := client.EchoProperty(t.Context(), githubapitest.EchoPropertyVariables{
 		Value: property,
 	})
+
 	require.NoError(t, err)
 	assert.JSONEq(t, string(property), string(propertyResponse.EchoProperty))
 
@@ -99,9 +100,10 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	}).Respond(githubapitest.EchoAtResponse{
 		EchoAt: temporalValue,
 	})
-	temporalResponse, err := githubapi.EchoAt(t.Context(), client, githubapitest.EchoAtVariables{
+	temporalResponse, err := client.EchoAt(t.Context(), githubapitest.EchoAtVariables{
 		Value: temporalValue,
 	})
+
 	require.NoError(t, err)
 	assert.True(t, temporalValue.Equal(temporalResponse.EchoAt))
 
@@ -111,9 +113,10 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	}).Respond(githubapitest.EchoAnyResponse{
 		EchoAny: largeInteger,
 	})
-	_, err = githubapi.EchoAny(t.Context(), client, githubapitest.EchoAnyVariables{
+	_, err = client.EchoAny(t.Context(), githubapitest.EchoAnyVariables{
 		Value: largeInteger,
 	})
+
 	require.NoError(t, err)
 }
 
@@ -121,27 +124,27 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 	handler := githubapitest.NewTestHandler(t)
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	client := octoql.NewClient(server.URL, http.DefaultClient)
+	client := githubapi.NewClient(server.URL, http.DefaultClient)
 
 	errorVariables := githubapitest.GetNodeVariables{Id: "missing"}
-	handler.ExpectGetNode(errorVariables).RespondError(octoql.Error{
+	handler.ExpectGetNode(errorVariables).RespondError(githubapi.Error{
 		Type:    "NOT_FOUND",
 		Message: "repository not found",
-		Path:    octoql.Path{"node"},
-		Locations: []octoql.Location{{
+		Path:    githubapi.Path{"node"},
+		Locations: []githubapi.Location{{
 			Line:   2,
 			Column: 3,
 		}},
 		Extensions: map[string]any{"code": "missing"},
 	})
 
-	response, err := githubapi.GetNode(t.Context(), client, errorVariables)
+	response, err := client.GetNode(t.Context(), errorVariables)
 	assert.Nil(t, response)
-	graphqlErrors, ok := errors.AsType[octoql.Errors](err)
+	graphqlErrors, ok := errors.AsType[githubapi.Errors](err)
 	require.True(t, ok)
 	require.Len(t, graphqlErrors, 1)
-	assert.Equal(t, octoql.ErrorType("NOT_FOUND"), graphqlErrors[0].Type)
-	assert.Equal(t, octoql.Path{"node"}, graphqlErrors[0].Path)
+	assert.Equal(t, githubapi.ErrorType("NOT_FOUND"), graphqlErrors[0].Type)
+	assert.Equal(t, githubapi.Path{"node"}, graphqlErrors[0].Path)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
 	require.Len(t, graphqlErrors[0].Locations, 1)
 	assert.Equal(t, 2, graphqlErrors[0].Locations[0].Line)
@@ -150,18 +153,18 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 	data := repositoryData()
 	handler.ExpectGetRepository(variables).RespondDataAndErrors(
 		data,
-		octoql.Error{
+		githubapi.Error{
 			Type:    "FORBIDDEN",
 			Message: "one field is unavailable",
-			Path:    octoql.Path{"repository", "propertyValue"},
+			Path:    githubapi.Path{"repository", "propertyValue"},
 		},
 	)
 
-	partial, err := githubapi.GetRepository(
+	partial, err := client.GetRepository(
 		t.Context(),
-		client,
-		variables,
-	)
+
+		variables)
+
 	require.Error(t, err)
 	assert.Nil(t, partial)
 	partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
@@ -177,18 +180,18 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 		handler := githubapitest.NewTestHandler(t)
 		server := httptest.NewServer(handler)
 		t.Cleanup(server.Close)
-		client := octoql.NewClient(server.URL, http.DefaultClient)
+		client := githubapi.NewClient(server.URL, http.DefaultClient)
 		variables := repositoryVariables()
 		handler.ExpectGetRepository(variables).Respond(
 			repositoryData(),
 			githubapitest.WithStatus(http.StatusAccepted),
 		)
 
-		response, err := githubapi.GetRepository(
+		response, err := client.GetRepository(
 			t.Context(),
-			client,
-			variables,
-		)
+
+			variables)
+
 		require.NoError(t, err)
 		assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
 	})
@@ -197,12 +200,12 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 		handler := githubapitest.NewTestHandler(t)
 		server := httptest.NewServer(handler)
 		t.Cleanup(server.Close)
-		client := octoql.NewClient(server.URL, http.DefaultClient)
+		client := githubapi.NewClient(server.URL, http.DefaultClient)
 		variables := githubapitest.GetNodeVariables{Id: "primary"}
 		reset := time.Date(2026, time.July, 19, 13, 0, 0, 0, time.UTC)
 		handler.ExpectGetNode(variables).RespondError(
-			octoql.Error{Type: "RATE_LIMITED", Message: "quota exhausted"},
-			githubapitest.WithPrimaryRateLimit(octoql.RateLimit{
+			githubapi.Error{Type: "RATE_LIMITED", Message: "quota exhausted"},
+			githubapitest.WithPrimaryRateLimit(githubapi.RateLimit{
 				Limit:     5000,
 				Remaining: 0,
 				Used:      5000,
@@ -211,11 +214,11 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 			}),
 		)
 
-		response, err := githubapi.GetNode(t.Context(), client, variables)
+		response, err := client.GetNode(t.Context(), variables)
 		assert.Nil(t, response)
-		rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
+		rateLimitError, ok := errors.AsType[*githubapi.RateLimitError](err)
 		require.True(t, ok)
-		assert.Equal(t, octoql.RateLimitPrimary, rateLimitError.Kind)
+		assert.Equal(t, githubapi.RateLimitPrimary, rateLimitError.Kind)
 		assert.Equal(t, 5000, rateLimitError.RateLimit.Limit)
 		assert.Equal(t, reset, rateLimitError.RateLimit.Reset)
 		assert.Equal(t, "graphql", rateLimitError.RateLimit.Resource)
@@ -233,21 +236,21 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 			handler := githubapitest.NewTestHandler(t)
 			server := httptest.NewServer(handler)
 			t.Cleanup(server.Close)
-			client := octoql.NewClient(server.URL, http.DefaultClient)
+			client := githubapi.NewClient(server.URL, http.DefaultClient)
 			variables := githubapitest.GetNodeVariables{Id: http.StatusText(status)}
 			handler.ExpectGetNode(variables).RespondError(
-				octoql.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
+				githubapi.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
 				githubapitest.WithSecondaryRateLimit(30*time.Second),
 				githubapitest.WithStatus(status),
 			)
 
-			response, err := githubapi.GetNode(t.Context(), client, variables)
+			response, err := client.GetNode(t.Context(), variables)
 			assert.Nil(t, response)
-			rateLimitError, ok := errors.AsType[*octoql.RateLimitError](err)
+			rateLimitError, ok := errors.AsType[*githubapi.RateLimitError](err)
 			require.True(t, ok)
-			assert.Equal(t, octoql.RateLimitSecondary, rateLimitError.Kind)
+			assert.Equal(t, githubapi.RateLimitSecondary, rateLimitError.Kind)
 			assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
-			responseError, ok := errors.AsType[*octoql.ResponseError](err)
+			responseError, ok := errors.AsType[*githubapi.ResponseError](err)
 			require.True(t, ok)
 			assert.Equal(t, status, responseError.StatusCode)
 		})
@@ -258,7 +261,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	handler := githubapitest.NewTestHandler(t)
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	client := octoql.NewClient(server.URL, http.DefaultClient)
+	client := githubapi.NewClient(server.URL, http.DefaultClient)
 
 	dynamicVariables := githubapitest.EchoPropertyVariables{
 		Value: json.RawMessage(`"dynamic"`),
@@ -275,11 +278,11 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	dynamicResponse, err := githubapi.EchoProperty(
+	dynamicResponse, err := client.EchoProperty(
 		t.Context(),
-		client,
-		dynamicVariables,
-	)
+
+		dynamicVariables)
+
 	require.NoError(t, err)
 	assert.JSONEq(t, `"handled"`, string(dynamicResponse.EchoProperty))
 	assert.JSONEq(t, string(dynamicVariables.Value), string((<-receivedVariables).Value))
@@ -292,7 +295,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	handler.ExpectGetNode(repositoryVariables).Respond(githubapitest.GetNodeResponse{
 		Node: repositoryNode,
 	})
-	repositoryResponse, err := githubapi.GetNode(t.Context(), client, repositoryVariables)
+	repositoryResponse, err := client.GetNode(t.Context(), repositoryVariables)
 	require.NoError(t, err)
 	require.NotNil(t, repositoryResponse.Node)
 	repository, ok := repositoryResponse.Node.(*githubapitest.GetNodeNodeRepository)
@@ -307,7 +310,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	handler.ExpectGetNode(otherVariables).Respond(githubapitest.GetNodeResponse{
 		Node: otherNode,
 	})
-	otherResponse, err := githubapi.GetNode(t.Context(), client, otherVariables)
+	otherResponse, err := client.GetNode(t.Context(), otherVariables)
 	require.NoError(t, err)
 	require.NotNil(t, otherResponse.Node)
 	other, ok := otherResponse.Node.(*githubapitest.GetNodeNodeOctoqlOther)
@@ -330,7 +333,7 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 			},
 		},
 	})
-	searchResponse, err := githubapi.Search(t.Context(), client, searchVariables)
+	searchResponse, err := client.Search(t.Context(), searchVariables)
 	require.NoError(t, err)
 	require.Len(t, searchResponse.Search, 3)
 	_, ok = searchResponse.Search[0].(*githubapitest.SearchSearchRepository)
@@ -348,7 +351,7 @@ func TestGeneratedHandlerConcurrentRequests(t *testing.T) {
 	handler := githubapitest.NewTestHandler(t)
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	client := octoql.NewClient(server.URL, http.DefaultClient)
+	client := githubapi.NewClient(server.URL, http.DefaultClient)
 	variables := githubapitest.EchoPropertyVariables{
 		Value: json.RawMessage(`"concurrent"`),
 	}
@@ -363,7 +366,7 @@ func TestGeneratedHandlerConcurrentRequests(t *testing.T) {
 	errorsChannel := make(chan error, requestCount)
 	for range requestCount {
 		waitGroup.Go(func() {
-			_, err := githubapi.EchoProperty(t.Context(), client, variables)
+			_, err := client.EchoProperty(t.Context(), variables)
 			errorsChannel <- err
 		})
 	}

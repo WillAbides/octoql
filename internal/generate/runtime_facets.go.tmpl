@@ -1,0 +1,84 @@
+// HTTPStatusCode returns the failed HTTP response status.
+func (e *ResponseError) HTTPStatusCode() int {
+	if e == nil {
+		return 0
+	}
+	return e.StatusCode
+}
+
+// GitHubRequestID returns the response's X-GitHub-Request-ID value.
+func (e *ResponseError) GitHubRequestID() string {
+	if e == nil {
+		return ""
+	}
+	return e.RequestID
+}
+
+// ResponseSizeLimit returns the configured response-size limit.
+func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
+	if e == nil {
+		return 0
+	}
+	return e.Limit
+}
+
+// RateLimitKind returns the kind of rate limit that rejected the request.
+func (e *RateLimitError) RateLimitKind() string {
+	if e == nil {
+		return ""
+	}
+	return string(e.Kind)
+}
+
+// RetryAt returns when GitHub advised retrying the request.
+func (e *RateLimitError) RetryAt() {{ref "time.Time"}} {
+	if e == nil {
+		return {{ref "time.Time"}}{}
+	}
+	return e.RateLimit.RetryAt
+}
+
+// GraphQLErrorCount returns the number of GraphQL errors.
+func (e Errors) GraphQLErrorCount() int {
+	return len(e)
+}
+
+// GraphQLError returns one GraphQL error as a package-neutral error value.
+func (e Errors) GraphQLError(index int) error {
+	if index < 0 || index >= len(e) {
+		return nil
+	}
+	return e[index]
+}
+
+// GraphQLType returns GitHub's GraphQL error category.
+func (e *Error) GraphQLType() string {
+	if e == nil {
+		return ""
+	}
+	return string(e.Type)
+}
+
+// GraphQLMessage returns the GraphQL error message.
+func (e *Error) GraphQLMessage() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+// GraphQLPath returns a defensive copy of the GraphQL response path.
+func (e *Error) GraphQLPath() []any {
+	if e == nil {
+		return nil
+	}
+	return {{ref "slices.Clone"}}(e.Path)
+}
+
+// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
+func (e *Error) GraphQLExtensions() map[string]any {
+	if e == nil {
+		return nil
+	}
+	return {{ref "maps.Clone"}}(e.Extensions)
+}

@@ -122,7 +122,6 @@ func generateConfig(source *config.Config) *generate.Config {
 		Package:                         stringValue(source.Package),
 		ExportOperations:                source.ExportOperationsPath(),
 		ContextType:                     stringValue(source.ContextType),
-		ClientGetter:                    stringValue(source.ClientGetter),
 		Bindings:                        bindings,
 		PackageBindings:                 packageBindings,
 		Casing:                          casing,

@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-
-	"github.com/willabides/octoql"
 )
 
 func main() {
@@ -23,7 +21,7 @@ func main() {
 		return
 	}
 
-	graphqlClient := octoql.NewClient("https://api.github.com/graphql", nil)
+	graphqlClient := NewClient("https://api.github.com/graphql", nil)
 	err = graphqlClient.SetBearerToken(key)
 	if err != nil {
 		return
@@ -32,7 +30,7 @@ func main() {
 	switch len(os.Args) {
 	case 1:
 		var viewerResp *getViewerResponse
-		viewerResp, err = getViewer(context.Background(), graphqlClient)
+		viewerResp, err = graphqlClient.getViewer(context.Background())
 		if err != nil {
 			return
 		}
@@ -46,7 +44,7 @@ func main() {
 	case 2:
 		username := os.Args[1]
 		var userResp *getUserResponse
-		userResp, err = getUser(context.Background(), graphqlClient, getUserVariables{
+		userResp, err = graphqlClient.getUser(context.Background(), getUserVariables{
 			Login: username,
 		})
 		if err != nil {

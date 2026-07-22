@@ -5,11 +5,11 @@
 - `octoql` is a standalone project derived from Khan/genqlient. Preserve
   attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`.
 - The module path is `github.com/willabides/octoql`, with Go version `1.26.0`.
-- All generated-code runtime support and reusable runtime APIs belong in the
-  root `octoql` package. Do not recreate a separate `graphql` runtime package.
-  `NoMarshalJSON` and `NoUnmarshalJSON` are generated-code-only root contracts
-  that prevent JSON method promotion; preserve them unless equivalent
-  `encoding/json` semantics and generated compatibility are proven.
+- Generated clients are self-contained and do not import the root `octoql`
+  package. Their runtime template is derived from the root runtime sources; do
+  not maintain a second handwritten HTTP implementation or create a separate
+  public `graphql` runtime package. Generated private JSON guards prevent method
+  promotion while preserving `encoding/json` semantics.
   Generator implementation belongs in `internal/generate`; users invoke
   `cmd/octoqlgen`. Do not recreate a public `generate` package.
 - The root `README.md` is the primary user guide. Keep `docs/` for specialized
@@ -27,9 +27,9 @@
   error chain. Generated helpers always return nil with an error. When the
   GraphQL `data` field is non-null and decoded successfully, partial data is
   available through the operation-specific generated partial-data error type.
-- `Client.Execute` is an exported generated-code contract, not a handwritten
-  application API. Generated operation helpers call it directly while preserving
-  nil-before-response behavior; do not introduce a package-level generic executor.
+- Generated operations are methods on the generated `Client` and call its
+  private executor while preserving nil-before-response behavior. Do not expose
+  a package-level generic executor.
 - Successful HTTP metadata is not attached to generated responses. Primary
   rate-limit state is an advisory, concurrency-safe `Client.RateLimit()`
   snapshot; request-specific failure metadata remains on the error chain.
@@ -86,11 +86,9 @@
   reachable references owned by the generated client package.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
-- Keep the runtime and generator in the single root module. Runtime users compile
-  only the root package's standard-library dependency closure, although direct
-  generator requirements remain in the module graph and participate in MVS.
-  That accepted graph cost is outweighed by synchronized generator/runtime
-  versions, licenses, release validation, and CI.
+- Keep the generator in the root module. Generated application packages compile
+  without a dependency on `github.com/willabides/octoql`; users pin the command
+  as a Go tool dependency and regenerate to receive runtime fixes.
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve
   project-level attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`, and
   preserve generated `Code generated ... DO NOT EDIT.` notices.

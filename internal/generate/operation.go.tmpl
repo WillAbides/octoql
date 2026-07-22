@@ -28,28 +28,24 @@ func (e *{{.Name}}PartialDataError) PartialData() *{{.ResponseName}} {
     return e.data
 }
 
+// PartialDataValue returns the partial response as an untyped value.
+func (e *{{.Name}}PartialDataError) PartialDataValue() any {
+    return e.PartialData()
+}
+
 {{.Doc}}
-func {{.Name}}(
+func (c *Client) {{.Name}}(
     {{if ne .Config.ContextType "-" -}}
     ctx {{ref .Config.ContextType}},
-    {{end}}
-    {{- if not .Config.ClientGetter -}}
-    client octoqlExecutor,
     {{end}}
     {{- if .Input -}}
     vars {{.Input.GoName}},
     {{end -}}
 ) (*{{.ResponseName}}, error) {
-    {{if .Config.ClientGetter -}}
-    client, err := {{ref .Config.ClientGetter}}({{if ne .Config.ContextType "-"}}ctx{{else}}{{end}})
-    if err != nil {
-        return nil, err
-    }
-    {{end -}}
     var response {{.ResponseName}}
-    hasData, err := client.Execute(
+    hasData, err := c.execute(
         {{if ne .Config.ContextType "-"}}ctx{{else}}{{ref "context.Background"}}(){{end}},
-        {{ref "github.com/willabides/octoql.Payload"}}{
+        payload{
             OperationName: "{{.Name}}",
             Query: {{.Name}}_Operation,
             Variables: {{if .Input}}&vars{{else}}nil{{end}},
