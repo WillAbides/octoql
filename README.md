@@ -304,7 +304,7 @@ if ok {
 	fmt.Printf("kind=%s remaining=%d retry_at=%s\n",
 		rateLimitError.Kind,
 		rateLimitError.RateLimit.Remaining,
-		rateLimitError.RateLimit.RetryAt,
+		rateLimitError.RetryAt(),
 	)
 }
 ```

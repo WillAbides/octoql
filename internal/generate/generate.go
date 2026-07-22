@@ -629,6 +629,10 @@ func renderClientGenerator(g *generator) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = bodyBuf.WriteString("\n")
+	if err != nil {
+		return nil, err
+	}
 	err = g.render("runtime_facets.go.tmpl", &bodyBuf, g)
 	if err != nil {
 		return nil, err
