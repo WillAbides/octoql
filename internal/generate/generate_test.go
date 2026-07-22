@@ -344,6 +344,33 @@ query RateLimit {
 	require.EqualError(t, err, `generated Client method "RateLimit" conflicts with operation "RateLimit"`)
 }
 
+func TestGenerateRejectsPrivateRuntimeDeclarationCollision(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`
+type Query {
+  value: String!
+}
+`), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(`
+# @octoqlgen(typename: "payload")
+query Value {
+  value
+}
+`), 0o600))
+
+	_, err := Generate(&Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "collision",
+		ContextType: "-",
+	})
+
+	require.EqualError(t, err, `generated runtime declaration "payload" conflicts with a generated GraphQL type`)
+}
+
 func TestGenerateQuotesOperationText(t *testing.T) {
 	dir := t.TempDir()
 	schema := `
