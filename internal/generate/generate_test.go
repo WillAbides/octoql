@@ -266,7 +266,7 @@ query Value(
 	assert.Contains(t, source, "type Client struct {")
 	assert.Contains(t, source, "func NewClient(endpoint string, httpClient *http.Client) *Client")
 	assert.Contains(t, source, "func (c *Client) Value(")
-	assert.Contains(t, source, "hasData, err := c.execute(")
+	assert.Contains(t, source, "hasData, err := c._octoqlExecute(")
 	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
 	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
@@ -354,7 +354,7 @@ type Query {
 }
 `), 0o600))
 	require.NoError(t, os.WriteFile(operationPath, []byte(`
-# @octoqlgen(typename: "payload")
+# @octoqlgen(typename: "_octoqlPayload")
 query Value {
   value
 }
@@ -368,7 +368,52 @@ query Value {
 		ContextType: "-",
 	})
 
-	require.EqualError(t, err, `generated runtime declaration "payload" conflicts with a generated GraphQL type`)
+	require.EqualError(t, err, `generated runtime declaration "_octoqlPayload" conflicts with a generated GraphQL type`)
+}
+
+func TestGenerateRejectsDynamicRuntimeDeclarationCollision(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`
+scalar Custom
+
+type Query {
+  first: Custom!
+  second: String!
+}
+`), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(`
+query First {
+  first
+}
+
+# @octoqlgen(typename: "_octoqlPremarshalFirstResponse")
+query Second {
+  second
+}
+`), 0o600))
+
+	_, err := Generate(&Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "collision",
+		ContextType: "-",
+		Bindings: map[string]*TypeBinding{
+			"Custom": {
+				Type:        "string",
+				Marshaler:   "example.com/scalar.Marshal",
+				Unmarshaler: "example.com/scalar.Unmarshal",
+			},
+		},
+	})
+
+	require.EqualError(
+		t,
+		err,
+		`generated runtime declaration "_octoqlPremarshalFirstResponse" conflicts with a generated GraphQL type`,
+	)
 }
 
 func TestGenerateQuotesOperationText(t *testing.T) {

@@ -511,33 +511,48 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 		"RateLimitSecondary",
 		"ResponseError",
 		"ResponseSizeLimitError",
-		"classifyRateLimit",
-		"decodeData",
-		"decodeResponse",
-		"hasGraphQLRateLimitError",
-		"headerValue",
-		"isPrimaryRateLimitStatus",
-		"isSecondaryRateLimitStatus",
-		"isSuccessfulStatus",
-		"maxResponseErrorRawBody",
-		"maxUnixSeconds",
-		"newResponseError",
-		"noMarshalJSON",
-		"noUnmarshalJSON",
-		"nonnegativeHeaderInt",
-		"nonnegativeHeaderUnix",
-		"parseNonnegativeDecimal",
-		"parsedRateLimit",
-		"payload",
-		"rateLimitFromHeader",
-		"rateLimitNow",
-		"readAndClose",
-		"requestIDFromHeader",
-		"responseErrorParams",
-		"retryAfterFromHeader",
-		"validBearerToken",
-		"validBearerTokenCharacter",
+		"_octoqlClassifyRateLimit",
+		"_octoqlDecodeData",
+		"_octoqlDecodeResponse",
+		"_octoqlHasGraphQLRateLimitError",
+		"_octoqlHeaderValue",
+		"_octoqlIsPrimaryRateLimitStatus",
+		"_octoqlIsSecondaryRateLimitStatus",
+		"_octoqlIsSuccessfulStatus",
+		"_octoqlMaxResponseErrorRawBody",
+		"_octoqlMaxUnixSeconds",
+		"_octoqlNewResponseError",
+		"_octoqlNoMarshalJSON",
+		"_octoqlNoUnmarshalJSON",
+		"_octoqlNonnegativeHeaderInt",
+		"_octoqlNonnegativeHeaderUnix",
+		"_octoqlParseNonnegativeDecimal",
+		"_octoqlParsedRateLimit",
+		"_octoqlPayload",
+		"_octoqlRateLimitFromHeader",
+		"_octoqlRateLimitNow",
+		"_octoqlReadAndClose",
+		"_octoqlRequestIDFromHeader",
+		"_octoqlResponseErrorParams",
+		"_octoqlRetryAfterFromHeader",
+		"_octoqlValidBearerToken",
+		"_octoqlValidBearerTokenCharacter",
 	}
+	for _, typ := range g.typeMap {
+		switch typed := typ.(type) {
+		case *goStructType:
+			if typed.NeedsMarshaling() {
+				runtimeNames = append(runtimeNames, "_octoqlPremarshal"+typed.GoName)
+			}
+		case *goInterfaceType:
+			runtimeNames = append(
+				runtimeNames,
+				"_octoqlMarshal"+typed.GoName,
+				"_octoqlUnmarshal"+typed.GoName,
+			)
+		}
+	}
+	sort.Strings(runtimeNames)
 	for _, name := range runtimeNames {
 		if g.typeMap[name] != nil {
 			return nil, errorf(
@@ -555,12 +570,12 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 		}
 	}
 	runtimeMethodNames := map[string]bool{
-		"RateLimit":            true,
-		"ResponseSizeLimit":    true,
-		"SetBearerToken":       true,
-		"SetResponseSizeLimit": true,
-		"execute":              true,
-		"observeRateLimit":     true,
+		"RateLimit":               true,
+		"ResponseSizeLimit":       true,
+		"SetBearerToken":          true,
+		"SetResponseSizeLimit":    true,
+		"_octoqlExecute":          true,
+		"_octoqlObserveRateLimit": true,
 	}
 	for _, operation := range g.Operations {
 		if runtimeMethodNames[operation.Name] {

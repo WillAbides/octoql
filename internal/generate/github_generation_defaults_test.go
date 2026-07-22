@@ -350,7 +350,7 @@ func TestTypedNilAbstractValuesMarshalAsNull(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			data, err := __marshalRuntimeAbstractsNode(&test.node)
+			data, err := _octoqlMarshalRuntimeAbstractsNode(&test.node)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -20,31 +20,31 @@ import (
 	"time"
 )
 
-// noUnmarshalJSON is for generated code only.
+// _octoqlNoUnmarshalJSON is for generated code only.
 //
-// Embedding noUnmarshalJSON alongside a type with an UnmarshalJSON method
+// Embedding _octoqlNoUnmarshalJSON alongside a type with an UnmarshalJSON method
 // prevents that sibling method from being promoted.
-type noUnmarshalJSON struct{}
+type _octoqlNoUnmarshalJSON struct{}
 
 // UnmarshalJSON should never be called. It exists only to prevent a sibling
 // UnmarshalJSON method from being promoted.
-func (noUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("noUnmarshalJSON.UnmarshalJSON should never be called!")
+func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
-// noMarshalJSON is for generated code only.
+// _octoqlNoMarshalJSON is for generated code only.
 //
-// Embedding noMarshalJSON alongside a type with a MarshalJSON method prevents
+// Embedding _octoqlNoMarshalJSON alongside a type with a MarshalJSON method prevents
 // that sibling method from being promoted.
-type noMarshalJSON struct{}
+type _octoqlNoMarshalJSON struct{}
 
 // MarshalJSON should never be called. It exists only to prevent a sibling
 // MarshalJSON method from being promoted.
-func (noMarshalJSON) MarshalJSON() ([]byte, error) {
-	panic("noUnmarshalJSON.MarshalJSON should never be called!")
+func (_octoqlNoMarshalJSON) MarshalJSON() ([]byte, error) {
+	panic("_octoqlNoMarshalJSON.MarshalJSON should never be called!")
 }
 
-const maxResponseErrorRawBody = 64 * 1024
+const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
 // type so values introduced by GitHub remain available to callers.
@@ -260,7 +260,7 @@ func (e *ResponseError) Error() string {
 	}
 
 	message := "graphql response failed"
-	if !isSuccessfulStatus(e.StatusCode) {
+	if !_octoqlIsSuccessfulStatus(e.StatusCode) {
 		message = fmt.Sprintf(
 			"graphql response failed with status %d",
 			e.StatusCode,
@@ -281,7 +281,7 @@ func (e *ResponseError) Unwrap() error {
 	return e.err
 }
 
-type responseErrorParams struct {
+type _octoqlResponseErrorParams struct {
 	statusCode    int
 	requestID     string
 	body          []byte
@@ -290,14 +290,14 @@ type responseErrorParams struct {
 	err           error
 }
 
-func newResponseError(params responseErrorParams) *ResponseError {
+func _octoqlNewResponseError(params _octoqlResponseErrorParams) *ResponseError {
 	var rawBody []byte
 	isTruncated := false
 	if params.retainBody {
 		rawBody = params.body
 		isTruncated = params.bodyTruncated
-		if len(rawBody) > maxResponseErrorRawBody {
-			rawBody = rawBody[:maxResponseErrorRawBody]
+		if len(rawBody) > _octoqlMaxResponseErrorRawBody {
+			rawBody = rawBody[:_octoqlMaxResponseErrorRawBody]
 			isTruncated = true
 		}
 		rawBody = bytes.Clone(rawBody)
@@ -336,7 +336,7 @@ type RateLimit struct {
 	RetryAt    time.Time
 }
 
-type parsedRateLimit struct {
+type _octoqlParsedRateLimit struct {
 	RateLimit
 
 	remainingValid  bool
@@ -369,36 +369,36 @@ func (e *RateLimitError) Unwrap() error {
 	return e.Err
 }
 
-var rateLimitNow = time.Now
+var _octoqlRateLimitNow = time.Now
 
-func maxUnixSeconds() uint64 {
+func _octoqlMaxUnixSeconds() uint64 {
 	firstUnixSecond := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC).Unix()
 	return uint64(math.MaxInt64 + firstUnixSecond)
 }
 
-func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
-	rateLimit := parsedRateLimit{}
+func _octoqlRateLimitFromHeader(header http.Header, now time.Time) _octoqlParsedRateLimit {
+	rateLimit := _octoqlParsedRateLimit{}
 
-	limit, valid := nonnegativeHeaderInt(header, "X-RateLimit-Limit")
+	limit, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Limit")
 	if valid {
 		rateLimit.Limit = limit
 	}
-	remaining, valid := nonnegativeHeaderInt(header, "X-RateLimit-Remaining")
+	remaining, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Remaining")
 	if valid {
 		rateLimit.Remaining = remaining
 		rateLimit.remainingValid = true
 	}
-	used, valid := nonnegativeHeaderInt(header, "X-RateLimit-Used")
+	used, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Used")
 	if valid {
 		rateLimit.Used = used
 	}
-	reset, valid := nonnegativeHeaderUnix(header, "X-RateLimit-Reset")
+	reset, valid := _octoqlNonnegativeHeaderUnix(header, "X-RateLimit-Reset")
 	if valid {
 		rateLimit.Reset = reset
 	}
-	rateLimit.Resource = strings.TrimSpace(headerValue(header, "X-RateLimit-Resource"))
+	rateLimit.Resource = strings.TrimSpace(_octoqlHeaderValue(header, "X-RateLimit-Resource"))
 
-	retryAfter, retryAt, valid := retryAfterFromHeader(header, now)
+	retryAfter, retryAt, valid := _octoqlRetryAfterFromHeader(header, now)
 	if valid {
 		rateLimit.RetryAfter = retryAfter
 		rateLimit.RetryAt = retryAt
@@ -408,39 +408,39 @@ func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
 	return rateLimit
 }
 
-func (r *parsedRateLimit) primarySnapshot() RateLimit {
+func (r *_octoqlParsedRateLimit) _octoqlPrimarySnapshot() RateLimit {
 	snapshot := r.RateLimit
 	snapshot.RetryAfter = 0
 	snapshot.RetryAt = time.Time{}
 	return snapshot
 }
 
-func nonnegativeHeaderInt(header http.Header, name string) (int, bool) {
-	value, valid := parseNonnegativeDecimal(headerValue(header, name), strconv.IntSize)
+func _octoqlNonnegativeHeaderInt(header http.Header, name string) (int, bool) {
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), strconv.IntSize)
 	if !valid {
 		return 0, false
 	}
 	return int(value), true
 }
 
-func nonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
-	value, valid := parseNonnegativeDecimal(headerValue(header, name), 63)
+func _octoqlNonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), 63)
 	if !valid {
 		return time.Time{}, false
 	}
-	if value > maxUnixSeconds() {
+	if value > _octoqlMaxUnixSeconds() {
 		return time.Time{}, false
 	}
 	return time.Unix(int64(value), 0).UTC(), true
 }
 
-func retryAfterFromHeader(header http.Header, now time.Time) (time.Duration, time.Time, bool) {
-	value := strings.TrimSpace(headerValue(header, "Retry-After"))
+func _octoqlRetryAfterFromHeader(header http.Header, now time.Time) (time.Duration, time.Time, bool) {
+	value := strings.TrimSpace(_octoqlHeaderValue(header, "Retry-After"))
 	if value == "" {
 		return 0, time.Time{}, false
 	}
 
-	seconds, valid := parseNonnegativeDecimal(value, 64)
+	seconds, valid := _octoqlParseNonnegativeDecimal(value, 64)
 	if valid {
 		maxSeconds := uint64(math.MaxInt64 / int64(time.Second))
 		if seconds > maxSeconds {
@@ -462,7 +462,7 @@ func retryAfterFromHeader(header http.Header, now time.Time) (time.Duration, tim
 	return retryAfter, retryAt, true
 }
 
-func parseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
+func _octoqlParseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return 0, false
@@ -479,7 +479,7 @@ func parseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
 	return parsed, true
 }
 
-func headerValue(header http.Header, name string) string {
+func _octoqlHeaderValue(header http.Header, name string) string {
 	for headerName, values := range header {
 		if strings.EqualFold(headerName, name) && len(values) > 0 {
 			return values[0]
@@ -488,12 +488,12 @@ func headerValue(header http.Header, name string) string {
 	return ""
 }
 
-func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) error {
+func _octoqlClassifyRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit, err error) error {
 	if err == nil {
 		return nil
 	}
 
-	isSecondaryResponse := isSecondaryRateLimitStatus(statusCode)
+	isSecondaryResponse := _octoqlIsSecondaryRateLimitStatus(statusCode)
 	if rateLimit.retryAfterValid && isSecondaryResponse {
 		return &RateLimitError{
 			Kind:      RateLimitSecondary,
@@ -502,8 +502,8 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 		}
 	}
 
-	isPrimaryStatus := isPrimaryRateLimitStatus(statusCode)
-	isPrimaryGraphQLError := hasGraphQLRateLimitError(err)
+	isPrimaryStatus := _octoqlIsPrimaryRateLimitStatus(statusCode)
+	isPrimaryGraphQLError := _octoqlHasGraphQLRateLimitError(err)
 	hasNoRemaining := rateLimit.remainingValid && rateLimit.Remaining == 0
 	hasPrimarySignal := isPrimaryStatus || isPrimaryGraphQLError
 	isPrimaryLimit := hasNoRemaining && hasPrimarySignal
@@ -517,7 +517,7 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 	return err
 }
 
-func isSecondaryRateLimitStatus(statusCode int) bool {
+func _octoqlIsSecondaryRateLimitStatus(statusCode int) bool {
 	switch statusCode {
 	case http.StatusOK, http.StatusForbidden, http.StatusTooManyRequests:
 		return true
@@ -526,7 +526,7 @@ func isSecondaryRateLimitStatus(statusCode int) bool {
 	}
 }
 
-func isPrimaryRateLimitStatus(statusCode int) bool {
+func _octoqlIsPrimaryRateLimitStatus(statusCode int) bool {
 	switch statusCode {
 	case http.StatusForbidden, http.StatusTooManyRequests:
 		return true
@@ -535,7 +535,7 @@ func isPrimaryRateLimitStatus(statusCode int) bool {
 	}
 }
 
-func hasGraphQLRateLimitError(err error) bool {
+func _octoqlHasGraphQLRateLimitError(err error) bool {
 	graphqlErrors, ok := errors.AsType[Errors](err)
 	if !ok {
 		return false
@@ -586,12 +586,12 @@ func NewClient(endpoint string, httpClient *http.Client) *Client {
 
 // SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
 // token must use the RFC 6750 b64token syntax. It may be called concurrently
-// with [Client.execute] to rotate credentials.
+// with [Client._octoqlExecute] to rotate credentials.
 func (c *Client) SetBearerToken(token string) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
 	}
-	if !validBearerToken(token) {
+	if !_octoqlValidBearerToken(token) {
 		return errors.New("octoql: invalid bearer token")
 	}
 
@@ -615,7 +615,7 @@ func (c *Client) ResponseSizeLimit() int64 {
 
 // SetResponseSizeLimit configures the maximum HTTP response body size Client
 // accepts for decoding. limit must be greater than zero. It may be called
-// concurrently with [Client.execute].
+// concurrently with [Client._octoqlExecute].
 func (c *Client) SetResponseSizeLimit(limit int64) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -647,23 +647,23 @@ func (c *Client) RateLimit() (RateLimit, bool) {
 	return *c.rateLimit, true
 }
 
-// payload is the GraphQL request body used by generated clients.
-type payload struct {
+// _octoqlPayload is the GraphQL request body used by generated clients.
+type _octoqlPayload struct {
 	Query         string `json:"query"`
 	OperationName string `json:"operationName"`
 	Variables     any    `json:"variables,omitempty"`
 }
 
-// execute runs operation and decodes its response data into response.
+// _octoqlExecute runs operation and decodes its response data into response.
 //
-// execute is a generated-code contract. Response must be a non-nil pointer.
+// _octoqlExecute is a generated-code contract. Response must be a non-nil pointer.
 // The returned boolean reports whether the GraphQL data field decoded
 // successfully and response is usable, including when GraphQL errors are also
 // returned.
 // Every failure after the server returns an HTTP response includes
 // [ResponseError]. GraphQL errors and rate limits remain discoverable in that
 // error chain as [Errors] and [RateLimitError].
-func (c *Client) execute(ctx context.Context, payload payload, response any) (bool, error) {
+func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, response any) (bool, error) {
 	if c == nil {
 		return false, errors.New("octoql: client is nil")
 	}
@@ -692,7 +692,7 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	//nolint:bodyclose // readAndClose closes the body and preserves close errors.
+	//nolint:bodyclose // _octoqlReadAndClose closes the body and preserves close errors.
 	httpResponse, sendErr := httpClient.Do(request)
 	if httpResponse == nil {
 		if sendErr == nil {
@@ -702,39 +702,39 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	}
 
 	observation := c.responseObservation.Add(1)
-	rateLimit := rateLimitFromHeader(httpResponse.Header, rateLimitNow())
-	c.observeRateLimit(observation, &rateLimit)
+	rateLimit := _octoqlRateLimitFromHeader(httpResponse.Header, _octoqlRateLimitNow())
+	c._octoqlObserveRateLimit(observation, &rateLimit)
 
 	statusCode := httpResponse.StatusCode
-	requestID := requestIDFromHeader(httpResponse.Header)
+	requestID := _octoqlRequestIDFromHeader(httpResponse.Header)
 	if sendErr != nil {
 		cause := fmt.Errorf("send graphql request: %w", sendErr)
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode: statusCode,
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
 	if httpResponse.Body == nil {
 		cause := errors.New("read graphql response: response body is nil")
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode: statusCode,
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
-	body, readErr, closeErr := readAndClose(
+	body, readErr, closeErr := _octoqlReadAndClose(
 		httpResponse.Body,
 		c.ResponseSizeLimit(),
 	)
 	if readErr != nil {
 		cause := errors.Join(readErr, closeErr)
 		_, responseTooLarge := errors.AsType[*ResponseSizeLimitError](readErr)
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode:    statusCode,
 			requestID:     requestID,
 			body:          body,
@@ -742,16 +742,16 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 			bodyTruncated: responseTooLarge,
 			err:           cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
-	data, graphqlErrors, decodeErr := decodeResponse(body)
+	data, graphqlErrors, decodeErr := _octoqlDecodeResponse(body)
 
 	hasData := data != nil && !bytes.Equal(bytes.TrimSpace(data), []byte("null"))
 	hasErrors := len(graphqlErrors) > 0
 	hasUsableData := false
 	if hasData {
-		dataErr := decodeData(data, response)
+		dataErr := _octoqlDecodeData(data, response)
 		hasUsableData = dataErr == nil
 		decodeErr = errors.Join(decodeErr, dataErr)
 	}
@@ -763,7 +763,7 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	}
 	cause = errors.Join(cause, closeErr)
 
-	isSuccessful := isSuccessfulStatus(statusCode)
+	isSuccessful := _octoqlIsSuccessfulStatus(statusCode)
 	haspayload := hasData || hasErrors
 	missingpayload := decodeErr == nil && !haspayload
 	if isSuccessful && missingpayload {
@@ -777,22 +777,22 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 
 	hasDecodeFailure := decodeErr != nil || missingpayload
 	retainBody := !isSuccessful || hasDecodeFailure
-	responseError := newResponseError(responseErrorParams{
+	responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 		statusCode: statusCode,
 		requestID:  requestID,
 		body:       body,
 		retainBody: retainBody,
 		err:        cause,
 	})
-	return hasUsableData, classifyRateLimit(statusCode, &rateLimit, responseError)
+	return hasUsableData, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 }
 
-func (c *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
+func (c *Client) _octoqlObserveRateLimit(observation uint64, parsed *_octoqlParsedRateLimit) {
 	if c == nil || parsed == nil || !parsed.remainingValid {
 		return
 	}
 
-	rateLimit := parsed.primarySnapshot()
+	rateLimit := parsed._octoqlPrimarySnapshot()
 	c.rateLimitMu.Lock()
 	defer c.rateLimitMu.Unlock()
 
@@ -805,7 +805,7 @@ func (c *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
 	c.rateLimitObservation = observation
 }
 
-func requestIDFromHeader(header http.Header) string {
+func _octoqlRequestIDFromHeader(header http.Header) string {
 	for name, values := range header {
 		if strings.EqualFold(name, "X-GitHub-Request-ID") && len(values) > 0 {
 			return values[0]
@@ -814,7 +814,7 @@ func requestIDFromHeader(header http.Header) string {
 	return ""
 }
 
-func validBearerToken(token string) bool {
+func _octoqlValidBearerToken(token string) bool {
 	if token == "" {
 		return false
 	}
@@ -827,7 +827,7 @@ func validBearerToken(token string) bool {
 			padding = true
 			continue
 		}
-		if padding || !validBearerTokenCharacter(character) {
+		if padding || !_octoqlValidBearerTokenCharacter(character) {
 			return false
 		}
 		hasTokenCharacter = true
@@ -835,7 +835,7 @@ func validBearerToken(token string) bool {
 	return hasTokenCharacter
 }
 
-func validBearerTokenCharacter(character byte) bool {
+func _octoqlValidBearerTokenCharacter(character byte) bool {
 	switch {
 	case character >= 'a' && character <= 'z':
 		return true
@@ -850,7 +850,7 @@ func validBearerTokenCharacter(character byte) bool {
 	}
 }
 
-func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
+func _octoqlReadAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
 	payload, readErr := io.ReadAll(io.LimitReader(body, limit))
 	if readErr == nil {
 		var excess [1]byte
@@ -872,7 +872,7 @@ func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
 	return payload, readErr, closeErr
 }
 
-func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
+func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	var envelope struct {
 		Data   json.RawMessage `json:"data"`
 		Errors json.RawMessage `json:"errors"`
@@ -897,7 +897,7 @@ func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	return envelope.Data, graphqlErrors, err
 }
 
-func decodeData(data json.RawMessage, response any) error {
+func _octoqlDecodeData(data json.RawMessage, response any) error {
 	err := json.Unmarshal(data, response)
 	if err != nil {
 		return fmt.Errorf("decode graphql response data: %w", err)
@@ -905,7 +905,7 @@ func decodeData(data json.RawMessage, response any) error {
 	return nil
 }
 
-func isSuccessfulStatus(statusCode int) bool {
+func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
@@ -1096,9 +1096,9 @@ func (c *Client) GetReview(
 	ctx context.Context,
 ) (*GetReviewResponse, error) {
 	var response GetReviewResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		ctx,
-		payload{
+		_octoqlPayload{
 			OperationName: "GetReview",
 			Query:         GetReview_Operation,
 			Variables:     nil,

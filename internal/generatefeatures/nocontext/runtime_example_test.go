@@ -222,7 +222,7 @@ func executeExample[T any](
 	newPartialDataError func(*T, error) error,
 ) (*T, error) {
 	response := new(T)
-	hasData, err := client.execute(ctx, payload{
+	hasData, err := client._octoqlExecute(ctx, _octoqlPayload{
 		OperationName: operationName,
 		Query:         query,
 	}, response)

@@ -23,12 +23,12 @@
      marshaling we can't do the same (at least not without some careful
      JSON-stitching; the considerations are basically the same as those
      discussed in FlattenedFields).  So we write out a helper method
-     __premarshalJSON() which basically does all but the final JSON-marshal.
+     _octoqlPremarshalJSON() which basically does all but the final JSON-marshal.
      (Then the real MarshalJSON() just calls that, and then marshals.)
-     Thus a marshal-helper for this type, if any, can call __premarshalJSON()
+     Thus a marshal-helper for this type, if any, can call _octoqlPremarshalJSON()
      directly, and embed its result. */}}
 
-type __premarshal{{.GoName}} struct{
+type _octoqlPremarshal{{.GoName}} struct{
     {{range .FlattenedFields -}}
     {{if .NeedsMarshaling -}}
     {{.GoName}} {{repeat .GoType.SliceDepth "[]"}}{{ref "encoding/json.RawMessage"}} `json:"{{.JSONName}}{{if .Omitempty -}},omitempty{{end}}"`
@@ -39,15 +39,15 @@ type __premarshal{{.GoName}} struct{
 }
 
 func (v *{{.GoName}}) MarshalJSON() ([]byte, error) {
-    premarshaled, err := v.__premarshalJSON()
+    premarshaled, err := v._octoqlPremarshalJSON()
     if err != nil {
         return nil, err
     }
     return json.Marshal(premarshaled)
 }
 
-func (v *{{.GoName}}) __premarshalJSON() (*__premarshal{{.GoName}}, error) {
-    var retval __premarshal{{.GoName}}
+func (v *{{.GoName}}) _octoqlPremarshalJSON() (*_octoqlPremarshal{{.GoName}}, error) {
+    var retval _octoqlPremarshal{{.GoName}}
 
     {{range $field := .FlattenedFields -}}
     {{if $field.NeedsMarshaling -}}

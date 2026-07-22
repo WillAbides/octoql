@@ -48,6 +48,7 @@ var testHandlerReservedNames = []string{
 	"WithPrimaryRateLimit",
 	"WithSecondaryRateLimit",
 	"WithStatus",
+	"_octoqlNoUnmarshalJSON",
 	"buildResponseOptions",
 	"combineResponseOptions",
 	"decodeVariables",

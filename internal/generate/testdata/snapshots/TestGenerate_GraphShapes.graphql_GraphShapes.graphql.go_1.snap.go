@@ -22,31 +22,31 @@ import (
 	"github.com/willabides/octoql/internal/testutil"
 )
 
-// noUnmarshalJSON is for generated code only.
+// _octoqlNoUnmarshalJSON is for generated code only.
 //
-// Embedding noUnmarshalJSON alongside a type with an UnmarshalJSON method
+// Embedding _octoqlNoUnmarshalJSON alongside a type with an UnmarshalJSON method
 // prevents that sibling method from being promoted.
-type noUnmarshalJSON struct{}
+type _octoqlNoUnmarshalJSON struct{}
 
 // UnmarshalJSON should never be called. It exists only to prevent a sibling
 // UnmarshalJSON method from being promoted.
-func (noUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("noUnmarshalJSON.UnmarshalJSON should never be called!")
+func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
-// noMarshalJSON is for generated code only.
+// _octoqlNoMarshalJSON is for generated code only.
 //
-// Embedding noMarshalJSON alongside a type with a MarshalJSON method prevents
+// Embedding _octoqlNoMarshalJSON alongside a type with a MarshalJSON method prevents
 // that sibling method from being promoted.
-type noMarshalJSON struct{}
+type _octoqlNoMarshalJSON struct{}
 
 // MarshalJSON should never be called. It exists only to prevent a sibling
 // MarshalJSON method from being promoted.
-func (noMarshalJSON) MarshalJSON() ([]byte, error) {
-	panic("noUnmarshalJSON.MarshalJSON should never be called!")
+func (_octoqlNoMarshalJSON) MarshalJSON() ([]byte, error) {
+	panic("_octoqlNoMarshalJSON.MarshalJSON should never be called!")
 }
 
-const maxResponseErrorRawBody = 64 * 1024
+const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
 // type so values introduced by GitHub remain available to callers.
@@ -262,7 +262,7 @@ func (e *ResponseError) Error() string {
 	}
 
 	message := "graphql response failed"
-	if !isSuccessfulStatus(e.StatusCode) {
+	if !_octoqlIsSuccessfulStatus(e.StatusCode) {
 		message = fmt.Sprintf(
 			"graphql response failed with status %d",
 			e.StatusCode,
@@ -283,7 +283,7 @@ func (e *ResponseError) Unwrap() error {
 	return e.err
 }
 
-type responseErrorParams struct {
+type _octoqlResponseErrorParams struct {
 	statusCode    int
 	requestID     string
 	body          []byte
@@ -292,14 +292,14 @@ type responseErrorParams struct {
 	err           error
 }
 
-func newResponseError(params responseErrorParams) *ResponseError {
+func _octoqlNewResponseError(params _octoqlResponseErrorParams) *ResponseError {
 	var rawBody []byte
 	isTruncated := false
 	if params.retainBody {
 		rawBody = params.body
 		isTruncated = params.bodyTruncated
-		if len(rawBody) > maxResponseErrorRawBody {
-			rawBody = rawBody[:maxResponseErrorRawBody]
+		if len(rawBody) > _octoqlMaxResponseErrorRawBody {
+			rawBody = rawBody[:_octoqlMaxResponseErrorRawBody]
 			isTruncated = true
 		}
 		rawBody = bytes.Clone(rawBody)
@@ -338,7 +338,7 @@ type RateLimit struct {
 	RetryAt    time.Time
 }
 
-type parsedRateLimit struct {
+type _octoqlParsedRateLimit struct {
 	RateLimit
 
 	remainingValid  bool
@@ -371,36 +371,36 @@ func (e *RateLimitError) Unwrap() error {
 	return e.Err
 }
 
-var rateLimitNow = time.Now
+var _octoqlRateLimitNow = time.Now
 
-func maxUnixSeconds() uint64 {
+func _octoqlMaxUnixSeconds() uint64 {
 	firstUnixSecond := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC).Unix()
 	return uint64(math.MaxInt64 + firstUnixSecond)
 }
 
-func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
-	rateLimit := parsedRateLimit{}
+func _octoqlRateLimitFromHeader(header http.Header, now time.Time) _octoqlParsedRateLimit {
+	rateLimit := _octoqlParsedRateLimit{}
 
-	limit, valid := nonnegativeHeaderInt(header, "X-RateLimit-Limit")
+	limit, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Limit")
 	if valid {
 		rateLimit.Limit = limit
 	}
-	remaining, valid := nonnegativeHeaderInt(header, "X-RateLimit-Remaining")
+	remaining, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Remaining")
 	if valid {
 		rateLimit.Remaining = remaining
 		rateLimit.remainingValid = true
 	}
-	used, valid := nonnegativeHeaderInt(header, "X-RateLimit-Used")
+	used, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Used")
 	if valid {
 		rateLimit.Used = used
 	}
-	reset, valid := nonnegativeHeaderUnix(header, "X-RateLimit-Reset")
+	reset, valid := _octoqlNonnegativeHeaderUnix(header, "X-RateLimit-Reset")
 	if valid {
 		rateLimit.Reset = reset
 	}
-	rateLimit.Resource = strings.TrimSpace(headerValue(header, "X-RateLimit-Resource"))
+	rateLimit.Resource = strings.TrimSpace(_octoqlHeaderValue(header, "X-RateLimit-Resource"))
 
-	retryAfter, retryAt, valid := retryAfterFromHeader(header, now)
+	retryAfter, retryAt, valid := _octoqlRetryAfterFromHeader(header, now)
 	if valid {
 		rateLimit.RetryAfter = retryAfter
 		rateLimit.RetryAt = retryAt
@@ -410,39 +410,39 @@ func rateLimitFromHeader(header http.Header, now time.Time) parsedRateLimit {
 	return rateLimit
 }
 
-func (r *parsedRateLimit) primarySnapshot() RateLimit {
+func (r *_octoqlParsedRateLimit) _octoqlPrimarySnapshot() RateLimit {
 	snapshot := r.RateLimit
 	snapshot.RetryAfter = 0
 	snapshot.RetryAt = time.Time{}
 	return snapshot
 }
 
-func nonnegativeHeaderInt(header http.Header, name string) (int, bool) {
-	value, valid := parseNonnegativeDecimal(headerValue(header, name), strconv.IntSize)
+func _octoqlNonnegativeHeaderInt(header http.Header, name string) (int, bool) {
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), strconv.IntSize)
 	if !valid {
 		return 0, false
 	}
 	return int(value), true
 }
 
-func nonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
-	value, valid := parseNonnegativeDecimal(headerValue(header, name), 63)
+func _octoqlNonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), 63)
 	if !valid {
 		return time.Time{}, false
 	}
-	if value > maxUnixSeconds() {
+	if value > _octoqlMaxUnixSeconds() {
 		return time.Time{}, false
 	}
 	return time.Unix(int64(value), 0).UTC(), true
 }
 
-func retryAfterFromHeader(header http.Header, now time.Time) (time.Duration, time.Time, bool) {
-	value := strings.TrimSpace(headerValue(header, "Retry-After"))
+func _octoqlRetryAfterFromHeader(header http.Header, now time.Time) (time.Duration, time.Time, bool) {
+	value := strings.TrimSpace(_octoqlHeaderValue(header, "Retry-After"))
 	if value == "" {
 		return 0, time.Time{}, false
 	}
 
-	seconds, valid := parseNonnegativeDecimal(value, 64)
+	seconds, valid := _octoqlParseNonnegativeDecimal(value, 64)
 	if valid {
 		maxSeconds := uint64(math.MaxInt64 / int64(time.Second))
 		if seconds > maxSeconds {
@@ -464,7 +464,7 @@ func retryAfterFromHeader(header http.Header, now time.Time) (time.Duration, tim
 	return retryAfter, retryAt, true
 }
 
-func parseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
+func _octoqlParseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return 0, false
@@ -481,7 +481,7 @@ func parseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
 	return parsed, true
 }
 
-func headerValue(header http.Header, name string) string {
+func _octoqlHeaderValue(header http.Header, name string) string {
 	for headerName, values := range header {
 		if strings.EqualFold(headerName, name) && len(values) > 0 {
 			return values[0]
@@ -490,12 +490,12 @@ func headerValue(header http.Header, name string) string {
 	return ""
 }
 
-func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) error {
+func _octoqlClassifyRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit, err error) error {
 	if err == nil {
 		return nil
 	}
 
-	isSecondaryResponse := isSecondaryRateLimitStatus(statusCode)
+	isSecondaryResponse := _octoqlIsSecondaryRateLimitStatus(statusCode)
 	if rateLimit.retryAfterValid && isSecondaryResponse {
 		return &RateLimitError{
 			Kind:      RateLimitSecondary,
@@ -504,8 +504,8 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 		}
 	}
 
-	isPrimaryStatus := isPrimaryRateLimitStatus(statusCode)
-	isPrimaryGraphQLError := hasGraphQLRateLimitError(err)
+	isPrimaryStatus := _octoqlIsPrimaryRateLimitStatus(statusCode)
+	isPrimaryGraphQLError := _octoqlHasGraphQLRateLimitError(err)
 	hasNoRemaining := rateLimit.remainingValid && rateLimit.Remaining == 0
 	hasPrimarySignal := isPrimaryStatus || isPrimaryGraphQLError
 	isPrimaryLimit := hasNoRemaining && hasPrimarySignal
@@ -519,7 +519,7 @@ func classifyRateLimit(statusCode int, rateLimit *parsedRateLimit, err error) er
 	return err
 }
 
-func isSecondaryRateLimitStatus(statusCode int) bool {
+func _octoqlIsSecondaryRateLimitStatus(statusCode int) bool {
 	switch statusCode {
 	case http.StatusOK, http.StatusForbidden, http.StatusTooManyRequests:
 		return true
@@ -528,7 +528,7 @@ func isSecondaryRateLimitStatus(statusCode int) bool {
 	}
 }
 
-func isPrimaryRateLimitStatus(statusCode int) bool {
+func _octoqlIsPrimaryRateLimitStatus(statusCode int) bool {
 	switch statusCode {
 	case http.StatusForbidden, http.StatusTooManyRequests:
 		return true
@@ -537,7 +537,7 @@ func isPrimaryRateLimitStatus(statusCode int) bool {
 	}
 }
 
-func hasGraphQLRateLimitError(err error) bool {
+func _octoqlHasGraphQLRateLimitError(err error) bool {
 	graphqlErrors, ok := errors.AsType[Errors](err)
 	if !ok {
 		return false
@@ -588,12 +588,12 @@ func NewClient(endpoint string, httpClient *http.Client) *Client {
 
 // SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
 // token must use the RFC 6750 b64token syntax. It may be called concurrently
-// with [Client.execute] to rotate credentials.
+// with [Client._octoqlExecute] to rotate credentials.
 func (c *Client) SetBearerToken(token string) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
 	}
-	if !validBearerToken(token) {
+	if !_octoqlValidBearerToken(token) {
 		return errors.New("octoql: invalid bearer token")
 	}
 
@@ -617,7 +617,7 @@ func (c *Client) ResponseSizeLimit() int64 {
 
 // SetResponseSizeLimit configures the maximum HTTP response body size Client
 // accepts for decoding. limit must be greater than zero. It may be called
-// concurrently with [Client.execute].
+// concurrently with [Client._octoqlExecute].
 func (c *Client) SetResponseSizeLimit(limit int64) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -649,23 +649,23 @@ func (c *Client) RateLimit() (RateLimit, bool) {
 	return *c.rateLimit, true
 }
 
-// payload is the GraphQL request body used by generated clients.
-type payload struct {
+// _octoqlPayload is the GraphQL request body used by generated clients.
+type _octoqlPayload struct {
 	Query         string `json:"query"`
 	OperationName string `json:"operationName"`
 	Variables     any    `json:"variables,omitempty"`
 }
 
-// execute runs operation and decodes its response data into response.
+// _octoqlExecute runs operation and decodes its response data into response.
 //
-// execute is a generated-code contract. Response must be a non-nil pointer.
+// _octoqlExecute is a generated-code contract. Response must be a non-nil pointer.
 // The returned boolean reports whether the GraphQL data field decoded
 // successfully and response is usable, including when GraphQL errors are also
 // returned.
 // Every failure after the server returns an HTTP response includes
 // [ResponseError]. GraphQL errors and rate limits remain discoverable in that
 // error chain as [Errors] and [RateLimitError].
-func (c *Client) execute(ctx context.Context, payload payload, response any) (bool, error) {
+func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, response any) (bool, error) {
 	if c == nil {
 		return false, errors.New("octoql: client is nil")
 	}
@@ -694,7 +694,7 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	//nolint:bodyclose // readAndClose closes the body and preserves close errors.
+	//nolint:bodyclose // _octoqlReadAndClose closes the body and preserves close errors.
 	httpResponse, sendErr := httpClient.Do(request)
 	if httpResponse == nil {
 		if sendErr == nil {
@@ -704,39 +704,39 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	}
 
 	observation := c.responseObservation.Add(1)
-	rateLimit := rateLimitFromHeader(httpResponse.Header, rateLimitNow())
-	c.observeRateLimit(observation, &rateLimit)
+	rateLimit := _octoqlRateLimitFromHeader(httpResponse.Header, _octoqlRateLimitNow())
+	c._octoqlObserveRateLimit(observation, &rateLimit)
 
 	statusCode := httpResponse.StatusCode
-	requestID := requestIDFromHeader(httpResponse.Header)
+	requestID := _octoqlRequestIDFromHeader(httpResponse.Header)
 	if sendErr != nil {
 		cause := fmt.Errorf("send graphql request: %w", sendErr)
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode: statusCode,
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
 	if httpResponse.Body == nil {
 		cause := errors.New("read graphql response: response body is nil")
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode: statusCode,
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
-	body, readErr, closeErr := readAndClose(
+	body, readErr, closeErr := _octoqlReadAndClose(
 		httpResponse.Body,
 		c.ResponseSizeLimit(),
 	)
 	if readErr != nil {
 		cause := errors.Join(readErr, closeErr)
 		_, responseTooLarge := errors.AsType[*ResponseSizeLimitError](readErr)
-		responseError := newResponseError(responseErrorParams{
+		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode:    statusCode,
 			requestID:     requestID,
 			body:          body,
@@ -744,16 +744,16 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 			bodyTruncated: responseTooLarge,
 			err:           cause,
 		})
-		return false, classifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 	}
 
-	data, graphqlErrors, decodeErr := decodeResponse(body)
+	data, graphqlErrors, decodeErr := _octoqlDecodeResponse(body)
 
 	hasData := data != nil && !bytes.Equal(bytes.TrimSpace(data), []byte("null"))
 	hasErrors := len(graphqlErrors) > 0
 	hasUsableData := false
 	if hasData {
-		dataErr := decodeData(data, response)
+		dataErr := _octoqlDecodeData(data, response)
 		hasUsableData = dataErr == nil
 		decodeErr = errors.Join(decodeErr, dataErr)
 	}
@@ -765,7 +765,7 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 	}
 	cause = errors.Join(cause, closeErr)
 
-	isSuccessful := isSuccessfulStatus(statusCode)
+	isSuccessful := _octoqlIsSuccessfulStatus(statusCode)
 	haspayload := hasData || hasErrors
 	missingpayload := decodeErr == nil && !haspayload
 	if isSuccessful && missingpayload {
@@ -779,22 +779,22 @@ func (c *Client) execute(ctx context.Context, payload payload, response any) (bo
 
 	hasDecodeFailure := decodeErr != nil || missingpayload
 	retainBody := !isSuccessful || hasDecodeFailure
-	responseError := newResponseError(responseErrorParams{
+	responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 		statusCode: statusCode,
 		requestID:  requestID,
 		body:       body,
 		retainBody: retainBody,
 		err:        cause,
 	})
-	return hasUsableData, classifyRateLimit(statusCode, &rateLimit, responseError)
+	return hasUsableData, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
 }
 
-func (c *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
+func (c *Client) _octoqlObserveRateLimit(observation uint64, parsed *_octoqlParsedRateLimit) {
 	if c == nil || parsed == nil || !parsed.remainingValid {
 		return
 	}
 
-	rateLimit := parsed.primarySnapshot()
+	rateLimit := parsed._octoqlPrimarySnapshot()
 	c.rateLimitMu.Lock()
 	defer c.rateLimitMu.Unlock()
 
@@ -807,7 +807,7 @@ func (c *Client) observeRateLimit(observation uint64, parsed *parsedRateLimit) {
 	c.rateLimitObservation = observation
 }
 
-func requestIDFromHeader(header http.Header) string {
+func _octoqlRequestIDFromHeader(header http.Header) string {
 	for name, values := range header {
 		if strings.EqualFold(name, "X-GitHub-Request-ID") && len(values) > 0 {
 			return values[0]
@@ -816,7 +816,7 @@ func requestIDFromHeader(header http.Header) string {
 	return ""
 }
 
-func validBearerToken(token string) bool {
+func _octoqlValidBearerToken(token string) bool {
 	if token == "" {
 		return false
 	}
@@ -829,7 +829,7 @@ func validBearerToken(token string) bool {
 			padding = true
 			continue
 		}
-		if padding || !validBearerTokenCharacter(character) {
+		if padding || !_octoqlValidBearerTokenCharacter(character) {
 			return false
 		}
 		hasTokenCharacter = true
@@ -837,7 +837,7 @@ func validBearerToken(token string) bool {
 	return hasTokenCharacter
 }
 
-func validBearerTokenCharacter(character byte) bool {
+func _octoqlValidBearerTokenCharacter(character byte) bool {
 	switch {
 	case character >= 'a' && character <= 'z':
 		return true
@@ -852,7 +852,7 @@ func validBearerTokenCharacter(character byte) bool {
 	}
 }
 
-func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
+func _octoqlReadAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
 	payload, readErr := io.ReadAll(io.LimitReader(body, limit))
 	if readErr == nil {
 		var excess [1]byte
@@ -874,7 +874,7 @@ func readAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
 	return payload, readErr, closeErr
 }
 
-func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
+func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	var envelope struct {
 		Data   json.RawMessage `json:"data"`
 		Errors json.RawMessage `json:"errors"`
@@ -899,7 +899,7 @@ func decodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	return envelope.Data, graphqlErrors, err
 }
 
-func decodeData(data json.RawMessage, response any) error {
+func _octoqlDecodeData(data json.RawMessage, response any) error {
 	err := json.Unmarshal(data, response)
 	if err != nil {
 		return fmt.Errorf("decode graphql response data: %w", err)
@@ -907,7 +907,7 @@ func decodeData(data json.RawMessage, response any) error {
 	return nil
 }
 
-func isSuccessfulStatus(statusCode int) bool {
+func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
@@ -1013,7 +1013,7 @@ type ActorDetails interface {
 
 func (v *ActorDetailsOctoqlOther) implementsGraphQLInterfaceActorDetails() {}
 
-func __unmarshalActorDetails(b []byte, v *ActorDetails) error {
+func _octoqlUnmarshalActorDetails(b []byte, v *ActorDetails) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -1036,7 +1036,7 @@ func __unmarshalActorDetails(b []byte, v *ActorDetails) error {
 	}
 }
 
-func __marshalActorDetails(v *ActorDetails) ([]byte, error) {
+func _octoqlMarshalActorDetails(v *ActorDetails) ([]byte, error) {
 
 	switch vv := (*v).(type) {
 	case *ActorDetailsOctoqlOther:
@@ -1085,7 +1085,7 @@ func (v *GetActorActorOrganization) implementsGraphQLInterfaceGetActorActor()   
 func (v *GetActorActorUser) implementsGraphQLInterfaceGetActorActor()                  {}
 func (v *GetActorActorOctoqlOther) implementsGraphQLInterfaceGetActorActor()           {}
 
-func __unmarshalGetActorActor(b []byte, v *GetActorActor) error {
+func _octoqlUnmarshalGetActorActor(b []byte, v *GetActorActor) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -1120,7 +1120,7 @@ func __unmarshalGetActorActor(b []byte, v *GetActorActor) error {
 	}
 }
 
-func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
+func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -1130,16 +1130,16 @@ func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		}
 		typename = "Bot"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalGetActorActorBot
+			*_octoqlPremarshalGetActorActorBot
 		}{
-			TypeName:                     typename,
-			__premarshalGetActorActorBot: premarshaled,
+			TypeName:                          typename,
+			_octoqlPremarshalGetActorActorBot: premarshaled,
 		}
 		return json.Marshal(result)
 	case *GetActorActorEnterpriseUserAccount:
@@ -1148,16 +1148,16 @@ func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		}
 		typename = "EnterpriseUserAccount"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalGetActorActorEnterpriseUserAccount
+			*_octoqlPremarshalGetActorActorEnterpriseUserAccount
 		}{
 			TypeName: typename,
-			__premarshalGetActorActorEnterpriseUserAccount: premarshaled,
+			_octoqlPremarshalGetActorActorEnterpriseUserAccount: premarshaled,
 		}
 		return json.Marshal(result)
 	case *GetActorActorOrganization:
@@ -1166,16 +1166,16 @@ func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		}
 		typename = "Organization"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalGetActorActorOrganization
+			*_octoqlPremarshalGetActorActorOrganization
 		}{
-			TypeName:                              typename,
-			__premarshalGetActorActorOrganization: premarshaled,
+			TypeName: typename,
+			_octoqlPremarshalGetActorActorOrganization: premarshaled,
 		}
 		return json.Marshal(result)
 	case *GetActorActorUser:
@@ -1184,23 +1184,23 @@ func __marshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		}
 		typename = "User"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalGetActorActorUser
+			*_octoqlPremarshalGetActorActorUser
 		}{
-			TypeName:                      typename,
-			__premarshalGetActorActorUser: premarshaled,
+			TypeName:                           typename,
+			_octoqlPremarshalGetActorActorUser: premarshaled,
 		}
 		return json.Marshal(result)
 	case *GetActorActorOctoqlOther:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
@@ -1236,7 +1236,7 @@ func (v *GetActorActorBot) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorBot
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorActorBot = v
 
@@ -1253,7 +1253,7 @@ func (v *GetActorActorBot) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorActorBot struct {
+type _octoqlPremarshalGetActorActorBot struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1262,15 +1262,15 @@ type __premarshalGetActorActorBot struct {
 }
 
 func (v *GetActorActorBot) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorActorBot) __premarshalJSON() (*__premarshalGetActorActorBot, error) {
-	var retval __premarshalGetActorActorBot
+func (v *GetActorActorBot) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorBot, error) {
+	var retval _octoqlPremarshalGetActorActorBot
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
@@ -1303,7 +1303,7 @@ func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorEnterpriseUserAccount
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorActorEnterpriseUserAccount = v
 
@@ -1320,7 +1320,7 @@ func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorActorEnterpriseUserAccount struct {
+type _octoqlPremarshalGetActorActorEnterpriseUserAccount struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1329,15 +1329,15 @@ type __premarshalGetActorActorEnterpriseUserAccount struct {
 }
 
 func (v *GetActorActorEnterpriseUserAccount) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorActorEnterpriseUserAccount) __premarshalJSON() (*__premarshalGetActorActorEnterpriseUserAccount, error) {
-	var retval __premarshalGetActorActorEnterpriseUserAccount
+func (v *GetActorActorEnterpriseUserAccount) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorEnterpriseUserAccount, error) {
+	var retval _octoqlPremarshalGetActorActorEnterpriseUserAccount
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
@@ -1368,7 +1368,7 @@ func (v *GetActorActorOctoqlOther) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorOctoqlOther
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorActorOctoqlOther = v
 
@@ -1385,7 +1385,7 @@ func (v *GetActorActorOctoqlOther) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorActorOctoqlOther struct {
+type _octoqlPremarshalGetActorActorOctoqlOther struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1394,15 +1394,15 @@ type __premarshalGetActorActorOctoqlOther struct {
 }
 
 func (v *GetActorActorOctoqlOther) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorActorOctoqlOther) __premarshalJSON() (*__premarshalGetActorActorOctoqlOther, error) {
-	var retval __premarshalGetActorActorOctoqlOther
+func (v *GetActorActorOctoqlOther) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorOctoqlOther, error) {
+	var retval _octoqlPremarshalGetActorActorOctoqlOther
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
@@ -1433,7 +1433,7 @@ func (v *GetActorActorOrganization) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorOrganization
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorActorOrganization = v
 
@@ -1450,7 +1450,7 @@ func (v *GetActorActorOrganization) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorActorOrganization struct {
+type _octoqlPremarshalGetActorActorOrganization struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1459,15 +1459,15 @@ type __premarshalGetActorActorOrganization struct {
 }
 
 func (v *GetActorActorOrganization) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorActorOrganization) __premarshalJSON() (*__premarshalGetActorActorOrganization, error) {
-	var retval __premarshalGetActorActorOrganization
+func (v *GetActorActorOrganization) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorOrganization, error) {
+	var retval _octoqlPremarshalGetActorActorOrganization
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
@@ -1498,7 +1498,7 @@ func (v *GetActorActorUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorActorUser
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorActorUser = v
 
@@ -1515,7 +1515,7 @@ func (v *GetActorActorUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorActorUser struct {
+type _octoqlPremarshalGetActorActorUser struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1524,15 +1524,15 @@ type __premarshalGetActorActorUser struct {
 }
 
 func (v *GetActorActorUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorActorUser) __premarshalJSON() (*__premarshalGetActorActorUser, error) {
-	var retval __premarshalGetActorActorUser
+func (v *GetActorActorUser) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorUser, error) {
+	var retval _octoqlPremarshalGetActorActorUser
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
@@ -1560,7 +1560,7 @@ func (v *GetActorRepositoryOwnerOrganization) implementsGraphQLInterfaceGetActor
 func (v *GetActorRepositoryOwnerUser) implementsGraphQLInterfaceGetActorRepositoryOwner()         {}
 func (v *GetActorRepositoryOwnerOctoqlOther) implementsGraphQLInterfaceGetActorRepositoryOwner()  {}
 
-func __unmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwner) error {
+func _octoqlUnmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwner) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -1592,7 +1592,7 @@ func __unmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwner) er
 	}
 }
 
-func __marshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error) {
+func _octoqlMarshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -1602,16 +1602,16 @@ func __marshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error
 		}
 		typename = "EnterpriseUserAccount"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalGetActorRepositoryOwnerEnterpriseUserAccount
+			*_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount
 		}{
 			TypeName: typename,
-			__premarshalGetActorRepositoryOwnerEnterpriseUserAccount: premarshaled,
+			_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount: premarshaled,
 		}
 		return json.Marshal(result)
 	case *GetActorRepositoryOwnerOrganization:
@@ -1620,16 +1620,16 @@ func __marshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error
 		}
 		typename = "Organization"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalGetActorRepositoryOwnerOrganization
+			*_octoqlPremarshalGetActorRepositoryOwnerOrganization
 		}{
 			TypeName: typename,
-			__premarshalGetActorRepositoryOwnerOrganization: premarshaled,
+			_octoqlPremarshalGetActorRepositoryOwnerOrganization: premarshaled,
 		}
 		return json.Marshal(result)
 	case *GetActorRepositoryOwnerUser:
@@ -1638,23 +1638,23 @@ func __marshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error
 		}
 		typename = "User"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalGetActorRepositoryOwnerUser
+			*_octoqlPremarshalGetActorRepositoryOwnerUser
 		}{
-			TypeName:                                typename,
-			__premarshalGetActorRepositoryOwnerUser: premarshaled,
+			TypeName: typename,
+			_octoqlPremarshalGetActorRepositoryOwnerUser: premarshaled,
 		}
 		return json.Marshal(result)
 	case *GetActorRepositoryOwnerOctoqlOther:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
@@ -1699,7 +1699,7 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSON(b []byte) e
 
 	var firstPass struct {
 		*GetActorRepositoryOwnerEnterpriseUserAccount
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorRepositoryOwnerEnterpriseUserAccount = v
 
@@ -1716,7 +1716,7 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSON(b []byte) e
 	return nil
 }
 
-type __premarshalGetActorRepositoryOwnerEnterpriseUserAccount struct {
+type _octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1727,15 +1727,15 @@ type __premarshalGetActorRepositoryOwnerEnterpriseUserAccount struct {
 }
 
 func (v *GetActorRepositoryOwnerEnterpriseUserAccount) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorRepositoryOwnerEnterpriseUserAccount) __premarshalJSON() (*__premarshalGetActorRepositoryOwnerEnterpriseUserAccount, error) {
-	var retval __premarshalGetActorRepositoryOwnerEnterpriseUserAccount
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount, error) {
+	var retval _octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
@@ -1776,7 +1776,7 @@ func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorRepositoryOwnerOctoqlOther
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorRepositoryOwnerOctoqlOther = v
 
@@ -1793,7 +1793,7 @@ func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorRepositoryOwnerOctoqlOther struct {
+type _octoqlPremarshalGetActorRepositoryOwnerOctoqlOther struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1804,15 +1804,15 @@ type __premarshalGetActorRepositoryOwnerOctoqlOther struct {
 }
 
 func (v *GetActorRepositoryOwnerOctoqlOther) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorRepositoryOwnerOctoqlOther) __premarshalJSON() (*__premarshalGetActorRepositoryOwnerOctoqlOther, error) {
-	var retval __premarshalGetActorRepositoryOwnerOctoqlOther
+func (v *GetActorRepositoryOwnerOctoqlOther) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRepositoryOwnerOctoqlOther, error) {
+	var retval _octoqlPremarshalGetActorRepositoryOwnerOctoqlOther
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
@@ -1853,7 +1853,7 @@ func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorRepositoryOwnerOrganization
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorRepositoryOwnerOrganization = v
 
@@ -1870,7 +1870,7 @@ func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorRepositoryOwnerOrganization struct {
+type _octoqlPremarshalGetActorRepositoryOwnerOrganization struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1881,15 +1881,15 @@ type __premarshalGetActorRepositoryOwnerOrganization struct {
 }
 
 func (v *GetActorRepositoryOwnerOrganization) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorRepositoryOwnerOrganization) __premarshalJSON() (*__premarshalGetActorRepositoryOwnerOrganization, error) {
-	var retval __premarshalGetActorRepositoryOwnerOrganization
+func (v *GetActorRepositoryOwnerOrganization) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRepositoryOwnerOrganization, error) {
+	var retval _octoqlPremarshalGetActorRepositoryOwnerOrganization
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
@@ -1930,7 +1930,7 @@ func (v *GetActorRepositoryOwnerUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*GetActorRepositoryOwnerUser
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorRepositoryOwnerUser = v
 
@@ -1947,7 +1947,7 @@ func (v *GetActorRepositoryOwnerUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorRepositoryOwnerUser struct {
+type _octoqlPremarshalGetActorRepositoryOwnerUser struct {
 	Typename string `json:"__typename"`
 
 	Id testutil.ID `json:"id"`
@@ -1958,15 +1958,15 @@ type __premarshalGetActorRepositoryOwnerUser struct {
 }
 
 func (v *GetActorRepositoryOwnerUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorRepositoryOwnerUser) __premarshalJSON() (*__premarshalGetActorRepositoryOwnerUser, error) {
-	var retval __premarshalGetActorRepositoryOwnerUser
+func (v *GetActorRepositoryOwnerUser) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRepositoryOwnerUser, error) {
+	var retval _octoqlPremarshalGetActorRepositoryOwnerUser
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
@@ -1997,7 +1997,7 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 		*GetActorResponse
 		Actor           json.RawMessage `json:"actor"`
 		RepositoryOwner json.RawMessage `json:"repositoryOwner"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetActorResponse = v
 
@@ -2013,7 +2013,7 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalGetActorActor(
+			err = _octoqlUnmarshalGetActorActor(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -2029,7 +2029,7 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalGetActorRepositoryOwner(
+			err = _octoqlUnmarshalGetActorRepositoryOwner(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -2040,29 +2040,29 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetActorResponse struct {
+type _octoqlPremarshalGetActorResponse struct {
 	Actor json.RawMessage `json:"actor"`
 
 	RepositoryOwner json.RawMessage `json:"repositoryOwner"`
 }
 
 func (v *GetActorResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetActorResponse) __premarshalJSON() (*__premarshalGetActorResponse, error) {
-	var retval __premarshalGetActorResponse
+func (v *GetActorResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorResponse, error) {
+	var retval _octoqlPremarshalGetActorResponse
 
 	{
 
 		dst := &retval.Actor
 		src := v.Actor
 		var err error
-		*dst, err = __marshalGetActorActor(
+		*dst, err = _octoqlMarshalGetActorActor(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -2074,7 +2074,7 @@ func (v *GetActorResponse) __premarshalJSON() (*__premarshalGetActorResponse, er
 		dst := &retval.RepositoryOwner
 		src := v.RepositoryOwner
 		var err error
-		*dst, err = __marshalGetActorRepositoryOwner(
+		*dst, err = _octoqlMarshalGetActorRepositoryOwner(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -2113,7 +2113,7 @@ func (v *GetNodeNodeRepository) implementsGraphQLInterfaceGetNodeNode()   {}
 func (v *GetNodeNodeUser) implementsGraphQLInterfaceGetNodeNode()         {}
 func (v *GetNodeNodeOctoqlOther) implementsGraphQLInterfaceGetNodeNode()  {}
 
-func __unmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
+func _octoqlUnmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -2151,7 +2151,7 @@ func __unmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 	}
 }
 
-func __marshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
+func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -2347,7 +2347,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*GetNodeResponse
 		Node json.RawMessage `json:"node"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetNodeResponse = v
 
@@ -2363,7 +2363,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalGetNodeNode(
+			err = _octoqlUnmarshalGetNodeNode(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -2374,27 +2374,27 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetNodeResponse struct {
+type _octoqlPremarshalGetNodeResponse struct {
 	Node json.RawMessage `json:"node"`
 }
 
 func (v *GetNodeResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetNodeResponse) __premarshalJSON() (*__premarshalGetNodeResponse, error) {
-	var retval __premarshalGetNodeResponse
+func (v *GetNodeResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalGetNodeResponse, error) {
+	var retval _octoqlPremarshalGetNodeResponse
 
 	{
 
 		dst := &retval.Node
 		src := v.Node
 		var err error
-		*dst, err = __marshalGetNodeNode(
+		*dst, err = _octoqlMarshalGetNodeNode(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -2424,7 +2424,7 @@ type NestedNodeShapesNestedNodesNode interface {
 func (v *NestedNodeShapesNestedNodesNodeOctoqlOther) implementsGraphQLInterfaceNestedNodeShapesNestedNodesNode() {
 }
 
-func __unmarshalNestedNodeShapesNestedNodesNode(b []byte, v *NestedNodeShapesNestedNodesNode) error {
+func _octoqlUnmarshalNestedNodeShapesNestedNodesNode(b []byte, v *NestedNodeShapesNestedNodesNode) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -2447,7 +2447,7 @@ func __unmarshalNestedNodeShapesNestedNodesNode(b []byte, v *NestedNodeShapesNes
 	}
 }
 
-func __marshalNestedNodeShapesNestedNodesNode(v *NestedNodeShapesNestedNodesNode) ([]byte, error) {
+func _octoqlMarshalNestedNodeShapesNestedNodesNode(v *NestedNodeShapesNestedNodesNode) ([]byte, error) {
 
 	switch vv := (*v).(type) {
 	case *NestedNodeShapesNestedNodesNodeOctoqlOther:
@@ -2494,7 +2494,7 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*NestedNodeShapesResponse
 		NestedNodes json.RawMessage `json:"nestedNodes"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.NestedNodeShapesResponse = v
 
@@ -2536,7 +2536,7 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 									for i, src := range src {
 										dst := &(*dst)[i]
 										if len(src) != 0 && string(src) != "null" {
-											err = __unmarshalNestedNodeShapesNestedNodesNode(
+											err = _octoqlUnmarshalNestedNodeShapesNestedNodesNode(
 												src, dst)
 											if err != nil {
 												return fmt.Errorf(
@@ -2555,20 +2555,20 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalNestedNodeShapesResponse struct {
+type _octoqlPremarshalNestedNodeShapesResponse struct {
 	NestedNodes [][][]json.RawMessage `json:"nestedNodes"`
 }
 
 func (v *NestedNodeShapesResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *NestedNodeShapesResponse) __premarshalJSON() (*__premarshalNestedNodeShapesResponse, error) {
-	var retval __premarshalNestedNodeShapesResponse
+func (v *NestedNodeShapesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalNestedNodeShapesResponse, error) {
+	var retval _octoqlPremarshalNestedNodeShapesResponse
 
 	{
 
@@ -2593,7 +2593,7 @@ func (v *NestedNodeShapesResponse) __premarshalJSON() (*__premarshalNestedNodeSh
 							for i, src := range src {
 								dst := &(*dst)[i]
 								var err error
-								*dst, err = __marshalNestedNodeShapesNestedNodesNode(
+								*dst, err = _octoqlMarshalNestedNodeShapesNestedNodesNode(
 									&src)
 								if err != nil {
 									return nil, fmt.Errorf(
@@ -2698,7 +2698,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 		*RepositoryEventCovarianceLatestRepositoryEvent
 		Subject         json.RawMessage `json:"subject"`
 		RelatedSubjects json.RawMessage `json:"relatedSubjects"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.RepositoryEventCovarianceLatestRepositoryEvent = v
 
@@ -2714,7 +2714,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
+			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -2744,7 +2744,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+							err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -2759,7 +2759,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 	return nil
 }
 
-type __premarshalRepositoryEventCovarianceLatestRepositoryEvent struct {
+type _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent struct {
 	Typename string `json:"__typename"`
 
 	Subject json.RawMessage `json:"subject"`
@@ -2772,15 +2772,15 @@ type __premarshalRepositoryEventCovarianceLatestRepositoryEvent struct {
 }
 
 func (v *RepositoryEventCovarianceLatestRepositoryEvent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *RepositoryEventCovarianceLatestRepositoryEvent) __premarshalJSON() (*__premarshalRepositoryEventCovarianceLatestRepositoryEvent, error) {
-	var retval __premarshalRepositoryEventCovarianceLatestRepositoryEvent
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) _octoqlPremarshalJSON() (*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent, error) {
+	var retval _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent
 
 	retval.Typename = v.Typename
 	{
@@ -2788,7 +2788,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) __premarshalJSON() (*__
 		dst := &retval.Subject
 		src := v.Subject
 		var err error
-		*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
+		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -2806,7 +2806,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) __premarshalJSON() (*__
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+				*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -2860,7 +2860,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) implementsGraphQLInterf
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItem() {
 }
 
-func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) error {
+func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -2886,7 +2886,7 @@ func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(b []b
 	}
 }
 
-func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) ([]byte, error) {
+func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -2896,23 +2896,23 @@ func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v *Repo
 		}
 		typename = "RepositoryEvent"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalRepositoryEventCovarianceLatestRepositoryEvent
+			*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent
 		}{
 			TypeName: typename,
-			__premarshalRepositoryEventCovarianceLatestRepositoryEvent: premarshaled,
+			_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent: premarshaled,
 		}
 		return json.Marshal(result)
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
@@ -2957,7 +2957,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 		*RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther
 		Subject         json.RawMessage `json:"subject"`
 		RelatedSubjects json.RawMessage `json:"relatedSubjects"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther = v
 
@@ -2973,7 +2973,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
+			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -3003,7 +3003,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+							err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -3018,7 +3018,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 	return nil
 }
 
-type __premarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther struct {
+type _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther struct {
 	Typename string `json:"__typename"`
 
 	Subject json.RawMessage `json:"subject"`
@@ -3027,15 +3027,15 @@ type __premarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoq
 }
 
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) __premarshalJSON() (*__premarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther, error) {
-	var retval __premarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) _octoqlPremarshalJSON() (*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther, error) {
+	var retval _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther
 
 	retval.Typename = v.Typename
 	{
@@ -3043,7 +3043,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 		dst := &retval.Subject
 		src := v.Subject
 		var err error
-		*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
+		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -3061,7 +3061,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
+				*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -3088,7 +3088,7 @@ type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNo
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNodeOctoqlOther) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
 }
 
-func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) error {
+func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3111,7 +3111,7 @@ func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelate
 	}
 }
 
-func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) ([]byte, error) {
+func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) ([]byte, error) {
 
 	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNodeOctoqlOther:
@@ -3158,7 +3158,7 @@ type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode inter
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNodeOctoqlOther) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
 }
 
-func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) error {
+func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3181,7 +3181,7 @@ func __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjec
 	}
 }
 
-func __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) ([]byte, error) {
+func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) ([]byte, error) {
 
 	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNodeOctoqlOther:
@@ -3232,7 +3232,7 @@ func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*RepositoryEventCovarianceResponse
 		LatestRepositoryEvent json.RawMessage `json:"latestRepositoryEvent"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.RepositoryEventCovarianceResponse = v
 
@@ -3248,7 +3248,7 @@ func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
+			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -3259,27 +3259,27 @@ func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalRepositoryEventCovarianceResponse struct {
+type _octoqlPremarshalRepositoryEventCovarianceResponse struct {
 	LatestRepositoryEvent json.RawMessage `json:"latestRepositoryEvent"`
 }
 
 func (v *RepositoryEventCovarianceResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *RepositoryEventCovarianceResponse) __premarshalJSON() (*__premarshalRepositoryEventCovarianceResponse, error) {
-	var retval __premarshalRepositoryEventCovarianceResponse
+func (v *RepositoryEventCovarianceResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalRepositoryEventCovarianceResponse, error) {
+	var retval _octoqlPremarshalRepositoryEventCovarianceResponse
 
 	{
 
 		dst := &retval.LatestRepositoryEvent
 		src := v.LatestRepositoryEvent
 		var err error
-		*dst, err = __marshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
+		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -3305,7 +3305,7 @@ type RepositoryOwnerDetails interface {
 
 func (v *RepositoryOwnerDetailsOctoqlOther) implementsGraphQLInterfaceRepositoryOwnerDetails() {}
 
-func __unmarshalRepositoryOwnerDetails(b []byte, v *RepositoryOwnerDetails) error {
+func _octoqlUnmarshalRepositoryOwnerDetails(b []byte, v *RepositoryOwnerDetails) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3328,7 +3328,7 @@ func __unmarshalRepositoryOwnerDetails(b []byte, v *RepositoryOwnerDetails) erro
 	}
 }
 
-func __marshalRepositoryOwnerDetails(v *RepositoryOwnerDetails) ([]byte, error) {
+func _octoqlMarshalRepositoryOwnerDetails(v *RepositoryOwnerDetails) ([]byte, error) {
 
 	switch vv := (*v).(type) {
 	case *RepositoryOwnerDetailsOctoqlOther:
@@ -3403,7 +3403,7 @@ func (v *SearchRepositoriesLatestRelease) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*SearchRepositoriesLatestRelease
 		PublishedAt json.RawMessage `json:"publishedAt"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.SearchRepositoriesLatestRelease = v
 
@@ -3431,22 +3431,22 @@ func (v *SearchRepositoriesLatestRelease) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalSearchRepositoriesLatestRelease struct {
+type _octoqlPremarshalSearchRepositoriesLatestRelease struct {
 	Name string `json:"name"`
 
 	PublishedAt json.RawMessage `json:"publishedAt"`
 }
 
 func (v *SearchRepositoriesLatestRelease) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *SearchRepositoriesLatestRelease) __premarshalJSON() (*__premarshalSearchRepositoriesLatestRelease, error) {
-	var retval __premarshalSearchRepositoriesLatestRelease
+func (v *SearchRepositoriesLatestRelease) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRepositoriesLatestRelease, error) {
+	var retval _octoqlPremarshalSearchRepositoriesLatestRelease
 
 	retval.Name = v.Name
 	{
@@ -3517,7 +3517,7 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 	var firstPass struct {
 		*SearchRepositoriesSearchSearchResultConnection
 		Nodes json.RawMessage `json:"nodes"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.SearchRepositoriesSearchSearchResultConnection = v
 
@@ -3547,7 +3547,7 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
+							err = _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -3562,22 +3562,22 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 	return nil
 }
 
-type __premarshalSearchRepositoriesSearchSearchResultConnection struct {
+type _octoqlPremarshalSearchRepositoriesSearchSearchResultConnection struct {
 	Nodes []json.RawMessage `json:"nodes"`
 
 	PageInfo SearchRepositoriesSearchSearchResultConnectionPageInfo `json:"pageInfo"`
 }
 
 func (v *SearchRepositoriesSearchSearchResultConnection) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *SearchRepositoriesSearchSearchResultConnection) __premarshalJSON() (*__premarshalSearchRepositoriesSearchSearchResultConnection, error) {
-	var retval __premarshalSearchRepositoriesSearchSearchResultConnection
+func (v *SearchRepositoriesSearchSearchResultConnection) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnection, error) {
+	var retval _octoqlPremarshalSearchRepositoriesSearchSearchResultConnection
 
 	{
 
@@ -3590,7 +3590,7 @@ func (v *SearchRepositoriesSearchSearchResultConnection) __premarshalJSON() (*__
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
+				*dst, err = _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -3720,7 +3720,7 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) Unmarsha
 	var firstPass struct {
 		*SearchRepositoriesSearchSearchResultConnectionNodesRepository
 		Owner json.RawMessage `json:"owner"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.SearchRepositoriesSearchSearchResultConnectionNodesRepository = v
 
@@ -3736,7 +3736,7 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) Unmarsha
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(
+			err = _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -3747,7 +3747,7 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) Unmarsha
 	return nil
 }
 
-type __premarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository struct {
+type _octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository struct {
 	Typename string `json:"__typename"`
 
 	RepoName string `json:"repoName"`
@@ -3758,15 +3758,15 @@ type __premarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository s
 }
 
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) __premarshalJSON() (*__premarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository, error) {
-	var retval __premarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository
+func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository, error) {
+	var retval _octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository
 
 	retval.Typename = v.Typename
 	retval.RepoName = v.RepoName
@@ -3775,7 +3775,7 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) __premar
 		dst := &retval.Owner
 		src := v.Owner
 		var err error
-		*dst, err = __marshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(
+		*dst, err = _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -3801,7 +3801,7 @@ type SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner interfac
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwnerOctoqlOther) implementsGraphQLInterfaceSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner() {
 }
 
-func __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(b []byte, v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) error {
+func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(b []byte, v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3824,7 +3824,7 @@ func __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwn
 	}
 }
 
-func __marshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) ([]byte, error) {
+func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) ([]byte, error) {
 
 	switch vv := (*v).(type) {
 	case *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwnerOctoqlOther:
@@ -3888,7 +3888,7 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) implemen
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItemOctoqlOther) implementsGraphQLInterfaceSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem() {
 }
 
-func __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(b []byte, v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) error {
+func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(b []byte, v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -3920,7 +3920,7 @@ func __unmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultI
 	}
 }
 
-func __marshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) ([]byte, error) {
+func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -3958,16 +3958,16 @@ func __marshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultIte
 		}
 		typename = "Repository"
 
-		premarshaled, err := vv.__premarshalJSON()
+		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
 			return nil, err
 		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*__premarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository
+			*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository
 		}{
 			TypeName: typename,
-			__premarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository: premarshaled,
+			_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository: premarshaled,
 		}
 		return json.Marshal(result)
 	case *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItemOctoqlOther:
@@ -4026,7 +4026,7 @@ func (v *SearchRepositoriesVariables) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*SearchRepositoriesVariables
 		PublishedAfter json.RawMessage `json:"publishedAfter"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.SearchRepositoriesVariables = v
 
@@ -4054,7 +4054,7 @@ func (v *SearchRepositoriesVariables) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalSearchRepositoriesVariables struct {
+type _octoqlPremarshalSearchRepositoriesVariables struct {
 	Query string `json:"query"`
 
 	First *int `json:"first"`
@@ -4065,15 +4065,15 @@ type __premarshalSearchRepositoriesVariables struct {
 }
 
 func (v *SearchRepositoriesVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *SearchRepositoriesVariables) __premarshalJSON() (*__premarshalSearchRepositoriesVariables, error) {
-	var retval __premarshalSearchRepositoriesVariables
+func (v *SearchRepositoriesVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRepositoriesVariables, error) {
+	var retval _octoqlPremarshalSearchRepositoriesVariables
 
 	retval.Query = v.Query
 	retval.First = v.First
@@ -4134,9 +4134,9 @@ func (c *Client) GetActor(
 	vars GetActorVariables,
 ) (*GetActorResponse, error) {
 	var response GetActorResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		context.Background(),
-		payload{
+		_octoqlPayload{
 			OperationName: "GetActor",
 			Query:         GetActor_Operation,
 			Variables:     &vars,
@@ -4194,9 +4194,9 @@ func (c *Client) GetNode(
 	vars GetNodeVariables,
 ) (*GetNodeResponse, error) {
 	var response GetNodeResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		context.Background(),
-		payload{
+		_octoqlPayload{
 			OperationName: "GetNode",
 			Query:         GetNode_Operation,
 			Variables:     &vars,
@@ -4252,9 +4252,9 @@ func (e *NestedNodeShapesPartialDataError) PartialDataValue() any {
 
 func (c *Client) NestedNodeShapes() (*NestedNodeShapesResponse, error) {
 	var response NestedNodeShapesResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		context.Background(),
-		payload{
+		_octoqlPayload{
 			OperationName: "NestedNodeShapes",
 			Query:         NestedNodeShapes_Operation,
 			Variables:     nil,
@@ -4312,9 +4312,9 @@ func (c *Client) RecursiveRepository(
 	vars RecursiveRepositoryVariables,
 ) (*RecursiveRepositoryResponse, error) {
 	var response RecursiveRepositoryResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		context.Background(),
-		payload{
+		_octoqlPayload{
 			OperationName: "RecursiveRepository",
 			Query:         RecursiveRepository_Operation,
 			Variables:     &vars,
@@ -4370,9 +4370,9 @@ func (e *RepositoryEventCovariancePartialDataError) PartialDataValue() any {
 
 func (c *Client) RepositoryEventCovariance() (*RepositoryEventCovarianceResponse, error) {
 	var response RepositoryEventCovarianceResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		context.Background(),
-		payload{
+		_octoqlPayload{
 			OperationName: "RepositoryEventCovariance",
 			Query:         RepositoryEventCovariance_Operation,
 			Variables:     nil,
@@ -4430,9 +4430,9 @@ func (c *Client) SearchRepositories(
 	vars SearchRepositoriesVariables,
 ) (*SearchRepositoriesResponse, error) {
 	var response SearchRepositoriesResponse
-	hasData, err := c.execute(
+	hasData, err := c._octoqlExecute(
 		context.Background(),
-		payload{
+		_octoqlPayload{
 			OperationName: "SearchRepositories",
 			Query:         SearchRepositories_Operation,
 			Variables:     &vars,

@@ -93,7 +93,7 @@ func TestRateLimitFromHeader(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := rateLimitFromHeader(test.header, now)
+			got := _octoqlRateLimitFromHeader(test.header, now)
 			assert.Equal(t, *test.want, got.RateLimit)
 		})
 	}
@@ -115,14 +115,14 @@ func TestRateLimitRejectsNegativeAndOverflowNumericHeaders(t *testing.T) {
 
 	for name, header := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := rateLimitFromHeader(header, time.Time{})
+			got := _octoqlRateLimitFromHeader(header, time.Time{})
 			assert.Equal(t, RateLimit{}, got.RateLimit)
 		})
 	}
 }
 
 func TestNonnegativeHeaderUnixRepresentability(t *testing.T) {
-	maximum := maxUnixSeconds()
+	maximum := _octoqlMaxUnixSeconds()
 	tests := map[string]struct {
 		value string
 		want  bool
@@ -142,7 +142,7 @@ func TestNonnegativeHeaderUnixRepresentability(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			header := http.Header{"X-RateLimit-Reset": {test.value}}
-			got, valid := nonnegativeHeaderUnix(header, "X-RateLimit-Reset")
+			got, valid := _octoqlNonnegativeHeaderUnix(header, "X-RateLimit-Reset")
 			assert.Equal(t, test.want, valid)
 			if test.want {
 				assert.Equal(t, time.Unix(int64(maximum), 0).UTC(), got)
@@ -155,12 +155,12 @@ func TestNonnegativeHeaderUnixRepresentability(t *testing.T) {
 
 func TestDoClassifiesRateLimits(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 19, 0, 0, 0, time.UTC)
-	previousNow := rateLimitNow
-	rateLimitNow = func() time.Time {
+	previousNow := _octoqlRateLimitNow
+	_octoqlRateLimitNow = func() time.Time {
 		return now
 	}
 	t.Cleanup(func() {
-		rateLimitNow = previousNow
+		_octoqlRateLimitNow = previousNow
 	})
 
 	tests := map[string]struct {
@@ -359,14 +359,14 @@ func TestDoDoesNotClassifyTransportErrors(t *testing.T) {
 
 func TestClientRateLimitNewestObservationWins(t *testing.T) {
 	client := &Client{}
-	client.observeRateLimit(2, &parsedRateLimit{
+	client._octoqlObserveRateLimit(2, &_octoqlParsedRateLimit{
 		RateLimit: RateLimit{
 			Remaining: 20,
 			Used:      80,
 		},
 		remainingValid: true,
 	})
-	client.observeRateLimit(1, &parsedRateLimit{
+	client._octoqlObserveRateLimit(1, &_octoqlParsedRateLimit{
 		RateLimit: RateLimit{
 			Remaining: 90,
 			Used:      10,
@@ -387,7 +387,7 @@ func TestClientRateLimitConcurrentAccess(t *testing.T) {
 		waitGroup.Add(2)
 		go func() {
 			defer waitGroup.Done()
-			client.observeRateLimit(observation, &parsedRateLimit{
+			client._octoqlObserveRateLimit(observation, &_octoqlParsedRateLimit{
 				RateLimit: RateLimit{
 					Remaining: int(observation),
 				},
@@ -421,9 +421,9 @@ func rateLimitClient(statusCode int, header http.Header, body string) *Client {
 
 func doRateLimitOperation[T any](t *testing.T, client *Client) (*T, error) {
 	response := new(T)
-	hasData, err := client.execute(
+	hasData, err := client._octoqlExecute(
 		t.Context(),
-		payload{
+		_octoqlPayload{
 			OperationName: "Viewer",
 			Query:         "query Viewer { viewer { login } }",
 		},

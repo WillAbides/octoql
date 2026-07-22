@@ -22,7 +22,7 @@ func TestTypedNilPremarshaledAbstractValueMarshalsAsNull(t *testing.T) {
 	var organization *queryWithFragmentsActorsOrganization
 	var actor queryWithFragmentsActorsActor = organization
 
-	data, err := __marshalqueryWithFragmentsActorsActor(&actor)
+	data, err := _octoqlMarshalqueryWithFragmentsActorsActor(&actor)
 
 	require.NoError(t, err)
 	assert.JSONEq(t, "null", string(data))

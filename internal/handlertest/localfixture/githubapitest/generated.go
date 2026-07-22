@@ -158,7 +158,7 @@ func (v *GetNodeNodeIssue) implementsGraphQLInterfaceGetNodeNode()       {}
 func (v *GetNodeNodeRepository) implementsGraphQLInterfaceGetNodeNode()  {}
 func (v *GetNodeNodeOctoqlOther) implementsGraphQLInterfaceGetNodeNode() {}
 
-func __unmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
+func _octoqlUnmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -187,7 +187,7 @@ func __unmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 	}
 }
 
-func __marshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
+func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -293,7 +293,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*GetNodeResponse
 		Node json.RawMessage `json:"node"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.GetNodeResponse = v
 
@@ -309,7 +309,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalGetNodeNode(
+			err = _octoqlUnmarshalGetNodeNode(
 				src, dst)
 			if err != nil {
 				return fmt.Errorf(
@@ -320,27 +320,27 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetNodeResponse struct {
+type _octoqlPremarshalGetNodeResponse struct {
 	Node json.RawMessage `json:"node"`
 }
 
 func (v *GetNodeResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetNodeResponse) __premarshalJSON() (*__premarshalGetNodeResponse, error) {
-	var retval __premarshalGetNodeResponse
+func (v *GetNodeResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalGetNodeResponse, error) {
+	var retval _octoqlPremarshalGetNodeResponse
 
 	{
 
 		dst := &retval.Node
 		src := v.Node
 		var err error
-		*dst, err = __marshalGetNodeNode(
+		*dst, err = _octoqlMarshalGetNodeNode(
 			&src)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -470,7 +470,7 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 	var firstPass struct {
 		*SearchResponse
 		Search json.RawMessage `json:"search"`
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.SearchResponse = v
 
@@ -500,7 +500,7 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = __unmarshalSearchSearchSearchResultItem(
+							err = _octoqlUnmarshalSearchSearchSearchResultItem(
 								src, dst)
 							if err != nil {
 								return fmt.Errorf(
@@ -515,20 +515,20 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalSearchResponse struct {
+type _octoqlPremarshalSearchResponse struct {
 	Search []json.RawMessage `json:"search"`
 }
 
 func (v *SearchResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *SearchResponse) __premarshalJSON() (*__premarshalSearchResponse, error) {
-	var retval __premarshalSearchResponse
+func (v *SearchResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchResponse, error) {
+	var retval _octoqlPremarshalSearchResponse
 
 	{
 
@@ -541,7 +541,7 @@ func (v *SearchResponse) __premarshalJSON() (*__premarshalSearchResponse, error)
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = __marshalSearchSearchSearchResultItem(
+				*dst, err = _octoqlMarshalSearchSearchSearchResultItem(
 					&src)
 				if err != nil {
 					return nil, fmt.Errorf(
@@ -602,7 +602,7 @@ func (v *SearchSearchRepository) implementsGraphQLInterfaceSearchSearchSearchRes
 func (v *SearchSearchSearchResultItemOctoqlOther) implementsGraphQLInterfaceSearchSearchSearchResultItem() {
 }
 
-func __unmarshalSearchSearchSearchResultItem(b []byte, v *SearchSearchSearchResultItem) error {
+func _octoqlUnmarshalSearchSearchSearchResultItem(b []byte, v *SearchSearchSearchResultItem) error {
 	if string(b) == "null" {
 		return nil
 	}
@@ -631,7 +631,7 @@ func __unmarshalSearchSearchSearchResultItem(b []byte, v *SearchSearchSearchResu
 	}
 }
 
-func __marshalSearchSearchSearchResultItem(v *SearchSearchSearchResultItem) ([]byte, error) {
+func _octoqlMarshalSearchSearchSearchResultItem(v *SearchSearchSearchResultItem) ([]byte, error) {
 
 	var typename string
 	switch vv := (*v).(type) {
@@ -728,7 +728,7 @@ func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 
 	var firstPass struct {
 		*ViewerViewerUser
-		noUnmarshalJSON
+		_octoqlNoUnmarshalJSON
 	}
 	firstPass.ViewerViewerUser = v
 
@@ -745,22 +745,22 @@ func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalViewerViewerUser struct {
+type _octoqlPremarshalViewerViewerUser struct {
 	Id string `json:"id"`
 
 	Login string `json:"login"`
 }
 
 func (v *ViewerViewerUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
+	premarshaled, err := v._octoqlPremarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(premarshaled)
 }
 
-func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, error) {
-	var retval __premarshalViewerViewerUser
+func (v *ViewerViewerUser) _octoqlPremarshalJSON() (*_octoqlPremarshalViewerViewerUser, error) {
+	var retval _octoqlPremarshalViewerViewerUser
 
 	retval.Id = v.ViewerVariables.Id
 	retval.Login = v.ViewerVariables.Login
@@ -769,10 +769,10 @@ func (v *ViewerViewerUser) __premarshalJSON() (*__premarshalViewerViewerUser, er
 
 type ErrorType string
 
-type noUnmarshalJSON struct{}
+type _octoqlNoUnmarshalJSON struct{}
 
-func (noUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("noUnmarshalJSON.UnmarshalJSON should never be called!")
+func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
 type Path []any

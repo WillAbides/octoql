@@ -8,10 +8,10 @@ package {{.Package}}
 {{.LocalTypeDefinitions}}
 type ErrorType string
 
-type noUnmarshalJSON struct{}
+type _octoqlNoUnmarshalJSON struct{}
 
-func (noUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("noUnmarshalJSON.UnmarshalJSON should never be called!")
+func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
+	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
 type Path []any

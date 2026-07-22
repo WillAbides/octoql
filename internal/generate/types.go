@@ -205,7 +205,7 @@ func (f *goStructField) unmarshaler() (qualifiedName string, needsImport, needsU
 			return typ.Unmarshaler, true, true
 		}
 	case *goInterfaceType:
-		return "__unmarshal" + typ.Reference(), false, true
+		return "_octoqlUnmarshal" + typ.Reference(), false, true
 	}
 	return "encoding/json.Unmarshal", true, f.IsEmbedded()
 }
@@ -231,7 +231,7 @@ func (f *goStructField) marshaler() (qualifiedName string, needsImport, needsMar
 			return typ.Marshaler, true, true
 		}
 	case *goInterfaceType:
-		return "__marshal" + typ.Reference(), false, true
+		return "_octoqlMarshal" + typ.Reference(), false, true
 	}
 	return "encoding/json.Marshal", true, f.IsEmbedded()
 }

@@ -43,9 +43,9 @@ func (c *Client) {{.Name}}(
     {{end -}}
 ) (*{{.ResponseName}}, error) {
     var response {{.ResponseName}}
-    hasData, err := c.execute(
+    hasData, err := c._octoqlExecute(
         {{if ne .Config.ContextType "-"}}ctx{{else}}{{ref "context.Background"}}(){{end}},
-        payload{
+        _octoqlPayload{
             OperationName: "{{.Name}}",
             Query: {{.Name}}_Operation,
             Variables: {{if .Input}}&vars{{else}}nil{{end}},
