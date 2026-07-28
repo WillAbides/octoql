@@ -430,15 +430,15 @@ type User {
 	assert.NotContains(t, source, "type ViewerResponse struct")
 }
 
-// TestTypeReuseComparesDirectiveOptions checks that two selections sharing a
-// user-specified type name are only allowed to share a generated type when
+// TestTypeReuseRejectsDivergentPointerOption checks that two selections sharing
+// a user-specified type name are only allowed to share a generated type when
 // they also generate the same Go.
 //
-// The options used to live in comments, which gqlparser discards, so the
-// selection comparison that guards type reuse could not see them: two
-// selections that requested the same fields with different options compared
-// equal, and the first type generated was silently reused for both.
-func TestTypeReuseComparesDirectiveOptions(t *testing.T) {
+// The reuse guard compares the fields octoqlgen is about to emit, not the
+// options asking for them, so this covers pointer without needing to know that
+// pointer is what differs.  The collision corpus covers alias, @skip, and
+// implementation-level differences the same way.
+func TestTypeReuseRejectsDivergentPointerOption(t *testing.T) {
 	const schema = `
 type Query {
   viewer: User!
@@ -493,8 +493,7 @@ query B {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "conflicting definition for the Go type SharedUser")
-		assert.Contains(t, err.Error(),
-			"to have the same @octoqlgen options in both places")
+		assert.Contains(t, err.Error(), "*bool vs bool")
 	})
 
 	t.Run("matching options share one type", func(t *testing.T) {

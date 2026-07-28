@@ -50,7 +50,7 @@ func (g *generator) getType(
 	}
 
 	expectedSelectionSet := typ.SelectionSet()
-	err := selectionsMatch(pos, selectionSet, expectedSelectionSet, g.directives)
+	err := selectionsMatch(pos, selectionSet, expectedSelectionSet)
 	if err != nil {
 		oldSource := describeTypeSource(typ)
 		oldPos := g.typePositions[goName]
@@ -765,9 +765,10 @@ func (g *generator) convertDefinition(
 	// also requires this path for recursive types: it pre-inserts an empty
 	// struct via addType so getType on a second call returns that placeholder,
 	// and the early-out is required to avoid overwriting it.
-	// Known limitation: an operation-level @octoqlgen(for:) directive can
-	// change an input type's generated fields; contradictory declarations
-	// across operations are not detected here.
+	// Known limitation: an operation-level @octoqlgenFor declaration can change
+	// an input type's generated fields.  Contradictory declarations are
+	// rejected where they are collected, by recordForDeclaration, rather than
+	// here: this early-out is exactly why they cannot be caught at this point.
 	// For selection-based types (Object, Interface, Union), skip the early-
 	// out so the candidate is built and reaches addType for structural
 	// comparison.

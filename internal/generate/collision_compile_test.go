@@ -446,14 +446,11 @@ type Item {
 `,
 			operations: `
 query Q {
-  # @octoqlgen(typename: "Shared")
-  a {
-    # @octoqlgen(alias: "nodeId")
-    id
+  a @octoqlgen(typename: "Shared") {
+    id @octoqlgen(alias: "nodeId")
     name
   }
-  # @octoqlgen(typename: "Shared")
-  b {
+  b @octoqlgen(typename: "Shared") {
     id
     name
   }
@@ -488,10 +485,8 @@ type Item {
 `,
 			operations: `
 query Q($hide: Boolean!) {
-  # @octoqlgen(typename: "Shared")
-  a { id  flag @skip(if: $hide) }
-  # @octoqlgen(typename: "Shared")
-  b { id  flag }
+  a @octoqlgen(typename: "Shared") { id  flag @skip(if: $hide) }
+  b @octoqlgen(typename: "Shared") { id  flag }
 }
 `,
 			wantGenerationErr: "conflicting definition for the Go type Shared",
@@ -537,13 +532,11 @@ type Query {
 fragment F on Node {
   __typename
   ... on User {
-    # @octoqlgen(alias: "userId")
-    id
+    id @octoqlgen(alias: "userId")
   }
 }
 query Q {
-  # @octoqlgen(typename: "F")
-  a {
+  a @octoqlgen(typename: "F") {
     __typename
     ... on User {
       id
