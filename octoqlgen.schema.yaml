@@ -190,11 +190,20 @@ properties:
       implementations named by applicable inline or named fragments.
 
       Each abstract selection also gets an `OctoqlOther` catch-all containing
-      the shared fields and `__typename`, so responses remain usable when
-      GitHub returns another current or future implementation.
+      the shared fields and `__typename`. It handles implementations not
+      selected by a fragment as well as any implementation name unrecognized by
+      the schema used to generate the client. Decoding those names succeeds
+      without an error or log, which keeps generated clients usable when GitHub
+      adds an implementation.
+
+      A Go type switch or assertion against a concrete generated type does not
+      match the catch-all. Code that must fail closed should enumerate allowed
+      concrete types and use an explicit denying `default`.
 
       Defaults to true. Set it to false when migrating code that relies on a
-      generated Go struct for every implementation allowed by the schema.
+      generated Go struct for every implementation allowed by the schema. No
+      catch-all is generated in that mode, so an unrecognized `__typename`
+      produces an error instead.
     type: boolean
     examples:
       - true
