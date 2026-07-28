@@ -111,11 +111,11 @@ func TestOctoqlgenDirectiveAttachmentRejectsMultipleNodes(t *testing.T) {
 	const schema = `
 type Query {
   viewer: User!
-  first: String
+  first(note: String): String
   second: String
   a: String
   b: String
-  outer(arg: String): Inner
+  outer(arg: Input): Inner
   sibling: String
 }
 
@@ -126,6 +126,10 @@ type User {
 
 type Inner {
   child: String
+}
+
+input Input {
+  text: String
 }
 `
 	for _, test := range []struct {
@@ -158,11 +162,41 @@ fragment Fields on Query {
 			wantError: true,
 		},
 		{
+			name: "field and inline fragment",
+			operation: `
+query FieldAndInlineFragment {
+  # @octoqlgen(pointer: false)
+  first ... on Query { second }
+}
+`,
+			wantError: true,
+		},
+		{
 			name: "non-ASCII before sibling",
 			operation: `
 query NonASCII {
   # @octoqlgen(pointer: false)
-  outer(arg:"é"){child}sibling
+  outer(arg: {text: "é"}) { child } sibling
+}
+`,
+			wantError: true,
+		},
+		{
+			name: "multi-byte input before sibling",
+			operation: `
+query MultiByteInput {
+  # @octoqlgen(pointer: false)
+  outer(arg: {text: "😀😀😀😀😀😀😀😀"}) { child } sibling
+}
+`,
+			wantError: true,
+		},
+		{
+			name: "escaped block string quote before sibling",
+			operation: `
+query EscapedBlockString {
+  # @octoqlgen(pointer: false)
+  first(note: """text \""" { still text""") second
 }
 `,
 			wantError: true,
@@ -217,6 +251,38 @@ func TestBraceDepthAtPositionUsesRuneColumns(t *testing.T) {
 	}
 
 	assert.Zero(t, braceDepthAtPosition(position))
+}
+
+func TestBraceDepthAtPositionHandlesBlockStringQuotes(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		line   string
+		prefix string
+		want   int
+	}{
+		{
+			name:   "escaped triple quote",
+			line:   `first(note: """text \""" { still text""") second`,
+			prefix: `first(note: """text \""" { still text""") `,
+			want:   0,
+		},
+		{
+			name:   "four quote run",
+			line:   `first(note: """text """") { nested } second`,
+			prefix: `first(note: """text """") { `,
+			want:   1,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			position := &ast.Position{
+				Src:    &ast.Source{Input: test.line},
+				Line:   1,
+				Column: utf8.RuneCountInString(test.prefix) + 1,
+			}
+
+			assert.Equal(t, test.want, braceDepthAtPosition(position))
+		})
+	}
 }
 
 func TestOctoqlgenDirectiveAttachmentAllowsOperationWithMultipleArguments(t *testing.T) {

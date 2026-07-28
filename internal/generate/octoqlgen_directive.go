@@ -548,9 +548,13 @@ func braceDepthAtPosition(pos *ast.Position) int {
 		}
 		for index := 0; index < len(line); index++ {
 			if inBlockString {
+				if line[index] == '\\' && strings.HasPrefix(line[index+1:], `"""`) {
+					index += 3
+					continue
+				}
 				if strings.HasPrefix(line[index:], `"""`) {
 					inBlockString = false
-					index += 2
+					index += consecutiveQuotes(line[index:]) - 1
 				}
 				continue
 			}
@@ -589,6 +593,14 @@ func braceDepthAtPosition(pos *ast.Position) int {
 		}
 	}
 	return depth
+}
+
+func consecutiveQuotes(text string) int {
+	count := 0
+	for count < len(text) && text[count] == '"' {
+		count++
+	}
+	return count
 }
 
 func byteOffsetAtColumn(line string, column int) int {
