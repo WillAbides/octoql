@@ -2,6 +2,7 @@
 package config
 
 //go:generate ../../../../script/jsonschematogo --package config --output model_gen.go ../../../../octoqlgen.schema.yaml
+//go:generate go run ../../../../internal/configdocgen --schema ../../../../octoqlgen.schema.yaml --output ../../../../docs/configuration.md
 
 import (
 	"bytes"
