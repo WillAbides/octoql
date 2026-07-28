@@ -15,9 +15,12 @@ the client, so a real `@octoqlgen` directive would be rejected as nonexistent.
 Directives may be applied to fields, arguments, or an entire operation or named
 fragment. A directive on the line preceding an operation or a named fragment
 applies to all relevant elements within it. Every other directive applies to
-one element on the following line. A directive preceding multiple peer elements
-on one line is rejected; put each peer element on its own line. In all cases
-other comments may appear between the directive and the element it applies to.
+the outermost element beginning on the following line. Its nested elements do
+not receive the directive, including a field's arguments and selections and an
+operation's variable definitions. A directive preceding multiple outermost
+elements on one line is rejected; put those elements on separate lines. In all
+cases other comments may appear between the directive and the element it
+applies to.
 String option values must not be empty. Use `bind: "-"` to explicitly opt out
 of a configured binding.
 
@@ -41,15 +44,13 @@ query MyQuery(arg1: String,
   field1
   field2
   # @octoqlgen(n: "f")
-  field3 {
-    field4
-  }
+  field3(argument: "value") { field4 field5 }
 }
 ```
 
 Here directive `a` is ignored, `b` and `c` apply to all relevant nodes in the
 query, `d` applies to `arg2`, `e` applies to `field1`, and `f` applies to
-`field3`.
+`field3` but not its argument, `field4`, or `field5`.
 
 Except as noted below, directives on nodes take precedence over directives on
 the entire operation, so `d`, `e`, and `f` take precedence over `b` and `c`.
