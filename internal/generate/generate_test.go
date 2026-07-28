@@ -2154,7 +2154,7 @@ func TestGenerateErrors(t *testing.T) {
 			case "BindingWithIncorrectSelection.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid selection for type-binding Account: testdata/errors/BindingWithIncorrectSelection.graphql:2: expected field 1 to be login, got id"))
 			case "ConflictingDirectiveArguments.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/ConflictingDirectiveArguments.graphql:1: invalid operation: There can be only one argument named "pointer".`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/ConflictingDirectiveArguments.graphql:1: query-spec does not match schema: There can be only one argument named "pointer".`))
 			case "ConflictingDirectives.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingDirectives.graphql:1: conflicting values for pointer"))
 			case "ConflictingEnumValues.graphql":
@@ -2183,9 +2183,9 @@ func TestGenerateErrors(t *testing.T) {
 			case "FlattenImplementation.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenImplementation.graphql:3: flatten is not allowed for fields with fragment-spreads unless the field-type implements the fragment-type; field-type I does not implement fragment-type T"))
 			case "UnknownDirectiveArgument.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownDirectiveArgument.graphql:2: invalid operation: Unknown argument "unknown" on directive "@octoqlgen".`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownDirectiveArgument.graphql:2: query-spec does not match schema: Unknown argument "unknown" on directive "@octoqlgen".`))
 			case "InvalidQuery.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/InvalidQuery.graphql:1: invalid operation: Cannot query field "g" on type "Query". Did you mean "f"?`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/InvalidQuery.graphql:1: query-spec does not match schema: Cannot query field "g" on type "Query". Did you mean "f"?`))
 			case "InvalidScalar.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`invalid type-name "bogus" (unknown type-name "bogus"); expected a builtin, path/to/package.Name, interface{}, or a slice, map, or pointer of those`))
 			case "InvalidSchemaSyntax.graphql":
@@ -2201,11 +2201,11 @@ func TestGenerateErrors(t *testing.T) {
 			case "KeywordTypeName.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordTypeName.schema.graphql:1: typename option must not be a go keyword"))
 			case "NoMutationType.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoMutationType.graphql:1: invalid operation: Schema does not support operation type "mutation"`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoMutationType.graphql:1: query-spec does not match schema: Schema does not support operation type "mutation"`))
 			case "NoQuery.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("no queries found, looked in: testdata/errors/NoQuery.graphql (configure this in octoqlgen.yaml)"))
 			case "NoQueryType.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoQueryType.graphql:1: invalid operation: Schema does not support operation type "query"`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoQueryType.graphql:1: query-spec does not match schema: Schema does not support operation type "query"`))
 			case "OmitemptyDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyDirective.graphql:3: omitempty may only be used on optional arguments: OmitemptyInput.field"))
 			case "OmitemptyForDirective.graphql":

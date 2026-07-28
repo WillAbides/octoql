@@ -81,7 +81,7 @@ func getAndValidateQueries(basedir string, filenames StringList, schema *ast.Sch
 	// Cf. gqlparser.LoadQuery
 	graphqlErrors := validator.Validate(schema, queryDoc)
 	if graphqlErrors != nil {
-		return nil, errorf(nil, "invalid operation: %v", graphqlErrors)
+		return nil, errorf(nil, "query-spec does not match schema: %v", graphqlErrors)
 	}
 
 	return queryDoc, nil

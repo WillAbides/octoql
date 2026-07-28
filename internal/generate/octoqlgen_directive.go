@@ -102,6 +102,10 @@ func (d *octoqlgenDirective) applyArguments(graphQLDirective *ast.Directive, pos
 		case "field":
 			// The target of @octoqlgenFor, read by addFor.
 		default:
+			// Unreachable while collection runs after validation, which
+			// rejects an argument the declaration does not have.  Kept so that
+			// an unknown option is refused rather than ignored if it ever runs
+			// earlier.
 			return errorf(pos, "unknown argument %v for @%v",
 				arg.Name, graphQLDirective.Name)
 		}
