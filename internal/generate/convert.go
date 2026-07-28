@@ -842,6 +842,15 @@ func (g *generator) convertSelectionSet(
 			}
 			fields = append(fields, field)
 		case *ast.FragmentSpread:
+			if hasConditionalDirective(selection.Directives) {
+				return nil, errorf(selection.Position,
+					"@skip and @include are not supported on fragment spreads "+
+						"(...%s): octoqlgen cannot represent the absence of "+
+						"every field the fragment contributes, so it would "+
+						"otherwise silently generate value types for fields "+
+						"that can vanish",
+					selection.Name)
+			}
 			maybeField, err := g.convertFragmentSpread(selection, containingTypedef)
 			if err != nil {
 				return nil, err
@@ -849,6 +858,13 @@ func (g *generator) convertSelectionSet(
 				fields = append(fields, maybeField)
 			}
 		case *ast.InlineFragment:
+			if hasConditionalDirective(selection.Directives) {
+				return nil, errorf(selection.Position,
+					"@skip and @include are not supported on inline fragments: "+
+						"octoqlgen cannot represent the absence of every field "+
+						"the fragment contributes, so it would otherwise "+
+						"silently generate value types for fields that can vanish")
+			}
 			// (Note this will return nil, nil if the fragment doesn't apply to
 			// this type.)
 			fragmentFields, err := g.convertInlineFragment(
@@ -1168,6 +1184,22 @@ func (g *generator) convertField(
 		return nil, err
 	}
 
+	// A field carrying @skip(if:) or @include(if:) is legitimately absent from
+	// a spec-correct response when its condition says so, regardless of the
+	// field's schema nullability. Force a pointer so that absence is
+	// representable as nil rather than silently decoding to the Go zero value.
+	if hasConditionalDirective(field.Directives) {
+		if fieldOptions.PointerIsFalse() {
+			return nil, errorf(field.Position,
+				"field %s carries @skip or @include and so may be absent from "+
+					"the response; it cannot be combined with "+
+					"@octoqlgen(pointer: false), which asks for a value type "+
+					"that cannot represent absence",
+				field.Name)
+		}
+		fieldGoType = forceConditionalPointer(fieldGoType)
+	}
+
 	return &goStructField{
 		GoName:      goName,
 		GoType:      fieldGoType,
@@ -1175,4 +1207,25 @@ func (g *generator) convertField(
 		GraphQLName: field.Name,
 		Description: field.Definition.Description,
 	}, nil
+}
+
+// hasConditionalDirective reports whether the selection carries a @skip or
+// @include directive. Such a selection may be absent from a spec-correct
+// response, independent of schema nullability.
+func hasConditionalDirective(directives ast.DirectiveList) bool {
+	return directives.ForName("skip") != nil ||
+		directives.ForName("include") != nil
+}
+
+// forceConditionalPointer wraps goTyp in a pointer so an absent value is
+// representable as nil, unless it is already nil-able. Pointers and interfaces
+// can already hold nil, and applying it to the whole field type (rather than a
+// list element) keeps the nil-ability at the field/container level.
+func forceConditionalPointer(goTyp goType) goType {
+	switch goTyp.(type) {
+	case *goPointerType, *goInterfaceType:
+		return goTyp
+	default:
+		return &goPointerType{goTyp}
+	}
 }
