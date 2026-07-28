@@ -281,7 +281,9 @@ casing.
 
 Interface and union selections generate one struct per implementation named by
 an applicable fragment, plus an `OctoqlOther` catch-all holding the shared
-fields and `__typename`:
+fields and `__typename`. The catch-all represents implementations not selected
+by a fragment as well as implementation names the generated schema did not
+declare:
 
 ```go
 switch node := response.Node.(type) {
@@ -294,12 +296,53 @@ case *githubapi.GetNodeNodeOctoqlOther:
 }
 ```
 
-The catch-all keeps responses usable when GitHub returns another current or
-future implementation. Abstract values are interfaces, so they are never wrapped
-in pointers: a nil interface already represents GraphQL null. Set
+Abstract values are interfaces, so they are never wrapped in pointers: a nil
+interface already represents GraphQL null. Set
 [`omit_unreferenced_implementations`](docs/configuration.md#omit_unreferenced_implementations)
 to false to generate a struct for every implementation the schema allows; the
-`OctoqlOther` catch-all is then unnecessary and is not generated.
+`OctoqlOther` catch-all is then not generated, and an unrecognized
+`__typename` produces an error.
+
+Generated clients deliberately leave enum values and, with the default
+configuration, abstract implementation names open at runtime. GitHub can add a
+valid value after a client is generated, and accepting it keeps that client
+forward compatible. The consequence is that `encoding/json` accepts an enum
+string outside the generated constants, while an unrecognized `__typename`
+decodes as `OctoqlOther` without an error or log. Go does not check type switches
+or enum switches for exhaustiveness.
+
+For access control and other decisions that must fail closed, enumerate the
+known cases and deny the default. A concrete-type assertion alone can silently
+skip the decision when an unrecognized implementation becomes the catch-all:
+
+```go
+switch actor := response.Actor.(type) {
+case *githubapi.GetActorActorUser:
+	return !actor.IsSuspended
+case *githubapi.GetActorActorBot:
+	return false
+default:
+	return false
+}
+```
+
+Comparing an enum to a generated constant is safe as a positive check. Do not
+treat inequality or an `else` branch as proof that the value is another known
+constant:
+
+```go
+switch permission {
+case githubapi.RepositoryPermissionAdmin:
+	return true
+case githubapi.RepositoryPermissionMaintain,
+	githubapi.RepositoryPermissionRead,
+	githubapi.RepositoryPermissionTriage,
+	githubapi.RepositoryPermissionWrite:
+	return false
+default:
+	return false
+}
+```
 
 ## Pagination
 
