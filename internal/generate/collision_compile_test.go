@@ -46,7 +46,8 @@ query Viewer {
 `,
 		},
 		{
-			// B16: expected to compile once selection-set field collision fixes land.
+			// Both selected fields normalize to the Go identifier Foo. Expected to
+			// compile once selection-set field collision fixes land.
 			name: "case-distinct fields",
 			schema: `
 type Query {
@@ -66,7 +67,8 @@ query Fields {
 			},
 		},
 		{
-			// B17: expected to compile once fragment and field collision fixes land.
+			// Fragment A and the type generated for sibling field a share one Go
+			// identifier. Expected to compile once fragment and field collision fixes land.
 			name: "fragment and sibling field",
 			schema: `
 type Query {
@@ -89,7 +91,8 @@ fragment A on Query {
 			},
 		},
 		{
-			// B18: expected to compile once field and getter collision fixes land.
+			// Field getFoo collides with the getter generated for field foo. Expected
+			// to compile once field and getter collision fixes land.
 			name: "field and generated getter",
 			schema: `
 type Query {
@@ -108,7 +111,10 @@ query Fields {
 			},
 		},
 		{
-			// B20: expected type declarations change once derived-name collision fixes land.
+			// The named fragment's derived implementation type silently overwrites the
+			// directly selected Impl type, dropping its id field. The package still
+			// compiles, so this case asserts rendered declarations rather than a build
+			// error. Expected declarations change once derived-name collision fixes land.
 			name: "fragment replaces derived type",
 			schema: `
 type Query {
