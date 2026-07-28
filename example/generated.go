@@ -570,8 +570,10 @@ type Client struct {
 	rateLimitObservation uint64
 }
 
-// NewClient returns a client for endpoint. A nil httpClient uses
-// [http.DefaultClient].
+// NewClient returns a client for endpoint. It shallow-copies httpClient, or
+// [http.DefaultClient] when httpClient is nil, and configures
+// the copy to refuse redirects. Changes to the supplied client after this call,
+// including its CheckRedirect function, do not affect the returned Client.
 func NewClient(endpoint string, httpClient *http.Client) *Client {
 	client := &Client{
 		endpoint:   endpoint,

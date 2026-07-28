@@ -410,6 +410,41 @@ func TestClientRefusesRedirects(t *testing.T) {
 	}
 }
 
+// net/http's default redirect protection compares hostnames and ignores ports.
+func TestClientRefusesSameHostDifferentPortRedirects(t *testing.T) {
+	targetRequests := make(chan struct{}, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		targetRequests <- struct{}{}
+	}))
+	defer target.Close()
+
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", target.URL)
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer origin.Close()
+
+	client := NewClient(origin.URL, nil)
+	response, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, response)
+	assert.ErrorContains(t, err, "redirect refused")
+	assert.ErrorContains(t, err, target.URL)
+
+	select {
+	case <-targetRequests:
+		assert.Fail(t, "redirect target received a request")
+	default:
+	}
+}
+
 func TestNewClientDoesNotMutateHTTPRedirectPolicy(t *testing.T) {
 	httpClient := &http.Client{}
 	client := NewClient("https://api.github.com/graphql", httpClient)
