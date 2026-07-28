@@ -354,8 +354,7 @@ type Query {
 }
 `), 0o600))
 	require.NoError(t, os.WriteFile(operationPath, []byte(`
-# @octoqlgen(typename: "_octoqlPayload")
-query Value {
+query Value @octoqlgen(typename: "_octoqlPayload") {
   value
 }
 `), 0o600))
@@ -896,13 +895,11 @@ type Query {
 	err = os.WriteFile(operationPath, []byte(`
 query PointerDefaults(
   $input: PointerInput
-  # @octoqlgen(pointer: false)
-  $overrideVariable: String
+  $overrideVariable: String @octoqlgen(pointer: false)
 ) {
   result: pointer(input: $input, overrideVariable: $overrideVariable) {
     defaultOutput
-    # @octoqlgen(pointer: false)
-    overrideOutput
+    overrideOutput @octoqlgen(pointer: false)
     items
   }
 }
@@ -958,8 +955,7 @@ query AbstractValues {
   nullableNodes {
     id
   }
-  # @octoqlgen(pointer: true)
-  forcedNode {
+  forcedNode @octoqlgen(pointer: true) {
     id
   }
 }
@@ -1001,16 +997,11 @@ type Query {
 	operationPath := filepath.Join(tempDir, "operation.graphql")
 	err = os.WriteFile(operationPath, []byte(`
 query LocalBindings {
-  # @octoqlgen(bind: "string")
-  nullableDefault
-  # @octoqlgen(bind: "string", pointer: false)
-  nullableOptOut
-  # @octoqlgen(bind: "string")
-  nonNullDefault
-  # @octoqlgen(bind: "string", pointer: true)
-  nonNullPointer
-  # @octoqlgen(bind: "[]string")
-  nullableList
+  nullableDefault @octoqlgen(bind: "string")
+  nullableOptOut @octoqlgen(bind: "string", pointer: false)
+  nonNullDefault @octoqlgen(bind: "string")
+  nonNullPointer @octoqlgen(bind: "string", pointer: true)
+  nullableList @octoqlgen(bind: "[]string")
 }
 `), 0o600)
 	require.NoError(t, err)
@@ -1631,7 +1622,7 @@ func TestGenerateTestHandlerNameCollision(t *testing.T) {
 	}
 	err = os.WriteFile(
 		operationPath,
-		[]byte("# @octoqlgen(typename: \"TestHandler\")\nquery Value {\n  value\n}\n"),
+		[]byte("query Value @octoqlgen(typename: \"TestHandler\") {\n  value\n}\n"),
 		0o600,
 	)
 	if err != nil {
@@ -2119,8 +2110,7 @@ func TestGenerateErrors(t *testing.T) {
 
 	for _, file := range files {
 		sourceFilename := file.Name()
-		if !strings.HasSuffix(sourceFilename, ".graphql") &&
-			!strings.HasSuffix(sourceFilename, ".go") ||
+		if !strings.HasSuffix(sourceFilename, ".graphql") ||
 			strings.HasSuffix(sourceFilename, ".schema.graphql") ||
 			sourceFilename == "schema.graphql" {
 			continue
@@ -2161,57 +2151,43 @@ func TestGenerateErrors(t *testing.T) {
 			}
 
 			switch sourceFilename {
-			case "BindingWithIncorrectSelection.go":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid selection for type-binding Account: testdata/errors/BindingWithIncorrectSelection.schema.graphql:2: expected 2 fields, got 1"))
 			case "BindingWithIncorrectSelection.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid selection for type-binding Account: testdata/errors/BindingWithIncorrectSelection.graphql:2: expected field 1 to be login, got id"))
 			case "ConflictingDirectiveArguments.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingDirectiveArguments.graphql:2: conflicting values for pointer"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/ConflictingDirectiveArguments.graphql:1: invalid operation: There can be only one argument named "pointer".`))
 			case "ConflictingDirectives.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingDirectives.graphql:3: conflicting values for pointer"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingDirectives.graphql:1: conflicting values for pointer"))
 			case "ConflictingEnumValues.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingEnumValues.schema.graphql:4: enum values FIRST_VALUE and first_value have conflicting Go name AnnoyingEnumFirstValue; add 'all_enums: raw' or 'enums: AnnoyingEnum: raw' to 'casing' in octoqlgen.yaml to fix"))
-			case "ConflictingSelections.go":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingSelections.go:4: operations must have operation-names"))
 			case "ConflictingSelections.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingSelections.graphql:1: operations must have operation-names"))
 			case "ConflictingTypeNameAndForFieldBind.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndForFieldBind.graphql:5: typename and bind may not be used together"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndForFieldBind.graphql:3: typename and bind may not be used together"))
 			case "ConflictingTypeNameAndGlobalBind.graphql":
-				want := "testdata/errors/ConflictingTypeNameAndGlobalBind.graphql:4: typename option conflicts with global binding for ValidScalar; use `bind: \"-\"` to override it"
+				want := "testdata/errors/ConflictingTypeNameAndGlobalBind.graphql:3: typename option conflicts with global binding for ValidScalar; use `bind: \"-\"` to override it"
 				if got := err.Error(); got != want {
 					t.Errorf("error = %q, want %q", got, want)
 				}
 			case "ConflictingTypeNameAndLocalBind.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndLocalBind.graphql:4: typename and bind may not be used together"))
-			case "ConflictingTypeNames.go":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid Go file testdata/errors/ConflictingTypeNames.go: testdata/errors/ConflictingTypeNames.go:3:1: expected declaration, found _"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndLocalBind.graphql:3: typename and bind may not be used together"))
 			case "ConflictingTypeNames.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.graphql:7: conflicting definition for the Go type T: it is generated from both the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:3) and the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:7), which select different fields (expected 2 fields, got 1); give one of them a distinct name with an @octoqlgen(typename:) directive so they produce separate Go types"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.graphql:5: conflicting definition for the Go type T: it is generated from both the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:2) and the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:5), which select different fields (expected 2 fields, got 1); give one of them a distinct name with an @octoqlgen(typename:) directive so they produce separate Go types"))
 			case "DefaultInputsNoOmitPointer.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointer.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointer.graphql:3: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "DefaultInputsNoOmitPointerForDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:5: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
-			case "DirectiveMultipleNodes.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DirectiveMultipleNodes.graphql:3: @octoqlgen directive cannot apply to multiple peer nodes on one line; put each peer node on its own line"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "EmptyForDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/EmptyForDirective.graphql:2: for must not be empty"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/EmptyForDirective.graphql:1: for must not be empty"))
 			case "FlattenField.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenField.graphql:3: flatten is not yet supported for fields (only fragment spreads)"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenField.graphql:2: flatten is not yet supported for fields (only fragment spreads)"))
 			case "FlattenImplementation.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenImplementation.graphql:4: flatten is not allowed for fields with fragment-spreads unless the field-type implements the fragment-type; field-type I does not implement fragment-type T"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenImplementation.graphql:3: flatten is not allowed for fields with fragment-spreads unless the field-type implements the fragment-type; field-type I does not implement fragment-type T"))
 			case "UnknownDirectiveArgument.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/UnknownDirectiveArgument.graphql:3: unknown argument unknown for @octoqlgen"))
-			case "InvalidQuery.go":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/InvalidQuery.go:4: query-spec does not match schema: Cannot query field "g" on type "Query". Did you mean "f"?`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownDirectiveArgument.graphql:2: invalid operation: Unknown argument "unknown" on directive "@octoqlgen".`))
 			case "InvalidQuery.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/InvalidQuery.graphql:1: query-spec does not match schema: Cannot query field "g" on type "Query". Did you mean "f"?`))
-			case "InvalidScalar.go":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`invalid type-name "bogus" (unknown type-name "bogus"); expected a builtin, path/to/package.Name, interface{}, or a slice, map, or pointer of those`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/InvalidQuery.graphql:1: invalid operation: Cannot query field "g" on type "Query". Did you mean "f"?`))
 			case "InvalidScalar.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`invalid type-name "bogus" (unknown type-name "bogus"); expected a builtin, path/to/package.Name, interface{}, or a slice, map, or pointer of those`))
-			case "InvalidSchemaSyntax.go":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaSyntax.schema.graphql:4: invalid schema: Expected :, found }"))
 			case "InvalidSchemaSyntax.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaSyntax.schema.graphql:4: invalid schema: Expected :, found }"))
 			case "InvalidSchemaWithBuiltins.graphql":
@@ -2225,19 +2201,17 @@ func TestGenerateErrors(t *testing.T) {
 			case "KeywordTypeName.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordTypeName.schema.graphql:1: typename option must not be a go keyword"))
 			case "NoMutationType.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoMutationType.graphql:1: query-spec does not match schema: Schema does not support operation type "mutation"`))
-			case "NoQuery.go":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("no queries found, looked in: testdata/errors/NoQuery.go (configure this in octoqlgen.yaml)"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoMutationType.graphql:1: invalid operation: Schema does not support operation type "mutation"`))
 			case "NoQuery.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("no queries found, looked in: testdata/errors/NoQuery.graphql (configure this in octoqlgen.yaml)"))
 			case "NoQueryType.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoQueryType.graphql:1: query-spec does not match schema: Schema does not support operation type "query"`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoQueryType.graphql:1: invalid operation: Schema does not support operation type "query"`))
 			case "OmitemptyDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyDirective.graphql:4: omitempty may only be used on optional arguments: OmitemptyInput.field"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyDirective.graphql:3: omitempty may only be used on optional arguments: OmitemptyInput.field"))
 			case "OmitemptyForDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyForDirective.graphql:4: omitempty may only be used on optional arguments: OmitemptyInput.field"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyForDirective.graphql:3: omitempty may only be used on optional arguments: OmitemptyInput.field"))
 			case "OperationOmitemptyRequiredVariable.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OperationOmitemptyRequiredVariable.graphql:3: omitempty may only be used on optional arguments: OperationOmitemptyRequiredVariable.input"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OperationOmitemptyRequiredVariable.graphql:2: omitempty may only be used on optional arguments: OperationOmitemptyRequiredVariable.input"))
 			case "PartialDataErrorNameCollision.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "GetUserPartialDataError" conflicts with a generated GraphQL type`))
 			case "PartialDataErrorEnumValueCollision.graphql":
@@ -2245,14 +2219,11 @@ func TestGenerateErrors(t *testing.T) {
 			case "PartialDataErrorOperationNameCollision.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "GetUserPartialDataError" conflicts with operation "GetUserPartialDataError"`))
 			case "PointerOperationVariable.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/PointerOperationVariable.graphql:3: pointer on non-null argument can only be used together with omitempty: PointerOperationVariable.input"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/PointerOperationVariable.graphql:2: pointer on non-null argument can only be used together with omitempty: PointerOperationVariable.input"))
 			case "StructOptionOnObject.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionOnObject.graphql:3: struct is only applicable to interface-typed fields"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionOnObject.graphql:2: struct is only applicable to interface-typed fields"))
 			case "StructOptionWithFragments.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionWithFragments.graphql:3: struct is not allowed for types with fragments"))
-			case "UnknownScalar.go":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownScalar.schema.graphql:3: unknown scalar UnknownScalar: please add it to "bindings" in octoqlgen.yaml
-Example: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml`))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionWithFragments.graphql:2: struct is not allowed for types with fragments"))
 			case "UnknownScalar.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownScalar.schema.graphql:3: unknown scalar UnknownScalar: please add it to "bindings" in octoqlgen.yaml
 Example: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml`))

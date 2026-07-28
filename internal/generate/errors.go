@@ -19,12 +19,10 @@ type errorPos struct {
 }
 
 func (p *errorPos) String() string {
-	filename, lineOffset := splitFilename(p.filename)
-	line := lineOffset + p.line
-	if line != 0 {
-		return fmt.Sprintf("%v:%v", filename, line)
+	if p.line != 0 {
+		return fmt.Sprintf("%v:%v", p.filename, p.line)
 	} else {
-		return filename
+		return p.filename
 	}
 }
 
@@ -32,19 +30,6 @@ type octoqlgenError struct {
 	pos     *errorPos
 	msg     string
 	wrapped error
-}
-
-func splitFilename(filename string) (name string, lineOffset int) {
-	split := strings.Split(filename, ":")
-	if len(split) != 2 {
-		return filename, 0
-	}
-
-	offset, err := strconv.Atoi(split[1])
-	if err != nil {
-		return split[0], 0
-	}
-	return split[0], offset - 1
 }
 
 func (e *octoqlgenError) Error() string {

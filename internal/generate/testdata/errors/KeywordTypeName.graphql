@@ -1,6 +1,5 @@
 query KeywordTypeName {
-  # @octoqlgen(typename: "type")
-  f {
+  f @octoqlgen(typename: "type") {
     g
   }
 }

@@ -50,7 +50,7 @@ func (g *generator) getType(
 	}
 
 	expectedSelectionSet := typ.SelectionSet()
-	err := selectionsMatch(pos, selectionSet, expectedSelectionSet)
+	err := selectionsMatch(pos, selectionSet, expectedSelectionSet, g.directives)
 	if err != nil {
 		oldSource := describeTypeSource(typ)
 		oldPos := g.typePositions[goName]
@@ -507,7 +507,7 @@ func (g *generator) convertArguments(
 			return nil, errorf(arg.Position, "variable name must not be a go keyword")
 		}
 
-		_, options, err := g.parsePrecedingComment(arg, nil, arg.Position, queryOptions)
+		options, err := g.directiveFor(arg, nil, arg.Position, queryOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -828,7 +828,7 @@ func (g *generator) convertDefinition(
 		}
 
 		for i, field := range def.Fields {
-			_, fieldOptions, err := g.parsePrecedingComment(
+			fieldOptions, err := g.directiveFor(
 				field, def, field.Position, queryOptions)
 			if err != nil {
 				return nil, err
@@ -1185,7 +1185,7 @@ func (g *generator) convertSelectionSet(
 ) ([]*goStructField, error) {
 	fields := make([]*goStructField, 0, len(selectionSet))
 	for _, selection := range selectionSet {
-		_, selectionOptions, err := g.parsePrecedingComment(
+		selectionOptions, err := g.directiveFor(
 			selection, nil, selection.GetPosition(), queryOptions)
 		if err != nil {
 			return nil, err
@@ -1428,10 +1428,11 @@ func (g *generator) convertFragmentSpread(
 func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goType, error) {
 	typ := g.schema.Types[fragment.TypeCondition]
 
-	comment, directive, err := g.parsePrecedingComment(fragment, nil, fragment.Position, nil)
+	directive, err := g.directiveFor(fragment, nil, fragment.Position, nil)
 	if err != nil {
 		return nil, err
 	}
+	comment := precedingComment(fragment.Position)
 
 	desc := descriptionInfo{
 		CommentOverride:    comment,

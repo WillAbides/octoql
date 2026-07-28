@@ -17,8 +17,11 @@
   repository has no changelog; project history remains in Git.
 - `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
-- `@octoqlgen` is the only supported generator comment directive. Do not add a
-  compatibility alias for a prior spelling.
+- `@octoqlgen` is a real GraphQL directive, declared into the loaded schema and
+  stripped from operations before they are sent. Options attach to AST nodes;
+  do not reintroduce comment-based directives, source-position attachment, or a
+  compatibility alias for a prior spelling. Operations come from `.graphql`
+  files only; do not restore extraction from Go string literals.
 - octoql does not support GraphQL subscriptions. Preserve per-error
   `Error.Extensions`, but ignore top-level response extensions. Do not restore
   the removed no-op `use_extensions` option.

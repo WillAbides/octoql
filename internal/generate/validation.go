@@ -66,14 +66,31 @@ func structFieldsMatch(existing, candidate []*goStructField) error {
 // selectionsMatch recursively compares the two selection-sets, and returns an
 // error if they differ.
 //
-// It does not check arguments and directives, only field names, aliases,
-// order, and fragment-structure.  It does not recurse into named fragments, it
-// only checks that their names match.
+// It checks field names, aliases, order, fragment-structure, and the
+// @octoqlgen options attached to each field.  It does not check arguments or
+// other directives.  It does not recurse into named fragments, it only checks
+// that their names match.
+//
+// options maps an AST node to the @octoqlgen directive attached to it, and may
+// be nil to skip option comparison, which is what callers comparing against a
+// selection parsed from configuration want: that selection has no directives,
+// so every field would otherwise look like a mismatch.
+//
+// Comparing options matters because two selections that request the same
+// fields can still generate different Go, for example when one of them sets
+// pointer or bind.  Before @octoqlgen became a real directive its options lived
+// in comments, which are absent from the AST, so this comparison could not see
+// them and the first type generated was silently reused for both.
+//
+// Note the options compared here are the ones written on the fields
+// themselves; defaults inherited from the enclosing operation or fragment are
+// applied later, during conversion.
 //
 // If both selection-sets are nil/empty, they compare equal.
 func selectionsMatch(
 	pos *ast.Position,
 	expectedSelectionSet, actualSelectionSet ast.SelectionSet,
+	options map[any]*octoqlgenDirective,
 ) error {
 	if len(expectedSelectionSet) != len(actualSelectionSet) {
 		return errorf(
@@ -99,7 +116,12 @@ func selectionsMatch(
 					"expected field %d's alias to be %s, got %s",
 					i, expected.Alias, actual.Alias)
 			}
-			err := selectionsMatch(actual.Position, expected.SelectionSet, actual.SelectionSet)
+			if options != nil && !directiveOptionsMatch(options[expected], options[actual]) {
+				return errorf(actual.Position,
+					"expected field %d (%s) to have the same @%s options in both places",
+					i, actual.Name, octoqlgenDirectiveName)
+			}
+			err := selectionsMatch(actual.Position, expected.SelectionSet, actual.SelectionSet, options)
 			if err != nil {
 				return fmt.Errorf("in %s sub-selection: %w", actual.Alias, err)
 			}
@@ -115,7 +137,7 @@ func selectionsMatch(
 					"expected fragment %d to be on type %s, got %s",
 					i, expected.TypeCondition, actual.TypeCondition)
 			}
-			err := selectionsMatch(actual.Position, expected.SelectionSet, actual.SelectionSet)
+			err := selectionsMatch(actual.Position, expected.SelectionSet, actual.SelectionSet, options)
 			if err != nil {
 				return fmt.Errorf("in inline fragment on %s: %w", actual.TypeCondition, err)
 			}
@@ -134,6 +156,31 @@ func selectionsMatch(
 		}
 	}
 	return nil
+}
+
+// directiveOptionsMatch reports whether two directives request the same
+// generated Go.  A missing directive is equivalent to one that sets nothing.
+func directiveOptionsMatch(a, b *octoqlgenDirective) bool {
+	if a == nil {
+		a = &octoqlgenDirective{}
+	}
+	if b == nil {
+		b = &octoqlgenDirective{}
+	}
+	return boolOptionsMatch(a.Omitempty, b.Omitempty) &&
+		boolOptionsMatch(a.Pointer, b.Pointer) &&
+		boolOptionsMatch(a.Struct, b.Struct) &&
+		boolOptionsMatch(a.Flatten, b.Flatten) &&
+		a.Bind == b.Bind &&
+		a.TypeName == b.TypeName &&
+		a.Alias == b.Alias
+}
+
+func boolOptionsMatch(a, b *bool) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // validateBindingSelection checks that if you requested in your type-binding
@@ -156,7 +203,10 @@ func (g *generator) validateBindingSelection(
 			nil, "invalid type-binding %s.expect_exact_fields: %w", typeName, gqlErr)
 	}
 
-	err := selectionsMatch(pos, doc.Operations[0].SelectionSet, selectionSet)
+	// The expected selection comes from configuration, not from a query, so it
+	// carries no @octoqlgen directives; comparing options would report a
+	// mismatch for every annotated field.
+	err := selectionsMatch(pos, doc.Operations[0].SelectionSet, selectionSet, nil)
 	if err != nil {
 		return fmt.Errorf("invalid selection for type-binding %s: %w", typeName, err)
 	}

@@ -111,9 +111,8 @@ Type: `array` · Required
 Filenames or globs holding the operations to generate code for, relative
 to `octoqlgen.yaml`.
 
-These may be `.graphql` files containing operations in SDL form, or Go
-files, in which case any string literal starting with (optional
-whitespace and) the string `# @octoqlgen` is extracted as an operation.
+These are `.graphql` files containing operations in SDL form. Extracting
+operations from string literals in Go files is not supported.
 
 Operations are always written as a list, even when only one path is
 needed.

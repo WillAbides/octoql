@@ -1,14 +1,13 @@
 package generate
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 )
 
-// Represents the octoqlgen comment directive, described in detail in
+// Represents the @octoqlgen directive, described in detail in
 // docs/directive.md.
 type octoqlgenDirective struct {
 	pos       *ast.Position
@@ -23,17 +22,6 @@ type octoqlgenDirective struct {
 	// applied to specific fields via the "for" option.
 	// Map from type-name -> field-name -> directive.
 	FieldDirectives map[string]map[string]*octoqlgenDirective
-}
-
-type directiveAttachment struct {
-	column     int
-	category   string
-	braceDepth int
-}
-
-type directiveAttachmentKey struct {
-	source *ast.Source
-	line   int
 }
 
 func newOctoqlgenDirective(pos *ast.Position) *octoqlgenDirective {
@@ -85,19 +73,17 @@ func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) 
 // add adds to this octoqlgenDirective struct the settings from the given
 // GraphQL directive.
 //
-// If multiple octoqlgen directives are applied to the same node,
-// e.g.
+// The directive is declared repeatable, so a node may carry several, e.g.
 //
-//	# @octoqlgen(...)
-//	# @octoqlgen(...)
+//	myField @octoqlgen(...) @octoqlgen(...)
 //
 // add will be called several times.  In this case, conflicts between the
 // options are an error.
 func (d *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Position) error {
-	if graphQLDirective.Name != "octoqlgen" {
-		// Actually we just won't get here; we only get here if the line starts
-		// with "# @octoqlgen", unless there's some sort of bug.
-		return errorf(pos, "the only valid comment-directive is @octoqlgen, got %v", graphQLDirective.Name)
+	if graphQLDirective.Name != octoqlgenDirectiveName {
+		// Callers filter by name, so this only fires on an octoqlgen bug.
+		return errorf(pos, "the only valid directive is @%s, got %v",
+			octoqlgenDirectiveName, graphQLDirective.Name)
 	}
 
 	// First, see if this directive has a "for" option;
@@ -383,7 +369,7 @@ func fillDefaultString(target *string, defaults ...string) {
 // Note this has slightly different semantics than .add(), see inline for
 // details.
 //
-// parent is as described in parsePrecedingComment.  operationDirective is the
+// parentIfInputField is as described in directiveFor.  operationDirective is the
 // directive applied to this operation or fragment.
 func (d *octoqlgenDirective) mergeOperationDirective(
 	node interface{},
@@ -419,211 +405,221 @@ func (d *octoqlgenDirective) mergeOperationDirective(
 	fillDefaultString(&d.Alias, forField.Alias, operationDirective.Alias)
 }
 
-// parsePrecedingComment looks at the comment right before this node, and
-// returns the octoqlgen directive applied to it (or an empty one if there is
-// none), the remaining human-readable comment (or "" if there is none), and an
-// error if the directive is invalid.
+// octoqlgenDirectiveName is the name of the directive octoqlgen recognizes on
+// operations, fragments, fields, and variable definitions.
+const octoqlgenDirectiveName = "octoqlgen"
+
+// octoqlgenDirectiveSDL declares @octoqlgen so that it is a real GraphQL
+// directive rather than a comment recovered by source position.  It is
+// injected into the schema document before validation, so the annotations
+// users write are parsed into ast.Directive nodes attached to exactly the node
+// they modify, and are checked by the ordinary GraphQL validation rules.
 //
-// queryOptions are the options to be applied to this entire query (or
-// fragment); the local options will be merged into those.  It should be nil if
-// we are parsing the directive on the entire query.
+// It is deliberately not valid on subscriptions, fragment spreads, or inline
+// fragments; placing it there is a schema error rather than a hand-written
+// check.
+const octoqlgenDirectiveSDL = `
+directive @` + octoqlgenDirectiveName + `(
+  omitempty: Boolean
+  pointer: Boolean
+  struct: Boolean
+  flatten: Boolean
+  bind: String
+  typename: String
+  alias: String
+  for: String
+) repeatable on QUERY | MUTATION | FIELD | FRAGMENT_DEFINITION | VARIABLE_DEFINITION
+`
+
+// addOctoqlgenDirectiveDefinition injects the @octoqlgen declaration into the
+// parsed schema document.  The directive is octoqlgen's own, so a schema that
+// already declares one is an error rather than something to merge with.
+func addOctoqlgenDirectiveDefinition(document *ast.SchemaDocument) error {
+	existing := document.Directives.ForName(octoqlgenDirectiveName)
+	if existing != nil {
+		return errorf(existing.Position,
+			"schema declares its own @%s directive, which conflicts with octoqlgen's",
+			octoqlgenDirectiveName)
+	}
+
+	parsed, graphqlError := parser.ParseSchema(&ast.Source{
+		Name:  "octoqlgen-directive.graphql",
+		Input: octoqlgenDirectiveSDL,
+	})
+	if graphqlError != nil {
+		return errorf(nil, "invalid @%s declaration (octoqlgen bug): %v",
+			octoqlgenDirectiveName, graphqlError)
+	}
+
+	document.Directives = append(document.Directives, parsed.Directives...)
+	return nil
+}
+
+// collectDirectives walks the validated query document, moving every
+// @octoqlgen directive off the AST and into g.directives, keyed by the node it
+// was attached to.
 //
-// parentIfInputField need only be set if node is an input-type field; it
-// should be the type containing this field.  (We can get this from gqlparser
-// in other cases, but not input-type fields.)
-func (g *generator) parsePrecedingComment(
-	node interface{},
+// Removing the directives here, once and before anything formats an operation,
+// is what keeps them off the wire: the query body octoqlgen sends is re-printed
+// from this same AST.  It has to happen before conversion rather than
+// per-operation, because fragments are shared between operations and stripping
+// them while formatting one operation would drop them before another converts.
+//
+// It runs after validation, so node.Definition and node.ObjectDefinition are
+// populated and the per-node validation below can rely on them.
+func (g *generator) collectDirectives(doc *ast.QueryDocument) error {
+	for _, op := range doc.Operations {
+		err := g.collectDirectivesForNode(op, &op.Directives)
+		if err != nil {
+			return err
+		}
+		for _, variable := range op.VariableDefinitions {
+			err = g.collectDirectivesForNode(variable, &variable.Directives)
+			if err != nil {
+				return err
+			}
+		}
+		err = g.collectDirectivesInSelectionSet(op.SelectionSet)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, fragment := range doc.Fragments {
+		err := g.collectDirectivesForNode(fragment, &fragment.Directives)
+		if err != nil {
+			return err
+		}
+		err = g.collectDirectivesInSelectionSet(fragment.SelectionSet)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (g *generator) collectDirectivesInSelectionSet(selectionSet ast.SelectionSet) error {
+	for _, selection := range selectionSet {
+		switch selection := selection.(type) {
+		case *ast.Field:
+			err := g.collectDirectivesForNode(selection, &selection.Directives)
+			if err != nil {
+				return err
+			}
+			err = g.collectDirectivesInSelectionSet(selection.SelectionSet)
+			if err != nil {
+				return err
+			}
+		case *ast.InlineFragment:
+			err := g.collectDirectivesInSelectionSet(selection.SelectionSet)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// collectDirectivesForNode parses the @octoqlgen directives in directives,
+// records the result for node, and removes them from the list so they are
+// never formatted into a query body.  Other directives, such as @skip and
+// @include, are left alone.
+func (g *generator) collectDirectivesForNode(node any, directives *ast.DirectiveList) error {
+	var ours []*ast.Directive
+	var others ast.DirectiveList
+	for _, graphQLDirective := range *directives {
+		if graphQLDirective.Name == octoqlgenDirectiveName {
+			ours = append(ours, graphQLDirective)
+			continue
+		}
+		others = append(others, graphQLDirective)
+	}
+	if len(ours) == 0 {
+		return nil
+	}
+	*directives = others
+
+	directive := newOctoqlgenDirective(ours[0].Position)
+	for _, graphQLDirective := range ours {
+		err := directive.add(graphQLDirective, graphQLDirective.Position)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := directive.validate(node, g.schema)
+	if err != nil {
+		return err
+	}
+
+	g.directives[node] = directive
+	return nil
+}
+
+// directiveFor returns the options that apply to node, merged with the options
+// that apply to the containing operation or fragment.
+//
+// queryOptions should be nil when node is the operation or fragment itself.
+// parentIfInputField need only be set if node is an input-type field; it should
+// be the type containing this field.  (We can get this from gqlparser in other
+// cases, but not input-type fields.)
+func (g *generator) directiveFor(
+	node any,
 	parentIfInputField *ast.Definition,
 	pos *ast.Position,
 	queryOptions *octoqlgenDirective,
-) (comment string, directive *octoqlgenDirective, err error) {
-	directive = newOctoqlgenDirective(pos)
-	hasDirective := false
+) (*octoqlgenDirective, error) {
+	directive := g.directives[node]
+	if directive == nil {
+		directive = newOctoqlgenDirective(pos)
+	}
 
-	// For directives on octoqlgen-generated nodes, we don't actually need to
-	// parse anything.  (But we do need to merge below.)
+	if queryOptions == nil {
+		return directive, nil
+	}
+
+	// The merge mutates the directive, so operate on a copy; the same node is
+	// converted more than once when a fragment is used by several operations.
+	merged := *directive
+	merged.mergeOperationDirective(node, parentIfInputField, queryOptions)
+
+	// TODO(benkraft): Really we should do all the validation after
+	// merging, probably?  But this is the only check that can fail only
+	// after merging, and it's a bit tricky because the "does not apply"
+	// checks may need to happen before merging so we know where the
+	// directive "is".
+	if merged.TypeName != "" && merged.Bind != "" && merged.Bind != "-" {
+		return nil, errorf(merged.pos, "typename and bind may not be used together")
+	}
+
+	return &merged, nil
+}
+
+// precedingComment returns the human-readable comment immediately preceding
+// the node at pos, which becomes the doc comment of the generated Go
+// declaration.
+//
+// This reads the source directly rather than using the comment groups
+// gqlparser attaches to AST nodes, because those group comments across blank
+// lines and absorb a trailing comment written after code on an earlier line.
+// Unlike the options, which are now real directives attached to the node they
+// modify, a doc comment only affects generated prose.
+func precedingComment(pos *ast.Position) string {
+	if pos == nil || pos.Src == nil {
+		return ""
+	}
+
 	var commentLines []string
-	var directiveLines []string
-	if pos != nil && pos.Src != nil {
-		sourceLines := strings.Split(pos.Src.Input, "\n")
-		for i := pos.Line - 1; i > 0; i-- {
-			line := strings.TrimSpace(sourceLines[i-1])
-			trimmed := strings.TrimSpace(strings.TrimPrefix(line, "#"))
-			if strings.HasPrefix(line, "# @octoqlgen") {
-				hasDirective = true
-				directiveLines = append(directiveLines, trimmed)
-			} else if strings.HasPrefix(line, "#") {
-				commentLines = append(commentLines, trimmed)
-			} else {
-				break
-			}
+	sourceLines := strings.Split(pos.Src.Input, "\n")
+	for i := pos.Line - 1; i > 0; i-- {
+		line := strings.TrimSpace(sourceLines[i-1])
+		if !strings.HasPrefix(line, "#") {
+			break
 		}
-	}
-
-	if hasDirective {
-		key := directiveAttachmentKey{source: pos.Src, line: pos.Line}
-		attachment := directiveAttachment{
-			column:     pos.Column,
-			category:   directiveAttachmentCategory(node),
-			braceDepth: braceDepthAtPosition(pos),
-		}
-		existing, ok := g.directiveAttachments[key]
-		if !ok {
-			g.directiveAttachments[key] = attachment
-		} else if existing.column != attachment.column &&
-			existing.category == attachment.category &&
-			existing.braceDepth == attachment.braceDepth {
-			return "", nil, errorf(pos,
-				"@octoqlgen directive cannot apply to multiple peer nodes on one line; "+
-					"put each peer node on its own line")
-		} else if existing.column != attachment.column {
-			hasDirective = false
-		}
-	}
-
-	if hasDirective { // (else directive is empty)
-		for _, line := range directiveLines {
-			var graphQLDirective *ast.Directive
-			graphQLDirective, err = parseDirective(line, pos)
-			if err != nil {
-				return "", nil, err
-			}
-			err = directive.add(graphQLDirective, pos)
-			if err != nil {
-				return "", nil, err
-			}
-		}
-		err = directive.validate(node, g.schema)
-		if err != nil {
-			return "", nil, err
-		}
-	}
-
-	if queryOptions != nil {
-		// If we are part of an operation/fragment, merge its options in.
-		directive.mergeOperationDirective(node, parentIfInputField, queryOptions)
-
-		// TODO(benkraft): Really we should do all the validation after
-		// merging, probably?  But this is the only check that can fail only
-		// after merging, and it's a bit tricky because the "does not apply"
-		// checks may need to happen before merging so we know where the
-		// directive "is".
-		if directive.TypeName != "" && directive.Bind != "" && directive.Bind != "-" {
-			return "", nil, errorf(directive.pos, "typename and bind may not be used together")
-		}
+		commentLines = append(commentLines, strings.TrimSpace(strings.TrimPrefix(line, "#")))
 	}
 
 	reverse(commentLines)
-
-	return strings.TrimSpace(strings.Join(commentLines, "\n")), directive, nil
-}
-
-func directiveAttachmentCategory(node interface{}) string {
-	switch node.(type) {
-	case *ast.Field, *ast.FragmentSpread, *ast.InlineFragment:
-		return "selection"
-	case *ast.VariableDefinition:
-		return "variable-definition"
-	case *ast.OperationDefinition, *ast.FragmentDefinition:
-		return "definition"
-	case *ast.FieldDefinition:
-		return "input-field"
-	default:
-		return fmt.Sprintf("%T", node)
-	}
-}
-
-func braceDepthAtPosition(pos *ast.Position) int {
-	if pos == nil || pos.Src == nil {
-		return 0
-	}
-
-	depth := 0
-	inBlockString := false
-	inString := false
-	sourceLines := strings.Split(pos.Src.Input, "\n")
-	for lineIndex, line := range sourceLines {
-		if lineIndex >= pos.Line-1 {
-			line = line[:byteOffsetAtColumn(line, pos.Column)]
-		}
-		for index := 0; index < len(line); index++ {
-			if inBlockString {
-				if line[index] == '\\' && strings.HasPrefix(line[index+1:], `"""`) {
-					index += 3
-					continue
-				}
-				if strings.HasPrefix(line[index:], `"""`) {
-					inBlockString = false
-					index += consecutiveQuotes(line[index:]) - 1
-				}
-				continue
-			}
-			if inString {
-				if line[index] == '\\' {
-					index++
-					continue
-				}
-				if line[index] == '"' {
-					inString = false
-				}
-				continue
-			}
-			if line[index] == '#' {
-				break
-			}
-			if strings.HasPrefix(line[index:], `"""`) {
-				inBlockString = true
-				index += 2
-				continue
-			}
-			if line[index] == '"' {
-				inString = true
-				continue
-			}
-			if line[index] == '{' {
-				depth++
-				continue
-			}
-			if line[index] == '}' {
-				depth--
-			}
-		}
-		if lineIndex >= pos.Line-1 {
-			break
-		}
-	}
-	return depth
-}
-
-func consecutiveQuotes(text string) int {
-	count := 0
-	for count < len(text) && text[count] == '"' {
-		count++
-	}
-	return count
-}
-
-func byteOffsetAtColumn(line string, column int) int {
-	if column <= 1 {
-		return 0
-	}
-
-	runeColumn := 1
-	for offset := range line {
-		if runeColumn == column {
-			return offset
-		}
-		runeColumn++
-	}
-	return len(line)
-}
-
-func parseDirective(line string, pos *ast.Position) (*ast.Directive, error) {
-	// HACK: parse the "directive" by making a fake query containing it.
-	fakeQuery := fmt.Sprintf("query %v { field }", line)
-	doc, err := parser.ParseQuery(&ast.Source{Input: fakeQuery})
-	if err != nil {
-		return nil, errorf(pos, "invalid octoqlgen directive: %v", err)
-	}
-	return doc.Operations[0].Directives[0], nil
+	return strings.TrimSpace(strings.Join(commentLines, "\n"))
 }

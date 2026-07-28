@@ -3,7 +3,7 @@
 schema:
   path: schema.graphql
 operations:
-  - "*_test.go"
+  - operations.graphql
 generated: generated.go
 omit_unreferenced_implementations: false
 bindings:

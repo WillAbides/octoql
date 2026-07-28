@@ -1,7 +1,5 @@
-# @octoqlgen(for: "User.name", bind: "[]byte")
-query ConflictingTypeNameAndGlobalBind {
+query ConflictingTypeNameAndGlobalBind @octoqlgen(for: "User.name", bind: "[]byte") {
   user {
-    # @octoqlgen(typename: "MyID")
-    name
+    name @octoqlgen(typename: "MyID")
   }
 }

@@ -1,70 +1,74 @@
 # The `@octoqlgen` directive
 
-The `@octoqlgen` quasi-directive configures octoqlgen for individual
-operations, fragments, fields, and arguments.
+The `@octoqlgen` directive configures octoqlgen for individual operations,
+fragments, fields, and variables.
 
-Its syntax is just like a GraphQL directive, except that it goes in a comment
-on the line immediately preceding the element it applies to. This is because
-GraphQL expects directives in queries to be defined by the server rather than
-the client, so a real `@octoqlgen` directive would be rejected as nonexistent.
+It is a real GraphQL directive, written directly on the element it applies to.
+octoqlgen declares it in the schema it loads and removes it from every
+operation before sending it, so the server neither has to define it nor ever
+sees it.
 
 `@octoqlgen` is the only supported spelling. There is no compatibility alias.
 
+Earlier versions of octoqlgen took these options in a comment on the preceding
+line. That form is no longer accepted, and octoqlgen reports an error rather
+than generating with its options silently dropped. Move each option onto the
+element it applies to:
+
+```graphql
+# no longer supported
+# @octoqlgen(pointer: false)
+isSuspended
+
+# write this instead
+isSuspended @octoqlgen(pointer: false)
+```
+
 ## Placement
 
-Directives may be applied to fields, arguments, or an entire operation or named
-fragment. A directive on the line preceding an operation or a named fragment
-applies to all relevant elements within it. Every other directive is directly
-attached to the outermost element beginning on the following line. That direct
-attachment does not apply to nested elements, including a field's arguments and
-selections and an operation's variable definitions. A directive preceding peer
-nodes of the same kind at the same nesting depth on one line is rejected; put
-those nodes on separate lines. In all cases other comments may appear between
-the directive and the element it applies to.
+Directives may be applied to fields, variables, or an entire operation or named
+fragment. A directive on an operation or a named fragment applies to all
+relevant elements within it. Every other directive applies only to the element
+it is attached to, not to that element's arguments or selections.
+
 String option values must not be empty. Use `bind: "-"` to explicitly opt out
 of a configured binding.
 
 For example:
 
 ```graphql
-# @octoqlgen(n: "a")
-
-# @octoqlgen(n: "b")
-#
 # Comment describing the query
-#
-# @octoqlgen(n: "c")
-query MyQuery(arg1: String,
-  # @octoqlgen(n: "d")
-  arg2: String,
-  arg3: MyInput,
-  arg4: String,
-) {
-  # @octoqlgen(n: "e")
-  field1
+query MyQuery(
+  $arg1: String
+  $arg2: String @octoqlgen(n: "d")
+  $arg3: MyInput
+) @octoqlgen(n: "b") @octoqlgen(n: "c") {
+  field1 @octoqlgen(n: "e")
   field2
-  # @octoqlgen(n: "f")
-  field3(argument: "value") { field4 field5 }
+  field3(argument: "value") @octoqlgen(n: "f") {
+    field4
+    field5
+  }
 }
 ```
 
-Here directive `a` is ignored, `b` and `c` apply to all relevant nodes in the
-query, `d` applies to `arg2`, `e` applies to `field1`, and `f` applies to
-`field3` but not its argument, `field4`, or `field5`.
+Here `b` and `c` apply to all relevant nodes in the query, `d` applies to
+`$arg2`, `e` applies to `field1`, and `f` applies to `field3` but not to its
+argument, `field4`, or `field5`.
 
 Except as noted below, directives on nodes take precedence over directives on
 the entire operation, so `d`, `e`, and `f` take precedence over `b` and `c`.
 Multiple directives on the same node, such as `b` and `c`, must not conflict.
 
-Directly attached directives do *not* apply to their children, so `d` does not
-apply to the fields of `MyInput` and `f` does not apply to `field4`. Directives
-on operations and fragments do apply to children, so both `b` and `c` apply to
-the fields of `MyInput` and to `field4`.
+Directives on a node do *not* apply to its children, so `d` does not apply to
+the fields of `MyInput` and `f` does not apply to `field4`. Directives on
+operations and fragments do apply to children, so both `b` and `c` apply to the
+fields of `MyInput` and to `field4`.
 
 Multiple `@octoqlgen` directives are allowed in the same location as long as
 they do not have conflicting options. Directives are valid on queries,
-mutations, fields, fragment definitions, and variable definitions. octoql does
-not support subscriptions.
+mutations, fields, fragment definitions, and variable definitions; anywhere
+else is a GraphQL validation error. octoql does not support subscriptions.
 
 ## `for`
 
@@ -84,12 +88,11 @@ not currently validated.
 Given the following query:
 
 ```graphql
-# @octoqlgen(for: "MyInput.myField", omitempty: true)
-# @octoqlgen(for: "MyInput.myOtherField", pointer: true)
-# @octoqlgen(for: "MyOutput.id", bind: "path/to/pkg.MyOutputID")
-query MyQuery(
-  $arg: MyInput
-) { ... }
+query MyQuery($arg: MyInput)
+  @octoqlgen(for: "MyInput.myField", omitempty: true)
+  @octoqlgen(for: "MyInput.myOtherField", pointer: true)
+  @octoqlgen(for: "MyOutput.id", bind: "path/to/pkg.MyOutputID")
+{ ... }
 ```
 
 octoqlgen generates:
@@ -114,8 +117,7 @@ pointer, a nil interface value, and any empty array, slice, map, or string.
 Given the following query:
 
 ```graphql
-# @octoqlgen(omitempty: true)
-query MyQuery($arg: String) { ... }
+query MyQuery($arg: String @octoqlgen(omitempty: true)) { ... }
 ```
 
 octoqlgen generates a variables field like:
@@ -195,8 +197,7 @@ With `flatten`:
 
 ```graphql
 query MyQuery {
-  # @octoqlgen(flatten: true)
-  myField {
+  myField @octoqlgen(flatten: true) {
     ...MyFragment
   }
 }
@@ -223,8 +224,7 @@ Given a query like:
 
 ```graphql
 query MyQuery {
-  # @octoqlgen(alias: "MyGreatName")
-  myField
+  myField @octoqlgen(alias: "MyGreatName")
 }
 ```
 
@@ -255,7 +255,7 @@ The type is the type of the whole field. If the GraphQL field has type
 `[DateTime]`, that would be:
 
 ```graphql
-# @octoqlgen(bind: "[]time.Time")
+myField @octoqlgen(bind: "[]time.Time")
 ```
 
 That is not required, though. Mapping to some type `DateList` also works, as
@@ -280,10 +280,8 @@ Gives the type of this field the given name in Go.
 Given the following query:
 
 ```graphql
-# @octoqlgen(typename: "MyResp")
-query MyQuery {
-  # @octoqlgen(typename: "User")
-  user {
+query MyQuery @octoqlgen(typename: "MyResp") {
+  user @octoqlgen(typename: "User") {
     id
   }
 }
@@ -308,8 +306,7 @@ for that basic type:
 ```graphql
 query MyQuery {
   user {
-    # @octoqlgen(typename: "NameType")
-    name
+    name @octoqlgen(typename: "NameType")
   }
 }
 ```
