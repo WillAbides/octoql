@@ -185,8 +185,27 @@ token cannot see, so check nullable values before dereferencing them.
 Pass a different endpoint to `githubapi.NewClient` for GHES, a proxy, or an
 `httptest.Server`. Pass nil as the HTTP client to use `http.DefaultClient`.
 
-For basic authentication or another authentication scheme, configure the
-`http.Client` or `http.RoundTripper` passed to `NewClient`.
+Use `Client.SetBearerToken` for OAuth 2.0 bearer authentication. For basic
+authentication or another scheme, configure the `http.Client` or
+`http.RoundTripper` passed to `NewClient`. Generated clients refuse redirects
+by default. See [security considerations](docs/SECURITY.md#redirects-and-credentials)
+before enabling redirects or applying credentials in a custom `RoundTripper`.
+
+Configure the final GraphQL endpoint directly whenever possible. An appliance
+behind a redirecting load balancer or vanity hostname can opt in to redirects:
+
+```go
+err := client.SetAllowRedirects(true)
+if err != nil {
+	return err
+}
+```
+
+The opt-in follows at most 10 redirects and removes the bearer `Authorization`
+header when a redirect leaves the original scheme, host, and port. Do not enable
+redirects to turn an `http://` endpoint into `https://`: configure the
+`https://` endpoint directly so the bearer token is never sent in cleartext on
+the first hop.
 
 ## Runtime responses and errors
 
