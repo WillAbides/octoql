@@ -202,12 +202,33 @@ func rejectCommentDirectives(source *ast.Source) error {
 			continue
 		}
 		comment := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(token.Value), "#"))
-		if !strings.HasPrefix(comment, "@"+octoqlgenDirectiveName) {
+		name := commentDirectiveName(comment)
+		if name == "" {
 			continue
 		}
 		return errorf(&token.Pos,
 			"@%s is a real directive now, not a comment; attach it to the node "+
 				"it applies to, as in `myField @%s(pointer: false)`",
-			octoqlgenDirectiveName, octoqlgenDirectiveName)
+			name, octoqlgenDirectiveName)
 	}
+}
+
+// commentDirectiveName returns the octoqlgen directive a comment is written in
+// the old form of, or "" if the comment merely mentions one.
+//
+// The name has to be followed by "(" or by nothing, because prose about a
+// directive is ordinary comment text and must not be rejected.  A bare prefix
+// test would reject `# @octoqlgenFor applies to the input type below`, and also
+// any word that merely starts the same way.
+func commentDirectiveName(comment string) string {
+	for _, name := range []string{octoqlgenDefaultsName, octoqlgenForName, octoqlgenDirectiveName} {
+		rest, ok := strings.CutPrefix(comment, "@"+name)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(rest) == "" || strings.HasPrefix(rest, "(") {
+			return name
+		}
+	}
+	return ""
 }

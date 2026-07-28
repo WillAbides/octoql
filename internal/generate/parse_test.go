@@ -57,6 +57,43 @@ func TestParseRejectsCommentDirective(t *testing.T) {
 	assert.Contains(t, err.Error(), "legacy.graphql:1")
 }
 
+// TestParseDistinguishesDirectivesFromProse checks that the comment-syntax
+// check reads a whole directive name and not a prefix of one.
+//
+// Explaining @octoqlgenFor or @octoqlgenDefaults in a comment is a reasonable
+// thing to do, especially while migrating, and those names begin with
+// @octoqlgen.  As with the tests above, the comment-syntax directives here are
+// the input under test.  Do not rewrite them.
+func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
+	for comment, wantRejected := range map[string]bool{
+		"@octoqlgen(pointer: false)":              true,
+		"@octoqlgen":                              true,
+		`@octoqlgenFor(field: "Q.f")`:             true,
+		"@octoqlgenDefaults(pointer: false)":      true,
+		"@octoqlgen applies to the node it is on": false,
+		"@octoqlgenFor applies to the input type": false,
+		"@octoqlgenDefaults covers every field":   false,
+		"@octoqlgenesis is handled elsewhere":     false,
+	} {
+		t.Run(comment, func(t *testing.T) {
+			dir := t.TempDir()
+			filename := filepath.Join(dir, "operation.graphql")
+			err := os.WriteFile(filename,
+				[]byte("# "+comment+"\nquery Q { field }\n"), 0o600)
+			require.NoError(t, err)
+
+			_, err = getQueries(dir, []string{filename})
+
+			if !wantRejected {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "is a real directive now, not a comment")
+		})
+	}
+}
+
 // TestParseAllowsDirectiveInsideString checks that the comment-syntax check
 // does not fire on string content that merely looks like a directive.
 //
