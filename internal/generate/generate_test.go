@@ -1631,7 +1631,7 @@ func TestGenerateTestHandlerNameCollision(t *testing.T) {
 	}
 	err = os.WriteFile(
 		operationPath,
-		[]byte("# @octoqlgen(typename: \"TestHandler\")\nquery Value { value }\n"),
+		[]byte("# @octoqlgen(typename: \"TestHandler\")\nquery Value {\n  value\n}\n"),
 		0o600,
 	)
 	if err != nil {
@@ -1651,7 +1651,7 @@ func TestGenerateTestHandlerNameCollision(t *testing.T) {
 	}
 
 	_, err = Generate(config)
-	if err == nil || !strings.Contains(err.Error(), "conflicting definition for TestHandler") {
+	if err == nil || !strings.Contains(err.Error(), "conflicts with test handler runtime") {
 		t.Fatalf("error = %v, want test handler name collision", err)
 	}
 }
@@ -2192,6 +2192,10 @@ func TestGenerateErrors(t *testing.T) {
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointer.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "DefaultInputsNoOmitPointerForDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:5: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
+			case "DirectiveMultipleNodes.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DirectiveMultipleNodes.graphql:3: @octoqlgen directive cannot apply to multiple nodes on one line; put each node on its own line"))
+			case "EmptyForDirective.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/EmptyForDirective.graphql:2: for must not be empty"))
 			case "FlattenField.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenField.graphql:3: flatten is not yet supported for fields (only fragment spreads)"))
 			case "FlattenImplementation.graphql":
@@ -2232,12 +2236,16 @@ func TestGenerateErrors(t *testing.T) {
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyDirective.graphql:4: omitempty may only be used on optional arguments: OmitemptyInput.field"))
 			case "OmitemptyForDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyForDirective.graphql:4: omitempty may only be used on optional arguments: OmitemptyInput.field"))
+			case "OperationOmitemptyRequiredVariable.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OperationOmitemptyRequiredVariable.graphql:3: omitempty may only be used on optional arguments: OperationOmitemptyRequiredVariable.input"))
 			case "PartialDataErrorNameCollision.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "GetUserPartialDataError" conflicts with a generated GraphQL type`))
 			case "PartialDataErrorEnumValueCollision.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "FooPartialDataError" conflicts with a generated enum value`))
 			case "PartialDataErrorOperationNameCollision.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "GetUserPartialDataError" conflicts with operation "GetUserPartialDataError"`))
+			case "PointerOperationVariable.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/PointerOperationVariable.graphql:3: pointer on non-null argument can only be used together with omitempty: PointerOperationVariable.input"))
 			case "StructOptionOnObject.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionOnObject.graphql:3: struct is only applicable to interface-typed fields"))
 			case "StructOptionWithFragments.graphql":

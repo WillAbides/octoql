@@ -1,0 +1,6 @@
+query PointerOperationVariable(
+  # @octoqlgen(pointer: true)
+  $input: InputWithDefaults!
+) {
+  default(input: $input)
+}

@@ -45,6 +45,8 @@ type generator struct {
 	// set consistently, even post-validation.
 	fragments map[string]*ast.FragmentDefinition
 
+	directiveAttachments map[directiveAttachment]struct{}
+
 	forbiddenImportPath string
 }
 
@@ -189,13 +191,14 @@ func newGenerator(
 	fragments ast.FragmentDefinitionList,
 ) *generator {
 	g := generator{
-		Config:        config,
-		typeMap:       map[string]goType{},
-		imports:       map[string]string{},
-		usedAliases:   map[string]bool{},
-		templateCache: map[string]*template.Template{},
-		schema:        schema,
-		fragments:     make(map[string]*ast.FragmentDefinition, len(fragments)),
+		Config:               config,
+		typeMap:              map[string]goType{},
+		imports:              map[string]string{},
+		usedAliases:          map[string]bool{},
+		templateCache:        map[string]*template.Template{},
+		schema:               schema,
+		fragments:            make(map[string]*ast.FragmentDefinition, len(fragments)),
+		directiveAttachments: make(map[directiveAttachment]struct{}),
 	}
 
 	for _, fragment := range fragments {

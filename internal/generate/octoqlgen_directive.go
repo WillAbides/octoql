@@ -25,6 +25,12 @@ type octoqlgenDirective struct {
 	FieldDirectives map[string]map[string]*octoqlgenDirective
 }
 
+type directiveAttachment struct {
+	source *ast.Source
+	line   int
+	column int
+}
+
 func newOctoqlgenDirective(pos *ast.Position) *octoqlgenDirective {
 	return &octoqlgenDirective{
 		pos:             pos,
@@ -91,15 +97,21 @@ func (d *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Posit
 	// appropriate place in FieldDirectives.
 	var err error
 	forField := ""
+	hasForField := false
 	for _, arg := range graphQLDirective.Arguments {
-		if arg.Name == "for" {
-			if forField != "" {
-				return errorf(pos, `@octoqlgen directive had "for:" twice`)
-			}
-			err = setString("for", &forField, arg.Value, pos)
-			if err != nil {
-				return err
-			}
+		if arg.Name != "for" {
+			continue
+		}
+		if hasForField {
+			return errorf(pos, `@octoqlgen directive had "for:" twice`)
+		}
+		hasForField = true
+		err = setString("for", &forField, arg.Value, pos)
+		if err != nil {
+			return err
+		}
+		if forField == "" {
+			return errorf(pos, "for must not be empty")
 		}
 	}
 	if forField != "" {
@@ -445,6 +457,26 @@ func (g *generator) parsePrecedingComment(
 				break
 			}
 		}
+	}
+
+	if hasDirective {
+		attachment := directiveAttachment{
+			source: pos.Src,
+			line:   pos.Line,
+			column: pos.Column,
+		}
+		for existing := range g.directiveAttachments {
+			if existing.source != attachment.source || existing.line != attachment.line {
+				continue
+			}
+			if existing.column == attachment.column {
+				continue
+			}
+			return "", nil, errorf(pos,
+				"@octoqlgen directive cannot apply to multiple nodes on one line; "+
+					"put each node on its own line")
+		}
+		g.directiveAttachments[attachment] = struct{}{}
 	}
 
 	if hasDirective { // (else directive is empty)

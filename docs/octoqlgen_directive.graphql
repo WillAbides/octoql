@@ -8,10 +8,12 @@
 # directive as nonexistent.)
 #
 # Directives may be applied to fields, arguments, or the entire query or named
-# fragment.  Directives on the line preceding the query or a named fragment
-# apply to all relevant nodes in the query; other directives apply to all nodes
-# on the following line.  (In all cases it's fine for there to be other
-# comments in between the directive and the node(s) to which it applies.)  For
+# fragment. Directives on the line preceding the query or a named fragment
+# apply to all relevant nodes in the query. Other directives apply only to one
+# node on the following line. A directive preceding multiple nodes on one line
+# is rejected; put each node on its own line. (In all cases it's fine for there
+# to be other comments between the directive and the node to which it applies.)
+# For
 # example, in the following query:
 #  # @octoqlgen(n: "a")
 #
@@ -22,19 +24,20 @@
 #  # @octoqlgen(n: "c")
 #  query MyQuery(arg1: String,
 #    # @octoqlgen(n: "d")
-#    arg2: String, arg3: MyInput,
+#    arg2: String,
+#    arg3: MyInput,
 #    arg4: String,
 #  ) {
 #    # @octoqlgen(n: "e")
-#    field1, field2
+#    field1
+#    field2
 #    # @octoqlgen(n: "f")
 #    field3 {
 #      field4
 #    }
 #  }
 # the directive "a" is ignored, "b" and "c" apply to all relevant nodes in the
-# query, "d" applies to arg2 and arg3, "e" applies to field1 and field2, and
-# "f" applies to field3.
+# query, "d" applies to arg2, "e" applies to field1, and "f" applies to field3.
 #
 # Except as noted below, directives on nodes take precedence over ones on the
 # entire query (so "d", "e", and "f" take precedence over "b" and "c"), and

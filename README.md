@@ -184,8 +184,11 @@ GraphQL's built-in scalars map to ordinary Go values:
 
 Nullable named values generate as pointers by default. Use
 `@octoqlgen(pointer: false)` on an argument or selected field when its zero
-value should represent GraphQL null. octoqlgen includes bindings for common
-GitHub scalars; add a binding for unknown custom scalars. See the
+value should represent GraphQL null. Put that argument or field on its own
+line: an `@octoqlgen` comment preceding multiple nodes on one line is rejected
+to prevent an option from silently applying to the wrong node. octoqlgen
+includes bindings for common GitHub scalars; add a binding for unknown custom
+scalars. See the
 [configuration reference](docs/octoqlgen.yaml) and
 [directive reference](docs/octoqlgen_directive.graphql) for scalar bindings,
 abstract types, and field options.
