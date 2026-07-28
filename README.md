@@ -1,16 +1,10 @@
-[![Test Status](https://github.com/willabides/octoql/actions/workflows/ci.yaml/badge.svg)](https://github.com/willabides/octoql/actions)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](docs/CODE_OF_CONDUCT.md)
-
 # octoql
 
-octoql generates type-safe Go clients and typed test handlers for GitHub-shaped
-GraphQL APIs. It validates queries and mutations against a pinned schema, then
-generates a self-contained Go client with typed methods for each operation.
+octoql generates type-safe Go clients and typed test handlers for GitHub's
+GraphQL API from your graphql queries and mutations.
 
-octoql is a standalone project derived from
-[Khan/genqlient](https://github.com/Khan/genqlient). See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for exact source pins and
-attribution.
+octoql started as a fork of [Khan/genqlient](https://github.com/Khan/genqlient).
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
 
 ## Requirements and installation
 
