@@ -25,7 +25,7 @@ import (
 // is necessary to handle recursive input types, and an optimization in other
 // cases.)
 func (g *generator) getType(
-	goName, graphQLName string,
+	goName, graphQLName, newSource string,
 	selectionSet ast.SelectionSet,
 	pos *ast.Position,
 ) (goType, error) {
@@ -44,15 +44,53 @@ func (g *generator) getType(
 	}
 
 	expectedSelectionSet := typ.SelectionSet()
-	if err := selectionsMatch(pos, selectionSet, expectedSelectionSet); err != nil {
+	err := selectionsMatch(pos, selectionSet, expectedSelectionSet)
+	if err != nil {
+		oldSource := describeTypeSource(typ)
+		oldPos := g.typePositions[goName]
 		return typ, errorf(
-			pos, "conflicting definition for %s; this can indicate either "+
-				"an octoqlgen internal error, a conflict between user-specified "+
-				"type-names, or some very tricksy GraphQL field/type names: %v",
-			goName, err)
+			pos, "conflicting definition for the Go type %s: it is generated "+
+				"from both %s (at %s) and %s (at %s), which select different "+
+				"fields (%v); give one of them a distinct name with an "+
+				"@octoqlgen(typename:) directive so they produce separate Go types",
+			goName, oldSource, posString(oldPos), newSource, posString(pos), err)
 	}
 
 	return typ, nil
+}
+
+// describeTypeSource returns a human-readable description of the GraphQL
+// construct that produced a generated type, for use in conflict errors.
+func describeTypeSource(typ goType) string {
+	graphQLName := typ.GraphQLTypeName()
+	fragmentName := ""
+	switch t := typ.(type) {
+	case *goStructType:
+		if t.IsInput {
+			return fmt.Sprintf("input GraphQL type %s", graphQLName)
+		}
+		fragmentName = t.FragmentName
+	case *goInterfaceType:
+		fragmentName = t.FragmentName
+	}
+	return describeGraphQLSource(graphQLName, fragmentName)
+}
+
+// describeGraphQLSource describes a construct by its GraphQL type name and,
+// optionally, the fragment that selected it.
+func describeGraphQLSource(graphQLName, fragmentName string) string {
+	if fragmentName != "" {
+		return fmt.Sprintf("the fragment %s on GraphQL type %s", fragmentName, graphQLName)
+	}
+	return fmt.Sprintf("the selection of GraphQL type %s", graphQLName)
+}
+
+// posString renders a source position for a conflict error.
+func posString(pos *ast.Position) string {
+	if pos == nil || pos.Src == nil {
+		return "an unknown location"
+	}
+	return fmt.Sprintf("%s:%d", pos.Src.Name, pos.Line)
 }
 
 // addType inserts the type into g.typeMap, checking for conflicts.
@@ -64,11 +102,13 @@ func (g *generator) getType(
 //
 // Returns an already-existing type if found, and otherwise the given type.
 func (g *generator) addType(typ goType, goName string, pos *ast.Position) (goType, error) {
-	otherTyp, err := g.getType(goName, typ.GraphQLTypeName(), typ.SelectionSet(), pos)
+	newSource := describeTypeSource(typ)
+	otherTyp, err := g.getType(goName, typ.GraphQLTypeName(), newSource, typ.SelectionSet(), pos)
 	if otherTyp != nil || err != nil {
 		return otherTyp, err
 	}
 	g.typeMap[goName] = typ
+	g.typePositions[goName] = pos
 	return typ, nil
 }
 
@@ -613,7 +653,7 @@ func (g *generator) convertDefinition(
 	// (and must fail if it doesn't).  (This can happen for input/enum types,
 	// types of fields of interfaces, when options.TypeName is set, or, of
 	// course, on invalid configuration or internal error.)
-	existing, err := g.getType(name, def.Name, selectionSet, pos)
+	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, pos)
 	if existing != nil || err != nil {
 		return existing, err
 	}
@@ -1201,7 +1241,9 @@ func (g *generator) convertFragmentSpread(
 	// would silently emit the wrong type and drop the fragment's fields.
 	fragment := fragmentSpread.Definition
 	typ, err := g.getType(
-		fragment.Name, fragment.Definition.Name, fragment.SelectionSet, fragment.Position)
+		fragment.Name, fragment.Definition.Name,
+		describeGraphQLSource(fragment.Definition.Name, fragment.Name),
+		fragment.SelectionSet, fragment.Position)
 	if err != nil {
 		return nil, err
 	}

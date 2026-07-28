@@ -28,6 +28,11 @@ func TestGenerateCollisionCompileCorpus(t *testing.T) {
 		// unrelated failure cannot satisfy it.  When empty, generation must
 		// succeed and the output must compile against only the standard library.
 		wantGenerationErr string
+		// wantGenerationErrAlso lists additional substrings the error must
+		// contain, for cases where the offending constructs are named in
+		// non-contiguous parts of the message (e.g. separated by a volatile
+		// source position).
+		wantGenerationErrAlso []string
 	}{
 		{
 			name: "baseline",
@@ -140,7 +145,12 @@ fragment F on I {
 }
 `,
 			keepImplementations: true,
-			wantGenerationErr:   "conflicting definition for FImpl",
+			wantGenerationErr: "conflicting definition for the Go type FImpl: " +
+				"it is generated from both the selection of GraphQL type Impl",
+			wantGenerationErrAlso: []string{
+				"the fragment F on GraphQL type Impl",
+				"give one of them a distinct name with an @octoqlgen(typename:) directive",
+			},
 		},
 		{
 			// With auto-camel casing, foo_bar and fooBar both normalize to the
@@ -340,6 +350,9 @@ query Q($foo: String, $Foo: String) {
 			if test.wantGenerationErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.wantGenerationErr)
+				for _, also := range test.wantGenerationErrAlso {
+					assert.Contains(t, err.Error(), also)
+				}
 				return
 			}
 			require.NoError(t, err)
