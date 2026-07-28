@@ -1,41 +1,21 @@
-[![Test Status](https://github.com/willabides/octoql/actions/workflows/ci.yaml/badge.svg)](https://github.com/willabides/octoql/actions)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](docs/CODE_OF_CONDUCT.md)
-
 # octoql
 
-octoql generates type-safe Go clients and typed test handlers for GitHub-shaped
-GraphQL APIs. It validates queries and mutations against a pinned schema, then
-generates a self-contained Go client with typed methods for each operation.
+octoql generates type-safe Go clients and typed test handlers for GitHub's
+GraphQL API from your graphql queries and mutations.
 
-octoql is a standalone project derived from
-[Khan/genqlient](https://github.com/Khan/genqlient). See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for exact source pins and
-attribution.
+octoql started as a fork of [Khan/genqlient](https://github.com/Khan/genqlient).
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
 
 ## Requirements and installation
 
-octoql requires Go 1.26 or newer. Pin `octoqlgen` as a Go tool dependency in
-the module that owns the generated client:
+octoql requires Go 1.26 or newer. Run `octoqlgen` from a `go:generate`
+directive with an explicit release version; this does not add a dependency to
+the module that owns the generated client.
+
+Initialize a project with:
 
 ```sh
-go get -tool github.com/willabides/octoql/cmd/octoqlgen
-```
-
-Run the pinned tool with `go tool octoqlgen`. This keeps the generator version
-explicit in the module that owns the generated client.
-
-For a standalone binary, install a release archive with
-[bindown](https://github.com/WillAbides/bindown):
-
-```sh
-bindown template-source add octoql https://github.com/WillAbides/octoql/releases/latest/download/bindown.yaml
-bindown dependency add octoqlgen --source octoql
-```
-
-Or build a standalone binary from source with an explicit version or commit:
-
-```sh
-go install github.com/willabides/octoql/cmd/octoqlgen@<version-or-commit>
+go run github.com/willabides/octoql/cmd/octoqlgen@<version> init
 ```
 
 Generated clients are self-contained and use only the standard library unless
@@ -43,12 +23,6 @@ configured scalar bindings add imports. Application code does not import
 `github.com/willabides/octoql`.
 
 ## Generate a client
-
-Initialize a project:
-
-```sh
-go tool octoqlgen init
-```
 
 GitHub authentication must be available through `GH_TOKEN`, `GITHUB_TOKEN`, or
 the `gh` CLI.
@@ -62,8 +36,8 @@ and `internal/githubapi/generated.go` for output.
 Choose another GitHub Docs schema version with `--schema-version`:
 
 ```sh
-go tool octoqlgen init --schema-version ghec
-go tool octoqlgen init --schema-version ghes-3.21
+go run github.com/willabides/octoql/cmd/octoqlgen@<version> init --schema-version ghec
+go run github.com/willabides/octoql/cmd/octoqlgen@<version> init --schema-version ghes-3.21
 ```
 
 All paths and globs in `octoqlgen.yaml` are relative to that file. See
@@ -86,17 +60,24 @@ query GetRepository($owner: String!, $name: String!, $first: Int!) {
 }
 ```
 
-Fetch or verify the configured schema, then generate:
+Create `internal/githubapi/githubapi.go` to generate the configured client:
 
-```sh
-go tool octoqlgen schema fetch
-go tool octoqlgen generate
+```go
+package githubapi
+
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen@<version> generate --config ../../octoqlgen.yaml
 ```
 
-Generation performs the same schema verification or fetch before it writes
-code. Query and mutation operation names become generated helper names,
-so use an uppercase name when the helper must be exported. octoql does not
-support GraphQL subscriptions, and `octoqlgen` rejects subscription operations.
+Run generation with:
+
+```sh
+go generate ./...
+```
+
+Generation verifies or fetches the configured schema before it writes code.
+Query and mutation operation names become generated helper names, so use an
+uppercase name when the helper must be exported. octoql does not support
+GraphQL subscriptions, and `octoqlgen` rejects subscription operations.
 
 Operations may also be embedded in Go string literals. See the
 [directive reference](docs/octoqlgen_directive.graphql) for embedded operations
@@ -123,7 +104,7 @@ Pass `--schema-version` to initialize with another GitHub Docs version.
 `schema fetch` verifies an existing file or fetches a missing remote file:
 
 ```sh
-go tool octoqlgen schema fetch
+go run github.com/willabides/octoql/cmd/octoqlgen@<version> schema fetch
 ```
 
 `schema update` fetches the latest version of the configured repository path
@@ -131,9 +112,9 @@ from its default branch, validates and writes it, then updates the configuration
 revision and `sha256`. Run schema updates serially.
 
 ```sh
-go tool octoqlgen schema update
+go run github.com/willabides/octoql/cmd/octoqlgen@<version> schema update
 git diff -- octoqlgen.yaml
-go tool octoqlgen generate
+go generate ./...
 ```
 
 The `.octoql` schema normally remains ignored while the reviewed pin in
@@ -235,7 +216,7 @@ Local handler values are not assignable to client types. Test-handler
 configuration requires query and mutation names to begin with an uppercase
 letter.
 
-After `go tool octoqlgen generate`, each handler operation has matching
+After `go generate ./...`, each handler operation has matching
 `Expect<Operation>`, `Default<Operation>`, and `Reset<Operation>` methods:
 
 ```go
