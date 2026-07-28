@@ -11,6 +11,7 @@ package generate
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 
@@ -244,14 +245,53 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 // from goInterfaceType.members, so the method set that is checked matches the
 // one WriteDefinition emits.
 type interfaceMethod struct {
-	name      string
+	name string
+	// signature is the method signature as it will be emitted, preserving the
+	// binding's original type spelling so diagnostics show what the user wrote.
 	signature string
+	// canonSignature is signature with Go's predeclared type aliases folded to
+	// their canonical spellings, so overlap comparison matches Go's rule that
+	// overlapping methods must have identical *types*, not identical source
+	// text.  Compare this, not signature, when deciding whether two same-named
+	// methods legally collapse.
+	canonSignature string
 	// owner is the Go name of the interface that explicitly declares this
 	// method.  For methods promoted from an embedded interface, owner is that
 	// embedded interface, not the interface it was promoted into.
 	owner       string
 	description string
 	pos         *ast.Position
+}
+
+// predeclaredTypeAliases folds Go's predeclared type aliases to the canonical
+// spelling of the identical underlying type.  Go treats each pair as the same
+// type, so two overlapping interface methods that differ only by which spelling
+// a binding used are still valid Go.  Each pattern matches the alias only as a
+// whole identifier, so it rewrites the aliases inside pointer, slice, array, and
+// map spellings (e.g. []byte, map[string]byte) while leaving unrelated names
+// such as bytes or myrune untouched.
+var predeclaredTypeAliases = []struct {
+	alias *regexp.Regexp
+	canon string
+}{
+	{regexp.MustCompile(`\bbyte\b`), "uint8"},
+	{regexp.MustCompile(`\brune\b`), "int32"},
+	{regexp.MustCompile(`\bany\b`), "interface{}"},
+}
+
+// canonicalizeTypeRef rewrites Go's predeclared type aliases (byte, rune, any)
+// to their canonical spellings so type references that Go considers identical
+// compare equal.  It is deliberately limited to the predeclared aliases:
+// identical types spelled through a user-defined or imported alias are not
+// resolved and will still be reported as conflicting.  Resolving those would
+// require go/types package resolution during generation, which this generator
+// avoids by treating bindings as opaque strings; the remedy for that residual
+// case is to spell the conflicting bindings consistently or alias the field.
+func canonicalizeTypeRef(ref string) string {
+	for _, a := range predeclaredTypeAliases {
+		ref = a.alias.ReplaceAllString(ref, a.canon)
+	}
+	return ref
 }
 
 // interfaceMethodSet returns the full method set of the Go interface t would
@@ -271,16 +311,18 @@ func interfaceMethodSet(t *goInterfaceType, visited map[string]bool) []interface
 		switch member.kind {
 		case interfaceMarkerMember:
 			methods = append(methods, interfaceMethod{
-				name:        member.methodName,
-				signature:   "()",
-				owner:       t.GoName,
-				description: fmt.Sprintf("the implements-marker method of interface %s", t.GoName),
+				name:           member.methodName,
+				signature:      "()",
+				canonSignature: "()",
+				owner:          t.GoName,
+				description:    fmt.Sprintf("the implements-marker method of interface %s", t.GoName),
 			})
 		case interfaceGetterMember:
 			methods = append(methods, interfaceMethod{
-				name:      member.methodName,
-				signature: "() " + member.resultRef,
-				owner:     t.GoName,
+				name:           member.methodName,
+				signature:      "() " + member.resultRef,
+				canonSignature: "() " + canonicalizeTypeRef(member.resultRef),
+				owner:          t.GoName,
 				description: fmt.Sprintf("getter %s (for field %s, GraphQL %s)",
 					member.methodName, member.field.GoName, member.field.GraphQLName),
 				pos: member.field.Position,
@@ -327,9 +369,14 @@ func (g *generator) checkInterfaceIdentifiers(t *goInterfaceType) error {
 			continue
 		}
 		sameOwner := existing.owner == method.owner
-		if !sameOwner && existing.signature == method.signature {
+		if !sameOwner && existing.canonSignature == method.canonSignature {
 			// Identical methods promoted from distinct embedded interfaces are
-			// legal and collapse into one.
+			// legal and collapse into one.  We compare canonSignature so a
+			// method spelled byte and one spelled uint8 (the same Go type)
+			// collapse as Go collapses them.  Residual limitation: identical
+			// types spelled through a non-predeclared alias are not folded and
+			// will still be reported here; the message names both spellings so
+			// the user can make the bindings consistent or alias the field.
 			continue
 		}
 		errPos := method.pos
