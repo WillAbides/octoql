@@ -426,6 +426,45 @@ query Q($foo: String, $Foo: String) {
 				"for both field Foo (GraphQL foo) and field Foo (GraphQL Foo); " +
 				"rename the variable or input field, or change the casing configuration",
 		},
+		{
+			// Two sibling fields both carry @octoqlgen(typename:"Shared"), but
+			// the first names its id sub-field "NodeId" via
+			// @octoqlgen(alias:"nodeId") while the second uses the plain name
+			// "Id".  selectionsMatch sees identical AST (field "id" in both)
+			// and passes; only the structural Go field comparison in addType
+			// catches that NodeId ≠ Id and rejects the conflicting registration.
+			name: "typename reuse with distinct aliases",
+			schema: `
+type Query {
+  a: Item!
+  b: Item!
+}
+type Item {
+  id: String!
+  name: String!
+}
+`,
+			operations: `
+query Q {
+  # @octoqlgen(typename: "Shared")
+  a {
+    # @octoqlgen(alias: "nodeId")
+    id
+    name
+  }
+  # @octoqlgen(typename: "Shared")
+  b {
+    id
+    name
+  }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type Shared",
+			wantGenerationErrAlso: []string{
+				"NodeId",
+				"Id",
+			},
+		},
 	}
 
 	for _, test := range tests {
