@@ -191,6 +191,13 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 					octoqlgenForName, fieldName, typeName)
 			}
 
+			// Only an input type's field is omitted when empty; a selected
+			// field is decoded, not sent.
+			if fieldDir.Omitempty != nil && typ.Kind != ast.InputObject {
+				return errorf(fieldDir.pos,
+					"omitempty is only applicable to input-type fields, and %s.%s is not one",
+					typeName, fieldName)
+			}
 			// Only a selected field takes its Go name from alias; an input
 			// type's fields are named after the GraphQL field.
 			if fieldDir.Alias != "" && typ.Kind == ast.InputObject {
@@ -210,6 +217,11 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		if d.Bind != "" {
 			return errorf(d.pos, "bind may not be applied to the entire operation")
 		}
+		// The response type is named by typename; nothing reads alias here.
+		if d.Alias != "" {
+			return errorf(d.pos,
+				"alias is only applicable to selected fields, not operations")
+		}
 
 		// Anything else is valid on the entire operation; it will just apply
 		// to whatever it is relevant to.
@@ -222,6 +234,16 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 
 		if d.Struct != nil {
 			return errorf(d.pos, "struct is only applicable to fields, not fragment-definitions")
+		}
+		// A fragment's generated type is named after the fragment.
+		if d.Alias != "" {
+			return errorf(d.pos,
+				"alias is only applicable to selected fields, not fragment-definitions")
+		}
+		if d.TypeName != "" {
+			return errorf(d.pos,
+				"typename is not applicable to fragment-definitions; "+
+					"the generated type is named after the fragment")
 		}
 
 		// Like operations, anything else will just apply to the entire

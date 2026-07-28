@@ -600,6 +600,36 @@ query Q($f: Filter @octoqlgen(alias: "Renamed")) {
 `,
 			wantError: "alias is only applicable to selected fields",
 		},
+		"omitempty for an output field": {
+			operation: `
+query Q @octoqlgenFor(field: "Thing.name", omitempty: true) {
+  thing { name }
+}
+`,
+			wantError: "omitempty is only applicable to input-type fields",
+		},
+		"alias on an operation": {
+			operation: `
+query Q @octoqlgen(alias: "Renamed") {
+  thing { name }
+}
+`,
+			wantError: "alias is only applicable to selected fields, not operations",
+		},
+		"alias on a fragment": {
+			operation: `
+query Q { thing { ...F } }
+fragment F on Thing @octoqlgen(alias: "Renamed") { name }
+`,
+			wantError: "alias is only applicable to selected fields, not fragment-definitions",
+		},
+		"typename on a fragment": {
+			operation: `
+query Q { thing { ...F } }
+fragment F on Thing @octoqlgen(typename: "Renamed") { name }
+`,
+			wantError: "the generated type is named after the fragment",
+		},
 		"alias for an input-type field": {
 			operation: `
 query Q($f: Filter) @octoqlgenFor(field: "Filter.label", alias: "Renamed") {
