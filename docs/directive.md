@@ -389,10 +389,13 @@ if user.IsSuspended != nil && *user.IsSuspended {
 }
 ```
 
-A non-null list under `@skip` makes the whole list nilable rather than its
-elements, so `[Role!]!` becomes `*[]Role`, not `[]*Role`. Fields that are
-already nilable — nullable schema types and generated abstract interfaces — keep
-their existing types.
+A list under `@skip` keeps its nil-ability at the container level rather than
+wrapping its elements: a slice is already nil-able in Go, so `[Role!]!` stays
+`[]Role` (never `[]*Role`), and an omitted list decodes to a nil slice. Fields
+whose Go type can already hold nil — nullable schema types, slices, and generated
+abstract interfaces — keep their existing types. The forced pointer therefore
+applies only to scalars, enums, and structs, whose Go zero value would otherwise
+be indistinguishable from an absent value.
 
 Because absence must stay representable, combining `@skip` or `@include` with
 [`pointer: false`](#pointer) on the same field is a contradiction and is rejected

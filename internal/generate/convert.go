@@ -1217,13 +1217,17 @@ func hasConditionalDirective(directives ast.DirectiveList) bool {
 		directives.ForName("include") != nil
 }
 
-// forceConditionalPointer wraps goTyp in a pointer so an absent value is
-// representable as nil, unless it is already nil-able. Pointers and interfaces
-// can already hold nil, and applying it to the whole field type (rather than a
-// list element) keeps the nil-ability at the field/container level.
+// forceConditionalPointer makes goTyp able to represent an absent value as nil,
+// for a field carrying @skip/@include. Types that can already hold nil are
+// returned unchanged: pointers and interfaces obviously, but also slices — a nil
+// slice already distinguishes an absent list from a present one, and wrapping a
+// slice in an outer pointer would only mask its depth from the special
+// marshal/unmarshal generation (which keys off the field's top-level slice
+// depth), producing uncompilable code for lists of abstract or custom-marshalled
+// elements. Everything else (scalars, enums, structs) is wrapped in a pointer.
 func forceConditionalPointer(goTyp goType) goType {
 	switch goTyp.(type) {
-	case *goPointerType, *goInterfaceType:
+	case *goPointerType, *goInterfaceType, *goSliceType:
 		return goTyp
 	default:
 		return &goPointerType{goTyp}

@@ -117,8 +117,10 @@ query QNested($hide: Boolean!) {
 }
 
 // TestSkipForcesContainerPointerOnList covers trap 2: a non-null list of
-// non-null elements ([Role!]!) under @skip must make the *container* nilable
-// (*[]Role), not the elements ([]*Role).
+// non-null elements ([Role!]!) under @skip must keep nil-ability at the
+// *container* level, not the elements. A slice is already nil-able in Go, so the
+// correct result is a plain slice ([]Role) — never element pointers ([]*Role),
+// and no redundant outer pointer (*[]Role) that would only mask slice depth.
 func TestSkipForcesContainerPointerOnList(t *testing.T) {
 	source, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QList($hide: Boolean!) {
@@ -130,10 +132,111 @@ query QList($hide: Boolean!) {
 }
 `)
 	require.NoError(t, err)
-	assert.Contains(t, source, "Roles *[]QListUserRolesRole")
+	assert.Regexp(t, `Roles\s+\[\]QListUserRolesRole`, source)
 	assert.NotContains(t, source, "Roles []*QListUserRolesRole")
-	assert.NotContains(t, source, "Roles []QListUserRolesRole")
+	assert.NotContains(t, source, "Roles *[]QListUserRolesRole")
 	require.NoError(t, buildGoFile("skip_include_list", []byte(source)))
+}
+
+// skipIncludeAbstractSchema exercises the special-unmarshalling path: a list of
+// an interface (abstract) type and a list of a custom-unmarshalled scalar, both
+// of which generate an UnmarshalJSON that must traverse slice depth correctly
+// even when the field is wrapped in a container pointer by @skip/@include.
+const skipIncludeAbstractSchema = `
+type Query {
+  nodes: [Node!]!
+  dates: [Date!]!
+  singleDate: Date!
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  login: String!
+}
+
+scalar Date
+`
+
+// generateSkipIncludeAbstractSource is like generateSkipIncludeSource but wires
+// up the Date scalar binding needed for the custom-unmarshaller list case.
+func generateSkipIncludeAbstractSource(t *testing.T, operation string) (string, error) {
+	t.Helper()
+
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(skipIncludeAbstractSchema), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "skipinclude",
+		ContextType: "-",
+		Bindings: map[string]*TypeBinding{
+			"ID":   {Type: "github.com/willabides/octoql/internal/testutil.ID"},
+			"Date": {Type: "time.Time", Marshaler: "github.com/willabides/octoql/internal/testutil.MarshalDate", Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate"},
+		},
+	}
+	generated, err := Generate(config)
+	if err != nil {
+		return "", err
+	}
+	return string(generated[config.Generated]), nil
+}
+
+// TestSkipForcesContainerPointerOnInterfaceList covers the special-unmarshal
+// path for a non-null list of an abstract (interface) type under @skip. A slice
+// is already nil-able, so it stays a plain slice and the generated UnmarshalJSON
+// (which traverses slice depth) still compiles.
+func TestSkipForcesContainerPointerOnInterfaceList(t *testing.T) {
+	source, err := generateSkipIncludeAbstractSource(t, `
+query QAbstractList($hide: Boolean!) {
+  nodes @skip(if: $hide) {
+    id
+  }
+}
+`)
+	require.NoError(t, err)
+	assert.Regexp(t, `Nodes\s+\[\]QAbstractListNodesNode`, source)
+	assert.NotContains(t, source, "Nodes *[]QAbstractListNodesNode")
+	require.NoError(t, buildGoFile("skip_include_iface_list", []byte(source)))
+}
+
+// TestSkipForcesContainerPointerOnScalarList covers the special-unmarshal path
+// for a non-null list of a custom-unmarshalled scalar under @skip. As above, the
+// slice stays a plain slice and the generated UnmarshalJSON compiles.
+func TestSkipForcesContainerPointerOnScalarList(t *testing.T) {
+	source, err := generateSkipIncludeAbstractSource(t, `
+query QScalarList($hide: Boolean!) {
+  dates @skip(if: $hide)
+}
+`)
+	require.NoError(t, err)
+	assert.Regexp(t, `Dates\s+\[\]time\.Time`, source)
+	assert.NotContains(t, source, "Dates *[]time.Time")
+	require.NoError(t, buildGoFile("skip_include_scalar_list", []byte(source)))
+}
+
+// TestSkipForcesPointerOnScalarField covers a non-list custom-unmarshalled
+// scalar under @skip: it must become a pointer (*time.Time), and the special
+// UnmarshalJSON for that pointer field must compile. This is the scalar
+// counterpart to the list cases and confirms the scalar-pointer path is
+// unaffected by the slice handling.
+func TestSkipForcesPointerOnScalarField(t *testing.T) {
+	source, err := generateSkipIncludeAbstractSource(t, `
+query QScalarField($hide: Boolean!) {
+  singleDate @skip(if: $hide)
+}
+`)
+	require.NoError(t, err)
+	assert.Regexp(t, `SingleDate\s+\*time\.Time`, source)
+	require.NoError(t, buildGoFile("skip_include_scalar_field", []byte(source)))
 }
 
 // TestSkipPointerFalseConflict covers trap 1: an explicit @octoqlgen(pointer:
