@@ -461,8 +461,43 @@ query Q {
 `,
 			wantGenerationErr: "conflicting definition for the Go type Shared",
 			wantGenerationErrAlso: []string{
-				"NodeId",
-				"Id",
+				`"NodeId" vs "Id"`,
+			},
+		},
+		{
+			// Two sibling fields both carry @octoqlgen(typename:"Shared"), but
+			// one applies @skip to the flag sub-field, which forces a pointer
+			// on that field.  selectionsMatch sees identical field names and
+			// passes; the structural comparison catches *bool ≠ bool and
+			// rejects the conflicting registration.
+			//
+			// This covers the live bypass on main: without this fix, a
+			// typename-reused conditional field keeps its value type from the
+			// first registration, so a skipped Boolean! decodes to false
+			// instead of being absent.
+			name: "typename reuse with distinct conditional directives",
+			schema: `
+type Query {
+  a: Item!
+  b: Item!
+}
+type Item {
+  id: String!
+  flag: Boolean!
+}
+`,
+			operations: `
+query Q($hide: Boolean!) {
+  # @octoqlgen(typename: "Shared")
+  a { id  flag @skip(if: $hide) }
+  # @octoqlgen(typename: "Shared")
+  b { id  flag }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type Shared",
+			wantGenerationErrAlso: []string{
+				"Flag",
+				"*bool vs bool",
 			},
 		},
 	}
