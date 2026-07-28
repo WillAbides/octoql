@@ -97,17 +97,24 @@ func renderProperties(
 		if children == nil {
 			continue
 		}
-		// Map and array entries resolve to a separate definition, whose own
-		// prose would otherwise never reach the page.
+
+		childPath := path + suffix
+		childDepth := depth + 1
+		// Map and array entries resolve to a separate definition. Give that
+		// definition its own heading so the entry is linkable and its prose is
+		// not mistaken for a continuation of the parent's.
 		if suffix != "" {
 			entryDoc := scalarValue(children, "x-doc")
-			if entryDoc != "" {
-				out.WriteString("\n")
-				out.WriteString(strings.TrimRight(entryDoc, "\n"))
-				out.WriteString("\n")
+			if entryDoc == "" {
+				*missing = append(*missing, childPath)
+				continue
 			}
+			fmt.Fprintf(out, "\n%s `%s`\n\n", strings.Repeat("#", childDepth), childPath)
+			out.WriteString(strings.TrimRight(entryDoc, "\n"))
+			out.WriteString("\n")
+			childDepth++
 		}
-		err = renderProperties(out, children, defs, path+suffix, depth+1, missing)
+		err = renderProperties(out, children, defs, childPath, childDepth, missing)
 		if err != nil {
 			return err
 		}

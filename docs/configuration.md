@@ -215,10 +215,12 @@ To get equivalent behavior for a single operation, use
 `@octoqlgen(typename: ...)`, which maps a builtin scalar to a nonstandard
 type that octoqlgen defines for you.
 
+### `bindings.<name>`
+
 A single entry in `bindings`, describing the Go type to use for one
 GraphQL type and how to convert it to and from JSON.
 
-### `bindings.<name>.type`
+#### `bindings.<name>.type`
 
 Type: `string` · Optional
 
@@ -239,7 +241,7 @@ such as `interface {/* hi */}` or `map[  string      ]T`.
 
 Example: `time.Time`
 
-### `bindings.<name>.expect_exact_fields`
+#### `bindings.<name>.expect_exact_fields`
 
 Type: `string` · Optional
 
@@ -257,7 +259,7 @@ also rejected. Arguments and directives, if any, need not match.
 
 Example: `{ id name }`
 
-### `bindings.<name>.marshaler`
+#### `bindings.<name>.marshaler`
 
 Type: `string` · Optional
 
@@ -285,7 +287,7 @@ The default is ordinary JSON marshaling.
 
 Example: `github.com/you/yourpkg.MarshalMyType`
 
-### `bindings.<name>.unmarshaler`
+#### `bindings.<name>.unmarshaler`
 
 Type: `string` · Optional
 
@@ -326,9 +328,11 @@ package bindings.
 Take care that this is not the package holding the generated code, or the
 result is circular.
 
+### `package_bindings[]`
+
 A single entry in `package_bindings`.
 
-### `package_bindings[].package`
+#### `package_bindings[].package`
 
 Type: `string` · Required
 
@@ -378,6 +382,14 @@ Type: `object` · Optional
 
 The casing algorithm to use for the values of specific GraphQL enum
 types. These entries take precedence over `all_enums`.
+
+Keys are GraphQL enum type names and values are casing algorithms:
+
+```yaml
+casing:
+  enums:
+    PullRequestState: raw
+```
 
 ## `use_struct_references`
 

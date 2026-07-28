@@ -44,9 +44,11 @@ Type: `object` · Optional
 
 Prose about bindings.
 
+### `bindings.<name>`
+
 Section prose for a binding.
 
-### `bindings.<name>.type`
+#### `bindings.<name>.type`
 
 Type: `string` · Required
 
@@ -58,9 +60,11 @@ Type: `array` · Optional
 
 Prose about package bindings.
 
+### `package_bindings[]`
+
 Section prose for a package binding.
 
-### `package_bindings[].package`
+#### `package_bindings[].package`
 
 Type: `string` · Required
 

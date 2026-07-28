@@ -343,6 +343,14 @@ $defs:
         x-doc: |
           The casing algorithm to use for the values of specific GraphQL enum
           types. These entries take precedence over `all_enums`.
+
+          Keys are GraphQL enum type names and values are casing algorithms:
+
+          ```yaml
+          casing:
+            enums:
+              PullRequestState: raw
+          ```
         type: object
         x-go-type: map[string]string
         additionalProperties:
