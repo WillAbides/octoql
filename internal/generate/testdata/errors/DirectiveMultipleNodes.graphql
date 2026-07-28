@@ -1,4 +1,4 @@
 query DirectiveMultipleNodes {
   # @octoqlgen(pointer: false)
-  user { id name }
+  first second
 }

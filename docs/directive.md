@@ -15,9 +15,11 @@ the client, so a real `@octoqlgen` directive would be rejected as nonexistent.
 Directives may be applied to fields, arguments, or an entire operation or named
 fragment. A directive on the line preceding an operation or a named fragment
 applies to all relevant elements within it. Every other directive applies to
-one element on the following line. A directive preceding multiple elements on
-one line is rejected; put each element on its own line. In all cases other
-comments may appear between the directive and the element it applies to.
+one element on the following line. A directive preceding multiple peer elements
+on one line is rejected; put each peer element on its own line. In all cases
+other comments may appear between the directive and the element it applies to.
+String option values must not be empty. Use `bind: "-"` to explicitly opt out
+of a configured binding.
 
 For example:
 

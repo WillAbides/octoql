@@ -2193,7 +2193,7 @@ func TestGenerateErrors(t *testing.T) {
 			case "DefaultInputsNoOmitPointerForDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:5: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "DirectiveMultipleNodes.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DirectiveMultipleNodes.graphql:3: @octoqlgen directive cannot apply to multiple nodes on one line; put each node on its own line"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DirectiveMultipleNodes.graphql:3: @octoqlgen directive cannot apply to multiple peer nodes on one line; put each peer node on its own line"))
 			case "EmptyForDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/EmptyForDirective.graphql:2: for must not be empty"))
 			case "FlattenField.graphql":

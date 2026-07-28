@@ -26,9 +26,14 @@ type octoqlgenDirective struct {
 }
 
 type directiveAttachment struct {
+	column     int
+	nodeType   string
+	braceDepth int
+}
+
+type directiveAttachmentKey struct {
 	source *ast.Source
 	line   int
-	column int
 }
 
 func newOctoqlgenDirective(pos *ast.Position) *octoqlgenDirective {
@@ -438,6 +443,7 @@ func (g *generator) parsePrecedingComment(
 	// For directives on octoqlgen-generated nodes, we don't actually need to
 	// parse anything.  (But we do need to merge below.)
 	var commentLines []string
+	var directiveLines []string
 	if pos != nil && pos.Src != nil {
 		sourceLines := strings.Split(pos.Src.Input, "\n")
 		for i := pos.Line - 1; i > 0; i-- {
@@ -445,15 +451,7 @@ func (g *generator) parsePrecedingComment(
 			trimmed := strings.TrimSpace(strings.TrimPrefix(line, "#"))
 			if strings.HasPrefix(line, "# @octoqlgen") {
 				hasDirective = true
-				var graphQLDirective *ast.Directive
-				graphQLDirective, err = parseDirective(trimmed, pos)
-				if err != nil {
-					return "", nil, err
-				}
-				err = directive.add(graphQLDirective, pos)
-				if err != nil {
-					return "", nil, err
-				}
+				directiveLines = append(directiveLines, trimmed)
 			} else if strings.HasPrefix(line, "#") {
 				commentLines = append(commentLines, trimmed)
 			} else {
@@ -463,26 +461,38 @@ func (g *generator) parsePrecedingComment(
 	}
 
 	if hasDirective {
+		key := directiveAttachmentKey{source: pos.Src, line: pos.Line}
 		attachment := directiveAttachment{
-			source: pos.Src,
-			line:   pos.Line,
-			column: pos.Column,
+			column:     pos.Column,
+			nodeType:   fmt.Sprintf("%T", node),
+			braceDepth: braceDepthAtPosition(pos),
 		}
-		for existing := range g.directiveAttachments {
-			if existing.source != attachment.source || existing.line != attachment.line {
-				continue
-			}
-			if existing.column == attachment.column {
-				continue
-			}
+		existing, ok := g.directiveAttachments[key]
+		if !ok {
+			g.directiveAttachments[key] = attachment
+		} else if existing.column != attachment.column &&
+			existing.nodeType == attachment.nodeType &&
+			existing.braceDepth == attachment.braceDepth {
 			return "", nil, errorf(pos,
-				"@octoqlgen directive cannot apply to multiple nodes on one line; "+
-					"put each node on its own line")
+				"@octoqlgen directive cannot apply to multiple peer nodes on one line; "+
+					"put each peer node on its own line")
+		} else if existing.column != attachment.column {
+			hasDirective = false
 		}
-		g.directiveAttachments[attachment] = struct{}{}
 	}
 
 	if hasDirective { // (else directive is empty)
+		for _, line := range directiveLines {
+			var graphQLDirective *ast.Directive
+			graphQLDirective, err = parseDirective(line, pos)
+			if err != nil {
+				return "", nil, err
+			}
+			err = directive.add(graphQLDirective, pos)
+			if err != nil {
+				return "", nil, err
+			}
+		}
 		err = directive.validate(node, g.schema)
 		if err != nil {
 			return "", nil, err
@@ -506,6 +516,64 @@ func (g *generator) parsePrecedingComment(
 	reverse(commentLines)
 
 	return strings.TrimSpace(strings.Join(commentLines, "\n")), directive, nil
+}
+
+func braceDepthAtPosition(pos *ast.Position) int {
+	if pos == nil || pos.Src == nil {
+		return 0
+	}
+
+	depth := 0
+	inBlockString := false
+	inString := false
+	sourceLines := strings.Split(pos.Src.Input, "\n")
+	for lineIndex, line := range sourceLines {
+		if lineIndex >= pos.Line-1 {
+			line = line[:min(pos.Column-1, len(line))]
+		}
+		for index := 0; index < len(line); index++ {
+			if inBlockString {
+				if strings.HasPrefix(line[index:], `"""`) {
+					inBlockString = false
+					index += 2
+				}
+				continue
+			}
+			if inString {
+				if line[index] == '\\' {
+					index++
+					continue
+				}
+				if line[index] == '"' {
+					inString = false
+				}
+				continue
+			}
+			if line[index] == '#' {
+				break
+			}
+			if strings.HasPrefix(line[index:], `"""`) {
+				inBlockString = true
+				index += 2
+				continue
+			}
+			if line[index] == '"' {
+				inString = true
+				continue
+			}
+			if line[index] == '{' {
+				depth++
+				continue
+			}
+			if line[index] == '}' {
+				depth--
+			}
+		}
+		if lineIndex >= pos.Line-1 {
+			break
+		}
+	}
+	return depth
 }
 
 func parseDirective(line string, pos *ast.Position) (*ast.Directive, error) {

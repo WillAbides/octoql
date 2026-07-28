@@ -150,7 +150,7 @@ query Viewer {
 			err = os.WriteFile(operationPath, []byte(test.operation), 0o600)
 			require.NoError(t, err)
 
-			_, err = Generate(&Config{
+			generated, err := Generate(&Config{
 				Schema:      []string{schemaPath},
 				Operations:  []string{operationPath},
 				Generated:   filepath.Join(dir, "generated.go"),
@@ -158,11 +158,53 @@ query Viewer {
 				ContextType: "-",
 			})
 
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "cannot apply to multiple nodes on one line")
-			assert.Contains(t, err.Error(), "put each node on its own line")
+			if test.name == "sibling fields" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "cannot apply to multiple peer nodes on one line")
+				assert.Contains(t, err.Error(), "put each peer node on its own line")
+				return
+			}
+
+			require.NoError(t, err)
+			source := string(generated[filepath.Join(dir, "generated.go")])
+			assert.Contains(t, source, "IsSuspended *bool")
 		})
 	}
+}
+
+func TestOctoqlgenDirectiveAttachmentAllowsOperationWithMultipleArguments(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	err := os.WriteFile(schemaPath, []byte(`
+type Query {
+  repository(owner: String!, name: String!): Repository!
+}
+
+type Repository {
+  name: String
+}
+`), 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(operationPath, []byte(`
+# @octoqlgen
+query Repository($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    name
+  }
+}
+`), 0o600)
+	require.NoError(t, err)
+
+	_, err = Generate(&Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "client",
+		ContextType: "-",
+	})
+
+	require.NoError(t, err)
 }
 
 func TestOctoqlgenDirectiveAttachmentAllowsOperationFlatten(t *testing.T) {

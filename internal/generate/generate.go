@@ -45,7 +45,7 @@ type generator struct {
 	// set consistently, even post-validation.
 	fragments map[string]*ast.FragmentDefinition
 
-	directiveAttachments map[directiveAttachment]struct{}
+	directiveAttachments map[directiveAttachmentKey]directiveAttachment
 
 	forbiddenImportPath string
 }
@@ -198,7 +198,7 @@ func newGenerator(
 		templateCache:        map[string]*template.Template{},
 		schema:               schema,
 		fragments:            make(map[string]*ast.FragmentDefinition, len(fragments)),
-		directiveAttachments: make(map[directiveAttachment]struct{}),
+		directiveAttachments: make(map[directiveAttachmentKey]directiveAttachment),
 	}
 
 	for _, fragment := range fragments {

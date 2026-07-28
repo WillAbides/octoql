@@ -1,10 +1,6 @@
 type Query {
-  user: User!
-}
-
-type User {
-  id: ID!
-  name: ValidScalar!
+  first: ValidScalar
+  second: ValidScalar
 }
 
 scalar ValidScalar
