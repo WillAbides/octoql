@@ -12,6 +12,7 @@ import (
 	"maps"
 	"math"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -564,24 +565,63 @@ type Client struct {
 	endpoint   string
 
 	bearerToken          atomic.Pointer[string]
+	allowRedirects       atomic.Bool
 	responseObservation  atomic.Uint64
 	responseSizeLimit    atomic.Int64
 	rateLimitMu          sync.RWMutex
 	rateLimitObservation uint64
 }
 
-// NewClient returns a client for endpoint. A nil httpClient uses
-// [http.DefaultClient].
+const _octoqlMaxRedirects = 10
+
+// NewClient returns a client for endpoint. It shallow-copies httpClient, or
+// [http.DefaultClient] when httpClient is nil, and configures
+// the copy to refuse redirects by default. Changes to the supplied client after
+// this call, including its CheckRedirect function, do not affect the returned
+// Client. The supplied CheckRedirect is discarded; use [Client.SetAllowRedirects]
+// to opt in to redirects.
 func NewClient(endpoint string, httpClient *http.Client) *Client {
+	client := &Client{
+		endpoint: endpoint,
+	}
+	client.httpClient = client._octoqlHTTPClient(httpClient)
+	client.responseSizeLimit.Store(DefaultResponseSizeLimit)
+	return client
+}
+
+func (c *Client) _octoqlHTTPClient(httpClient *http.Client) *http.Client {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	client := &Client{
-		endpoint:   endpoint,
-		httpClient: httpClient,
+	clientCopy := *httpClient
+	clientCopy.CheckRedirect = c._octoqlCheckRedirect
+	return &clientCopy
+}
+
+func (c *Client) _octoqlCheckRedirect(request *http.Request, via []*http.Request) error {
+	if c == nil || !c.allowRedirects.Load() {
+		return _octoqlRejectRedirect(request)
 	}
-	client.responseSizeLimit.Store(DefaultResponseSizeLimit)
-	return client
+	if len(via) >= _octoqlMaxRedirects {
+		return fmt.Errorf("octoql: stopped after %d redirects", _octoqlMaxRedirects)
+	}
+	if len(via) > 0 && !_octoqlSameOrigin(via[0].URL, request.URL) {
+		request.Header.Del("Authorization")
+	}
+	return nil
+}
+
+func _octoqlRejectRedirect(request *http.Request) error {
+	status := "redirect"
+	if request.Response != nil {
+		status = request.Response.Status
+	}
+	return fmt.Errorf("octoql: redirect refused: %s to %s", status, request.URL.Redacted())
+}
+
+func _octoqlSameOrigin(left, right *url.URL) bool {
+	return strings.EqualFold(left.Scheme, right.Scheme) &&
+		strings.EqualFold(left.Host, right.Host)
 }
 
 // SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
@@ -596,6 +636,29 @@ func (c *Client) SetBearerToken(token string) error {
 	}
 
 	c.bearerToken.Store(&token)
+	return nil
+}
+
+// AllowRedirects reports whether client follows redirects. New clients refuse
+// redirects by default.
+func (c *Client) AllowRedirects() bool {
+	if c == nil {
+		return false
+	}
+	return c.allowRedirects.Load()
+}
+
+// SetAllowRedirects configures whether client follows redirects. When enabled,
+// client follows at most 10 redirects and removes Authorization when a redirect
+// leaves the original request origin. Credentials added by a custom
+// [http.RoundTripper] cannot be removed because the transport
+// reapplies them on every hop. It may be called concurrently with
+// [Client._octoqlExecute].
+func (c *Client) SetAllowRedirects(allow bool) error {
+	if c == nil {
+		return errors.New("octoql: client is nil")
+	}
+	c.allowRedirects.Store(allow)
 	return nil
 }
 
@@ -690,7 +753,7 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 
 	httpClient := c.httpClient
 	if httpClient == nil {
-		httpClient = http.DefaultClient
+		httpClient = c._octoqlHTTPClient(nil)
 	}
 	//nolint:bodyclose // _octoqlReadAndClose closes the body and preserves close errors.
 	httpResponse, sendErr := httpClient.Do(request)

@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -368,8 +370,84 @@ func TestDoFailurePhases(t *testing.T) {
 	}
 }
 
-func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
-	redirectError := errors.New("redirect rejected")
+func TestClientRefusesRedirects(t *testing.T) {
+	targetRequests := make(chan struct{}, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		targetRequests <- struct{}{}
+	}))
+	defer target.Close()
+
+	targetURL := strings.Replace(target.URL, "127.0.0.1", "localhost", 1)
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", targetURL)
+		writer.Header().Set("X-GitHub-Request-ID", "redirect-request")
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer origin.Close()
+
+	client := NewClient(origin.URL, nil)
+	response, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, response)
+	assert.ErrorContains(t, err, "redirect refused")
+	assert.ErrorContains(t, err, http.StatusText(http.StatusFound))
+	assert.ErrorContains(t, err, targetURL)
+	responseError, ok := errors.AsType[*ResponseError](err)
+	require.True(t, ok)
+	assert.Equal(t, http.StatusFound, responseError.StatusCode)
+	assert.Equal(t, "redirect-request", responseError.RequestID)
+	assert.Nil(t, responseError.RawBody)
+
+	select {
+	case <-targetRequests:
+		assert.Fail(t, "redirect target received a request")
+	default:
+	}
+}
+
+// net/http's default redirect protection compares hostnames and ignores ports.
+func TestClientRefusesSameHostDifferentPortRedirects(t *testing.T) {
+	targetRequests := make(chan struct{}, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		targetRequests <- struct{}{}
+	}))
+	defer target.Close()
+
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", target.URL)
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer origin.Close()
+
+	client := NewClient(origin.URL, nil)
+	response, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, response)
+	assert.ErrorContains(t, err, "redirect refused")
+	assert.ErrorContains(t, err, target.URL)
+
+	select {
+	case <-targetRequests:
+		assert.Fail(t, "redirect target received a request")
+	default:
+	}
+}
+
+func TestClientAllowsSameOriginRedirectsWhenEnabled(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/redirected" {
 			_, err := io.WriteString(writer, `{"data":{}}`)
@@ -379,16 +457,14 @@ func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 			return
 		}
 		writer.Header().Set("Location", "/redirected")
-		writer.Header().Set("X-GitHub-Request-ID", "redirect-request")
 		writer.WriteHeader(http.StatusFound)
 	}))
 	defer server.Close()
 
-	httpClient := server.Client()
-	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error {
-		return redirectError
-	}
-	client := NewClient(server.URL, httpClient)
+	client := NewClient(server.URL, nil)
+	err := client.SetAllowRedirects(true)
+	require.NoError(t, err)
+	assert.True(t, client.AllowRedirects())
 
 	response, err := doOperation[struct{}](
 		t.Context(),
@@ -397,12 +473,259 @@ func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 		validOperationQuery,
 		nil,
 	)
+	require.NoError(t, err)
+	assert.NotNil(t, response)
+}
+
+func TestClientDiscardsSuppliedRedirectPolicy(t *testing.T) {
+	redirectError := errors.New("caller redirect policy")
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/redirected" {
+			_, err := io.WriteString(writer, `{"data":{}}`)
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+		writer.Header().Set("Location", "/redirected")
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer server.Close()
+
+	httpClient := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return redirectError
+		},
+	}
+	client := NewClient(server.URL, httpClient)
+	require.NotNil(t, httpClient.CheckRedirect)
+	err := client.SetAllowRedirects(true)
+	require.NoError(t, err)
+
+	response, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, response)
+}
+
+func TestClientStripsBearerTokenAcrossOriginsWhenRedirectsEnabled(t *testing.T) {
+	tests := []struct {
+		targetURL func(*httptest.Server) string
+		name      string
+	}{
+		{
+			name: "same host different port",
+			targetURL: func(server *httptest.Server) string {
+				return server.URL
+			},
+		},
+		{
+			name: "different host",
+			targetURL: func(server *httptest.Server) string {
+				return strings.Replace(server.URL, "127.0.0.1", "localhost", 1)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			authorization := make(chan string, 1)
+			target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				authorization <- request.Header.Get("Authorization")
+				_, err := io.WriteString(writer, `{"data":{}}`)
+				if err != nil {
+					panic(err)
+				}
+			}))
+			defer target.Close()
+
+			origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				writer.Header().Set("Location", test.targetURL(target))
+				writer.WriteHeader(http.StatusFound)
+			}))
+			defer origin.Close()
+
+			client := NewClient(origin.URL, nil)
+			err := client.SetBearerToken("github_pat_token")
+			require.NoError(t, err)
+			err = client.SetAllowRedirects(true)
+			require.NoError(t, err)
+
+			response, err := doOperation[struct{}](
+				t.Context(),
+				client,
+				validOperationName,
+				validOperationQuery,
+				nil,
+			)
+			require.NoError(t, err)
+			assert.NotNil(t, response)
+			assert.Empty(t, <-authorization)
+		})
+	}
+}
+
+func TestClientStripsBearerTokenAfterLeavingOriginalOrigin(t *testing.T) {
+	authorization := make(chan string, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/final" {
+			authorization <- request.Header.Get("Authorization")
+			_, err := io.WriteString(writer, `{"data":{}}`)
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+		writer.Header().Set("Location", "/final")
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer target.Close()
+
+	targetURL := strings.Replace(target.URL, "127.0.0.1", "localhost", 1)
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", targetURL)
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer origin.Close()
+
+	client := NewClient(origin.URL, nil)
+	err := client.SetBearerToken("github_pat_token")
+	require.NoError(t, err)
+	err = client.SetAllowRedirects(true)
+	require.NoError(t, err)
+
+	response, err := doOperation[struct{}](
+		t.Context(),
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, response)
+	assert.Empty(t, <-authorization)
+}
+
+func TestClientRedirectLimitWhenEnabled(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", "/redirected")
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, nil)
+	err := client.SetAllowRedirects(true)
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+
+	response, err := doOperation[struct{}](
+		ctx,
+		client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+	require.Error(t, err)
 	assert.Nil(t, response)
-	assert.ErrorIs(t, err, redirectError)
+	assert.ErrorContains(t, err, "stopped after 10 redirects")
+}
+
+func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/redirected" {
+			_, err := io.WriteString(writer, `{"data":{}}`)
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+		writer.Header().Set("Location", "/redirected")
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, nil)
+	results := make(chan error, 200)
+	var waitGroup sync.WaitGroup
+	for i := range 100 {
+		waitGroup.Add(2)
+		go func() {
+			defer waitGroup.Done()
+			err := client.SetAllowRedirects(i%2 == 0)
+			results <- err
+		}()
+		go func() {
+			defer waitGroup.Done()
+			_, err := doOperation[struct{}](
+				t.Context(),
+				client,
+				validOperationName,
+				validOperationQuery,
+				nil,
+			)
+			results <- err
+		}()
+	}
+	waitGroup.Wait()
+	close(results)
+
+	for err := range results {
+		if err == nil {
+			continue
+		}
+		assert.ErrorContains(t, err, "redirect refused")
+	}
+}
+
+func TestNewClientDoesNotMutateHTTPRedirectPolicy(t *testing.T) {
+	httpClient := &http.Client{}
+	client := NewClient("https://api.github.com/graphql", httpClient)
+
+	assert.NotSame(t, httpClient, client.httpClient)
+	assert.Nil(t, httpClient.CheckRedirect)
+
+	require.Nil(t, http.DefaultClient.CheckRedirect)
+	defaultClient := NewClient("https://api.github.com/graphql", nil)
+	assert.NotSame(t, http.DefaultClient, defaultClient.httpClient)
+	assert.Nil(t, http.DefaultClient.CheckRedirect)
+}
+
+func TestNilClientSetAllowRedirects(t *testing.T) {
+	var client *Client
+	err := client.SetAllowRedirects(true)
+	assert.EqualError(t, err, "octoql: client is nil")
+	assert.False(t, client.AllowRedirects())
+}
+
+func TestZeroValueClientRefusesRedirects(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", "/redirected")
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer server.Close()
+
+	client := Client{}
+	client.endpoint = server.URL
+	response, err := doOperation[struct{}](
+		t.Context(),
+		&client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, response)
+	assert.ErrorContains(t, err, "redirect refused")
 	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusFound, responseError.StatusCode)
-	assert.Equal(t, "redirect-request", responseError.RequestID)
 }
 
 func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
