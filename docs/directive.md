@@ -392,10 +392,12 @@ if user.IsSuspended != nil && *user.IsSuspended {
 A list under `@skip` keeps its nil-ability at the container level rather than
 wrapping its elements: a slice is already nil-able in Go, so `[Role!]!` stays
 `[]Role` (never `[]*Role`), and an omitted list decodes to a nil slice. Fields
-whose Go type can already hold nil — nullable schema types, slices, and generated
-abstract interfaces — keep their existing types. The forced pointer therefore
-applies only to scalars, enums, and structs, whose Go zero value would otherwise
-be indistinguishable from an absent value.
+whose Go type can already hold nil — nullable schema types, slices, generated
+abstract interfaces, and bound Go types that are themselves nil-able (a pointer,
+slice, map, or `interface{}`) — keep their existing types. The forced pointer
+therefore applies only to types whose Go zero value would otherwise be
+indistinguishable from an absent value: scalars, enums, structs, and bound
+fixed-size arrays.
 
 Because absence must stay representable, combining `@skip` or `@include` with
 [`pointer: false`](#pointer) on the same field is a contradiction and is rejected
@@ -423,6 +425,16 @@ query MyQuery($hide: Boolean!) {
   }
 }
 ```
+
+One exception applies to the individual-field form above: when a field's
+selection is bound to a caller-supplied Go type — through a local
+[`bind:`](#bind) or a global binding — octoqlgen treats that selection as opaque
+and never generates its nested fields, so it cannot make any of them nil-able. A
+`@skip` or `@include` on a field *nested inside* such a bound composite is
+therefore also rejected with a generation error, even though moving the directive
+onto individual fields is otherwise the supported fix. A directive on the bound
+field itself is unaffected; only selections beneath an opaque binding are
+rejected.
 
 One field is excluded from the forced-pointer support above: `__typename` within
 an interface or union selection must not carry `@skip` or `@include`. octoqlgen
