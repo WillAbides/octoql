@@ -1,5 +1,5 @@
 query OperationOmitemptyRequiredVariable(
   $input: InputWithDefaults!
-) @octoqlgen(pointer: true, omitempty: true) {
+) @octoqlgenDefaults(pointer: true, omitempty: true) {
   default(input: $input)
 }

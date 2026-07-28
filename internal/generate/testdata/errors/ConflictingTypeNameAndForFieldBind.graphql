@@ -1,4 +1,4 @@
-query ConflictingTypeNameAndGlobalBind @octoqlgen(for: "User.name", bind: "[]byte") {
+query ConflictingTypeNameAndGlobalBind @octoqlgenFor(field: "User.name", bind: "[]byte") {
   user {
     name @octoqlgen(typename: "MyID")
   }

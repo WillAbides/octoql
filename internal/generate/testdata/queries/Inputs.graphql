@@ -12,8 +12,8 @@ query GitHubInputs(
   $optionalPublishedDates: [[[Date!]!]!] @octoqlgen(pointer: true)
 )
   @octoqlgen(typename: "GitHubInputResponse")
-  @octoqlgen(for: "InputWithDefaults.optionalLabel", omitempty: true)
-  @octoqlgen(for: "IssueFilter.assignee", pointer: true)
+  @octoqlgenFor(field: "InputWithDefaults.optionalLabel", omitempty: true)
+  @octoqlgenFor(field: "IssueFilter.assignee", pointer: true)
 {
   repositoryBySelector(input: $repository) {
     id

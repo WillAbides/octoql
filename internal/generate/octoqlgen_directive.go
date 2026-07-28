@@ -72,65 +72,16 @@ func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) 
 	return errorf(pos, "expected string, got non-string value %T(%v)", ei, ei)
 }
 
-// add adds to this octoqlgenDirective struct the settings from the given
-// GraphQL directive.
+// applyArguments applies the option arguments of one directive to this struct.
 //
-// The directive is declared repeatable, so a node may carry several, e.g.
+// The directives are declared repeatable, so a node may carry several, e.g.
 //
 //	myField @octoqlgen(...) @octoqlgen(...)
 //
-// add will be called several times.  In this case, conflicts between the
-// options are an error.
-func (d *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Position) error {
-	if graphQLDirective.Name != octoqlgenDirectiveName {
-		// Callers filter by name, so this only fires on an octoqlgen bug.
-		return errorf(pos, "the only valid directive is @%s, got %v",
-			octoqlgenDirectiveName, graphQLDirective.Name)
-	}
-
-	// First, see if this directive has a "for" option;
-	// if it does, the rest of our work will operate on the
-	// appropriate place in FieldDirectives.
+// applyArguments will be called several times.  In this case, conflicts between
+// the options are an error.
+func (d *octoqlgenDirective) applyArguments(graphQLDirective *ast.Directive, pos *ast.Position) error {
 	var err error
-	forField := ""
-	hasForField := false
-	for _, arg := range graphQLDirective.Arguments {
-		if arg.Name != "for" {
-			continue
-		}
-		if hasForField {
-			return errorf(pos, `@octoqlgen directive had "for:" twice`)
-		}
-		hasForField = true
-		err = setString("for", &forField, arg.Value, pos)
-		if err != nil {
-			return err
-		}
-		if forField == "" {
-			return errorf(pos, "for must not be empty")
-		}
-	}
-	if forField != "" {
-		forParts := strings.Split(forField, ".")
-		if len(forParts) != 2 {
-			return errorf(pos, `for must be of the form "MyType.myField"`)
-		}
-		typeName, fieldName := forParts[0], forParts[1]
-
-		if d.FieldDirectives[typeName] == nil {
-			d.FieldDirectives[typeName] = make(map[string]*octoqlgenDirective)
-		}
-		fieldDir := d.FieldDirectives[typeName][fieldName]
-		if fieldDir == nil {
-			fieldDir = newOctoqlgenDirective(pos)
-			d.FieldDirectives[typeName][fieldName] = fieldDir
-		}
-
-		// Now, the rest of the function will operate on fieldDir.
-		d = fieldDir
-	}
-
-	// Now parse the rest of the arguments.
 	for _, arg := range graphQLDirective.Arguments {
 		switch arg.Name {
 		// TODO(benkraft): Use reflect and struct tags?
@@ -148,18 +99,71 @@ func (d *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Posit
 			err = setString("typename", &d.TypeName, arg.Value, pos)
 		case "alias":
 			err = setString("alias", &d.Alias, arg.Value, pos)
-		case "for":
-			// handled above
+		case "field":
+			// The target of @octoqlgenFor, read by addFor.
 		default:
-			return errorf(pos, "unknown argument %v for @octoqlgen", arg.Name)
+			return errorf(pos, "unknown argument %v for @%v",
+				arg.Name, graphQLDirective.Name)
 		}
 		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
+
+// addFor records one @octoqlgenFor directive against the type and field it
+// names, and returns that target.
+func (d *octoqlgenDirective) addFor(graphQLDirective *ast.Directive, pos *ast.Position) (fieldKey, error) {
+	target := ""
+	seen := false
+	for _, arg := range graphQLDirective.Arguments {
+		if arg.Name != "field" {
+			continue
+		}
+		if seen {
+			return fieldKey{}, errorf(pos, `@%s had "field:" twice`, octoqlgenForName)
+		}
+		seen = true
+		err := setString("field", &target, arg.Value, pos)
+		if err != nil {
+			return fieldKey{}, err
+		}
+	}
+	// GraphQL requires the argument to be present, but not to be non-empty.
+	if target == "" {
+		return fieldKey{}, errorf(pos, "field must not be empty")
+	}
+
+	parts := strings.Split(target, ".")
+	if len(parts) != 2 {
+		return fieldKey{}, errorf(pos, `field must be of the form "MyType.myField"`)
+	}
+	key := fieldKey{typeName: parts[0], fieldName: parts[1]}
+
+	if d.FieldDirectives[key.typeName] == nil {
+		d.FieldDirectives[key.typeName] = make(map[string]*octoqlgenDirective)
+	}
+	fieldDir := d.FieldDirectives[key.typeName][key.fieldName]
+	if fieldDir == nil {
+		fieldDir = newOctoqlgenDirective(pos)
+		d.FieldDirectives[key.typeName][key.fieldName] = fieldDir
+	}
+
+	err := fieldDir.applyArguments(graphQLDirective, pos)
+	if err != nil {
+		return fieldKey{}, err
+	}
+	return key, nil
+}
+
+// fieldKey identifies the target of an @octoqlgenFor directive.
+type fieldKey struct {
+	typeName  string
+	fieldName string
+}
+
+func (k fieldKey) String() string { return k.typeName + "." + k.fieldName }
 
 func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) error {
 	// TODO(benkraft): This function has a lot of duplicated checks, figure out
@@ -167,7 +171,7 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 	for typeName, byField := range d.FieldDirectives {
 		typ, ok := schema.Types[typeName]
 		if !ok {
-			return errorf(d.pos, `for got invalid type-name "%s"`, typeName)
+			return errorf(d.pos, `@%s got invalid type-name "%s"`, octoqlgenForName, typeName)
 		}
 		for fieldName, fieldDir := range byField {
 			var field *ast.FieldDefinition
@@ -179,17 +183,10 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 			}
 			if field == nil {
 				return errorf(fieldDir.pos,
-					`for got invalid field-name "%s" for type "%s"`,
-					fieldName, typeName)
+					`@%s got invalid field-name "%s" for type "%s"`,
+					octoqlgenForName, fieldName, typeName)
 			}
 
-			// Struct requires per-use validation, so it can't be applied here.
-			if fieldDir.Struct != nil {
-				return errorf(fieldDir.pos, "struct can't be used via for")
-			}
-			if fieldDir.Flatten != nil {
-				return errorf(fieldDir.pos, "flatten can't be used via for")
-			}
 			// Only a selected field takes its Go name from alias; an input
 			// type's fields are named after the GraphQL field.
 			if fieldDir.Alias != "" && typ.Kind == ast.InputObject {
@@ -246,7 +243,8 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		}
 
 		if len(d.FieldDirectives) > 0 {
-			return errorf(d.pos, "for is only applicable to operations and fragments")
+			return errorf(d.pos, "@%s is only applicable to operations and fragments",
+				octoqlgenForName)
 		}
 
 		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
@@ -276,7 +274,8 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		}
 
 		if len(d.FieldDirectives) > 0 {
-			return errorf(d.pos, "for is only applicable to operations and fragments")
+			return errorf(d.pos, "@%s is only applicable to operations and fragments",
+				octoqlgenForName)
 		}
 
 		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
@@ -394,7 +393,7 @@ func (d *octoqlgenDirective) mergeOperationDirective(
 	parentIfInputField *ast.Definition,
 	operationDirective *octoqlgenDirective,
 ) {
-	// We'll set forField to the `@octoqlgen(for: "<this field>", ...)`
+	// We'll set forField to the `@octoqlgenFor(field: "<this field>", ...)`
 	// directive from our operation/fragment, if any.
 	var forField *octoqlgenDirective
 	switch field := node.(type) {
@@ -409,35 +408,45 @@ func (d *octoqlgenDirective) mergeOperationDirective(
 		forField = newOctoqlgenDirective(nil)
 	}
 
-	// Now fill defaults; in general local directive wins over the "for" field
-	// directive wins over the operation directive.
+	// Now fill defaults; in general the local directive wins over the
+	// @octoqlgenFor declaration, which wins over @octoqlgenDefaults.
 	fillDefaultBool(&d.Omitempty, forField.Omitempty, operationDirective.Omitempty)
 	fillDefaultBool(&d.Pointer, forField.Pointer, operationDirective.Pointer)
-	// struct and flatten aren't settable via "for".
+	// struct isn't settable via @octoqlgenFor.
 	fillDefaultBool(&d.Struct, operationDirective.Struct)
-	fillDefaultBool(&d.Flatten, operationDirective.Flatten)
-	fillDefaultString(&d.Bind, forField.Bind, operationDirective.Bind)
-	// typename isn't settable on the operation (when set there it replies to
-	// the response-type).
+	// flatten is not a default: it only applies where a selection is a single
+	// fragment spread, and it is an error anywhere else, so propagating it
+	// would reject the operations it was propagated into.
+	fillDefaultString(&d.Bind, forField.Bind)
+	// typename and alias name one generated construct, so they would collide
+	// if they were defaults; neither is settable on the operation.
 	fillDefaultString(&d.TypeName, forField.TypeName)
-	fillDefaultString(&d.Alias, forField.Alias, operationDirective.Alias)
+	fillDefaultString(&d.Alias, forField.Alias)
 }
 
-// octoqlgenDirectiveName is the name of the directive octoqlgen recognizes on
-// operations, fragments, fields, and variable definitions.
-const octoqlgenDirectiveName = directive.Name
+// The directives octoqlgen recognizes, one per scope an option can have.
+const (
+	octoqlgenDirectiveName = directive.Name
+	octoqlgenDefaultsName  = directive.DefaultsName
+	octoqlgenForName       = directive.ForName
+)
 
-// addOctoqlgenDirectiveDefinition injects the @octoqlgen declaration into the
+// addOctoqlgenDirectiveDefinition injects octoqlgen's declarations into the
 // parsed schema document.
 //
-// Any declaration already in the document is discarded first.  Schema files
-// octoqlgen writes carry a copy of the declaration so editors can resolve the
-// directive, and that copy may have been written by a different version of
+// Any declaration already in the document is discarded first.  Schema
+// directories octoqlgen writes carry a copy so editors can resolve the
+// directives, and that copy may have been written by a different version of
 // octoqlgen or edited by hand; the generator always uses its own.
 func addOctoqlgenDirectiveDefinition(document *ast.SchemaDocument) error {
+	ours := map[string]bool{
+		octoqlgenDirectiveName: true,
+		octoqlgenDefaultsName:  true,
+		octoqlgenForName:       true,
+	}
 	kept := document.Directives[:0]
 	for _, definition := range document.Directives {
-		if definition.Name == octoqlgenDirectiveName {
+		if ours[definition.Name] {
 			continue
 		}
 		kept = append(kept, definition)
@@ -445,7 +454,7 @@ func addOctoqlgenDirectiveDefinition(document *ast.SchemaDocument) error {
 	document.Directives = kept
 
 	parsed, graphqlError := parser.ParseSchema(&ast.Source{
-		Name:  "octoqlgen-directive.graphql",
+		Name:  directive.FileName,
 		Input: directive.SDL,
 	})
 	if graphqlError != nil {
@@ -523,19 +532,19 @@ func (g *generator) collectDirectivesInSelectionSet(selectionSet ast.SelectionSe
 	return nil
 }
 
-// collectDirectivesForNode parses the @octoqlgen directives in directives,
-// records the result for node, and removes them from the list so they are
-// never formatted into a query body.  Other directives, such as @skip and
-// @include, are left alone.
+// collectDirectivesForNode parses octoqlgen's directives on one node, records
+// the result, and removes them from the list so they are never formatted into a
+// query body.  Other directives, such as @skip and @include, are left alone.
 func (g *generator) collectDirectivesForNode(node any, directives *ast.DirectiveList) error {
 	var ours []*ast.Directive
 	var others ast.DirectiveList
 	for _, graphQLDirective := range *directives {
-		if graphQLDirective.Name == octoqlgenDirectiveName {
+		switch graphQLDirective.Name {
+		case octoqlgenDirectiveName, octoqlgenDefaultsName, octoqlgenForName:
 			ours = append(ours, graphQLDirective)
-			continue
+		default:
+			others = append(others, graphQLDirective)
 		}
-		others = append(others, graphQLDirective)
 	}
 	if len(ours) == 0 {
 		return nil
@@ -544,9 +553,31 @@ func (g *generator) collectDirectivesForNode(node any, directives *ast.Directive
 
 	directive := newOctoqlgenDirective(ours[0].Position)
 	for _, graphQLDirective := range ours {
-		err := directive.add(graphQLDirective, graphQLDirective.Position)
-		if err != nil {
-			return err
+		pos := graphQLDirective.Position
+		switch graphQLDirective.Name {
+		case octoqlgenForName:
+			key, err := directive.addFor(graphQLDirective, pos)
+			if err != nil {
+				return err
+			}
+			err = g.recordForDeclaration(key, directive.FieldDirectives[key.typeName][key.fieldName], pos)
+			if err != nil {
+				return err
+			}
+		case octoqlgenDefaultsName:
+			err := directive.applyArguments(graphQLDirective, pos)
+			if err != nil {
+				return err
+			}
+		default:
+			err := checkNodeOptions(node, graphQLDirective, pos)
+			if err != nil {
+				return err
+			}
+			err = directive.applyArguments(graphQLDirective, pos)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -557,6 +588,82 @@ func (g *generator) collectDirectivesForNode(node any, directives *ast.Directive
 
 	g.directives[node] = directive
 	return nil
+}
+
+// operationDefaultOptions are the options that only make sense as defaults for
+// the fields inside an operation or fragment, so on an operation or fragment
+// they belong to @octoqlgenDefaults rather than to @octoqlgen.
+var operationDefaultOptions = map[string]bool{
+	"omitempty": true,
+	"pointer":   true,
+	"struct":    true,
+}
+
+// checkNodeOptions rejects an @octoqlgen option that describes the fields
+// inside an operation or fragment rather than the operation or fragment itself.
+//
+// The two scopes are separate directives, but @octoqlgen has one argument list
+// across every location it is valid on, so GraphQL cannot make this
+// distinction for us.
+func checkNodeOptions(node any, graphQLDirective *ast.Directive, pos *ast.Position) error {
+	switch node.(type) {
+	case *ast.OperationDefinition, *ast.FragmentDefinition:
+	default:
+		return nil
+	}
+
+	for _, arg := range graphQLDirective.Arguments {
+		if !operationDefaultOptions[arg.Name] {
+			continue
+		}
+		return errorf(pos,
+			"@%s(%s:) applies to the node it is attached to, and does not describe "+
+				"an operation or fragment; use @%s(%s:) to set it as a default for "+
+				"the fields inside",
+			octoqlgenDirectiveName, arg.Name, octoqlgenDefaultsName, arg.Name)
+	}
+	return nil
+}
+
+// recordForDeclaration remembers one @octoqlgenFor declaration and rejects it
+// if another declaration already asked for something different.
+//
+// A named type generates one Go type, so two operations that disagree about a
+// field of that type cannot both be satisfied.  Without this check the first
+// one converted wins and the other silently does not get what it asked for,
+// which also makes the generated code depend on the order of the operations.
+//
+// Declarations only have to agree with each other.  An operation that says
+// nothing is not disagreeing, so adding an operation that happens to use the
+// type does not force it to repeat the declaration.
+func (g *generator) recordForDeclaration(
+	key fieldKey,
+	declared *octoqlgenDirective,
+	pos *ast.Position,
+) error {
+	existing, ok := g.forDeclarations[key]
+	if !ok {
+		g.forDeclarations[key] = forDeclaration{directive: declared, pos: pos}
+		return nil
+	}
+	if existing.pos == pos {
+		// Repeated on one node; applyArguments already rejects conflicts there.
+		return nil
+	}
+	if directiveOptionsMatch(existing.directive, declared) {
+		return nil
+	}
+	return errorf(pos,
+		"conflicting @%s declarations for %s: %s asks for something different; "+
+			"a named type generates one Go type, so every @%s for it must agree",
+		octoqlgenForName, key, posString(existing.pos), octoqlgenForName)
+}
+
+// forDeclaration is one @octoqlgenFor declaration, kept so that a later,
+// conflicting one can point at it.
+type forDeclaration struct {
+	directive *octoqlgenDirective
+	pos       *ast.Position
 }
 
 // directiveFor returns the options that apply to node, merged with the options

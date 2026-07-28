@@ -2177,7 +2177,7 @@ func TestGenerateErrors(t *testing.T) {
 			case "DefaultInputsNoOmitPointerForDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "EmptyForDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/EmptyForDirective.graphql:1: for must not be empty"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/EmptyForDirective.graphql:1: field must not be empty"))
 			case "FlattenField.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenField.graphql:2: flatten is not yet supported for fields (only fragment spreads)"))
 			case "FlattenImplementation.graphql":

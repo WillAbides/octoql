@@ -6,8 +6,8 @@ query OptionalGitHubInputs(
   $defaults: InputWithDefaults!
   $optional: OmitemptyInput
 )
-  @octoqlgen(for: "InputWithDefaults.optionalLabel", omitempty: true)
-  @octoqlgen(for: "IssueFilter.assignee", pointer: true)
+  @octoqlgenFor(field: "InputWithDefaults.optionalLabel", omitempty: true)
+  @octoqlgenFor(field: "IssueFilter.assignee", pointer: true)
 {
   repository(owner: "octo", name: "fixture") {
     issues(filter: $filter) {

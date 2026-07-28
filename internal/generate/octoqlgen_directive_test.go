@@ -24,13 +24,13 @@ func assertDeclares(t *testing.T, source, declaration string) {
 		strings.Join(strings.Fields(declaration), " "))
 }
 
-// testDirective parses a single @octoqlgen directive the way the query parser
-// does, so the unit tests below exercise the same ast.Directive values
+// testDirective parses a single directive the way the query parser does, so
+// the unit tests below exercise the same ast.Directive values
 // collectDirectives works with.
-func testDirective(t *testing.T, args string) *ast.Directive {
+func testDirective(t *testing.T, name, args string) *ast.Directive {
 	t.Helper()
 	doc, err := parser.ParseQuery(&ast.Source{
-		Input: "query Q @octoqlgen" + args + " { field }",
+		Input: "query Q @" + name + args + " { field }",
 	})
 	require.NoError(t, err)
 	return doc.Operations[0].Directives[0]
@@ -39,12 +39,12 @@ func testDirective(t *testing.T, args string) *ast.Directive {
 func TestOctoqlgenDirectiveAddMergesRepeatedForDirectives(t *testing.T) {
 	directive := newOctoqlgenDirective(nil)
 
-	err := directive.add(
-		testDirective(t, `(for: "IssueFilter.assignee", pointer: true)`), nil)
+	_, err := directive.addFor(
+		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: true)`), nil)
 	require.NoError(t, err)
 
-	err = directive.add(
-		testDirective(t, `(for: "IssueFilter.assignee", omitempty: true)`), nil)
+	_, err = directive.addFor(
+		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", omitempty: true)`), nil)
 	require.NoError(t, err)
 
 	fieldDirective := directive.FieldDirectives["IssueFilter"]["assignee"]
@@ -56,12 +56,12 @@ func TestOctoqlgenDirectiveAddMergesRepeatedForDirectives(t *testing.T) {
 func TestOctoqlgenDirectiveAddRejectsConflictingRepeatedForDirectives(t *testing.T) {
 	directive := newOctoqlgenDirective(nil)
 
-	err := directive.add(
-		testDirective(t, `(for: "IssueFilter.assignee", pointer: true)`), nil)
+	_, err := directive.addFor(
+		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: true)`), nil)
 	require.NoError(t, err)
 
-	err = directive.add(
-		testDirective(t, `(for: "IssueFilter.assignee", pointer: false)`), nil)
+	_, err = directive.addFor(
+		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: false)`), nil)
 
 	assert.EqualError(t, err, "conflicting values for pointer")
 }
@@ -69,9 +69,10 @@ func TestOctoqlgenDirectiveAddRejectsConflictingRepeatedForDirectives(t *testing
 func TestOctoqlgenDirectiveAddRejectsEmptyFor(t *testing.T) {
 	directive := newOctoqlgenDirective(nil)
 
-	err := directive.add(testDirective(t, `(for: "", pointer: false)`), nil)
+	_, err := directive.addFor(
+		testDirective(t, octoqlgenForName, `(field: "", pointer: false)`), nil)
 
-	assert.EqualError(t, err, `for must not be empty`)
+	assert.EqualError(t, err, `field must not be empty`)
 }
 
 func TestOctoqlgenDirectiveAddRejectsEmptyStringOptions(t *testing.T) {
@@ -79,7 +80,8 @@ func TestOctoqlgenDirectiveAddRejectsEmptyStringOptions(t *testing.T) {
 		t.Run(option, func(t *testing.T) {
 			directive := newOctoqlgenDirective(nil)
 
-			err := directive.add(testDirective(t, `(`+option+`: "")`), nil)
+			err := directive.applyArguments(
+				testDirective(t, octoqlgenDirectiveName, `(`+option+`: "")`), nil)
 
 			assert.EqualError(t, err, option+" must not be empty")
 		})
@@ -89,7 +91,8 @@ func TestOctoqlgenDirectiveAddRejectsEmptyStringOptions(t *testing.T) {
 func TestOctoqlgenDirectiveAddAllowsBindOptOut(t *testing.T) {
 	directive := newOctoqlgenDirective(nil)
 
-	err := directive.add(testDirective(t, `(bind: "-")`), nil)
+	err := directive.applyArguments(
+		testDirective(t, octoqlgenDirectiveName, `(bind: "-")`), nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, "-", directive.Bind)
@@ -306,7 +309,7 @@ type Query {
 `), 0o600)
 	require.NoError(t, err)
 	err = os.WriteFile(operationPath, []byte(`
-query Value($input: String! = "default") @octoqlgen(pointer: true, omitempty: true) {
+query Value($input: String! = "default") @octoqlgenDefaults(pointer: true, omitempty: true) {
   value(input: $input)
 }
 `), 0o600)
@@ -368,7 +371,7 @@ type Query {
 	err = os.WriteFile(operationPath, []byte(`
 query Value(
   $input: String! @octoqlgen(omitempty: false)
-) @octoqlgen(omitempty: true) {
+) @octoqlgenDefaults(omitempty: true) {
   value(input: $input)
 }
 `), 0o600)
@@ -600,7 +603,7 @@ query Q($f: Filter @octoqlgen(alias: "Renamed")) {
 		},
 		"alias for an input-type field": {
 			operation: `
-query Q($f: Filter) @octoqlgen(for: "Filter.label", alias: "Renamed") {
+query Q($f: Filter) @octoqlgenFor(field: "Filter.label", alias: "Renamed") {
   thing(filter: $f) { name }
 }
 `,
@@ -648,7 +651,7 @@ query Q {
 }
 `,
 		"through for": `
-query Q @octoqlgen(for: "Thing.name", alias: "Renamed") {
+query Q @octoqlgenFor(field: "Thing.name", alias: "Renamed") {
   thing { name }
 }
 `,

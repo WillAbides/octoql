@@ -533,7 +533,7 @@ handler.ExpectGetRepository(variables).
 ## Reference
 
 - [Configuration reference](docs/configuration.md)
-- [`@octoqlgen` directive reference](docs/directive.md)
+- [octoqlgen directive reference](docs/directive.md)
 - [CLI reference](docs/cli.md)
 - [Runnable example](example)
 - [Contributing](CONTRIBUTING.md)

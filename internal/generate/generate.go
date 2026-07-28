@@ -49,10 +49,14 @@ type generator struct {
 	// set consistently, even post-validation.
 	fragments map[string]*ast.FragmentDefinition
 
-	// The @octoqlgen options that applied to each node, keyed by the AST node
+	// The octoqlgen options that applied to each node, keyed by the AST node
 	// they were attached to.  Populated by collectDirectives, which also
 	// removes the directives from the AST so they never reach the server.
 	directives map[any]*octoqlgenDirective
+
+	// Every @octoqlgenFor declaration, keyed by the type and field it names, so
+	// that conflicting declarations can be rejected.
+	forDeclarations map[fieldKey]forDeclaration
 
 	forbiddenImportPath string
 }
@@ -198,15 +202,16 @@ func newGenerator(
 	fragments ast.FragmentDefinitionList,
 ) *generator {
 	g := generator{
-		Config:        config,
-		typeMap:       map[string]goType{},
-		typePositions: map[string]*ast.Position{},
-		imports:       map[string]string{},
-		usedAliases:   map[string]bool{},
-		templateCache: map[string]*template.Template{},
-		schema:        schema,
-		fragments:     make(map[string]*ast.FragmentDefinition, len(fragments)),
-		directives:    map[any]*octoqlgenDirective{},
+		Config:          config,
+		typeMap:         map[string]goType{},
+		typePositions:   map[string]*ast.Position{},
+		imports:         map[string]string{},
+		usedAliases:     map[string]bool{},
+		templateCache:   map[string]*template.Template{},
+		schema:          schema,
+		fragments:       make(map[string]*ast.FragmentDefinition, len(fragments)),
+		directives:      map[any]*octoqlgenDirective{},
+		forDeclarations: map[fieldKey]forDeclaration{},
 	}
 
 	for _, fragment := range fragments {

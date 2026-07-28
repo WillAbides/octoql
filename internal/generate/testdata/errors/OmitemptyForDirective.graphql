@@ -1,6 +1,6 @@
 # The specific input field is non-nullable -> cannot omit it
 query OmitemptyDirective (
   $input: OmitemptyInput
-) @octoqlgen(for: "OmitemptyInput.field", omitempty: true) {
+) @octoqlgenFor(field: "OmitemptyInput.field", omitempty: true) {
   omitempty(input: $input)
 }

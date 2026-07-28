@@ -1,1 +1,1 @@
-query ConflictingDirectives @octoqlgen(pointer: true) @octoqlgen(pointer: false) { f }
+query ConflictingDirectives @octoqlgenDefaults(pointer: true) @octoqlgenDefaults(pointer: false) { f }

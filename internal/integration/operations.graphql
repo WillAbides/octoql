@@ -49,7 +49,7 @@ query queryWithVariables ($login: String!) {
     contributionCount
   }
 }
-query queryWithOmitempty ($login: String) @octoqlgen(omitempty: true) {
+query queryWithOmitempty ($login: String) @octoqlgenDefaults(omitempty: true) {
   user(login: $login) {
     id
     login

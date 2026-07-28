@@ -2,6 +2,6 @@
 # would send `null`, which is invalid value.
 query DefaultInputs(
   $input: InputWithDefaults!
-) @octoqlgen(for: "InputWithDefaults.field", pointer: true) {
+) @octoqlgenFor(field: "InputWithDefaults.field", pointer: true) {
   default(input: $input)
 }
