@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -1230,13 +1231,48 @@ func hasConditionalDirective(directives ast.DirectiveList) bool {
 // slice in an outer pointer would only mask its depth from the special
 // marshal/unmarshal generation (which keys off the field's top-level slice
 // depth), producing uncompilable code for lists of abstract or custom-marshalled
-// elements. Everything else (scalars, enums, structs) is wrapped in a pointer.
+// elements. A bound Go type (goOpaqueType, from a local `bind:` or a global
+// binding) is likewise left alone when its reference is already nil-able —
+// a pointer, slice, map, or interface — since wrapping would churn the user's
+// public API for no representational gain. Everything else (scalars, enums,
+// structs, and non-nil-able bound types such as fixed-size arrays) is wrapped in
+// a pointer.
 func forceConditionalPointer(goTyp goType) goType {
-	switch goTyp.(type) {
+	switch t := goTyp.(type) {
 	case *goPointerType, *goInterfaceType, *goSliceType:
 		return goTyp
+	case *goOpaqueType:
+		if goRefIsNilable(t.GoRef) {
+			return goTyp
+		}
+	}
+	return &goPointerType{goTyp}
+}
+
+// goRefIsNilable reports whether a Go type reference (as written in a `bind:`
+// expression or a global binding) denotes a type that can already hold nil.
+// Only the leading token of the reference determines the nil-ability of the
+// outermost type: pointers, slices, maps, and interfaces are nil-able, while a
+// fixed-size array [N]T is not — an array cannot represent absence, so a
+// conditional field bound to one must still be wrapped in a pointer. The `[]`
+// case must be tested before the bare `[` case so slices are not misread as
+// arrays.
+func goRefIsNilable(goRef string) bool {
+	goRef = strings.TrimSpace(goRef)
+	switch {
+	case goRef == "interface{}" || goRef == "any":
+		return true
+	case strings.HasPrefix(goRef, "*"):
+		return true
+	case strings.HasPrefix(goRef, "[]"):
+		return true
+	case strings.HasPrefix(goRef, "map["):
+		return true
+	case strings.HasPrefix(goRef, "["):
+		// A fixed-size array [N]T cannot represent absence.
+		return false
 	default:
-		return &goPointerType{goTyp}
+		return false
 	}
 }
 

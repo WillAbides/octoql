@@ -396,3 +396,72 @@ query Q($hide: Boolean!) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "@skip")
 }
+
+// skipIncludeBoundLeafSchema exposes leaf fields that can be bound to arbitrary
+// Go types via a local `bind:` directive, so the field itself (not a nested
+// selection) reaches convertField carrying @skip.
+const skipIncludeBoundLeafSchema = `
+type Query {
+  thing: Thing!
+}
+
+type Thing {
+  tags: [String!]!
+  name: String!
+  attrs: String!
+  raw: String!
+  fixed: [String!]!
+}
+`
+
+// TestSkipLeavesNilableBoundLeafUnwrapped verifies that a leaf field bound to a
+// Go type that is already nil-able (slice, pointer, map, interface{}) is not
+// double-wrapped by @skip. Absence is already representable through the bound
+// type, so wrapping would only churn the user's public API — and for a slice it
+// would also mask slice depth. This fails against the pre-fix code, which wrapped
+// every goOpaqueType (e.g. Tags *[]string, Name **string).
+func TestSkipLeavesNilableBoundLeafUnwrapped(t *testing.T) {
+	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
+query Q($hide: Boolean!) {
+  thing {
+    # @octoqlgen(bind: "[]string")
+    tags @skip(if: $hide)
+    # @octoqlgen(bind: "*string")
+    name @skip(if: $hide)
+    # @octoqlgen(bind: "map[string]string")
+    attrs @skip(if: $hide)
+    # @octoqlgen(bind: "interface{}")
+    raw @skip(if: $hide)
+  }
+}
+`)
+	require.NoError(t, err)
+	assert.Regexp(t, `Tags\s+\[\]string`, source)
+	assert.NotContains(t, source, "*[]string")
+	assert.Regexp(t, `Name\s+\*string`, source)
+	assert.NotContains(t, source, "**string")
+	assert.Regexp(t, `Attrs\s+map\[string\]string`, source)
+	assert.NotContains(t, source, "*map[string]string")
+	assert.Regexp(t, `Raw\s+interface\{\}`, source)
+	assert.NotContains(t, source, "*interface{}")
+	require.NoError(t, buildGoFile("skip_include_bound_leaf", []byte(source)))
+}
+
+// TestSkipWrapsBoundArray verifies the nil-ability classifier does not
+// over-generalize: a fixed-size array [N]T is NOT nil-able, so @skip must still
+// wrap it in a pointer. A naive "leading [" test, or reusing the slice/map
+// prefix regexp (which matches both [] and [N]), would wrongly skip the array and
+// reintroduce the zero-value hazard this change exists to close.
+func TestSkipWrapsBoundArray(t *testing.T) {
+	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
+query QArr($hide: Boolean!) {
+  thing {
+    # @octoqlgen(bind: "[4]string")
+    fixed @skip(if: $hide)
+  }
+}
+`)
+	require.NoError(t, err)
+	assert.Regexp(t, `Fixed\s+\*\[4\]string`, source)
+	require.NoError(t, buildGoFile("skip_include_bound_array", []byte(source)))
+}
