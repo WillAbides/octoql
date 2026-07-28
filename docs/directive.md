@@ -36,14 +36,17 @@ isSuspended @octoqlgen(pointer: false)
 
 ## Editor support
 
-`@octoqlgen` has to be declared in a schema for editors and other GraphQL
-tooling to resolve it. octoqlgen declares it internally, so generation works
-without any declaration on disk, but an editor reading only the schema file
-reports every use of the directive as unknown.
+octoqlgen's directives have to be declared in a schema for editors and other
+GraphQL tooling to resolve them. octoqlgen declares them internally, so
+generation works without any declaration on disk, but an editor reading only the
+schema file reports every use as unknown.
 
-To fix that, octoqlgen writes `octoqlgen-directive.graphql` next to any schema
-it materializes, holding just the declaration. The schema itself keeps the exact
+To fix that, octoqlgen writes `octoqlgen-directive.graphql` next to any schema it
+materializes, holding just the declarations. The schema itself keeps the exact
 bytes its source served, so `schema.sha256` still describes it.
+
+Each option carries a description there, so an editor that reads it can also
+complete the option names and show what they do on hover.
 
 Tooling that reads every `.graphql` file in the project picks the declaration up
 with no further setup. Tooling that takes an explicit list, such as

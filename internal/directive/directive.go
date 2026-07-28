@@ -28,27 +28,65 @@ const ForName = "octoqlgenFor"
 // fragments, so placing one there is a schema error rather than a hand-written
 // check.
 const SDL = `directive @` + Name + `(
+  """Omit this variable, or input-type field, when its value is empty."""
   omitempty: Boolean
+
+  """Whether the value uses a pointer type in Go."""
   pointer: Boolean
+
+  """Use a struct for this field even though its type is an interface."""
   struct: Boolean
+
+  """Use the generated type of this field's single fragment spread directly."""
   flatten: Boolean
+
+  """
+  Fully qualified Go type to use instead of a generated one, such as
+  "time.Time". Use "-" to opt out of a configured binding.
+  """
   bind: String
+
+  """Name for the Go type generated from this node."""
   typename: String
+
+  """Go name for this selected field, without adding a GraphQL alias."""
   alias: String
 ) repeatable on QUERY | MUTATION | FIELD | FRAGMENT_DEFINITION | VARIABLE_DEFINITION
 
 directive @` + DefaultsName + `(
+  """Default omitempty for the variables and input-type fields inside."""
   omitempty: Boolean
+
+  """Default pointer for the fields inside."""
   pointer: Boolean
+
+  """Default struct for the interface-typed fields inside."""
   struct: Boolean
 ) repeatable on QUERY | MUTATION | FRAGMENT_DEFINITION
 
 directive @` + ForName + `(
+  """The field these options apply to, written as "MyType.myField"."""
   field: String!
+
+  """Omit that field when its value is empty."""
   omitempty: Boolean
+
+  """Whether that field uses a pointer type in Go."""
   pointer: Boolean
+
+  """
+  Fully qualified Go type to use for that field instead of a generated one.
+  Use "-" to opt out of a configured binding.
+  """
   bind: String
+
+  """Name for the Go type generated from that field."""
   typename: String
+
+  """
+  Go name for that field, without adding a GraphQL alias.  Only applicable
+  when it is a selected field, not an input-type field.
+  """
   alias: String
 ) repeatable on QUERY | MUTATION | FRAGMENT_DEFINITION
 `
