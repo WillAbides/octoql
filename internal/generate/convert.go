@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -562,6 +563,9 @@ func (g *generator) convertType(
 	// bind GraphQL named types, at least for now.
 	localBinding := options.Bind
 	if localBinding != "" && localBinding != "-" {
+		if err := rejectConditionalDirectivesInBoundSelection(typ.Name(), selectionSet); err != nil {
+			return nil, err
+		}
 		goRef, err := g.ref(localBinding)
 		if err != nil {
 			return nil, err
@@ -663,6 +667,9 @@ func (g *generator) convertDefinition(
 					"use `bind: \"-\"` to override it", def.Name)
 		}
 		if def.Kind == ast.Object || def.Kind == ast.Interface || def.Kind == ast.Union {
+			if err := rejectConditionalDirectivesInBoundSelection(def.Name, selectionSet); err != nil {
+				return nil, err
+			}
 			err := g.validateBindingSelection(
 				def.Name, globalBinding, pos, selectionSet)
 			if err != nil {
@@ -1153,6 +1160,15 @@ func (g *generator) convertSelectionSet(
 			}
 			fields = append(fields, field)
 		case *ast.FragmentSpread:
+			if hasConditionalDirective(selection.Directives) {
+				return nil, errorf(selection.Position,
+					"@skip and @include are not supported on fragment spreads "+
+						"(...%s): octoqlgen cannot represent the absence of "+
+						"every field the fragment contributes, so it would "+
+						"otherwise silently generate value types for fields "+
+						"that can vanish",
+					selection.Name)
+			}
 			maybeField, err := g.convertFragmentSpread(selection, containingTypedef)
 			if err != nil {
 				return nil, err
@@ -1160,6 +1176,13 @@ func (g *generator) convertSelectionSet(
 				fields = append(fields, maybeField)
 			}
 		case *ast.InlineFragment:
+			if hasConditionalDirective(selection.Directives) {
+				return nil, errorf(selection.Position,
+					"@skip and @include are not supported on inline fragments: "+
+						"octoqlgen cannot represent the absence of every field "+
+						"the fragment contributes, so it would otherwise "+
+						"silently generate value types for fields that can vanish")
+			}
 			// (Note this will return nil, nil if the fragment doesn't apply to
 			// this type.)
 			fragmentFields, err := g.convertInlineFragment(
@@ -1501,6 +1524,22 @@ func (g *generator) convertField(
 		return nil, err
 	}
 
+	// A field carrying @skip(if:) or @include(if:) is legitimately absent from
+	// a spec-correct response when its condition says so, regardless of the
+	// field's schema nullability. Force a pointer so that absence is
+	// representable as nil rather than silently decoding to the Go zero value.
+	if hasConditionalDirective(field.Directives) {
+		if fieldOptions.PointerIsFalse() {
+			return nil, errorf(field.Position,
+				"field %s carries @skip or @include and so may be absent from "+
+					"the response; it cannot be combined with "+
+					"@octoqlgen(pointer: false), which asks for a value type "+
+					"that cannot represent absence",
+				field.Name)
+		}
+		fieldGoType = forceConditionalPointer(fieldGoType)
+	}
+
 	return &goStructField{
 		GoName:      goName,
 		GoType:      fieldGoType,
@@ -1509,4 +1548,134 @@ func (g *generator) convertField(
 		Description: field.Definition.Description,
 		Position:    field.Position,
 	}, nil
+}
+
+// hasConditionalDirective reports whether the selection carries a @skip or
+// @include directive. Such a selection may be absent from a spec-correct
+// response, independent of schema nullability.
+func hasConditionalDirective(directives ast.DirectiveList) bool {
+	return directives.ForName("skip") != nil ||
+		directives.ForName("include") != nil
+}
+
+// forceConditionalPointer makes goTyp able to represent an absent value as nil,
+// for a field carrying @skip/@include. Types that can already hold nil are
+// returned unchanged: pointers and interfaces obviously, but also slices — a nil
+// slice already distinguishes an absent list from a present one, and wrapping a
+// slice in an outer pointer would only mask its depth from the special
+// marshal/unmarshal generation (which keys off the field's top-level slice
+// depth), producing uncompilable code for lists of abstract or custom-marshalled
+// elements. A bound Go type (goOpaqueType, from a local `bind:` or a global
+// binding) is likewise left alone when its reference is already nil-able —
+// a pointer, slice, map, or interface — since wrapping would churn the user's
+// public API for no representational gain. Everything else (scalars, enums,
+// structs, and non-nil-able bound types such as fixed-size arrays) is wrapped in
+// a pointer.
+func forceConditionalPointer(goTyp goType) goType {
+	switch t := goTyp.(type) {
+	case *goPointerType, *goInterfaceType, *goSliceType:
+		return goTyp
+	case *goOpaqueType:
+		if goRefIsNilable(t.GoRef) {
+			return goTyp
+		}
+	}
+	return &goPointerType{goTyp}
+}
+
+// goRefIsNilable reports whether a Go type reference (as written in a `bind:`
+// expression or a global binding, after resolution through (*generator).ref)
+// denotes a type that can already hold nil. Only the leading token of the
+// reference determines the nil-ability of the outermost type: pointers, slices,
+// maps, and the `interface{}` literal are nil-able, while a fixed-size array
+// [N]T is not — an array cannot represent absence, so a conditional field bound
+// to one must still be wrapped in a pointer. The `[]` case must be tested before
+// the bare `[` case so slices are not misread as arrays.
+//
+// Only the `interface{}` type literal counts as a nil-able interface, never the
+// bare predeclared `any` identifier: `any` can be shadowed by a local
+// declaration in the generated package, so trusting it could leave a
+// non-nil-able field unwrapped. (*generator).ref normalizes bound `any` to
+// `interface{}` at the source, so a well-formed reference never reaches here as
+// bare `any`; treating it conservatively here is defense in depth in the safe
+// direction — an unnecessary pointer, never a missing one.
+func goRefIsNilable(goRef string) bool {
+	goRef = strings.TrimSpace(goRef)
+	switch {
+	case goRef == "interface{}":
+		return true
+	case strings.HasPrefix(goRef, "*"):
+		return true
+	case strings.HasPrefix(goRef, "[]"):
+		return true
+	case strings.HasPrefix(goRef, "map["):
+		return true
+	case strings.HasPrefix(goRef, "["):
+		// A fixed-size array [N]T cannot represent absence.
+		return false
+	default:
+		return false
+	}
+}
+
+// rejectConditionalDirectivesInBoundSelection returns an error if any selection
+// nested within selectionSet (recursively, including through named fragments)
+// carries @skip or @include.
+//
+// It guards binding sites. A composite type bound to a user-supplied Go type
+// (local `bind:` or a global binding) is emitted as an opaque reference and its
+// selection set is never converted into generated types, so convertField never
+// runs on the nested fields and the forced-pointer protection for conditional
+// fields cannot apply. Because octoqlgen cannot alter the bound Go type, a nested
+// conditional field would silently decode an absent value to the Go zero value;
+// we reject the operation instead. The bound field's own directive is handled by
+// its convertField call, so only nested selections need this scan.
+//
+// bindingName identifies the bound GraphQL type in the error message.
+func rejectConditionalDirectivesInBoundSelection(
+	bindingName string,
+	selectionSet ast.SelectionSet,
+) error {
+	return rejectConditionalDirectivesInSelection(
+		bindingName, selectionSet, map[string]bool{})
+}
+
+func rejectConditionalDirectivesInSelection(
+	bindingName string,
+	selectionSet ast.SelectionSet,
+	seenFragments map[string]bool,
+) error {
+	for _, selection := range selectionSet {
+		var directives ast.DirectiveList
+		var nested ast.SelectionSet
+		switch selection := selection.(type) {
+		case *ast.Field:
+			directives = selection.Directives
+			nested = selection.SelectionSet
+		case *ast.InlineFragment:
+			directives = selection.Directives
+			nested = selection.SelectionSet
+		case *ast.FragmentSpread:
+			directives = selection.Directives
+			if selection.Definition != nil && !seenFragments[selection.Name] {
+				seenFragments[selection.Name] = true
+				nested = selection.Definition.SelectionSet
+			}
+		}
+		if hasConditionalDirective(directives) {
+			return errorf(selection.GetPosition(),
+				"@skip and @include are not supported inside a selection bound "+
+					"to a Go type (%s): the bound type's selection set is not "+
+					"generated, so octoqlgen cannot represent the absence of a "+
+					"conditionally-skipped field and would silently decode it "+
+					"to the Go zero value",
+				bindingName)
+		}
+		err := rejectConditionalDirectivesInSelection(
+			bindingName, nested, seenFragments)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

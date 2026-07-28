@@ -95,6 +95,16 @@ func (g *generator) ref(fullyQualifiedName string) (qualifiedName string, err er
 
 	i := strings.LastIndex(nameToImport, ".")
 	if i == -1 {
+		if nameToImport == "any" {
+			// `any` is a predeclared identifier, not a keyword, so a local
+			// declaration in the generated package (e.g. `type any bool`) can
+			// shadow it and change what the reference means. Normalize it to the
+			// `interface{}` type literal, which cannot be shadowed, so the
+			// reference is unambiguous for every downstream consumer of this
+			// string. A user who genuinely wants a shadowing type of their own
+			// should qualify it (path/to/pkg.any).
+			return prefix + "interface{}", nil
+		}
 		if nameToImport != "interface{}" && types.Universe.Lookup(nameToImport) == nil {
 			return "", errorf(nil, errorMsg, fullyQualifiedName,
 				fmt.Sprintf(`unknown type-name "%v"`, nameToImport))

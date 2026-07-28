@@ -1148,15 +1148,15 @@ type CreateRepositoryVariables struct {
 
 // EchoAnyResponse is returned by EchoAny on success.
 type EchoAnyResponse struct {
-	EchoAny any `json:"echoAny"`
+	EchoAny interface{} `json:"echoAny"`
 }
 
 // GetEchoAny returns EchoAnyResponse.EchoAny, and is useful for accessing the field via an interface.
-func (v *EchoAnyResponse) GetEchoAny() any { return v.EchoAny }
+func (v *EchoAnyResponse) GetEchoAny() interface{} { return v.EchoAny }
 
 // EchoAnyVariables contains the variables accepted by EchoAny.
 type EchoAnyVariables struct {
-	Value any `json:"value"`
+	Value interface{} `json:"value"`
 }
 
 // EchoAtResponse is returned by EchoAt on success.

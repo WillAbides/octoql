@@ -345,3 +345,111 @@ which would cause conflicts.
 To avoid confusion, `typename` may not be combined with local or global
 bindings. To use `typename` instead of a global binding, write
 `typename: "MyTypeName", bind: "-"`.
+
+## `@skip` and `@include`
+
+`@skip(if:)` and `@include(if:)` are core GraphQL directives, not `@octoqlgen`
+options, but they affect the Go types octoqlgen generates, so they are described
+here.
+
+A field carrying `@skip` or `@include` is legitimately absent from a
+spec-correct response whenever its condition excludes it, independent of the
+field's schema nullability. octoqlgen therefore generates such a field as a
+pointer, even when the schema type is non-null, so that absence is representable
+as `nil`:
+
+```graphql
+query MyQuery($hide: Boolean!) {
+  user {
+    login
+    isSuspended @skip(if: $hide)
+  }
+}
+```
+
+generates:
+
+```go
+type MyQueryUser struct {
+	Login       string
+	IsSuspended *bool
+}
+```
+
+`IsSuspended` is a pointer even though `isSuspended: Boolean!` is non-null in the
+schema. When the server omits the field, it decodes to `nil` rather than to
+`false`. Without the pointer the omitted field would silently decode to the Go
+zero value, and a check shaped like `if user.IsSuspended { deny() }` would fail
+**open** — treating a suspended-but-omitted user as not suspended. Read these
+fields with a nil guard:
+
+```go
+if user.IsSuspended != nil && *user.IsSuspended {
+	deny()
+}
+```
+
+A list under `@skip` keeps its nil-ability at the container level rather than
+wrapping its elements: a slice is already nil-able in Go, so `[Role!]!` stays
+`[]Role` (never `[]*Role`), and an omitted list decodes to a nil slice. Fields
+whose Go type can already hold nil — nullable schema types, slices, generated
+abstract interfaces, and bound Go types that are themselves nil-able (a pointer,
+slice, map, or `interface{}`) — keep their existing types. The forced pointer
+therefore applies only to types whose Go zero value would otherwise be
+indistinguishable from an absent value: scalars, enums, structs, and bound
+fixed-size arrays.
+
+For a [`bind:`](#bind) type, nil-ability is judged **syntactically** from how the
+binding is spelled — octoqlgen does not resolve the underlying type of a named
+binding. Only the recognized literal forms are treated as already nil-able and
+left unwrapped: `*T`, `[]T`, `map[...]T`, and `interface{}`. A named type or
+alias whose underlying type is nil-able — for example `example.com/pkg.Tags`
+where `type Tags []string` — is **conservatively wrapped** (`*Tags`), because
+octoqlgen cannot see through the name to know it is already a slice. This is the
+safe direction: an unnecessary pointer, never a missing one. The bare
+predeclared identifier `any` is normalized to `interface{}` (which cannot be
+shadowed) and left unwrapped; bind to a package-qualified name if you have
+deliberately shadowed `any` with your own non-nil-able type.
+
+Because absence must stay representable, combining `@skip` or `@include` with
+[`pointer: false`](#pointer) on the same field is a contradiction and is rejected
+as a generation error.
+
+`@skip` and `@include` are only supported on fields. Applied to a fragment
+spread or an inline fragment they make every field the fragment contributes
+absent at once, and those fields are commonly flattened into the parent struct,
+so octoqlgen cannot represent their absence and rejects the operation with a
+generation error. Apply the directive to the individual fields instead:
+
+```graphql
+# rejected
+query MyQuery($hide: Boolean!) {
+  user {
+    ...UserFields @skip(if: $hide)
+  }
+}
+
+# supported: move @skip onto the fields
+query MyQuery($hide: Boolean!) {
+  user {
+    login @skip(if: $hide)
+    isSuspended @skip(if: $hide)
+  }
+}
+```
+
+One exception applies to the individual-field form above: when a field's
+selection is bound to a caller-supplied Go type — through a local
+[`bind:`](#bind) or a global binding — octoqlgen treats that selection as opaque
+and never generates its nested fields, so it cannot make any of them nil-able. A
+`@skip` or `@include` on a field *nested inside* such a bound composite is
+therefore also rejected with a generation error, even though moving the directive
+onto individual fields is otherwise the supported fix. A directive on the bound
+field itself is unaffected; only selections beneath an opaque binding are
+rejected.
+
+One field is excluded from the forced-pointer support above: `__typename` within
+an interface or union selection must not carry `@skip` or `@include`. octoqlgen
+relies on `__typename` to decode the concrete type of an abstract value, so a
+conditionally-omitted `__typename` leaves the response undecodable and fails at
+runtime. Request `__typename` unconditionally on abstract selections.
