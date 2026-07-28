@@ -46,6 +46,9 @@
 # apply to the fields of MyInput, and "f" does not apply to field4.  (But
 # directives on operations and fragments do: both "b" and "c" apply to fields
 # of MyInput and to field4.)
+#
+# String option values must not be empty. Use `bind: "-"` to explicitly opt out
+# of a configured binding.
 directive octoqlgen(
 
   # If set to a string "MyType.myField", this entire @octoqlgen directive

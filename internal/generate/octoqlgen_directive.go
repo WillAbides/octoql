@@ -68,6 +68,9 @@ func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) 
 		return errorf(pos, "invalid string value %v: %v", v, err)
 	}
 	if b, ok := ei.(string); ok {
+		if b == "" {
+			return errorf(pos, "%s must not be empty", optionName)
+		}
 		*dst = b
 		return nil
 	}

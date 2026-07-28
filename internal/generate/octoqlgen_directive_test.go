@@ -70,6 +70,34 @@ func TestOctoqlgenDirectiveAddRejectsEmptyFor(t *testing.T) {
 	assert.EqualError(t, err, `for must not be empty`)
 }
 
+func TestOctoqlgenDirectiveAddRejectsEmptyStringOptions(t *testing.T) {
+	for _, option := range []string{"alias", "bind", "typename"} {
+		t.Run(option, func(t *testing.T) {
+			directive := newOctoqlgenDirective(nil)
+			graphQLDirective, err := parseDirective(
+				`@octoqlgen(`+option+`: "")`,
+				nil,
+			)
+			require.NoError(t, err)
+
+			err = directive.add(graphQLDirective, nil)
+
+			assert.EqualError(t, err, option+" must not be empty")
+		})
+	}
+}
+
+func TestOctoqlgenDirectiveAddAllowsBindOptOut(t *testing.T) {
+	directive := newOctoqlgenDirective(nil)
+	graphQLDirective, err := parseDirective(`@octoqlgen(bind: "-")`, nil)
+	require.NoError(t, err)
+
+	err = directive.add(graphQLDirective, nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, "-", directive.Bind)
+}
+
 func TestOctoqlgenDirectiveAttachmentRejectsMultipleNodes(t *testing.T) {
 	var unsafeResponse struct {
 		IsSuspended bool `json:"isSuspended"`
