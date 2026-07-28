@@ -270,6 +270,15 @@ type interfaceMethod struct {
 // whole identifier, so it rewrites the aliases inside pointer, slice, array, and
 // map spellings (e.g. []byte, map[string]byte) while leaving unrelated names
 // such as bytes or myrune untouched.
+//
+// A word boundary also matches after a dot, so a qualified reference like
+// pkg.byte would fold to pkg.uint8.  That is harmless: byte, rune, and any are
+// predeclared lowercase identifiers, so a package-level type with one of those
+// names is unexported and cannot be named through a qualified selector from
+// another package.  Such a reference is never valid Go, so folding it cannot
+// mask a real conflict between two compilable types -- and if one somehow
+// reached here, the concrete implementer's duplicate getter is caught by the
+// struct identifier check regardless.
 var predeclaredTypeAliases = []struct {
 	alias *regexp.Regexp
 	canon string
