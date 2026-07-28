@@ -131,8 +131,9 @@ Type: `string` · Required
 The file to write the generated client to, relative to `octoqlgen.yaml`.
 
 The generated client is self-contained. It uses only the standard library
-by default; configured `bindings`, `package_bindings`, and a custom
-`context_type` add imports for the types they name. Application code
+by default; external types named by `bindings`, `package_bindings`, a
+custom `context_type`, or an operation's `@octoqlgen(bind: ...)`
+directive can add imports for the packages they name. Application code
 never imports `github.com/willabides/octoql`.
 
 Example: `githubapi/generated.go`
@@ -207,13 +208,13 @@ may return either a string or an array of strings. `Base64String`,
 `URI`, and `X509Certificate` map to `string`. This setting extends or
 overrides all of those mappings.
 
-octoqlgen checks that a bound type name is a supported type expression,
-but it does not check the type's JSON behavior. Bound types must define
-whatever logic is needed, such as `MarshalJSON`/`UnmarshalJSON` methods or
-JSON tags, to convert to and from JSON. For this reason binding object,
-interface, or union types is not recommended, because nothing guarantees
-that the fields requested in the operation match those present in the Go
-type.
+When a binding is used, octoqlgen checks that its type name is a supported
+type expression, but it does not check the type's JSON behavior. Bound
+types must define whatever logic is needed, such as
+`MarshalJSON`/`UnmarshalJSON` methods or JSON tags, to convert to and from
+JSON. For this reason binding object, interface, or union types is not
+recommended, because nothing guarantees that the fields requested in the
+operation match those present in the Go type.
 
 When binding to types in the same package as the generated code, take
 care not to bind to generated types, or the result is circular.
@@ -362,8 +363,8 @@ Each option accepts one of the following values:
   names to exported Go names. This is usually best for schemas using
   idiomatic GraphQL naming.
 - `raw`: keep the GraphQL spelling, without converting it to Go style.
-  Generated identifiers are still capitalized where Go requires it. This
-  is usually best for schemas with casing conflicts, such as enums
+  octoqlgen still uppercases the first character of generated identifiers.
+  This is usually best for schemas with casing conflicts, such as enums
   whose values differ only in casing.
 - `auto_camel_case`: convert `snake_case` to `camelCase` before standard
   processing. This applies to field names, type names, and enum values.

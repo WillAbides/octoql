@@ -24,8 +24,9 @@ explicit tag keeps generation reproducible. octoql is pre-1.0, so review the
 release notes before moving between minor versions.
 
 Generated clients are self-contained and use only the standard library by
-default. Configured `bindings`, `package_bindings`, and a custom `context_type`
-add imports for the types they name. Application code does not import
+default. External types named by `bindings`, `package_bindings`, a custom
+`context_type`, or an operation's `@octoqlgen(bind: ...)` directive can add
+imports for the packages they name. Application code does not import
 `github.com/willabides/octoql`.
 
 ## Generate a client
@@ -217,9 +218,9 @@ arrives, do not carry `*ResponseError`.
 
 A failure becomes a `*RateLimitError` only when the response carries matching
 signals. `RateLimitSecondary` requires a valid `Retry-After` header with status
-200, 403, or 429. `RateLimitPrimary` requires `X-RateLimit-Remaining: 0`
-together with status 403 or 429, or a GraphQL error of type `RATE_LIMITED`.
-Other rejections surface as ordinary errors.
+200, 403, or 429. `RateLimitPrimary` requires `X-RateLimit-Remaining: 0`, and
+additionally one of: status 403, status 429, or a GraphQL error of type
+`RATE_LIMITED`. Other rejections surface as ordinary errors.
 
 Read the latest observed primary rate-limit state with `client.RateLimit()`,
 which is a concurrency-safe advisory snapshot. The client never retries
@@ -438,7 +439,8 @@ Each expectation offers several ways to answer a request:
 | `Handle(fn)`                          | Serve the request with a custom function                                                                   |
 | `WithOptions(options...)`             | Apply response options to this expectation's `Respond`, `RespondError`, and `RespondDataAndErrors` replies |
 
-`WithOptions` does not affect `Handle`, which writes its own status and headers.
+`WithOptions` does not affect `Handle`. The function passed to `Handle` is
+responsible for writing its own status and headers.
 
 `Handle` receives the `http.ResponseWriter` and, for operations that declare
 variables, the decoded variables.
