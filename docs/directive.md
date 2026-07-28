@@ -399,6 +399,18 @@ therefore applies only to types whose Go zero value would otherwise be
 indistinguishable from an absent value: scalars, enums, structs, and bound
 fixed-size arrays.
 
+For a [`bind:`](#bind) type, nil-ability is judged **syntactically** from how the
+binding is spelled — octoqlgen does not resolve the underlying type of a named
+binding. Only the recognized literal forms are treated as already nil-able and
+left unwrapped: `*T`, `[]T`, `map[...]T`, and `interface{}`. A named type or
+alias whose underlying type is nil-able — for example `example.com/pkg.Tags`
+where `type Tags []string` — is **conservatively wrapped** (`*Tags`), because
+octoqlgen cannot see through the name to know it is already a slice. This is the
+safe direction: an unnecessary pointer, never a missing one. The bare
+predeclared identifier `any` is normalized to `interface{}` (which cannot be
+shadowed) and left unwrapped; bind to a package-qualified name if you have
+deliberately shadowed `any` with your own non-nil-able type.
+
 Because absence must stay representable, combining `@skip` or `@include` with
 [`pointer: false`](#pointer) on the same field is a contradiction and is rejected
 as a generation error.
