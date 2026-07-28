@@ -290,10 +290,13 @@ query Q($p: Profile) {
   }
 }
 `,
-			wantGenerationErr: "conflicting definition for Profile; this can indicate " +
-				"either an octoqlgen internal error, a conflict between " +
-				"user-specified type-names, or some very tricksy GraphQL " +
-				"field/type names: expected GraphQL type Profile, got User",
+			wantGenerationErr: "expected GraphQL type Profile, got User",
+			wantGenerationErrAlso: []string{
+				"conflicting definition for the Go type Profile",
+				"input GraphQL type Profile",
+				"the fragment Profile on GraphQL type User",
+				"give one of them a distinct name with an @octoqlgen(typename:) directive",
+			},
 		},
 		{
 			// Two interface fields differ only in case and normalize to the

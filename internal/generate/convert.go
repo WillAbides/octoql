@@ -35,12 +35,16 @@ func (g *generator) getType(
 	}
 
 	if typ.GraphQLTypeName() != graphQLName {
+		oldSource := describeTypeSource(typ)
+		oldPos := g.typePositions[goName]
 		return typ, errorf(
-			pos, "conflicting definition for %s; this can indicate either "+
-				"an octoqlgen internal error, a conflict between user-specified "+
-				"type-names, or some very tricksy GraphQL field/type names: "+
-				"expected GraphQL type %s, got %s",
-			goName, typ.GraphQLTypeName(), graphQLName)
+			pos, "conflicting definition for the Go type %s: it is generated "+
+				"from both %s (at %s) and %s (at %s), which are different "+
+				"GraphQL types (expected GraphQL type %s, got %s); give one of "+
+				"them a distinct name with an @octoqlgen(typename:) directive so "+
+				"they produce separate Go types",
+			goName, oldSource, posString(oldPos), newSource, posString(pos),
+			typ.GraphQLTypeName(), graphQLName)
 	}
 
 	expectedSelectionSet := typ.SelectionSet()
@@ -649,11 +653,23 @@ func (g *generator) convertDefinition(
 		name = makeTypeName(namePrefix, def.Name, g.Config.GetDefaultCasingAlgorithm())
 	}
 
+	// Register and compare types against a position in the operation (the
+	// field, variable, or @octoqlgen directive that selected this type), not
+	// against pos, which is the schema location of the type's definition.  A
+	// conflict is between two selections in the user's operations, so pointing
+	// the error there -- and at two distinct locations -- is what makes it
+	// actionable.  options.pos is the selecting node's position (the field or
+	// variable, or the directive comment when one is present).
+	provenancePos := pos
+	if options != nil && options.pos != nil {
+		provenancePos = options.pos
+	}
+
 	// If we already generated the type, we can skip it as long as it matches
 	// (and must fail if it doesn't).  (This can happen for input/enum types,
 	// types of fields of interfaces, when options.TypeName is set, or, of
 	// course, on invalid configuration or internal error.)
-	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, pos)
+	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
 	if existing != nil || err != nil {
 		return existing, err
 	}
@@ -691,7 +707,7 @@ func (g *generator) convertDefinition(
 			Selection:       selectionSet,
 			descriptionInfo: desc,
 		}
-		return g.addType(goType, goType.GoName, pos)
+		return g.addType(goType, goType.GoName, provenancePos)
 
 	case ast.InputObject:
 		goType := &goStructType{
@@ -702,7 +718,7 @@ func (g *generator) convertDefinition(
 		}
 		// To handle recursive types, we need to add the type to the type-map
 		// *before* converting its fields.
-		_, err := g.addType(goType, goType.GoName, pos)
+		_, err := g.addType(goType, goType.GoName, provenancePos)
 		if err != nil {
 			return nil, err
 		}
@@ -813,7 +829,7 @@ func (g *generator) convertDefinition(
 		if err != nil {
 			return nil, err
 		}
-		return g.addType(goType, goType.GoName, pos)
+		return g.addType(goType, goType.GoName, provenancePos)
 
 	case ast.Enum:
 		goType := &goEnumType{
@@ -841,7 +857,7 @@ func (g *generator) convertDefinition(
 			}
 			goNames[goName] = &goType.Values[i]
 		}
-		return g.addType(goType, goType.GoName, pos)
+		return g.addType(goType, goType.GoName, provenancePos)
 
 	case ast.Scalar:
 		if builtinTypes[def.Name] != "" {
@@ -852,7 +868,7 @@ func (g *generator) convertDefinition(
 				GoBuiltinName: builtinTypes[def.Name],
 				GraphQLName:   def.Name,
 			}
-			return g.addType(goType, goType.GoTypeName, pos)
+			return g.addType(goType, goType.GoTypeName, provenancePos)
 		}
 
 		// (If you had an entry in bindings, we would have returned it above.)
