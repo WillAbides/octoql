@@ -153,11 +153,24 @@ Use `Client.SetBearerToken` for OAuth 2.0 bearer authentication. For basic
 authentication or another scheme, configure the `http.Client` or
 `http.RoundTripper` passed to `NewClient`. Credentials applied by a custom
 `RoundTripper` are reapplied on every hop, bypassing normal redirect credential
-protections. Generated clients refuse redirects, but a custom transport that
-follows redirects itself can bypass that policy.
+protections. Generated clients refuse redirects by default, but a custom
+transport that follows redirects itself can bypass that policy.
 
-An endpoint that returns a redirect now fails the operation with an error rather
-than following the redirect. Configure the final GraphQL endpoint directly.
+Configure the final GraphQL endpoint directly whenever possible. An appliance
+behind a redirecting load balancer or vanity hostname can opt in to redirects:
+
+```go
+err := client.SetAllowRedirects(true)
+if err != nil {
+	return err
+}
+```
+
+The opt-in follows at most 10 redirects and removes the bearer `Authorization`
+header when a redirect leaves the original scheme, host, and port. It cannot
+remove credentials applied by a custom `RoundTripper`. Do not enable redirects
+to turn an `http://` endpoint into `https://`: configure the `https://` endpoint
+directly so the bearer token is never sent in cleartext on the first hop.
 
 ## Runtime responses and errors
 

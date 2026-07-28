@@ -96,9 +96,10 @@
   authentication schemes belong in the supplied `http.Client` or
   `http.RoundTripper`. Credentials applied by a custom `RoundTripper` are
   reapplied on every hop and bypass normal redirect credential protections.
-  Generated clients refuse redirects, but a custom transport that follows
-  redirects itself can bypass that policy. Do not add automatic retry or sleep
-  behavior.
+  Generated clients refuse redirects by default; `Client.SetAllowRedirects`
+  explicitly opts in while removing bearer Authorization across origins. A
+  custom transport that follows redirects itself can bypass that policy. Do not
+  add automatic retry or sleep behavior.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
 - Never run `script/generate --check` in a local or session worktree; it is
