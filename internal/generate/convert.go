@@ -65,6 +65,71 @@ func (g *generator) getType(
 	return typ, nil
 }
 
+// inputFieldOptions returns the options that apply to each field of an input
+// type under one operation's @octoqlgenDefaults.
+func (g *generator) inputFieldOptions(
+	def *ast.Definition,
+	queryOptions *octoqlgenDirective,
+) (map[string]*octoqlgenDirective, error) {
+	options := make(map[string]*octoqlgenDirective, len(def.Fields))
+	for _, field := range def.Fields {
+		fieldOptions, err := g.directiveFor(field, def, field.Position, queryOptions)
+		if err != nil {
+			return nil, err
+		}
+		options[field.Name] = fieldOptions
+	}
+	return options, nil
+}
+
+// checkInputDefaultsAgree rejects a second operation that would have generated
+// a different shape for an input type another operation already generated.
+//
+// An input type is named by the schema, so every operation shares one Go type
+// for it, and the early-out above returns that type without rebuilding its
+// fields.  @octoqlgenDefaults are per-operation and may legitimately differ, so
+// without this the operation converted first would silently decide the shape
+// for all of them and reordering the operations would change the result.
+//
+// @octoqlgenFor is not the problem here: those declarations are reconciled
+// across operations before conversion, so they give every operation the same
+// answer.  That is also the remedy, which is what the error says.
+func (g *generator) checkInputDefaultsAgree(
+	def *ast.Definition,
+	name string,
+	queryOptions *octoqlgenDirective,
+	pos *ast.Position,
+) error {
+	existing, ok := g.inputTypeOptions[name]
+	if !ok {
+		return nil
+	}
+	options, err := g.inputFieldOptions(def, queryOptions)
+	if err != nil {
+		return err
+	}
+	for _, field := range def.Fields {
+		if directiveOptionsMatch(existing.perField[field.Name], options[field.Name]) {
+			continue
+		}
+		return errorf(pos,
+			"conflicting @%s for the input type %s: this operation asks for "+
+				"something different for %s.%s than the one at %s, and both "+
+				"share one generated type; declare it once with "+
+				"@%s(field: \"%s.%s\", ...) instead",
+			octoqlgenDefaultsName, def.Name, def.Name, field.Name,
+			posString(existing.pos), octoqlgenForName, def.Name, field.Name)
+	}
+	return nil
+}
+
+// inputTypeOptions records the options an input type was generated with, so a
+// later operation that would have generated it differently can be rejected.
+type inputTypeOptions struct {
+	perField map[string]*octoqlgenDirective
+	pos      *ast.Position
+}
+
 // describeTypeSource returns a human-readable description of the GraphQL
 // construct that produced a generated type, for use in conflict errors.
 func describeTypeSource(typ goType) string {
@@ -765,18 +830,33 @@ func (g *generator) convertDefinition(
 	// also requires this path for recursive types: it pre-inserts an empty
 	// struct via addType so getType on a second call returns that placeholder,
 	// and the early-out is required to avoid overwriting it.
-	// Known limitation: an operation-level @octoqlgenFor declaration can change
-	// an input type's generated fields.  Contradictory declarations are
-	// rejected where they are collected, by recordForDeclaration, rather than
-	// here: this early-out is exactly why they cannot be caught at this point.
+	// @octoqlgenFor declarations are reconciled across operations before any
+	// of this runs, so they cannot make the result depend on which operation
+	// converted the type first.  @octoqlgenDefaults are per-operation and may
+	// legitimately differ, so an input type they reach is checked below.
 	// For selection-based types (Object, Interface, Union), skip the early-
 	// out so the candidate is built and reaches addType for structural
 	// comparison.
 	if def.Kind == ast.InputObject || def.Kind == ast.Enum || def.Kind == ast.Scalar {
 		existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
-		if existing != nil || err != nil {
+		if err != nil {
 			return existing, err
 		}
+		if existing != nil {
+			err = g.checkInputDefaultsAgree(def, name, queryOptions, provenancePos)
+			if err != nil {
+				return nil, err
+			}
+			return existing, nil
+		}
+	}
+
+	if def.Kind == ast.InputObject {
+		options, err := g.inputFieldOptions(def, queryOptions)
+		if err != nil {
+			return nil, err
+		}
+		g.inputTypeOptions[name] = inputTypeOptions{perField: options, pos: provenancePos}
 	}
 
 	desc := descriptionInfo{

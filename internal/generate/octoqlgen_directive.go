@@ -384,29 +384,15 @@ func fillDefaultString(target *string, defaults ...string) {
 }
 
 // merge updates the receiver, which is a directive applied to some node, with
-// the information from the directive applied to the fragment or operation
-// containing that node.  (The update is in-place.)
+// the @octoqlgenFor declaration for that node and the @octoqlgenDefaults of the
+// operation or fragment containing it.  (The update is in-place.)
 //
-// Note this has slightly different semantics than .add(), see inline for
-// details.
-//
-// parentIfInputField is as described in directiveFor.  operationDirective is the
-// directive applied to this operation or fragment.
+// Note this has slightly different semantics than applyArguments, see inline
+// for details.
 func (d *octoqlgenDirective) mergeOperationDirective(
-	node interface{},
-	parentIfInputField *ast.Definition,
+	forField *octoqlgenDirective,
 	operationDirective *octoqlgenDirective,
 ) {
-	// We'll set forField to the `@octoqlgenFor(field: "<this field>", ...)`
-	// directive from our operation/fragment, if any.
-	var forField *octoqlgenDirective
-	switch field := node.(type) {
-	case *ast.Field: // query field
-		typeName := field.ObjectDefinition.Name
-		forField = operationDirective.FieldDirectives[typeName][field.Name]
-	case *ast.FieldDefinition: // input-type field
-		forField = operationDirective.FieldDirectives[parentIfInputField.Name][field.Name]
-	}
 	// Just to simplify nil-checking in the code below:
 	if forField == nil {
 		forField = newOctoqlgenDirective(nil)
@@ -663,6 +649,32 @@ func (g *generator) recordForDeclaration(
 		octoqlgenForName, key, posString(existing.pos), octoqlgenForName)
 }
 
+// forDeclarationFor returns the @octoqlgenFor declaration that applies to node,
+// from any operation or fragment.
+//
+// The declaration names a type and a field, and that named type generates one
+// Go type, so the declaration has to apply everywhere that field is generated
+// rather than only inside the operation that wrote it.  Reading it from the
+// containing operation instead would mean an operation that declares nothing
+// generates a different type than one that does, and whichever converted first
+// would decide which -- the order dependence @octoqlgenFor declarations are
+// reconciled to prevent.
+//
+// recordForDeclaration has already rejected declarations that disagree, so any
+// one of them is as good as another.
+func (g *generator) forDeclarationFor(node any, parentIfInputField *ast.Definition) *octoqlgenDirective {
+	var key fieldKey
+	switch field := node.(type) {
+	case *ast.Field: // query field
+		key = fieldKey{typeName: field.ObjectDefinition.Name, fieldName: field.Name}
+	case *ast.FieldDefinition: // input-type field
+		key = fieldKey{typeName: parentIfInputField.Name, fieldName: field.Name}
+	default:
+		return nil
+	}
+	return g.forDeclarations[key].directive
+}
+
 // forDeclaration is one @octoqlgenFor declaration, kept so that a later,
 // conflicting one can point at it.
 type forDeclaration struct {
@@ -695,7 +707,7 @@ func (g *generator) directiveFor(
 	// The merge mutates the directive, so operate on a copy; the same node is
 	// converted more than once when a fragment is used by several operations.
 	merged := *directive
-	merged.mergeOperationDirective(node, parentIfInputField, queryOptions)
+	merged.mergeOperationDirective(g.forDeclarationFor(node, parentIfInputField), queryOptions)
 
 	// TODO(benkraft): Really we should do all the validation after
 	// merging, probably?  But this is the only check that can fail only

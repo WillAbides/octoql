@@ -499,10 +499,10 @@ query Q($hide: Boolean!) {
 			// A direct selection with @octoqlgen(typename:"F") is processed
 			// before a spread of fragment F on the same interface type.  The
 			// fragment carries @octoqlgen(alias:"userId") on an id sub-field
-			// inside an inline fragment — invisible to selectionsMatch because
-			// it is a preceding-comment directive, not an AST alias.  The
-			// outer SelectionSets are structurally identical (explicit
-			// __typename in both), so selectionsMatch passes and
+			// inside an inline fragment — invisible to selectionsMatch, which
+			// compares field names and aliases and not the options attached to
+			// them.  The outer SelectionSets are structurally identical
+			// (explicit __typename in both), so selectionsMatch passes and
 			// generatedTypeFieldsMatch on the interface's SharedFields passes
 			// (the inline-fragment field is implementation-specific, not
 			// shared).  The conflict is only detectable by building the

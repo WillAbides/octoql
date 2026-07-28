@@ -58,6 +58,10 @@ type generator struct {
 	// that conflicting declarations can be rejected.
 	forDeclarations map[fieldKey]forDeclaration
 
+	// The options each input type was generated with, so a later operation
+	// whose defaults would have generated it differently can be rejected.
+	inputTypeOptions map[string]inputTypeOptions
+
 	forbiddenImportPath string
 }
 
@@ -202,16 +206,17 @@ func newGenerator(
 	fragments ast.FragmentDefinitionList,
 ) *generator {
 	g := generator{
-		Config:          config,
-		typeMap:         map[string]goType{},
-		typePositions:   map[string]*ast.Position{},
-		imports:         map[string]string{},
-		usedAliases:     map[string]bool{},
-		templateCache:   map[string]*template.Template{},
-		schema:          schema,
-		fragments:       make(map[string]*ast.FragmentDefinition, len(fragments)),
-		directives:      map[any]*octoqlgenDirective{},
-		forDeclarations: map[fieldKey]forDeclaration{},
+		Config:           config,
+		typeMap:          map[string]goType{},
+		typePositions:    map[string]*ast.Position{},
+		imports:          map[string]string{},
+		usedAliases:      map[string]bool{},
+		templateCache:    map[string]*template.Template{},
+		schema:           schema,
+		fragments:        make(map[string]*ast.FragmentDefinition, len(fragments)),
+		directives:       map[any]*octoqlgenDirective{},
+		forDeclarations:  map[fieldKey]forDeclaration{},
+		inputTypeOptions: map[string]inputTypeOptions{},
 	}
 
 	for _, fragment := range fragments {

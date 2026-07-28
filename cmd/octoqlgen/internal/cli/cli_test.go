@@ -495,7 +495,14 @@ func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
 }
 
-func TestSchemaUpdateCommandRefreshesDirectiveWhenSchemaIsUnchanged(t *testing.T) {
+// TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged covers the two
+// unrelated things called a directive here: the yaml-language-server comment in
+// the config, and the @octoqlgen declaration beside the schema.
+//
+// Nothing else rewrites the declaration, so when the schema is unchanged this
+// is the only path that restores it if it is missing or came from another
+// version of octoqlgen.
+func TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged(t *testing.T) {
 	t.Parallel()
 
 	directory := t.TempDir()
@@ -543,6 +550,12 @@ func TestSchemaUpdateCommandRefreshesDirectiveWhenSchemaIsUnchanged(t *testing.T
 	require.NoError(t, err)
 	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
 	assert.Equal(t, "schema is unchanged\n", stdout.String())
+	companion, err := os.ReadFile(filepath.Join(directory, directive.FileName))
+	require.NoError(t, err)
+	assert.Equal(t, directive.FileContents, string(companion))
+	schemaContent, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	assert.Equal(t, cliSchema, string(schemaContent), "the schema itself must be untouched")
 }
 
 func TestHelpSnapshots(t *testing.T) {

@@ -101,6 +101,67 @@ query QB($f: Filter) { b(filter: $f) { name } }
 	}
 }
 
+// TestSharedInputTypeDoesNotDependOnOperationOrder covers the half of the
+// order dependence a conflict check alone does not reach.
+//
+// An operation that declares nothing is not disagreeing, so it is accepted.  If
+// the declaration only applied inside the operation that wrote it, the silent
+// operation and the declaring one would generate different shapes for the one
+// Go type they share, and whichever converted first would win.  The declaration
+// applies wherever the field is generated, so both orders agree.
+func TestSharedInputTypeDoesNotDependOnOperationOrder(t *testing.T) {
+	declaring := `query QA($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { a(filter: $f) { name } }`
+	silent := `query QB($f: Filter) { b(filter: $f) { name } }`
+
+	for name, operation := range map[string]string{
+		"declaration first": declaring + "\n" + silent,
+		"silence first":     silent + "\n" + declaring,
+	} {
+		t.Run(name, func(t *testing.T) {
+			source, err := generateSplit(t, operation)
+
+			require.NoError(t, err)
+			assertDeclares(t, source, "Label string")
+		})
+	}
+}
+
+// TestDefaultsOnSharedInputTypeMustAgree covers the same hazard for defaults,
+// which cannot be resolved the same way.
+//
+// @octoqlgenDefaults is scoped to one operation and two operations may
+// legitimately want different things, but an input type is named by the schema
+// and generated once, so they cannot both be satisfied.  Rejecting is the only
+// answer that does not depend on which operation converted first.
+func TestDefaultsOnSharedInputTypeMustAgree(t *testing.T) {
+	pointerFalse := `query QA($f: Filter) @octoqlgenDefaults(pointer: false) { a(filter: $f) { name } }`
+	pointerTrue := `query QB($f: Filter) @octoqlgenDefaults(pointer: true) { b(filter: $f) { name } }`
+	silent := `query QC($f: Filter) { b(filter: $f) { name } }`
+
+	for name, operation := range map[string]string{
+		"conflicting":          pointerFalse + "\n" + pointerTrue,
+		"conflicting, swapped": pointerTrue + "\n" + pointerFalse,
+		"one operation silent": pointerFalse + "\n" + silent,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := generateSplit(t, operation)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(),
+				"conflicting @octoqlgenDefaults for the input type Filter")
+			assert.Contains(t, err.Error(), "@octoqlgenFor(field: \"Filter.label\", ...)")
+		})
+	}
+
+	t.Run("agreeing defaults are fine", func(t *testing.T) {
+		source, err := generateSplit(t,
+			pointerFalse+"\n"+`query QB($f: Filter) @octoqlgenDefaults(pointer: false) { b(filter: $f) { name } }`)
+
+		require.NoError(t, err)
+		assertDeclares(t, source, "Label string")
+	})
+}
+
 // TestDefaultsSeparatesScopeFromNodeOptions checks that an option describing
 // the fields inside an operation is written as a default, and that writing it
 // as a node option is rejected rather than quietly treated as one.

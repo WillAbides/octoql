@@ -313,6 +313,13 @@ func (cmd *schemaUpdateCommand) Run() error {
 				return fmt.Errorf("validating published config: %w", loadErr)
 			}
 		}
+		// The schema is unchanged, but the directive file may be missing or
+		// left over from another version of octoqlgen, and nothing else
+		// rewrites it.
+		err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+		if err != nil {
+			return err
+		}
 		_, outputErr := fmt.Fprintln(cmd.stdout, "schema is unchanged")
 		return outputErr
 	}
