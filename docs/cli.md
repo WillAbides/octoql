@@ -10,6 +10,10 @@ dependency of the module that owns the generated client:
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> <command>
 ```
 
+Replace `<version>` with a release tag from the
+[releases page](https://github.com/WillAbides/octoql/releases). The examples
+below shorten that invocation to `octoqlgen`.
+
 Generation itself normally runs from a `go:generate` directive. See the
 [README](../README.md#generate-a-client).
 

@@ -28,8 +28,12 @@ script/lint
 script/generate
 ```
 
-Run focused package tests and lint while developing. Run the full shuffled suite
-for repository-wide module, generator entrypoint, or release changes.
+Run focused package tests while developing, for example
+`go test -shuffle=on ./internal/generate`. `script/lint` always covers the whole
+module; to lint one package, install the pinned tools once with
+`script/bindown -q install golangci-lint` and then run
+`bin/golangci-lint run ./internal/generate/...`. Run the full shuffled suite for
+repository-wide module, generator entrypoint, or release changes.
 
 `script/generate --check` is CI-only. Locally, run `script/generate`, then
 inspect all generated changes:

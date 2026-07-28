@@ -12,7 +12,7 @@ octoql requires Go 1.26 or newer. Run `octoqlgen` from a `go:generate`
 directive with an explicit release version; this does not add a dependency to
 the module that owns the generated client.
 
-Initialize a project with:
+From the root of an existing Go module, initialize a project with:
 
 ```sh
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> init
@@ -144,7 +144,8 @@ go generate ./...
 
 The `.octoql` schema normally remains ignored while the reviewed pin in
 `octoqlgen.yaml` is committed. Use `--config PATH` with fetch, update, or generate
-when the config has another name or location.
+when the config has another name or location. See the
+[CLI reference](docs/cli.md#schema-update) for every command and flag.
 
 ## Call the generated client
 
