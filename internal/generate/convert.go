@@ -1250,17 +1250,25 @@ func forceConditionalPointer(goTyp goType) goType {
 }
 
 // goRefIsNilable reports whether a Go type reference (as written in a `bind:`
-// expression or a global binding) denotes a type that can already hold nil.
-// Only the leading token of the reference determines the nil-ability of the
-// outermost type: pointers, slices, maps, and interfaces are nil-able, while a
-// fixed-size array [N]T is not — an array cannot represent absence, so a
-// conditional field bound to one must still be wrapped in a pointer. The `[]`
-// case must be tested before the bare `[` case so slices are not misread as
-// arrays.
+// expression or a global binding, after resolution through (*generator).ref)
+// denotes a type that can already hold nil. Only the leading token of the
+// reference determines the nil-ability of the outermost type: pointers, slices,
+// maps, and the `interface{}` literal are nil-able, while a fixed-size array
+// [N]T is not — an array cannot represent absence, so a conditional field bound
+// to one must still be wrapped in a pointer. The `[]` case must be tested before
+// the bare `[` case so slices are not misread as arrays.
+//
+// Only the `interface{}` type literal counts as a nil-able interface, never the
+// bare predeclared `any` identifier: `any` can be shadowed by a local
+// declaration in the generated package, so trusting it could leave a
+// non-nil-able field unwrapped. (*generator).ref normalizes bound `any` to
+// `interface{}` at the source, so a well-formed reference never reaches here as
+// bare `any`; treating it conservatively here is defense in depth in the safe
+// direction — an unnecessary pointer, never a missing one.
 func goRefIsNilable(goRef string) bool {
 	goRef = strings.TrimSpace(goRef)
 	switch {
-	case goRef == "interface{}" || goRef == "any":
+	case goRef == "interface{}":
 		return true
 	case strings.HasPrefix(goRef, "*"):
 		return true

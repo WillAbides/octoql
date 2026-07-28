@@ -465,3 +465,27 @@ query QArr($hide: Boolean!) {
 	assert.Regexp(t, `Fixed\s+\*\[4\]string`, source)
 	require.NoError(t, buildGoFile("skip_include_bound_array", []byte(source)))
 }
+
+// TestSkipNormalizesBoundAny verifies that a leaf bound to the bare predeclared
+// `any` is normalized to the `interface{}` type literal and left unwrapped. The
+// `any` identifier can be shadowed by a local declaration in the generated
+// package (e.g. `type any bool`), which would make an unwrapped field silently
+// non-nil-able — so nil-ability is trusted only through the unshadowable
+// `interface{}` literal, and the reference is normalized at the source. Against
+// the pre-fix code the field rendered as bare `any`; it now renders as
+// `interface{}`.
+func TestSkipNormalizesBoundAny(t *testing.T) {
+	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
+query QAny($hide: Boolean!) {
+  thing {
+    # @octoqlgen(bind: "any")
+    raw @skip(if: $hide)
+  }
+}
+`)
+	require.NoError(t, err)
+	assert.Regexp(t, `Raw\s+interface\{\}`, source)
+	assert.NotRegexp(t, `Raw\s+any\b`, source)
+	assert.NotRegexp(t, `Raw\s+\*`, source)
+	require.NoError(t, buildGoFile("skip_include_bound_any", []byte(source)))
+}
