@@ -500,6 +500,63 @@ query Q($hide: Boolean!) {
 				"*bool vs bool",
 			},
 		},
+		{
+			// A direct selection with @octoqlgen(typename:"F") is processed
+			// before a spread of fragment F on the same interface type.  The
+			// fragment carries @octoqlgen(alias:"userId") on an id sub-field
+			// inside an inline fragment — invisible to selectionsMatch because
+			// it is a preceding-comment directive, not an AST alias.  The
+			// outer SelectionSets are structurally identical (explicit
+			// __typename in both), so selectionsMatch passes and
+			// generatedTypeFieldsMatch on the interface's SharedFields passes
+			// (the inline-fragment field is implementation-specific, not
+			// shared).  The conflict is only detectable by building the
+			// per-implementation candidate type FUser and routing it through
+			// addType, which is what the implementations loop in
+			// convertNamedFragment now does even on the reuse path.
+			name: "typename reuse with distinct implementation-level aliases (direct selection first, fragment second)",
+			schema: `
+interface Node {
+  id: String!
+  name: String!
+}
+type User implements Node {
+  id: String!
+  name: String!
+}
+type Admin implements Node {
+  id: String!
+  name: String!
+}
+type Query {
+  a: Node!
+  b: Node!
+}
+`,
+			operations: `
+fragment F on Node {
+  __typename
+  ... on User {
+    # @octoqlgen(alias: "userId")
+    id
+  }
+}
+query Q {
+  # @octoqlgen(typename: "F")
+  a {
+    __typename
+    ... on User {
+      id
+    }
+  }
+  b { ...F }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type FUser",
+			wantGenerationErrAlso: []string{
+				`"Id" vs "UserId"`,
+			},
+		},
 	}
 
 	for _, test := range tests {

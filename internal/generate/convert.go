@@ -759,11 +759,15 @@ func (g *generator) convertDefinition(
 	}
 
 	// For schema-definition types (InputObject, Enum, Scalar), take an early-
-	// out if the type has already been generated: these types are directive-
-	// insensitive, so the AST-level selectionsMatch check in getType is
-	// sufficient.  InputObject also requires this path for recursive types: it
-	// pre-inserts an empty struct via addType, so getType on a second call
-	// returns that partial placeholder and the early-out is required.
+	// out if the type has already been generated: these types are generated
+	// from the schema definition rather than from the selection, so a
+	// selection-plan comparison has nothing meaningful to compare.  InputObject
+	// also requires this path for recursive types: it pre-inserts an empty
+	// struct via addType so getType on a second call returns that placeholder,
+	// and the early-out is required to avoid overwriting it.
+	// Known limitation: an operation-level @octoqlgen(for:) directive can
+	// change an input type's generated fields; contradictory declarations
+	// across operations are not detected here.
 	// For selection-based types (Object, Interface, Union), skip the early-
 	// out so the candidate is built and reaches addType for structural
 	// comparison.
@@ -1475,17 +1479,19 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
-		// Register before building implementations.  If an existing compatible
-		// type is returned, its implementations and catch-all were already
-		// built on the first registration; return it to avoid duplicates.
+		// Register the interface first; addType validates shared-field
+		// equivalence against any already-registered type of the same name.
 		result, addErr := g.addType(goType, goType.GoName, fragment.Position)
 		if addErr != nil {
 			return nil, addErr
 		}
-		if result != goType {
-			return result, nil
-		}
-
+		// Build and validate implementation candidates regardless of whether
+		// the interface was newly registered or already existed.  On the reuse
+		// path (result != goType) the per-implementation addType calls catch
+		// field-plan differences that are invisible to shared-field comparison
+		// alone — e.g. a directive inside an inline fragment that changes a
+		// field's Go type.  goType.Implementations is populated here for the
+		// first-registration path and discarded on the reuse path.
 		for _, implDef := range implementationTypes {
 			implFields, convertErr := g.convertSelectionSet(
 				newPrefixList(fragment.Name), fragment.SelectionSet, implDef, directive)
@@ -1510,6 +1516,12 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			if err != nil {
 				return nil, err
 			}
+		}
+
+		// On the reuse path, the catch-all was already attached during the
+		// first registration; return the existing type to avoid a duplicate.
+		if result != goType {
+			return result, nil
 		}
 
 		err = g.attachCatchAllImplementation(goType, typ.Name, fragment.Position)
