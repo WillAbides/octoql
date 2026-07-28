@@ -15,6 +15,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
+	"github.com/willabides/octoql/internal/directive"
 	"github.com/willabides/octoql/internal/generate"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
@@ -339,6 +340,10 @@ func (cmd *schemaUpdateCommand) Run() error {
 	if err != nil {
 		return fmt.Errorf("publishing updated schema: %w", err)
 	}
+	err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+	if err != nil {
+		return err
+	}
 	currentConfig, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("checking config before update: %w", err)
@@ -436,7 +441,7 @@ func (cmd *schemaFetchCommand) Run() error {
 		if err != nil {
 			return fmt.Errorf("writing schema output %q: %w", cmd.Output, err)
 		}
-		return nil
+		return writeDirectiveFile(cmd.outputWriter, cmd.Output)
 	}
 
 	_, err = cmd.stdout.Write(data)
@@ -464,6 +469,18 @@ type materializer interface {
 
 type outputWriter interface {
 	Write(string, []byte) error
+}
+
+// writeDirectiveFile puts the @octoqlgen declaration next to a schema file
+// octoqlgen wrote, so editors can resolve the directive in the user's
+// operations.  The schema itself is left exactly as its source served it.
+func writeDirectiveFile(writer outputWriter, schemaPath string) error {
+	path := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
+	err := writer.Write(path, []byte(directive.FileContents))
+	if err != nil {
+		return fmt.Errorf("writing directive file %q: %w", path, err)
+	}
+	return nil
 }
 
 type Dependencies struct {

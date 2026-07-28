@@ -45,6 +45,12 @@ Keep this in the gitignored `.octoql` directory when the source is
 remote, so the reviewed pin in `octoqlgen.yaml` is the committed
 artifact rather than the schema itself.
 
+octoqlgen writes `octoqlgen-directive.graphql` into the same
+directory, declaring `@octoqlgen` so editors can resolve it. The
+schema keeps the exact bytes its source served, so `schema.sha256`
+still describes it. See
+[editor support](directive.md#editor-support).
+
 Example: `.octoql/schema.graphql`
 
 ### `schema.sha256`

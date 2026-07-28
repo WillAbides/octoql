@@ -24,6 +24,31 @@ isSuspended
 isSuspended @octoqlgen(pointer: false)
 ```
 
+## Editor support
+
+`@octoqlgen` has to be declared in a schema for editors and other GraphQL
+tooling to resolve it. octoqlgen declares it internally, so generation works
+without any declaration on disk, but an editor reading only the schema file
+reports every use of the directive as unknown.
+
+To fix that, octoqlgen writes `octoqlgen-directive.graphql` next to any schema
+it materializes, holding just the declaration. The schema itself keeps the exact
+bytes its source served, so `schema.sha256` still describes it.
+
+Tooling that reads every `.graphql` file in the project picks the declaration up
+with no further setup. Tooling that takes an explicit list, such as
+[graphql-config](https://the-guild.dev/graphql/config), needs it added:
+
+```yaml
+schema:
+  - schema.graphql
+  - octoqlgen-directive.graphql
+```
+
+Declare it in exactly one place per project. GraphQL does not allow a directive
+to be declared twice, so tooling that reads several schema files at once reports
+an error if more than one of them declares `@octoqlgen`.
+
 ## Placement
 
 Directives may be applied to fields, variables, or an entire operation or named

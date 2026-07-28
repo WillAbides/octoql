@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
+
+	"github.com/willabides/octoql/internal/directive"
 )
 
 // assertDeclares checks that source declares the given struct field, ignoring
@@ -508,4 +510,58 @@ query B {
 		assertDeclares(t, source, "IsSuspended *bool")
 		assert.Equal(t, 1, strings.Count(source, "type SharedUser struct"))
 	})
+}
+
+// TestGeneratorOwnsTheDirectiveDefinition checks that a declaration already in
+// the schema does not change how octoqlgen interprets its own directive.
+//
+// Schema files octoqlgen writes carry a copy of the declaration so editors can
+// resolve @octoqlgen. That copy may have been written by a different version
+// of octoqlgen, or edited by hand, so the generator must use its own.
+func TestGeneratorOwnsTheDirectiveDefinition(t *testing.T) {
+	const baseSchema = `
+type Query {
+  viewer: User!
+}
+
+type User {
+  isSuspended: Boolean
+}
+`
+	for name, declaration := range map[string]string{
+		"no declaration":      "",
+		"current declaration": "\n" + directive.SDL,
+		// Missing the argument and location this operation needs, so
+		// generation only succeeds if the generator ignores it.
+		"stale declaration": "\ndirective @octoqlgen(alias: String) on FIELD\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			schemaPath := filepath.Join(dir, "schema.graphql")
+			operationPath := filepath.Join(dir, "operation.graphql")
+			require.NoError(t, os.WriteFile(
+				schemaPath, []byte(baseSchema+declaration), 0o600))
+			require.NoError(t, os.WriteFile(operationPath, []byte(`
+query Viewer @octoqlgen(typename: "Resp") {
+  viewer {
+    isSuspended @octoqlgen(pointer: false)
+  }
+}
+`), 0o600))
+
+			generated, err := Generate(&Config{
+				Schema:      []string{schemaPath},
+				Operations:  []string{operationPath},
+				Generated:   filepath.Join(dir, "generated.go"),
+				Package:     "client",
+				ContextType: "-",
+			})
+
+			require.NoError(t, err)
+			source := string(generated[filepath.Join(dir, "generated.go")])
+			assert.Contains(t, source, "type Resp struct")
+			assertDeclares(t, source, "IsSuspended bool")
+			assert.NotContains(t, source, "@octoqlgen")
+		})
+	}
 }

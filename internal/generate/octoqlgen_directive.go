@@ -5,6 +5,8 @@ import (
 
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
+
+	"github.com/willabides/octoql/internal/directive"
 )
 
 // Represents the @octoqlgen directive, described in detail in
@@ -407,44 +409,28 @@ func (d *octoqlgenDirective) mergeOperationDirective(
 
 // octoqlgenDirectiveName is the name of the directive octoqlgen recognizes on
 // operations, fragments, fields, and variable definitions.
-const octoqlgenDirectiveName = "octoqlgen"
-
-// octoqlgenDirectiveSDL declares @octoqlgen so that it is a real GraphQL
-// directive rather than a comment recovered by source position.  It is
-// injected into the schema document before validation, so the annotations
-// users write are parsed into ast.Directive nodes attached to exactly the node
-// they modify, and are checked by the ordinary GraphQL validation rules.
-//
-// It is deliberately not valid on subscriptions, fragment spreads, or inline
-// fragments; placing it there is a schema error rather than a hand-written
-// check.
-const octoqlgenDirectiveSDL = `
-directive @` + octoqlgenDirectiveName + `(
-  omitempty: Boolean
-  pointer: Boolean
-  struct: Boolean
-  flatten: Boolean
-  bind: String
-  typename: String
-  alias: String
-  for: String
-) repeatable on QUERY | MUTATION | FIELD | FRAGMENT_DEFINITION | VARIABLE_DEFINITION
-`
+const octoqlgenDirectiveName = directive.Name
 
 // addOctoqlgenDirectiveDefinition injects the @octoqlgen declaration into the
-// parsed schema document.  The directive is octoqlgen's own, so a schema that
-// already declares one is an error rather than something to merge with.
+// parsed schema document.
+//
+// Any declaration already in the document is discarded first.  Schema files
+// octoqlgen writes carry a copy of the declaration so editors can resolve the
+// directive, and that copy may have been written by a different version of
+// octoqlgen or edited by hand; the generator always uses its own.
 func addOctoqlgenDirectiveDefinition(document *ast.SchemaDocument) error {
-	existing := document.Directives.ForName(octoqlgenDirectiveName)
-	if existing != nil {
-		return errorf(existing.Position,
-			"schema declares its own @%s directive, which conflicts with octoqlgen's",
-			octoqlgenDirectiveName)
+	kept := document.Directives[:0]
+	for _, definition := range document.Directives {
+		if definition.Name == octoqlgenDirectiveName {
+			continue
+		}
+		kept = append(kept, definition)
 	}
+	document.Directives = kept
 
 	parsed, graphqlError := parser.ParseSchema(&ast.Source{
 		Name:  "octoqlgen-directive.graphql",
-		Input: octoqlgenDirectiveSDL,
+		Input: directive.SDL,
 	})
 	if graphqlError != nil {
 		return errorf(nil, "invalid @%s declaration (octoqlgen bug): %v",
