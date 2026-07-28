@@ -246,6 +246,45 @@ query Variables($input: Variables!) {
 }
 `,
 		},
+		{
+			// A fragment shares a Go name with an input type.  The operation
+			// uses the input as a variable, so the input type is registered
+			// under the shared name before the fragment spread is resolved
+			// (variables convert before the selection set).  Reading the type
+			// map directly would find the input type and emit it in place of
+			// the fragment -- compiling cleanly but silently dropping every
+			// field the fragment selected.  Validating the stored entry's
+			// GraphQL type and selection rejects the mismatch instead.  The
+			// substring pins the input-first order that produced the silent
+			// wrong type, not the fragment-first order that already errored at
+			// the registration site.
+			name: "fragment sharing name with input type",
+			schema: `
+input Profile {
+  id: ID
+}
+type User {
+  login: String
+}
+type Query {
+  user(p: Profile): User
+}
+`,
+			operations: `
+fragment Profile on User {
+  login
+}
+query Q($p: Profile) {
+  user(p: $p) {
+    ...Profile
+  }
+}
+`,
+			wantGenerationErr: "conflicting definition for Profile; this can indicate " +
+				"either an octoqlgen internal error, a conflict between " +
+				"user-specified type-names, or some very tricksy GraphQL " +
+				"field/type names: expected GraphQL type Profile, got User",
+		},
 	}
 
 	for _, test := range tests {
