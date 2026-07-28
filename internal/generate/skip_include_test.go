@@ -305,3 +305,94 @@ query QInline($hide: Boolean!) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "@skip")
 }
+
+// TestConditionalTypenameOnAbstractGenerates documents that a conditional
+// __typename on an abstract (interface/union) selection is still accepted at
+// generation. octoqlgen needs __typename to discriminate the concrete type, so a
+// skipped __typename is undecodable at runtime; that hazard is documented as a
+// caller responsibility in docs/directive.md rather than rejected here. This test
+// locks the current accepted-at-generation behavior so a future generation-time
+// rejection is a deliberate change.
+func TestConditionalTypenameOnAbstractGenerates(t *testing.T) {
+	source, err := generateSkipIncludeAbstractSource(t, `
+query QAbstractTypename($hide: Boolean!) {
+  nodes {
+    __typename @skip(if: $hide)
+    id
+  }
+}
+`)
+	require.NoError(t, err)
+	require.NoError(t, buildGoFile("skip_include_cond_typename", []byte(source)))
+}
+
+// generateSkipIncludeBoundSource is like generateSkipIncludeSource but binds the
+// User type to an opaque Go struct, so its selection set is not converted into
+// generated types.
+func generateSkipIncludeBoundSource(t *testing.T, schema, operation string) (string, error) {
+	t.Helper()
+
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "skipinclude",
+		ContextType: "-",
+		Bindings: map[string]*TypeBinding{
+			"User": {Type: "github.com/willabides/octoql/internal/testutil.Account"},
+		},
+	}
+	generated, err := Generate(config)
+	if err != nil {
+		return "", err
+	}
+	return string(generated[config.Generated]), nil
+}
+
+const skipIncludeBoundSchema = `
+type Query {
+  user: User!
+}
+
+type User {
+  isSuspended: Boolean!
+}
+`
+
+// TestSkipRejectedInGloballyBoundComposite covers a bypass where a field nested
+// inside a globally bound composite type carries @skip. The bound type's
+// selection set is never converted, so the forced pointer never applies; octoqlgen
+// cannot change the bound Go type, so it must reject the operation instead of
+// silently generating a value type that can decode absence to the zero value.
+func TestSkipRejectedInGloballyBoundComposite(t *testing.T) {
+	_, err := generateSkipIncludeBoundSource(t, skipIncludeBoundSchema, `
+query Q($hide: Boolean!) {
+  user {
+    isSuspended @skip(if: $hide)
+  }
+}
+`)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "@skip")
+}
+
+// TestSkipRejectedInLocallyBoundComposite covers the same bypass for a local
+// (comment-directive) binding.
+func TestSkipRejectedInLocallyBoundComposite(t *testing.T) {
+	_, err := generateSkipIncludeSource(t, skipIncludeBoundSchema, `
+query Q($hide: Boolean!) {
+  # @octoqlgen(bind: "github.com/willabides/octoql/internal/testutil.Account")
+  user {
+    isSuspended @skip(if: $hide)
+  }
+}
+`)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "@skip")
+}

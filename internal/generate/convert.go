@@ -264,6 +264,9 @@ func (g *generator) convertType(
 	// bind GraphQL named types, at least for now.
 	localBinding := options.Bind
 	if localBinding != "" && localBinding != "-" {
+		if err := rejectConditionalDirectivesInBoundSelection(typ.Name(), selectionSet); err != nil {
+			return nil, err
+		}
 		goRef, err := g.ref(localBinding)
 		if err != nil {
 			return nil, err
@@ -365,6 +368,9 @@ func (g *generator) convertDefinition(
 					"use `bind: \"-\"` to override it", def.Name)
 		}
 		if def.Kind == ast.Object || def.Kind == ast.Interface || def.Kind == ast.Union {
+			if err := rejectConditionalDirectivesInBoundSelection(def.Name, selectionSet); err != nil {
+				return nil, err
+			}
 			err := g.validateBindingSelection(
 				def.Name, globalBinding, pos, selectionSet)
 			if err != nil {
@@ -1232,4 +1238,66 @@ func forceConditionalPointer(goTyp goType) goType {
 	default:
 		return &goPointerType{goTyp}
 	}
+}
+
+// rejectConditionalDirectivesInBoundSelection returns an error if any selection
+// nested within selectionSet (recursively, including through named fragments)
+// carries @skip or @include.
+//
+// It guards binding sites. A composite type bound to a user-supplied Go type
+// (local `bind:` or a global binding) is emitted as an opaque reference and its
+// selection set is never converted into generated types, so convertField never
+// runs on the nested fields and the forced-pointer protection for conditional
+// fields cannot apply. Because octoqlgen cannot alter the bound Go type, a nested
+// conditional field would silently decode an absent value to the Go zero value;
+// we reject the operation instead. The bound field's own directive is handled by
+// its convertField call, so only nested selections need this scan.
+//
+// bindingName identifies the bound GraphQL type in the error message.
+func rejectConditionalDirectivesInBoundSelection(
+	bindingName string,
+	selectionSet ast.SelectionSet,
+) error {
+	return rejectConditionalDirectivesInSelection(
+		bindingName, selectionSet, map[string]bool{})
+}
+
+func rejectConditionalDirectivesInSelection(
+	bindingName string,
+	selectionSet ast.SelectionSet,
+	seenFragments map[string]bool,
+) error {
+	for _, selection := range selectionSet {
+		var directives ast.DirectiveList
+		var nested ast.SelectionSet
+		switch selection := selection.(type) {
+		case *ast.Field:
+			directives = selection.Directives
+			nested = selection.SelectionSet
+		case *ast.InlineFragment:
+			directives = selection.Directives
+			nested = selection.SelectionSet
+		case *ast.FragmentSpread:
+			directives = selection.Directives
+			if selection.Definition != nil && !seenFragments[selection.Name] {
+				seenFragments[selection.Name] = true
+				nested = selection.Definition.SelectionSet
+			}
+		}
+		if hasConditionalDirective(directives) {
+			return errorf(selection.GetPosition(),
+				"@skip and @include are not supported inside a selection bound "+
+					"to a Go type (%s): the bound type's selection set is not "+
+					"generated, so octoqlgen cannot represent the absence of a "+
+					"conditionally-skipped field and would silently decode it "+
+					"to the Go zero value",
+				bindingName)
+		}
+		err := rejectConditionalDirectivesInSelection(
+			bindingName, nested, seenFragments)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
