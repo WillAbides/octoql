@@ -24,7 +24,7 @@ func TestGenerateCollisionCompileCorpus(t *testing.T) {
 		casing              Casing
 		keepImplementations bool
 		wantGenerationErr   string
-		wantCompileErr      string
+		wantCompileErrs     []string
 		wantTypes           string
 	}{
 		{
@@ -60,7 +60,10 @@ query Fields {
   Foo
 }
 `,
-			wantCompileErr: "Foo redeclared",
+			wantCompileErrs: []string{
+				"Foo redeclared",
+				"other declaration of Foo",
+			},
 		},
 		{
 			// B17: expected to compile once fragment and field collision fixes land.
@@ -80,7 +83,10 @@ fragment A on Query {
   b
 }
 `,
-			wantCompileErr: "A redeclared",
+			wantCompileErrs: []string{
+				"A redeclared",
+				"other declaration of A",
+			},
 		},
 		{
 			// B18: expected to compile once field and getter collision fixes land.
@@ -97,7 +103,9 @@ query Fields {
   getFoo
 }
 `,
-			wantCompileErr: "field and method with the same name GetFoo",
+			wantCompileErrs: []string{
+				"field and method with the same name GetFoo",
+			},
 		},
 		{
 			// B20: expected type declarations change once derived-name collision fixes land.
@@ -149,8 +157,11 @@ query Fields {
   fooBar
 }
 `,
-			casing:         Casing{Default: CasingAutoCamelCase},
-			wantCompileErr: "FooBar redeclared",
+			casing: Casing{Default: CasingAutoCamelCase},
+			wantCompileErrs: []string{
+				"FooBar redeclared",
+				"other declaration of FooBar",
+			},
 		},
 		{
 			name: "fragment matching GraphQL type",
@@ -192,7 +203,10 @@ fragment Fields on Query {
   value
 }
 `,
-			wantCompileErr: "field and method with the same name",
+			wantCompileErrs: []string{
+				"field and method with the same name MarshalJSON",
+				"field and method with the same name UnmarshalJSON",
+			},
 		},
 		{
 			name: "enum values with same Go name",
@@ -245,12 +259,14 @@ query Variables($input: Variables!) {
 			}
 
 			output, compileErr := probeCompile(t, source)
-			if test.wantCompileErr == "" {
+			if len(test.wantCompileErrs) == 0 {
 				require.NoError(t, compileErr, output)
 				return
 			}
 			require.Error(t, compileErr)
-			assert.Contains(t, output, test.wantCompileErr)
+			for _, wantCompileErr := range test.wantCompileErrs {
+				assert.Contains(t, output, wantCompileErr)
+			}
 		})
 	}
 }
