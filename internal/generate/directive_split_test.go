@@ -1,8 +1,10 @@
 package generate
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -272,4 +274,137 @@ query Q @octoqlgenDefaults(`+option+`) { a { name } }
 			assert.Contains(t, err.Error(), "Unknown argument")
 		})
 	}
+}
+
+// TestInputFieldShapesAgreeIndependentOfOperationOrder pins the shared-input
+// check against every type shape an input field can have.
+//
+// The check compares the fields each operation would generate, so it walks the
+// type the way conversion does.  A model of that walk applied the pointer rule
+// once, to the field's outer type, while conversion applies it at each level it
+// descends through: a nullable element under a non-null list compared equal and
+// generated differently, and whichever operation converted first silently
+// decided the shared type.  Sharing a predicate is only structural if it is
+// called at the same point in the recursion.
+//
+// Each shape is generated in both operation orders and has to reach the same
+// answer, which is the property the model broke.
+func TestInputFieldShapesAgreeIndependentOfOperationOrder(t *testing.T) {
+	const shapedSchema = `
+type Query {
+  a(filter: Shaped): String
+  b(filter: Shaped): String
+}
+
+enum Color {
+  RED
+}
+
+input Shaped {
+  value: %s
+}
+`
+	// One operation asks for non-pointer fields and the other asks for
+	// nothing.  Silence is not disagreement, so these agree exactly when
+	// pointer: false would not change what is emitted.
+	declaring := `query QA($f: Shaped) @octoqlgenDefaults(pointer: false) { a(filter: $f) }`
+	silent := `query QB($f: Shaped) { b(filter: $f) }`
+
+	for name, test := range map[string]struct {
+		fieldType string
+		// declares is the field the shared type is generated with, or empty
+		// when the two operations would generate it differently.
+		declares string
+	}{
+		"nullable scalar":           {fieldType: "String"},
+		"non-null scalar":           {fieldType: "String!", declares: "Value string"},
+		"nullable enum":             {fieldType: "Color"},
+		"non-null enum":             {fieldType: "Color!", declares: "Value Color"},
+		"list of nullable":          {fieldType: "[String]"},
+		"non-null list of nullable": {fieldType: "[String]!"},
+		"list of non-null":          {fieldType: "[String!]", declares: "Value []string"},
+		"non-null list of non-null": {fieldType: "[String!]!", declares: "Value []string"},
+		"nested list of nullable":   {fieldType: "[[String]]"},
+		"nested list of non-null":   {fieldType: "[[String!]!]!", declares: "Value [][]string"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			schema := fmt.Sprintf(shapedSchema, test.fieldType)
+
+			for order, operation := range map[string]string{
+				"declaration first": declaring + "\n" + silent,
+				"silence first":     silent + "\n" + declaring,
+			} {
+				t.Run(order, func(t *testing.T) {
+					source, err := generateShaped(t, schema, operation, false)
+
+					if test.declares == "" {
+						require.Error(t, err)
+						assert.Contains(t, err.Error(),
+							"conflicting definitions for the input type Shaped")
+						return
+					}
+					require.NoError(t, err)
+					assertDeclares(t, source, test.declares)
+				})
+			}
+		})
+	}
+
+	// use_struct_references reaches a branch of its own, which makes a non-null
+	// input field a pointer and turns omitempty on.  pointer: false skips that
+	// branch, so the two operations emit different fields for the type they
+	// share.
+	t.Run("struct references", func(t *testing.T) {
+		const schema = `
+type Query {
+  a(filter: Parent): String
+  b(filter: Parent): String
+}
+
+input Parent {
+  child: Child!
+}
+
+input Child {
+  name: String!
+}
+`
+		for order, operation := range map[string]string{
+			"declaration first": declaring + "\n" + silent,
+			"silence first":     silent + "\n" + declaring,
+		} {
+			t.Run(order, func(t *testing.T) {
+				_, err := generateShaped(t,
+					schema,
+					strings.ReplaceAll(operation, "Shaped", "Parent"),
+					true)
+
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "conflicting definitions for the input type")
+			})
+		}
+	})
+}
+
+func generateShaped(t *testing.T, schema, operation string, structReferences bool) (string, error) {
+	t.Helper()
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	generatedPath := filepath.Join(dir, "generated.go")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
+
+	generated, err := Generate(&Config{
+		Schema:           []string{schemaPath},
+		Operations:       []string{operationPath},
+		Generated:        generatedPath,
+		Package:          "client",
+		ContextType:      "-",
+		StructReferences: structReferences,
+	})
+	if err != nil {
+		return "", err
+	}
+	return string(generated[generatedPath]), nil
 }
