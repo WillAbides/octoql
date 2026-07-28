@@ -345,3 +345,78 @@ which would cause conflicts.
 To avoid confusion, `typename` may not be combined with local or global
 bindings. To use `typename` instead of a global binding, write
 `typename: "MyTypeName", bind: "-"`.
+
+## `@skip` and `@include`
+
+`@skip(if:)` and `@include(if:)` are core GraphQL directives, not `@octoqlgen`
+options, but they affect the Go types octoqlgen generates, so they are described
+here.
+
+A field carrying `@skip` or `@include` is legitimately absent from a
+spec-correct response whenever its condition excludes it, independent of the
+field's schema nullability. octoqlgen therefore generates such a field as a
+pointer, even when the schema type is non-null, so that absence is representable
+as `nil`:
+
+```graphql
+query MyQuery($hide: Boolean!) {
+  user {
+    login
+    isSuspended @skip(if: $hide)
+  }
+}
+```
+
+generates:
+
+```go
+type MyQueryUser struct {
+	Login       string
+	IsSuspended *bool
+}
+```
+
+`IsSuspended` is a pointer even though `isSuspended: Boolean!` is non-null in the
+schema. When the server omits the field, it decodes to `nil` rather than to
+`false`. Without the pointer the omitted field would silently decode to the Go
+zero value, and a check shaped like `if user.IsSuspended { deny() }` would fail
+**open** — treating a suspended-but-omitted user as not suspended. Read these
+fields with a nil guard:
+
+```go
+if user.IsSuspended != nil && *user.IsSuspended {
+	deny()
+}
+```
+
+A non-null list under `@skip` makes the whole list nilable rather than its
+elements, so `[Role!]!` becomes `*[]Role`, not `[]*Role`. Fields that are
+already nilable — nullable schema types and generated abstract interfaces — keep
+their existing types.
+
+Because absence must stay representable, combining `@skip` or `@include` with
+[`pointer: false`](#pointer) on the same field is a contradiction and is rejected
+as a generation error.
+
+`@skip` and `@include` are only supported on fields. Applied to a fragment
+spread or an inline fragment they make every field the fragment contributes
+absent at once, and those fields are commonly flattened into the parent struct,
+so octoqlgen cannot represent their absence and rejects the operation with a
+generation error. Apply the directive to the individual fields instead:
+
+```graphql
+# rejected
+query MyQuery($hide: Boolean!) {
+  user {
+    ...UserFields @skip(if: $hide)
+  }
+}
+
+# supported: move @skip onto the fields
+query MyQuery($hide: Boolean!) {
+  user {
+    login @skip(if: $hide)
+    isSuspended @skip(if: $hide)
+  }
+}
+```
