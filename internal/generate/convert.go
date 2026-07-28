@@ -65,21 +65,56 @@ func (g *generator) getType(
 	return typ, nil
 }
 
-// inputFieldOptions returns the options that apply to each field of an input
-// type under one operation's @octoqlgenDefaults.
-func (g *generator) inputFieldOptions(
+// inputFieldShape is what an option can change about a generated input field:
+// whether it is a pointer, whether it is omitted when empty, and any type
+// substituted for the generated one.
+//
+// Two option sets that produce the same shape are interchangeable, however
+// differently they are written.  `pointer: false` on a field that is already
+// non-null asks for nothing, and `bind: "-"` where no binding is configured
+// opts out of nothing.
+type inputFieldShape struct {
+	pointer   bool
+	omitempty bool
+	binding   string
+	typeName  string
+}
+
+// inputFieldShapes returns the shape each field of an input type would be
+// generated with under one operation's @octoqlgenDefaults.
+func (g *generator) inputFieldShapes(
 	def *ast.Definition,
 	queryOptions *octoqlgenDirective,
-) (map[string]*octoqlgenDirective, error) {
-	options := make(map[string]*octoqlgenDirective, len(def.Fields))
+) (map[string]inputFieldShape, error) {
+	shapes := make(map[string]inputFieldShape, len(def.Fields))
 	for _, field := range def.Fields {
-		fieldOptions, err := g.directiveFor(field, def, field.Position, queryOptions)
+		options, err := g.directiveFor(field, def, field.Position, queryOptions)
 		if err != nil {
 			return nil, err
 		}
-		options[field.Name] = fieldOptions
+		shapes[field.Name] = inputFieldShape{
+			pointer:   pointerWraps(field.Type, options),
+			omitempty: options.GetOmitempty(),
+			binding:   g.effectiveBinding(field.Type, options),
+			typeName:  options.TypeName,
+		}
 	}
-	return options, nil
+	return shapes, nil
+}
+
+// effectiveBinding returns the Go type bound to this field, resolving a local
+// binding, the global binding, and the "-" opt-out the same way convertType
+// does, so that an opt-out from a binding that was never configured reads as
+// no binding at all rather than as a difference.
+func (g *generator) effectiveBinding(typ *ast.Type, options *octoqlgenDirective) string {
+	if options.Bind != "" && options.Bind != "-" {
+		return options.Bind
+	}
+	binding, ok := g.Config.Bindings[typ.Name()]
+	if ok && options.Bind != "-" {
+		return binding.Type
+	}
+	return ""
 }
 
 // checkInputDefaultsAgree rejects a second operation that would have generated
@@ -90,6 +125,10 @@ func (g *generator) inputFieldOptions(
 // fields.  @octoqlgenDefaults are per-operation and may legitimately differ, so
 // without this the operation converted first would silently decide the shape
 // for all of them and reordering the operations would change the result.
+//
+// It compares the shape each field would be generated with rather than the
+// options requesting it, so options that ask for what the field already is do
+// not read as a disagreement.
 //
 // @octoqlgenFor is not the problem here: those declarations are reconciled
 // across operations before conversion, so they give every operation the same
@@ -104,12 +143,12 @@ func (g *generator) checkInputDefaultsAgree(
 	if !ok {
 		return nil
 	}
-	options, err := g.inputFieldOptions(def, queryOptions)
+	shapes, err := g.inputFieldShapes(def, queryOptions)
 	if err != nil {
 		return err
 	}
 	for _, field := range def.Fields {
-		if directiveOptionsMatch(existing.perField[field.Name], options[field.Name]) {
+		if existing.perField[field.Name] == shapes[field.Name] {
 			continue
 		}
 		return errorf(pos,
@@ -123,10 +162,10 @@ func (g *generator) checkInputDefaultsAgree(
 	return nil
 }
 
-// inputTypeOptions records the options an input type was generated with, so a
+// inputTypeOptions records the shape an input type was generated with, so a
 // later operation that would have generated it differently can be rejected.
 type inputTypeOptions struct {
-	perField map[string]*octoqlgenDirective
+	perField map[string]inputFieldShape
 	pos      *ast.Position
 }
 
@@ -707,13 +746,21 @@ func applyPointerSelection(
 	if isInterface {
 		return goTyp
 	}
-	if options.PointerIsFalse() {
-		return goTyp
-	}
-	if !options.GetPointer() && typ.NonNull {
+	if !pointerWraps(typ, options) {
 		return goTyp
 	}
 	return &goPointerType{goTyp}
+}
+
+// pointerWraps reports whether applyPointerSelection wraps a value of this
+// GraphQL type in a pointer, for callers that need the decision without the
+// type.  Both go through here so a check cannot answer differently from the
+// emission it is checking.
+func pointerWraps(typ *ast.Type, options *octoqlgenDirective) bool {
+	if options.PointerIsFalse() {
+		return false
+	}
+	return options.GetPointer() || !typ.NonNull
 }
 
 // getStructReference decides if a field should be of pointer type and have the omitempty flag set.
@@ -852,11 +899,11 @@ func (g *generator) convertDefinition(
 	}
 
 	if def.Kind == ast.InputObject {
-		options, err := g.inputFieldOptions(def, queryOptions)
+		shapes, err := g.inputFieldShapes(def, queryOptions)
 		if err != nil {
 			return nil, err
 		}
-		g.inputTypeOptions[name] = inputTypeOptions{perField: options, pos: provenancePos}
+		g.inputTypeOptions[name] = inputTypeOptions{perField: shapes, pos: provenancePos}
 	}
 
 	desc := descriptionInfo{

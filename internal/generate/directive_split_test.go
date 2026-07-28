@@ -153,6 +153,62 @@ func TestDefaultsOnSharedInputTypeMustAgree(t *testing.T) {
 		})
 	}
 
+	// An option that asks for what the field already is changes nothing, so it
+	// is not a disagreement.  The check compares the shape each field would be
+	// generated with rather than the options requesting it, which is the only
+	// way to tell those apart.
+	t.Run("options that change nothing are not disagreements", func(t *testing.T) {
+		const nonNullSchema = `
+type Query {
+  a(filter: Required): String
+  b(filter: Required): String
+}
+
+input Required {
+  value: String!
+}
+`
+		for name, test := range map[string]struct {
+			schema    string
+			operation string
+		}{
+			// value is already non-null, so pointer: false asks for nothing.
+			"pointer false on a non-null field": {
+				schema: nonNullSchema,
+				operation: `
+query QA($f: Required) @octoqlgenDefaults(pointer: false) { a(filter: $f) }
+query QB($f: Required) { b(filter: $f) }
+`,
+			},
+			// Nothing is bound, so opting out of a binding asks for nothing.
+			"bind opt-out with no binding configured": {
+				schema: splitSchema,
+				operation: `
+query QA($f: Filter) @octoqlgenFor(field: "Filter.label", bind: "-") { a(filter: $f) { name } }
+query QB($f: Filter) { b(filter: $f) { name } }
+`,
+			},
+		} {
+			t.Run(name, func(t *testing.T) {
+				dir := t.TempDir()
+				schemaPath := filepath.Join(dir, "schema.graphql")
+				operationPath := filepath.Join(dir, "operation.graphql")
+				require.NoError(t, os.WriteFile(schemaPath, []byte(test.schema), 0o600))
+				require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
+
+				_, err := Generate(&Config{
+					Schema:      []string{schemaPath},
+					Operations:  []string{operationPath},
+					Generated:   filepath.Join(dir, "generated.go"),
+					Package:     "client",
+					ContextType: "-",
+				})
+
+				assert.NoError(t, err)
+			})
+		}
+	})
+
 	t.Run("agreeing defaults are fine", func(t *testing.T) {
 		source, err := generateSplit(t,
 			pointerFalse+"\n"+`query QB($f: Filter) @octoqlgenDefaults(pointer: false) { b(filter: $f) { name } }`)
