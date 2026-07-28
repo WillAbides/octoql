@@ -9,7 +9,7 @@ import (
 )
 
 // Represents the octoqlgen comment directive, described in detail in
-// docs/octoqlgen_directive.graphql.
+// docs/directive.md.
 type octoqlgenDirective struct {
 	pos       *ast.Position
 	Omitempty *bool
