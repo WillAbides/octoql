@@ -565,3 +565,112 @@ query Viewer @octoqlgen(typename: "Resp") {
 		})
 	}
 }
+
+// TestDirectiveRejectsOptionsThatWouldBeIgnored covers options accepted at a
+// location where nothing reads them.
+//
+// Silently ignoring an option is the same shape of defect as silently dropping
+// one: the user writes an instruction, generation succeeds, and the generated
+// code does not reflect it.
+func TestDirectiveRejectsOptionsThatWouldBeIgnored(t *testing.T) {
+	const schema = `
+type Query {
+  thing(filter: Filter): Thing
+}
+
+type Thing {
+  name: String
+}
+
+input Filter {
+  label: String
+}
+`
+	for name, test := range map[string]struct {
+		operation string
+		wantError string
+	}{
+		"alias on a variable": {
+			operation: `
+query Q($f: Filter @octoqlgen(alias: "Renamed")) {
+  thing(filter: $f) { name }
+}
+`,
+			wantError: "alias is only applicable to selected fields",
+		},
+		"alias for an input-type field": {
+			operation: `
+query Q($f: Filter) @octoqlgen(for: "Filter.label", alias: "Renamed") {
+  thing(filter: $f) { name }
+}
+`,
+			wantError: "alias is only applicable to selected fields",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			schemaPath := filepath.Join(dir, "schema.graphql")
+			operationPath := filepath.Join(dir, "operation.graphql")
+			require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
+			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
+
+			_, err := Generate(&Config{
+				Schema:      []string{schemaPath},
+				Operations:  []string{operationPath},
+				Generated:   filepath.Join(dir, "generated.go"),
+				Package:     "client",
+				ContextType: "-",
+			})
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.wantError)
+		})
+	}
+}
+
+// TestDirectiveKeepsAliasWhereItApplies guards the check above against
+// over-reaching: alias remains valid on a selected field, both directly and
+// through for.
+func TestDirectiveKeepsAliasWhereItApplies(t *testing.T) {
+	const schema = `
+type Query {
+  thing: Thing
+}
+
+type Thing {
+  name: String
+}
+`
+	for name, operation := range map[string]string{
+		"directly on the field": `
+query Q {
+  thing { name @octoqlgen(alias: "Renamed") }
+}
+`,
+		"through for": `
+query Q @octoqlgen(for: "Thing.name", alias: "Renamed") {
+  thing { name }
+}
+`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			schemaPath := filepath.Join(dir, "schema.graphql")
+			operationPath := filepath.Join(dir, "operation.graphql")
+			require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
+			require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
+
+			generated, err := Generate(&Config{
+				Schema:      []string{schemaPath},
+				Operations:  []string{operationPath},
+				Generated:   filepath.Join(dir, "generated.go"),
+				Package:     "client",
+				ContextType: "-",
+			})
+
+			require.NoError(t, err)
+			assert.Contains(t, string(generated[filepath.Join(dir, "generated.go")]),
+				"Renamed")
+		})
+	}
+}

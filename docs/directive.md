@@ -265,6 +265,12 @@ This is similar to the GraphQL alias syntax, such as `myGreatName: myField`, but
 it only affects the Go field name, not the GraphQL query. This is especially
 useful with GraphQL servers that limit the number of aliases a query may use.
 
+Only applicable to selected fields, either directly or through
+[`for`](#for). A variables-struct field is named after its variable and an
+input-type field after its GraphQL field, so `alias` is rejected in both places
+rather than accepted and ignored. Rename the variable itself to change the Go
+name of a variables field.
+
 ## `bind`
 
 Uses the given Go type for this argument or field instead of an

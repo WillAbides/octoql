@@ -190,6 +190,13 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 			if fieldDir.Flatten != nil {
 				return errorf(fieldDir.pos, "flatten can't be used via for")
 			}
+			// Only a selected field takes its Go name from alias; an input
+			// type's fields are named after the GraphQL field.
+			if fieldDir.Alias != "" && typ.Kind == ast.InputObject {
+				return errorf(fieldDir.pos,
+					"alias is only applicable to selected fields, and %s.%s is an input-type field",
+					typeName, fieldName)
+			}
 
 			if fieldDir.TypeName != "" && fieldDir.Bind != "" && fieldDir.Bind != "-" {
 				return errorf(fieldDir.pos, "typename and bind may not be used together")
@@ -230,9 +237,16 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		if d.Flatten != nil {
 			return errorf(d.pos, "flatten is only applicable to fields, not variable-definitions")
 		}
+		// A variables-struct field is named after the variable, so an alias
+		// here would be accepted and then never read.
+		if d.Alias != "" {
+			return errorf(d.pos,
+				"alias is only applicable to selected fields, not variable-definitions; "+
+					"rename the variable instead")
+		}
 
 		if len(d.FieldDirectives) > 0 {
-			return errorf(d.pos, "for is only applicable to operations and arguments")
+			return errorf(d.pos, "for is only applicable to operations and fragments")
 		}
 
 		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
@@ -242,7 +256,9 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		return nil
 	case *ast.Field:
 		if d.Omitempty != nil {
-			return errorf(d.pos, "omitempty is not applicable to variables, not fields")
+			return errorf(d.pos,
+				"omitempty is only applicable to variables and input-type fields, "+
+					"not to selected fields")
 		}
 
 		typ := schema.Types[node.Definition.Type.Name()]
@@ -260,7 +276,7 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		}
 
 		if len(d.FieldDirectives) > 0 {
-			return errorf(d.pos, "for is only applicable to operations and arguments")
+			return errorf(d.pos, "for is only applicable to operations and fragments")
 		}
 
 		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
