@@ -5,9 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/ast"
 )
 
 func TestOctoqlgenDirectiveAddMergesRepeatedForDirectives(t *testing.T) {
@@ -111,16 +113,25 @@ type Query {
   viewer: User!
   first: String
   second: String
+  a: String
+  b: String
+  outer(arg: String): Inner
+  sibling: String
 }
 
 type User {
   isSuspended: Boolean
   name: String
 }
+
+type Inner {
+  child: String
+}
 `
 	for _, test := range []struct {
 		name      string
 		operation string
+		wantError bool
 	}{
 		{
 			name: "sibling fields",
@@ -130,6 +141,31 @@ query Siblings {
   first second
 }
 `,
+			wantError: true,
+		},
+		{
+			name: "field and fragment spread",
+			operation: `
+query FieldAndFragmentSpread {
+  # @octoqlgen(pointer: false)
+  a ...Fields
+}
+
+fragment Fields on Query {
+  b
+}
+`,
+			wantError: true,
+		},
+		{
+			name: "non-ASCII before sibling",
+			operation: `
+query NonASCII {
+  # @octoqlgen(pointer: false)
+  outer(arg:"é"){child}sibling
+}
+`,
+			wantError: true,
 		},
 		{
 			name: "nested selection",
@@ -158,7 +194,7 @@ query Viewer {
 				ContextType: "-",
 			})
 
-			if test.name == "sibling fields" {
+			if test.wantError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "cannot apply to multiple peer nodes on one line")
 				assert.Contains(t, err.Error(), "put each peer node on its own line")
@@ -170,6 +206,17 @@ query Viewer {
 			assert.Contains(t, source, "IsSuspended *bool")
 		})
 	}
+}
+
+func TestBraceDepthAtPositionUsesRuneColumns(t *testing.T) {
+	line := `outer(arg:"é"){child}sibling`
+	position := &ast.Position{
+		Src:    &ast.Source{Input: line},
+		Line:   1,
+		Column: utf8.RuneCountInString(`outer(arg:"é"){child}`) + 1,
+	}
+
+	assert.Zero(t, braceDepthAtPosition(position))
 }
 
 func TestOctoqlgenDirectiveAttachmentAllowsOperationWithMultipleArguments(t *testing.T) {

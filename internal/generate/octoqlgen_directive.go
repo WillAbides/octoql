@@ -27,7 +27,7 @@ type octoqlgenDirective struct {
 
 type directiveAttachment struct {
 	column     int
-	nodeType   string
+	category   string
 	braceDepth int
 }
 
@@ -464,14 +464,14 @@ func (g *generator) parsePrecedingComment(
 		key := directiveAttachmentKey{source: pos.Src, line: pos.Line}
 		attachment := directiveAttachment{
 			column:     pos.Column,
-			nodeType:   fmt.Sprintf("%T", node),
+			category:   directiveAttachmentCategory(node),
 			braceDepth: braceDepthAtPosition(pos),
 		}
 		existing, ok := g.directiveAttachments[key]
 		if !ok {
 			g.directiveAttachments[key] = attachment
 		} else if existing.column != attachment.column &&
-			existing.nodeType == attachment.nodeType &&
+			existing.category == attachment.category &&
 			existing.braceDepth == attachment.braceDepth {
 			return "", nil, errorf(pos,
 				"@octoqlgen directive cannot apply to multiple peer nodes on one line; "+
@@ -518,6 +518,21 @@ func (g *generator) parsePrecedingComment(
 	return strings.TrimSpace(strings.Join(commentLines, "\n")), directive, nil
 }
 
+func directiveAttachmentCategory(node interface{}) string {
+	switch node.(type) {
+	case *ast.Field, *ast.FragmentSpread, *ast.InlineFragment:
+		return "selection"
+	case *ast.VariableDefinition:
+		return "variable-definition"
+	case *ast.OperationDefinition, *ast.FragmentDefinition:
+		return "definition"
+	case *ast.FieldDefinition:
+		return "input-field"
+	default:
+		return fmt.Sprintf("%T", node)
+	}
+}
+
 func braceDepthAtPosition(pos *ast.Position) int {
 	if pos == nil || pos.Src == nil {
 		return 0
@@ -529,7 +544,7 @@ func braceDepthAtPosition(pos *ast.Position) int {
 	sourceLines := strings.Split(pos.Src.Input, "\n")
 	for lineIndex, line := range sourceLines {
 		if lineIndex >= pos.Line-1 {
-			line = line[:min(pos.Column-1, len(line))]
+			line = line[:byteOffsetAtColumn(line, pos.Column)]
 		}
 		for index := 0; index < len(line); index++ {
 			if inBlockString {
@@ -574,6 +589,21 @@ func braceDepthAtPosition(pos *ast.Position) int {
 		}
 	}
 	return depth
+}
+
+func byteOffsetAtColumn(line string, column int) int {
+	if column <= 1 {
+		return 0
+	}
+
+	runeColumn := 1
+	for offset := range line {
+		if runeColumn == column {
+			return offset
+		}
+		runeColumn++
+	}
+	return len(line)
 }
 
 func parseDirective(line string, pos *ast.Position) (*ast.Directive, error) {
