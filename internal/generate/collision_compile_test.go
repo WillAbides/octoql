@@ -285,6 +285,53 @@ query Q($p: Profile) {
 				"user-specified type-names, or some very tricksy GraphQL " +
 				"field/type names: expected GraphQL type Profile, got User",
 		},
+		{
+			// Two interface fields differ only in case and normalize to the
+			// same Go name, so the generated interface would declare Get<Name>
+			// twice.  With no concrete implementations there is no struct in
+			// the type map, so this is only caught by the interface pass.
+			name:                "interface fields with same getter",
+			keepImplementations: true,
+			schema: `
+interface HasName {
+  name: String!
+  Name: String!
+}
+type Query {
+  named: HasName
+}
+`,
+			operations: `
+query Q {
+  named {
+    name
+    Name
+  }
+}
+`,
+			wantGenerationErr: "Go identifier GetName for both getter GetName " +
+				"(for field Name, GraphQL name) and getter GetName " +
+				"(for field Name, GraphQL Name)",
+		},
+		{
+			// Two operation variables differ only in case and normalize to the
+			// same Go field name.  Variables cannot be aliased, so the remedy
+			// must not suggest a field alias.
+			name: "operation variables with same Go name",
+			schema: `
+type Query {
+  value(a: String, b: String): String
+}
+`,
+			operations: `
+query Q($foo: String, $Foo: String) {
+  value(a: $foo, b: $Foo)
+}
+`,
+			wantGenerationErr: "generated type QVariables would emit the Go identifier Foo " +
+				"for both field Foo (GraphQL foo) and field Foo (GraphQL Foo); " +
+				"rename the variable or input field, or change the casing configuration",
+		},
 	}
 
 	for _, test := range tests {

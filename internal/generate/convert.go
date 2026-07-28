@@ -88,13 +88,17 @@ func (g *generator) checkGeneratedIdentifiers() error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		structType, ok := g.typeMap[name].(*goStructType)
-		if !ok {
-			continue
-		}
-		err := g.checkStructIdentifiers(structType)
-		if err != nil {
-			return err
+		switch t := g.typeMap[name].(type) {
+		case *goStructType:
+			err := g.checkStructIdentifiers(t)
+			if err != nil {
+				return err
+			}
+		case *goInterfaceType:
+			err := g.checkInterfaceIdentifiers(t)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -110,6 +114,14 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 		description string
 		pos         *ast.Position
 	}
+	// The remedy depends on where the fields come from.  Output selections can
+	// be renamed with a GraphQL field alias, but input-object fields and
+	// operation variables cannot be aliased, so for those we point at the
+	// achievable fixes instead of suggesting an impossible alias.
+	remedy := "disambiguate the conflicting selection with a field alias"
+	if t.IsInput {
+		remedy = "rename the variable or input field, or change the casing configuration"
+	}
 	used := make(map[string]identifierSource)
 	register := func(name, description string, pos *ast.Position) error {
 		if name == "" || name == "_" {
@@ -124,9 +136,8 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 				errPos = existing.pos
 			}
 			return errorf(errPos,
-				"generated type %s would emit the Go identifier %s for both %s and %s; "+
-					"disambiguate the conflicting selection with a field alias",
-				t.GoName, name, existing.description, description)
+				"generated type %s would emit the Go identifier %s for both %s and %s; %s",
+				t.GoName, name, existing.description, description, remedy)
 		}
 		used[name] = identifierSource{description: description, pos: pos}
 		return nil
@@ -176,6 +187,69 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 		getter := "Get" + field.GoName
 		err = register(getter,
 			fmt.Sprintf("getter %s (for field %s)", getter, field.GoName),
+			field.Position)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkInterfaceIdentifiers reports an error if two identifiers octoqlgen would
+// emit into the given interface share the same Go name.  A Go interface may not
+// declare the same method twice, so a duplicate here would otherwise produce
+// Go source that fails to compile.  The identifiers mirror those emitted by
+// goInterfaceType.WriteDefinition: the implements-marker method, the embedded
+// interface references, and the Get<Field> getter for each shared field.
+//
+// checkStructIdentifiers does not cover this: an interface with no concrete
+// implementations (reachable when omit_unreferenced_implementations is false)
+// has no struct in the type map to inspect.
+func (g *generator) checkInterfaceIdentifiers(t *goInterfaceType) error {
+	type identifierSource struct {
+		description string
+		pos         *ast.Position
+	}
+	used := make(map[string]identifierSource)
+	register := func(name, description string, pos *ast.Position) error {
+		if name == "" || name == "_" {
+			return nil
+		}
+		existing, ok := used[name]
+		if ok {
+			errPos := pos
+			if errPos == nil {
+				errPos = existing.pos
+			}
+			return errorf(errPos,
+				"generated interface %s would emit the Go identifier %s for both %s and %s; "+
+					"disambiguate the conflicting selection with a field alias",
+				t.GoName, name, existing.description, description)
+		}
+		used[name] = identifierSource{description: description, pos: pos}
+		return nil
+	}
+
+	// The implements-marker method occupies the interface's method namespace.
+	marker := "implementsGraphQLInterface" + t.GoName
+	err := register(marker, "the implements-marker method", nil)
+	if err != nil {
+		return err
+	}
+
+	for _, field := range t.SharedFields {
+		if field.IsEmbedded() {
+			embeddedName := field.GoType.Unwrap().Reference()
+			err = register(embeddedName,
+				fmt.Sprintf("embedded fragment %s", embeddedName), field.Position)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		getter := "Get" + field.GoName
+		err = register(getter,
+			fmt.Sprintf("getter %s (for field %s, GraphQL %s)", getter, field.GoName, field.GraphQLName),
 			field.Position)
 		if err != nil {
 			return err
@@ -335,6 +409,7 @@ func (g *generator) convertArguments(
 			JSONName:    arg.Variable,
 			GraphQLName: arg.Variable,
 			Omitempty:   options.GetOmitempty(),
+			Position:    arg.Position,
 		}
 	}
 	goTyp := &goStructType{
