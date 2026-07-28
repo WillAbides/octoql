@@ -575,15 +575,29 @@ type Client struct {
 // NewClient returns a client for endpoint. A nil httpClient uses
 // [http.DefaultClient].
 func NewClient(endpoint string, httpClient *http.Client) *Client {
-	if httpClient == nil {
-		httpClient = http.DefaultClient
-	}
 	client := &Client{
 		endpoint:   endpoint,
-		httpClient: httpClient,
+		httpClient: _octoqlHTTPClient(httpClient),
 	}
 	client.responseSizeLimit.Store(DefaultResponseSizeLimit)
 	return client
+}
+
+func _octoqlHTTPClient(httpClient *http.Client) *http.Client {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	clientCopy := *httpClient
+	clientCopy.CheckRedirect = _octoqlRejectRedirect
+	return &clientCopy
+}
+
+func _octoqlRejectRedirect(request *http.Request, _ []*http.Request) error {
+	status := "redirect"
+	if request.Response != nil {
+		status = request.Response.Status
+	}
+	return fmt.Errorf("octoql: redirect refused: %s to %s", status, request.URL.Redacted())
 }
 
 // SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
@@ -692,7 +706,7 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 
 	httpClient := c.httpClient
 	if httpClient == nil {
-		httpClient = http.DefaultClient
+		httpClient = _octoqlHTTPClient(nil)
 	}
 	//nolint:bodyclose // _octoqlReadAndClose closes the body and preserves close errors.
 	httpResponse, sendErr := httpClient.Do(request)

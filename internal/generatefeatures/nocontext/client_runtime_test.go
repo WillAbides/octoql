@@ -368,28 +368,22 @@ func TestDoFailurePhases(t *testing.T) {
 	}
 }
 
-func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
-	redirectError := errors.New("redirect rejected")
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/redirected" {
-			_, err := io.WriteString(writer, `{"data":{}}`)
-			if err != nil {
-				panic(err)
-			}
-			return
-		}
-		writer.Header().Set("Location", "/redirected")
+func TestClientRefusesRedirects(t *testing.T) {
+	targetRequests := make(chan struct{}, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		targetRequests <- struct{}{}
+	}))
+	defer target.Close()
+
+	targetURL := strings.Replace(target.URL, "127.0.0.1", "localhost", 1)
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", targetURL)
 		writer.Header().Set("X-GitHub-Request-ID", "redirect-request")
 		writer.WriteHeader(http.StatusFound)
 	}))
-	defer server.Close()
+	defer origin.Close()
 
-	httpClient := server.Client()
-	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error {
-		return redirectError
-	}
-	client := NewClient(server.URL, httpClient)
-
+	client := NewClient(origin.URL, nil)
 	response, err := doOperation[struct{}](
 		t.Context(),
 		client,
@@ -397,12 +391,61 @@ func TestDoReturnsResponseErrorWithRedirectError(t *testing.T) {
 		validOperationQuery,
 		nil,
 	)
+
+	require.Error(t, err)
 	assert.Nil(t, response)
-	assert.ErrorIs(t, err, redirectError)
+	assert.ErrorContains(t, err, "redirect refused")
+	assert.ErrorContains(t, err, http.StatusText(http.StatusFound))
+	assert.ErrorContains(t, err, targetURL)
 	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusFound, responseError.StatusCode)
 	assert.Equal(t, "redirect-request", responseError.RequestID)
+	assert.Nil(t, responseError.RawBody)
+
+	select {
+	case <-targetRequests:
+		assert.Fail(t, "redirect target received a request")
+	default:
+	}
+}
+
+func TestNewClientDoesNotMutateHTTPRedirectPolicy(t *testing.T) {
+	httpClient := &http.Client{}
+	client := NewClient("https://api.github.com/graphql", httpClient)
+
+	assert.NotSame(t, httpClient, client.httpClient)
+	assert.Nil(t, httpClient.CheckRedirect)
+
+	require.Nil(t, http.DefaultClient.CheckRedirect)
+	defaultClient := NewClient("https://api.github.com/graphql", nil)
+	assert.NotSame(t, http.DefaultClient, defaultClient.httpClient)
+	assert.Nil(t, http.DefaultClient.CheckRedirect)
+}
+
+func TestZeroValueClientRefusesRedirects(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Location", "/redirected")
+		writer.WriteHeader(http.StatusFound)
+	}))
+	defer server.Close()
+
+	client := Client{}
+	client.endpoint = server.URL
+	response, err := doOperation[struct{}](
+		t.Context(),
+		&client,
+		validOperationName,
+		validOperationQuery,
+		nil,
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, response)
+	assert.ErrorContains(t, err, "redirect refused")
+	responseError, ok := errors.AsType[*ResponseError](err)
+	require.True(t, ok)
+	assert.Equal(t, http.StatusFound, responseError.StatusCode)
 }
 
 func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
