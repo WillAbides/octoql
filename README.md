@@ -18,6 +18,11 @@ Initialize a project with:
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> init
 ```
 
+Replace `<version>` here and throughout this guide with a release tag from the
+[releases page](https://github.com/WillAbides/octoql/releases). Pinning an
+explicit tag keeps generation reproducible. octoql is pre-1.0, so review the
+release notes before moving between minor versions.
+
 Generated clients are self-contained and use only the standard library unless
 configured scalar bindings add imports. Application code does not import
 `github.com/willabides/octoql`.
@@ -27,11 +32,11 @@ configured scalar bindings add imports. Application code does not import
 GitHub authentication must be available through `GH_TOKEN`, `GITHUB_TOKEN`, or
 the `gh` CLI.
 
-This resolves and fetches the latest GitHub Docs Free, Pro, & Team (`fpt`)
-schema, then creates a configuration containing its commit revision and SHA-256
-digest. It also creates `.octoql/.gitignore`; the generated config uses the
-gitignored `.octoql/schema.graphql` path, `graphql/**/*.graphql` for operations,
-and `internal/githubapi/generated.go` for output.
+`octoqlgen init` resolves and fetches the latest GitHub Docs Free, Pro, & Team
+(`fpt`) schema, then creates a configuration containing its commit revision and
+SHA-256 digest. It also creates `.octoql/.gitignore`; the generated config uses
+the gitignored `.octoql/schema.graphql` path, `graphql/**/*.graphql` for
+operations, and `internal/githubapi/generated.go` for output.
 
 Choose another GitHub Docs schema version with `--schema-version`:
 
@@ -40,9 +45,27 @@ go run github.com/willabides/octoql/cmd/octoqlgen@<version> init --schema-versio
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> init --schema-version ghes-3.21
 ```
 
-All paths and globs in `octoqlgen.yaml` are relative to that file. See the
-[configuration reference](docs/configuration.md) for local schemas, other remote
-sources, and every configuration option.
+All paths and globs in `octoqlgen.yaml` are relative to that file. The generated
+configuration looks like this:
+
+```yaml
+# yaml-language-server: $schema=https://github.com/WillAbides/octoql/releases/download/<version>/octoqlgen.schema.yaml
+
+schema:
+  path: .octoql/schema.graphql
+  sha256: <digest>
+  source:
+    repository: github/docs
+    path: src/graphql/data/fpt/schema.docs.graphql
+    revision: <commit sha>
+operations:
+  - graphql/**/*.graphql
+generated: internal/githubapi/generated.go
+```
+
+The `$schema` comment gives editors completion and hover text for every option.
+See the [configuration reference](docs/configuration.md) for local schemas, other
+remote sources, and every configuration option.
 
 Create `graphql/repository.graphql`:
 
