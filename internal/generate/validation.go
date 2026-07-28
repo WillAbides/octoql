@@ -11,6 +11,58 @@ import (
 	"github.com/vektah/gqlparser/v2/parser"
 )
 
+// generatedTypeFieldsMatch returns nil if existing and candidate produce the
+// same Go output, or an error describing the first differing field if they do
+// not.  It compares the generated field plan — Go field names, type references,
+// JSON names, and omitempty — rather than comparing raw directives, so the
+// check is derived from exactly what gets emitted and cannot drift as new
+// @octoqlgen options are added.  Returns nil for non-struct/non-interface
+// types; those are generated from the schema definition and AST comparison
+// alone is sufficient.
+func generatedTypeFieldsMatch(existing, candidate goType) error {
+	switch ex := existing.(type) {
+	case *goStructType:
+		can, ok := candidate.(*goStructType)
+		if !ok {
+			return fmt.Errorf("type kind changed: was struct, now %T", candidate)
+		}
+		return structFieldsMatch(ex.Fields, can.Fields)
+	case *goInterfaceType:
+		can, ok := candidate.(*goInterfaceType)
+		if !ok {
+			return fmt.Errorf("type kind changed: was interface, now %T", candidate)
+		}
+		return structFieldsMatch(ex.SharedFields, can.SharedFields)
+	}
+	return nil
+}
+
+// structFieldsMatch compares two lists of struct fields by their generated Go
+// output: GoName, GoType.Reference(), JSONName, and Omitempty.
+func structFieldsMatch(existing, candidate []*goStructField) error {
+	if len(existing) != len(candidate) {
+		return fmt.Errorf("field count changed: %d fields vs %d fields",
+			len(existing), len(candidate))
+	}
+	for i, ex := range existing {
+		can := candidate[i]
+		switch {
+		case ex.GoName != can.GoName:
+			return fmt.Errorf("field %d Go name: %q vs %q", i, ex.GoName, can.GoName)
+		case ex.GoType.Reference() != can.GoType.Reference():
+			return fmt.Errorf("field %d (%s) Go type: %s vs %s",
+				i, ex.GoName, ex.GoType.Reference(), can.GoType.Reference())
+		case ex.JSONName != can.JSONName:
+			return fmt.Errorf("field %d (%s) JSON name: %q vs %q",
+				i, ex.GoName, ex.JSONName, can.JSONName)
+		case ex.Omitempty != can.Omitempty:
+			return fmt.Errorf("field %d (%s) omitempty: %v vs %v",
+				i, ex.GoName, ex.Omitempty, can.Omitempty)
+		}
+	}
+	return nil
+}
+
 // selectionsMatch recursively compares the two selection-sets, and returns an
 // error if they differ.
 //

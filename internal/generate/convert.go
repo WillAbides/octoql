@@ -105,12 +105,31 @@ func posString(pos *ast.Position) string {
 // caller in between may have generated new types, which potentially creates
 // new conflicts.
 //
+// After the AST-level selection check in getType passes, addType additionally
+// compares the generated field plan (Go field names, type references, JSON
+// names, omitempty) via generatedTypeFieldsMatch, so that selection-based
+// types that produce different Go output are caught even when their AST
+// selections are identical.
+//
 // Returns an already-existing type if found, and otherwise the given type.
 func (g *generator) addType(typ goType, goName string, pos *ast.Position) (goType, error) {
 	newSource := describeTypeSource(typ)
 	otherTyp, err := g.getType(goName, typ.GraphQLTypeName(), newSource, typ.SelectionSet(), pos)
-	if otherTyp != nil || err != nil {
+	if err != nil {
 		return otherTyp, err
+	}
+	if otherTyp != nil {
+		fieldErr := generatedTypeFieldsMatch(otherTyp, typ)
+		if fieldErr != nil {
+			return otherTyp, errorf(
+				pos, "conflicting definition for the Go type %s: it is generated "+
+					"from both %s (at %s) and %s (at %s), which select different "+
+					"fields (%v); give one of them a distinct name with an "+
+					"@octoqlgen(typename:) directive so they produce separate Go types",
+				goName, describeTypeSource(otherTyp), posString(g.typePositions[goName]),
+				newSource, posString(pos), fieldErr)
+		}
+		return otherTyp, nil
 	}
 	g.typeMap[goName] = typ
 	g.typePositions[goName] = pos
@@ -739,13 +758,24 @@ func (g *generator) convertDefinition(
 		provenancePos = options.pos
 	}
 
-	// If we already generated the type, we can skip it as long as it matches
-	// (and must fail if it doesn't).  (This can happen for input/enum types,
-	// types of fields of interfaces, when options.TypeName is set, or, of
-	// course, on invalid configuration or internal error.)
-	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
-	if existing != nil || err != nil {
-		return existing, err
+	// For schema-definition types (InputObject, Enum, Scalar), take an early-
+	// out if the type has already been generated: these types are generated
+	// from the schema definition rather than from the selection, so a
+	// selection-plan comparison has nothing meaningful to compare.  InputObject
+	// also requires this path for recursive types: it pre-inserts an empty
+	// struct via addType so getType on a second call returns that placeholder,
+	// and the early-out is required to avoid overwriting it.
+	// Known limitation: an operation-level @octoqlgen(for:) directive can
+	// change an input type's generated fields; contradictory declarations
+	// across operations are not detected here.
+	// For selection-based types (Object, Interface, Union), skip the early-
+	// out so the candidate is built and reaches addType for structural
+	// comparison.
+	if def.Kind == ast.InputObject || def.Kind == ast.Enum || def.Kind == ast.Scalar {
+		existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
+		if existing != nil || err != nil {
+			return existing, err
+		}
 	}
 
 	desc := descriptionInfo{
@@ -899,11 +929,21 @@ func (g *generator) convertDefinition(
 			}
 			goType.Implementations = append(goType.Implementations, implStructTyp)
 		}
+		// Register the interface type before attaching the catch-all.  If an
+		// existing compatible type is returned, its catch-all was already
+		// attached on the first registration; return it to avoid a duplicate.
+		result, addErr := g.addType(goType, goType.GoName, provenancePos)
+		if addErr != nil {
+			return nil, addErr
+		}
+		if result != goType {
+			return result, nil
+		}
 		err = g.attachCatchAllImplementation(goType, def.Name, pos)
 		if err != nil {
 			return nil, err
 		}
-		return g.addType(goType, goType.GoName, provenancePos)
+		return goType, nil
 
 	case ast.Enum:
 		goType := &goEnumType{
@@ -1340,26 +1380,17 @@ func (g *generator) convertFragmentSpread(
 		return nil, nil
 	}
 
-	// If we've already generated the fragment's type, reuse it, but validate
-	// via getType that the entry stored under this fragment's name really is
-	// this fragment (right GraphQL type and selection) rather than an
-	// unrelated derived type that happens to share the name -- otherwise we
-	// would silently emit the wrong type and drop the fragment's fields.
+	// Always convert the fragment via convertNamedFragment rather than taking
+	// an early-out via getType.  The type stored under this fragment's name
+	// may have been registered by an @octoqlgen(typename:) directive on an
+	// unrelated field with different directives; convertNamedFragment routes
+	// through addType, which validates both selection identity and structural
+	// Go output equivalence, so any mismatch is caught rather than silently
+	// reusing the wrong type.
 	fragment := fragmentSpread.Definition
-	typ, err := g.getType(
-		fragment.Name, fragment.Definition.Name,
-		describeGraphQLSource(fragment.Definition.Name, fragment.Name),
-		fragment.SelectionSet, fragment.Position)
+	typ, err := g.convertNamedFragment(fragment)
 	if err != nil {
 		return nil, err
-	}
-	if typ == nil {
-		// If we haven't yet, convert the fragment itself.  Note that fragments
-		// aren't allowed to have cycles, so this won't recurse forever.
-		typ, err = g.convertNamedFragment(fragment)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	iface, ok := typ.(*goInterfaceType)
@@ -1448,11 +1479,19 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
-		_, err = g.addType(goType, goType.GoName, fragment.Position)
-		if err != nil {
-			return nil, err
+		// Register the interface first; addType validates shared-field
+		// equivalence against any already-registered type of the same name.
+		result, addErr := g.addType(goType, goType.GoName, fragment.Position)
+		if addErr != nil {
+			return nil, addErr
 		}
-
+		// Build and validate implementation candidates regardless of whether
+		// the interface was newly registered or already existed.  On the reuse
+		// path (result != goType) the per-implementation addType calls catch
+		// field-plan differences that are invisible to shared-field comparison
+		// alone — e.g. a directive inside an inline fragment that changes a
+		// field's Go type.  goType.Implementations is populated here for the
+		// first-registration path and discarded on the reuse path.
 		for _, implDef := range implementationTypes {
 			implFields, convertErr := g.convertSelectionSet(
 				newPrefixList(fragment.Name), fragment.SelectionSet, implDef, directive)
@@ -1477,6 +1516,12 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			if err != nil {
 				return nil, err
 			}
+		}
+
+		// On the reuse path, the catch-all was already attached during the
+		// first registration; return the existing type to avoid a duplicate.
+		if result != goType {
+			return result, nil
 		}
 
 		err = g.attachCatchAllImplementation(goType, typ.Name, fragment.Position)

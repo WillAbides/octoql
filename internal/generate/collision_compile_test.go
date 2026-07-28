@@ -426,6 +426,137 @@ query Q($foo: String, $Foo: String) {
 				"for both field Foo (GraphQL foo) and field Foo (GraphQL Foo); " +
 				"rename the variable or input field, or change the casing configuration",
 		},
+		{
+			// Two sibling fields both carry @octoqlgen(typename:"Shared"), but
+			// the first names its id sub-field "NodeId" via
+			// @octoqlgen(alias:"nodeId") while the second uses the plain name
+			// "Id".  selectionsMatch sees identical AST (field "id" in both)
+			// and passes; only the structural Go field comparison in addType
+			// catches that NodeId ≠ Id and rejects the conflicting registration.
+			name: "typename reuse with distinct aliases",
+			schema: `
+type Query {
+  a: Item!
+  b: Item!
+}
+type Item {
+  id: String!
+  name: String!
+}
+`,
+			operations: `
+query Q {
+  # @octoqlgen(typename: "Shared")
+  a {
+    # @octoqlgen(alias: "nodeId")
+    id
+    name
+  }
+  # @octoqlgen(typename: "Shared")
+  b {
+    id
+    name
+  }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type Shared",
+			wantGenerationErrAlso: []string{
+				`"NodeId" vs "Id"`,
+			},
+		},
+		{
+			// Two sibling fields both carry @octoqlgen(typename:"Shared"), but
+			// one applies @skip to the flag sub-field, which forces a pointer
+			// on that field.  selectionsMatch sees identical field names and
+			// passes; the structural comparison catches *bool ≠ bool and
+			// rejects the conflicting registration.
+			//
+			// This covers the live bypass on main: without this fix, a
+			// typename-reused conditional field keeps its value type from the
+			// first registration, so a skipped Boolean! decodes to false
+			// instead of being absent.
+			name: "typename reuse with distinct conditional directives",
+			schema: `
+type Query {
+  a: Item!
+  b: Item!
+}
+type Item {
+  id: String!
+  flag: Boolean!
+}
+`,
+			operations: `
+query Q($hide: Boolean!) {
+  # @octoqlgen(typename: "Shared")
+  a { id  flag @skip(if: $hide) }
+  # @octoqlgen(typename: "Shared")
+  b { id  flag }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type Shared",
+			wantGenerationErrAlso: []string{
+				"Flag",
+				"*bool vs bool",
+			},
+		},
+		{
+			// A direct selection with @octoqlgen(typename:"F") is processed
+			// before a spread of fragment F on the same interface type.  The
+			// fragment carries @octoqlgen(alias:"userId") on an id sub-field
+			// inside an inline fragment — invisible to selectionsMatch because
+			// it is a preceding-comment directive, not an AST alias.  The
+			// outer SelectionSets are structurally identical (explicit
+			// __typename in both), so selectionsMatch passes and
+			// generatedTypeFieldsMatch on the interface's SharedFields passes
+			// (the inline-fragment field is implementation-specific, not
+			// shared).  The conflict is only detectable by building the
+			// per-implementation candidate type FUser and routing it through
+			// addType, which is what the implementations loop in
+			// convertNamedFragment now does even on the reuse path.
+			name: "typename reuse with distinct implementation-level aliases (direct selection first, fragment second)",
+			schema: `
+interface Node {
+  id: String!
+  name: String!
+}
+type User implements Node {
+  id: String!
+  name: String!
+}
+type Admin implements Node {
+  id: String!
+  name: String!
+}
+type Query {
+  a: Node!
+  b: Node!
+}
+`,
+			operations: `
+fragment F on Node {
+  __typename
+  ... on User {
+    # @octoqlgen(alias: "userId")
+    id
+  }
+}
+query Q {
+  # @octoqlgen(typename: "F")
+  a {
+    __typename
+    ... on User {
+      id
+    }
+  }
+  b { ...F }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type FUser",
+			wantGenerationErrAlso: []string{
+				`"Id" vs "UserId"`,
+			},
+		},
 	}
 
 	for _, test := range tests {
