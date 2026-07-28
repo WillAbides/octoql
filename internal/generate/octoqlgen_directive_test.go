@@ -382,6 +382,39 @@ query Value(
 	assert.Contains(t, string(generated[filepath.Join(dir, "generated.go")]), `Input *string `+"`json:\"input,omitempty\"`")
 }
 
+func TestOctoqlgenDirectiveAllowsLocalOmitemptyDisableForRequiredVariable(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	err := os.WriteFile(schemaPath, []byte(`
+type Query {
+  value(input: String!): String!
+}
+`), 0o600)
+	require.NoError(t, err)
+	err = os.WriteFile(operationPath, []byte(`
+# @octoqlgen(omitempty: true)
+query Value(
+  # @octoqlgen(omitempty: false)
+  $input: String!
+) {
+  value(input: $input)
+}
+`), 0o600)
+	require.NoError(t, err)
+
+	generated, err := Generate(&Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "client",
+		ContextType: "-",
+	})
+
+	require.NoError(t, err)
+	assert.Contains(t, string(generated[filepath.Join(dir, "generated.go")]), `Input string `+"`json:\"input\"`")
+}
+
 func TestOctoqlgenDirectiveAttachmentAllowsOperationFlatten(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := filepath.Join(dir, "schema.graphql")

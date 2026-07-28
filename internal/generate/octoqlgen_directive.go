@@ -232,7 +232,7 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		// fragment.
 		return nil
 	case *ast.VariableDefinition:
-		if d.Omitempty != nil && node.Type.NonNull && node.DefaultValue == nil {
+		if d.GetOmitempty() && node.Type.NonNull && node.DefaultValue == nil {
 			return errorf(d.pos, "omitempty may only be used on optional arguments")
 		}
 
