@@ -166,6 +166,10 @@ type goStructField struct {
 	GraphQLName string // i.e. the field's name in its type-def
 	Omitempty   bool   // only used on input types
 	Description string
+	// Position points at the GraphQL source (field selection, input-field
+	// definition, or fragment spread) that produced this field, and is used to
+	// report identifier collisions against the code the user actually wrote.
+	Position *ast.Position
 }
 
 // IsAbstract returns true if this field is of abstract type (i.e. GraphQL

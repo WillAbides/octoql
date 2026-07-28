@@ -482,6 +482,9 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 			return nil, err
 		}
 	}
+	if err = g.checkGeneratedIdentifiers(); err != nil {
+		return nil, err
+	}
 	operationNames := make(map[string]bool, len(g.Operations))
 	for _, operation := range g.Operations {
 		operationNames[operation.Name] = true

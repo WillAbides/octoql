@@ -72,6 +72,118 @@ func (g *generator) addType(typ goType, goName string, pos *ast.Position) (goTyp
 	return typ, nil
 }
 
+// checkGeneratedIdentifiers verifies that every Go identifier octoqlgen emits
+// into a generated struct is unique within that struct.  This covers both
+// field-vs-field collisions and field-vs-method collisions, where the methods
+// are the Get<Field> getters and the MarshalJSON/UnmarshalJSON methods
+// octoqlgen synthesizes.  The Go compiler would otherwise reject the generated
+// code -- pointing at code the user never wrote -- so we fail generation with
+// an actionable error instead.  We deliberately do not auto-rename to
+// disambiguate: silently changing a user's field names is the same class of
+// defect.  The fix is a GraphQL field alias.
+func (g *generator) checkGeneratedIdentifiers() error {
+	names := make([]string, 0, len(g.typeMap))
+	for name := range g.typeMap {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		structType, ok := g.typeMap[name].(*goStructType)
+		if !ok {
+			continue
+		}
+		err := g.checkStructIdentifiers(structType)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkStructIdentifiers reports an error if two identifiers octoqlgen would
+// emit for the given struct -- its declared fields, its getters, or its
+// (un)marshal methods -- share the same Go name.  The identifiers are checked
+// after casing normalization, since that is what turns names like foo_bar and
+// fooBar into the same Go identifier.
+func (g *generator) checkStructIdentifiers(t *goStructType) error {
+	type identifierSource struct {
+		description string
+		pos         *ast.Position
+	}
+	used := make(map[string]identifierSource)
+	register := func(name, description string, pos *ast.Position) error {
+		if name == "" || name == "_" {
+			return nil
+		}
+		existing, ok := used[name]
+		if ok {
+			// Prefer the position of whichever source has one, so the error
+			// points at the user's GraphQL rather than at nothing.
+			errPos := pos
+			if errPos == nil {
+				errPos = existing.pos
+			}
+			return errorf(errPos,
+				"generated type %s would emit the Go identifier %s for both %s and %s; "+
+					"disambiguate the conflicting selection with a field alias",
+				t.GoName, name, existing.description, description)
+		}
+		used[name] = identifierSource{description: description, pos: pos}
+		return nil
+	}
+
+	// Declared struct fields.  Embedded fields (from named-fragment spreads)
+	// are promoted under their type's Go name, so that is the identifier they
+	// occupy.
+	for _, field := range t.Fields {
+		if field.IsEmbedded() {
+			embeddedName := field.GoType.Unwrap().Reference()
+			err := register(embeddedName,
+				fmt.Sprintf("embedded fragment %s", embeddedName), field.Position)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		err := register(field.GoName,
+			fmt.Sprintf("field %s (GraphQL %s)", field.GoName, field.GraphQLName),
+			field.Position)
+		if err != nil {
+			return err
+		}
+	}
+
+	// The MarshalJSON/UnmarshalJSON methods, emitted only when the struct needs
+	// custom (un)marshaling.
+	if t.NeedsMarshaling() {
+		for _, method := range []string{"MarshalJSON", "UnmarshalJSON"} {
+			err := register(method, method+" method", nil)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Getters are emitted for output structs only, one per flattened field.
+	if t.IsInput {
+		return nil
+	}
+	flattened, err := t.FlattenedFields()
+	if err != nil {
+		return err
+	}
+	for _, field := range flattened {
+		getter := "Get" + field.GoName
+		err = register(getter,
+			fmt.Sprintf("getter %s (for field %s)", getter, field.GoName),
+			field.Position)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // baseTypeForOperation returns the definition of the GraphQL type to which the
 // root of the operation corresponds, e.g. the "Query" or "Mutation" type.
 func (g *generator) baseTypeForOperation(operation ast.Operation) (*ast.Definition, error) {
@@ -531,6 +643,7 @@ func (g *generator) convertDefinition(
 				GraphQLName: field.Name,
 				Description: field.Description,
 				Omitempty:   fieldOptions.GetOmitempty(),
+				Position:    field.Position,
 			}
 		}
 		return goType, nil
@@ -1006,12 +1119,21 @@ func (g *generator) convertFragmentSpread(
 		return nil, nil
 	}
 
-	typ, ok := g.typeMap[fragmentSpread.Name]
-	if !ok {
+	// If we've already generated the fragment's type, reuse it, but validate
+	// via getType that the entry stored under this fragment's name really is
+	// this fragment (right GraphQL type and selection) rather than an
+	// unrelated derived type that happens to share the name -- otherwise we
+	// would silently emit the wrong type and drop the fragment's fields.
+	fragment := fragmentSpread.Definition
+	typ, err := g.getType(
+		fragment.Name, fragment.Definition.Name, fragment.SelectionSet, fragment.Position)
+	if err != nil {
+		return nil, err
+	}
+	if typ == nil {
 		// If we haven't yet, convert the fragment itself.  Note that fragments
 		// aren't allowed to have cycles, so this won't recurse forever.
-		var err error
-		typ, err = g.convertNamedFragment(fragmentSpread.Definition)
+		typ, err = g.convertNamedFragment(fragment)
 		if err != nil {
 			return nil, err
 		}
@@ -1044,7 +1166,7 @@ func (g *generator) convertFragmentSpread(
 
 	// TODO(benkraft): Set directive here if we ever allow @octoqlgen
 	// directives on fragment-spreads.
-	return &goStructField{GoName: "" /* i.e. embedded */, GoType: typ}, nil
+	return &goStructField{GoName: "" /* i.e. embedded */, GoType: typ, Position: fragmentSpread.Position}, nil
 }
 
 // convertNamedFragment converts a single GraphQL named fragment-definition
@@ -1088,8 +1210,10 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
-		g.typeMap[fragment.Name] = goType
-		return goType, nil
+		// Route through addType (rather than writing g.typeMap directly) so a
+		// fragment whose Go name collides with an already-generated type is
+		// rejected instead of silently overwriting it.
+		return g.addType(goType, goType.GoName, fragment.Position)
 	case ast.Interface, ast.Union:
 		implementationTypes := g.schema.GetPossibleTypes(typ)
 		// Make sure we generate stable output by sorting the types by name when we get them
@@ -1101,7 +1225,10 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
-		g.typeMap[fragment.Name] = goType
+		_, err = g.addType(goType, goType.GoName, fragment.Position)
+		if err != nil {
+			return nil, err
+		}
 
 		for _, implDef := range implementationTypes {
 			implFields, convertErr := g.convertSelectionSet(
@@ -1120,7 +1247,13 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 				descriptionInfo: implDesc,
 			}
 			goType.Implementations = append(goType.Implementations, implTyp)
-			g.typeMap[implTyp.GoName] = implTyp
+			// As above, route the fragment's per-implementation type through
+			// addType so a name collision with a directly-selected type fails
+			// generation instead of silently dropping the other type's fields.
+			_, err = g.addType(implTyp, implTyp.GoName, fragment.Position)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		err = g.attachCatchAllImplementation(goType, typ.Name, fragment.Position)
@@ -1174,5 +1307,6 @@ func (g *generator) convertField(
 		JSONName:    field.Alias,
 		GraphQLName: field.Name,
 		Description: field.Definition.Description,
+		Position:    field.Position,
 	}, nil
 }
