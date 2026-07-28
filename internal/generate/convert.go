@@ -194,7 +194,7 @@ func (g *generator) convertArguments(
 		if err != nil {
 			return nil, err
 		}
-		if arg.Type.NonNull && options.GetOmitempty() {
+		if arg.Type.NonNull && arg.DefaultValue == nil && options.GetOmitempty() {
 			return nil, errorf(arg.Position,
 				"omitempty may only be used on optional arguments: %s.%s",
 				operation.Name, arg.Variable)
