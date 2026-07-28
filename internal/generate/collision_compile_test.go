@@ -1,21 +1,21 @@
 package generate
 
 import (
-	"bytes"
-	"go/ast"
-	"go/format"
-	"go/parser"
-	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// TestGenerateCollisionCompileCorpus pins the generator's behavior on inputs
+// whose Go identifiers would otherwise collide.  Every collision case must fail
+// at generation time with an error that names the offending identifier, rather
+// than emitting Go source that fails to compile (pointing at code the user
+// never wrote) or that silently drops a requested field.  The remaining cases
+// must generate and compile cleanly, guarding against over-rejection.
 func TestGenerateCollisionCompileCorpus(t *testing.T) {
 	tests := []struct {
 		name                string
@@ -23,9 +23,16 @@ func TestGenerateCollisionCompileCorpus(t *testing.T) {
 		operations          string
 		casing              Casing
 		keepImplementations bool
-		wantGenerationErr   string
-		wantCompileErrs     []string
-		wantTypes           string
+		// wantGenerationErr, when set, is a substring the generation error must
+		// contain.  Each collision case names its offending identifier so an
+		// unrelated failure cannot satisfy it.  When empty, generation must
+		// succeed and the output must compile against only the standard library.
+		wantGenerationErr string
+		// wantGenerationErrAlso lists additional substrings the error must
+		// contain, for cases where the offending constructs are named in
+		// non-contiguous parts of the message (e.g. separated by a volatile
+		// source position).
+		wantGenerationErrAlso []string
 	}{
 		{
 			name: "baseline",
@@ -46,8 +53,9 @@ query Viewer {
 `,
 		},
 		{
-			// Both selected fields normalize to the Go identifier Foo. Expected to
-			// compile once selection-set field collision fixes land.
+			// Two GraphQL fields that differ only by case both normalize to the
+			// Go identifier Foo, which would declare the same struct field
+			// twice.
 			name: "case-distinct fields",
 			schema: `
 type Query {
@@ -61,14 +69,11 @@ query Fields {
   Foo
 }
 `,
-			wantCompileErrs: []string{
-				"Foo redeclared",
-				"other declaration of Foo",
-			},
+			wantGenerationErr: "Go identifier Foo for both field Foo (GraphQL foo) and field Foo (GraphQL Foo)",
 		},
 		{
-			// Fragment A and the type generated for sibling field a share one Go
-			// identifier. Expected to compile once fragment and field collision fixes land.
+			// Fragment A is spread as a sibling of field a; the embedded
+			// fragment type and the field both occupy the Go identifier A.
 			name: "fragment and sibling field",
 			schema: `
 type Query {
@@ -85,14 +90,11 @@ fragment A on Query {
   b
 }
 `,
-			wantCompileErrs: []string{
-				"A redeclared",
-				"other declaration of A",
-			},
+			wantGenerationErr: "Go identifier A for both field A (GraphQL a) and embedded fragment A",
 		},
 		{
-			// Field getFoo collides with the getter generated for field foo. Expected
-			// to compile once field and getter collision fixes land.
+			// Field getFoo collides with the GetFoo getter octoqlgen generates
+			// for field foo.
 			name: "field and generated getter",
 			schema: `
 type Query {
@@ -106,15 +108,15 @@ query Fields {
   getFoo
 }
 `,
-			wantCompileErrs: []string{
-				"field and method with the same name GetFoo",
-			},
+			wantGenerationErr: "Go identifier GetFoo for both field GetFoo (GraphQL getFoo) and getter GetFoo (for field Foo)",
 		},
 		{
-			// The named fragment's derived implementation type silently overwrites the
-			// directly selected Impl type, dropping its id field. The package still
-			// compiles, so this case asserts rendered declarations rather than a build
-			// error. Expected declarations change once derived-name collision fixes land.
+			// The named fragment's derived implementation type has the same Go
+			// name as the directly-selected Impl type.  The direct selection
+			// (id) and the fragment selection (login) differ, so routing the
+			// fragment implementation through the type-collision guard rejects
+			// it instead of silently overwriting the direct type and dropping
+			// its id field.
 			name: "fragment replaces derived type",
 			schema: `
 type Query {
@@ -143,13 +145,16 @@ fragment F on I {
 }
 `,
 			keepImplementations: true,
-			wantTypes: `
-type FImpl struct {
-	Login string ` + "`json:\"login\"`" + `
-}
-`,
+			wantGenerationErr: "conflicting definition for the Go type FImpl: " +
+				"it is generated from both the selection of GraphQL type Impl",
+			wantGenerationErrAlso: []string{
+				"the fragment F on GraphQL type Impl",
+				"give one of them a distinct name with an @octoqlgen(typename:) directive",
+			},
 		},
 		{
+			// With auto-camel casing, foo_bar and fooBar both normalize to the
+			// Go identifier FooBar.
 			name: "underscore and camel fields",
 			schema: `
 type Query {
@@ -163,13 +168,12 @@ query Fields {
   fooBar
 }
 `,
-			casing: Casing{Default: CasingAutoCamelCase},
-			wantCompileErrs: []string{
-				"FooBar redeclared",
-				"other declaration of FooBar",
-			},
+			casing:            Casing{Default: CasingAutoCamelCase},
+			wantGenerationErr: "Go identifier FooBar for both field FooBar (GraphQL foo_bar) and field FooBar (GraphQL fooBar)",
 		},
 		{
+			// A fragment named the same as a GraphQL type is fine as long as it
+			// does not collide with a derived type; this must keep generating.
 			name: "fragment matching GraphQL type",
 			schema: `
 type Query {
@@ -191,6 +195,9 @@ fragment Foo on Foo {
 `,
 		},
 		{
+			// Fields named marshalJSON/unmarshalJSON collide with the
+			// MarshalJSON/UnmarshalJSON methods octoqlgen emits (here forced by
+			// the embedded fragment, which requires custom marshaling).
 			name: "field and JSON methods",
 			schema: `
 type Query {
@@ -209,12 +216,11 @@ fragment Fields on Query {
   value
 }
 `,
-			wantCompileErrs: []string{
-				"field and method with the same name MarshalJSON",
-				"field and method with the same name UnmarshalJSON",
-			},
+			wantGenerationErr: "Go identifier MarshalJSON for both field MarshalJSON (GraphQL marshalJSON) and MarshalJSON method",
 		},
 		{
+			// Two enum values normalize to the same Go name; caught by the
+			// pre-existing enum-value guard, whose error shape this file models.
 			name: "enum values with same Go name",
 			schema: `
 enum State {
@@ -233,6 +239,8 @@ query State {
 			wantGenerationErr: "have conflicting Go name",
 		},
 		{
+			// An input type and an operation both named Variables use distinct
+			// derived Go names, so this must keep generating.
 			name: "input fields and operation variables",
 			schema: `
 input Variables {
@@ -248,6 +256,176 @@ query Variables($input: Variables!) {
 }
 `,
 		},
+		{
+			// A fragment shares a Go name with an input type.  The operation
+			// uses the input as a variable, so the input type is registered
+			// under the shared name before the fragment spread is resolved
+			// (variables convert before the selection set).  Reading the type
+			// map directly would find the input type and emit it in place of
+			// the fragment -- compiling cleanly but silently dropping every
+			// field the fragment selected.  Validating the stored entry's
+			// GraphQL type and selection rejects the mismatch instead.  The
+			// substring pins the input-first order that produced the silent
+			// wrong type, not the fragment-first order that already errored at
+			// the registration site.
+			name: "fragment sharing name with input type",
+			schema: `
+input Profile {
+  id: ID
+}
+type User {
+  login: String
+}
+type Query {
+  user(p: Profile): User
+}
+`,
+			operations: `
+fragment Profile on User {
+  login
+}
+query Q($p: Profile) {
+  user(p: $p) {
+    ...Profile
+  }
+}
+`,
+			wantGenerationErr: "expected GraphQL type Profile, got User",
+			wantGenerationErrAlso: []string{
+				"conflicting definition for the Go type Profile",
+				"input GraphQL type Profile",
+				"the fragment Profile on GraphQL type User",
+				"give one of them a distinct name with an @octoqlgen(typename:) directive",
+			},
+		},
+		{
+			// Two interface fields differ only in case and normalize to the
+			// same Go name, so the generated interface would declare Get<Name>
+			// twice.  With no concrete implementations there is no struct in
+			// the type map, so this is only caught by the interface pass.
+			name:                "interface fields with same getter",
+			keepImplementations: true,
+			schema: `
+interface HasName {
+  name: String!
+  Name: String!
+}
+type Query {
+  named: HasName
+}
+`,
+			operations: `
+query Q {
+  named {
+    name
+    Name
+  }
+}
+`,
+			wantGenerationErr: "generated interface QNamedHasName would emit " +
+				"two methods named GetName that do not agree",
+			wantGenerationErrAlso: []string{
+				"getter GetName (for field Name, GraphQL name)",
+				"getter GetName (for field Name, GraphQL Name)",
+			},
+		},
+		{
+			// An interface that both declares a getter GetName (for its own
+			// field) and embeds an interface fragment named GetName is valid
+			// Go: the embedded interface is a type element contributing its own
+			// method set, not a method named GetName.  A syntactic check that
+			// treats the embedded type reference as a method identifier would
+			// reject this working input, so generation must succeed and the
+			// output must compile.
+			name:                "interface field getter and embedded fragment name",
+			keepImplementations: true,
+			schema: `
+interface HasName {
+  name: String!
+  id: String!
+}
+type T implements HasName {
+  name: String!
+  id: String!
+}
+type Query {
+  thing: HasName
+}
+`,
+			operations: `
+query Q {
+  thing {
+    name
+    ...GetName
+  }
+}
+fragment GetName on HasName {
+  id
+}
+`,
+		},
+		{
+			// An interface declares getter GetFoo returning int (for its own
+			// field) and embeds an interface fragment whose method set includes
+			// GetFoo returning string.  Go forbids a method set with two
+			// same-named methods of differing signatures, so this must be
+			// rejected.  A check that never expands the embedded interface's
+			// methods would miss the conflict on the interface and emit
+			// uncompilable Go; the assertion pins the interface-pass diagnostic
+			// specifically, which only the method-set check produces.
+			name:                "interface getter and promoted method disagree",
+			keepImplementations: true,
+			schema: `
+interface HasFoo {
+  foo: Int!
+  Foo: String!
+}
+type T implements HasFoo {
+  foo: Int!
+  Foo: String!
+}
+type Query {
+  thing: HasFoo
+}
+`,
+			operations: `
+query Q {
+  thing {
+    foo
+    ...FooFrag
+  }
+}
+fragment FooFrag on HasFoo {
+  Foo
+}
+`,
+			wantGenerationErr: "two methods named GetFoo that do not agree",
+			wantGenerationErrAlso: []string{
+				"GetFoo() int",
+				"GetFoo() string",
+				"GraphQL foo",
+				"GraphQL Foo",
+			},
+		},
+		{
+			// Two operation variables differ only in case and normalize to the
+			// same Go field name.  Variables cannot be aliased, so the remedy
+			// must not suggest a field alias.
+			name: "operation variables with same Go name",
+			schema: `
+type Query {
+  value(a: String, b: String): String
+}
+`,
+			operations: `
+query Q($foo: String, $Foo: String) {
+  value(a: $foo, b: $Foo)
+}
+`,
+			wantGenerationErr: "generated type QVariables would emit the Go identifier Foo " +
+				"for both field Foo (GraphQL foo) and field Foo (GraphQL Foo); " +
+				"rename the variable or input field, or change the casing configuration",
+		},
 	}
 
 	for _, test := range tests {
@@ -256,23 +434,15 @@ query Variables($input: Variables!) {
 			if test.wantGenerationErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.wantGenerationErr)
+				for _, also := range test.wantGenerationErrAlso {
+					assert.Contains(t, err.Error(), also)
+				}
 				return
 			}
 			require.NoError(t, err)
 
-			if test.wantTypes != "" {
-				assert.Equal(t, strings.TrimSpace(test.wantTypes), renderedTypeDeclarations(t, source, "FImpl"))
-			}
-
 			output, compileErr := probeCompile(t, source)
-			if len(test.wantCompileErrs) == 0 {
-				require.NoError(t, compileErr, output)
-				return
-			}
-			require.Error(t, compileErr)
-			for _, wantCompileErr := range test.wantCompileErrs {
-				assert.Contains(t, output, wantCompileErr)
-			}
+			require.NoError(t, compileErr, output)
 		})
 	}
 }
@@ -330,34 +500,4 @@ func probeCompile(t *testing.T, source []byte) (string, error) {
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	return string(output), err
-}
-
-func renderedTypeDeclarations(t *testing.T, source []byte, names ...string) string {
-	t.Helper()
-
-	file, err := parser.ParseFile(token.NewFileSet(), "generated.go", source, 0)
-	require.NoError(t, err)
-	wanted := make(map[string]bool, len(names))
-	for _, name := range names {
-		wanted[name] = true
-	}
-	var declarations bytes.Buffer
-	for _, declaration := range file.Decls {
-		genericDeclaration, ok := declaration.(*ast.GenDecl)
-		if !ok || genericDeclaration.Tok != token.TYPE {
-			continue
-		}
-		for _, specification := range genericDeclaration.Specs {
-			typeSpecification, ok := specification.(*ast.TypeSpec)
-			if !ok || !wanted[typeSpecification.Name.Name] {
-				continue
-			}
-			err = format.Node(&declarations, token.NewFileSet(), &ast.GenDecl{
-				Tok:   token.TYPE,
-				Specs: []ast.Spec{typeSpecification},
-			})
-			require.NoError(t, err)
-		}
-	}
-	return strings.TrimSpace(declarations.String())
 }

@@ -11,6 +11,7 @@ package generate
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 
@@ -25,7 +26,7 @@ import (
 // is necessary to handle recursive input types, and an optimization in other
 // cases.)
 func (g *generator) getType(
-	goName, graphQLName string,
+	goName, graphQLName, newSource string,
 	selectionSet ast.SelectionSet,
 	pos *ast.Position,
 ) (goType, error) {
@@ -35,24 +36,65 @@ func (g *generator) getType(
 	}
 
 	if typ.GraphQLTypeName() != graphQLName {
+		oldSource := describeTypeSource(typ)
+		oldPos := g.typePositions[goName]
 		return typ, errorf(
-			pos, "conflicting definition for %s; this can indicate either "+
-				"an octoqlgen internal error, a conflict between user-specified "+
-				"type-names, or some very tricksy GraphQL field/type names: "+
-				"expected GraphQL type %s, got %s",
-			goName, typ.GraphQLTypeName(), graphQLName)
+			pos, "conflicting definition for the Go type %s: it is generated "+
+				"from both %s (at %s) and %s (at %s), which are different "+
+				"GraphQL types (expected GraphQL type %s, got %s); give one of "+
+				"them a distinct name with an @octoqlgen(typename:) directive so "+
+				"they produce separate Go types",
+			goName, oldSource, posString(oldPos), newSource, posString(pos),
+			typ.GraphQLTypeName(), graphQLName)
 	}
 
 	expectedSelectionSet := typ.SelectionSet()
-	if err := selectionsMatch(pos, selectionSet, expectedSelectionSet); err != nil {
+	err := selectionsMatch(pos, selectionSet, expectedSelectionSet)
+	if err != nil {
+		oldSource := describeTypeSource(typ)
+		oldPos := g.typePositions[goName]
 		return typ, errorf(
-			pos, "conflicting definition for %s; this can indicate either "+
-				"an octoqlgen internal error, a conflict between user-specified "+
-				"type-names, or some very tricksy GraphQL field/type names: %v",
-			goName, err)
+			pos, "conflicting definition for the Go type %s: it is generated "+
+				"from both %s (at %s) and %s (at %s), which select different "+
+				"fields (%v); give one of them a distinct name with an "+
+				"@octoqlgen(typename:) directive so they produce separate Go types",
+			goName, oldSource, posString(oldPos), newSource, posString(pos), err)
 	}
 
 	return typ, nil
+}
+
+// describeTypeSource returns a human-readable description of the GraphQL
+// construct that produced a generated type, for use in conflict errors.
+func describeTypeSource(typ goType) string {
+	graphQLName := typ.GraphQLTypeName()
+	fragmentName := ""
+	switch t := typ.(type) {
+	case *goStructType:
+		if t.IsInput {
+			return fmt.Sprintf("input GraphQL type %s", graphQLName)
+		}
+		fragmentName = t.FragmentName
+	case *goInterfaceType:
+		fragmentName = t.FragmentName
+	}
+	return describeGraphQLSource(graphQLName, fragmentName)
+}
+
+// describeGraphQLSource describes a construct by its GraphQL type name and,
+// optionally, the fragment that selected it.
+func describeGraphQLSource(graphQLName, fragmentName string) string {
+	if fragmentName != "" {
+		return fmt.Sprintf("the fragment %s on GraphQL type %s", fragmentName, graphQLName)
+	}
+	return fmt.Sprintf("the selection of GraphQL type %s", graphQLName)
+}
+
+func posString(pos *ast.Position) string {
+	if pos == nil || pos.Src == nil {
+		return "an unknown location"
+	}
+	return fmt.Sprintf("%s:%d", pos.Src.Name, pos.Line)
 }
 
 // addType inserts the type into g.typeMap, checking for conflicts.
@@ -64,12 +106,267 @@ func (g *generator) getType(
 //
 // Returns an already-existing type if found, and otherwise the given type.
 func (g *generator) addType(typ goType, goName string, pos *ast.Position) (goType, error) {
-	otherTyp, err := g.getType(goName, typ.GraphQLTypeName(), typ.SelectionSet(), pos)
+	newSource := describeTypeSource(typ)
+	otherTyp, err := g.getType(goName, typ.GraphQLTypeName(), newSource, typ.SelectionSet(), pos)
 	if otherTyp != nil || err != nil {
 		return otherTyp, err
 	}
 	g.typeMap[goName] = typ
+	g.typePositions[goName] = pos
 	return typ, nil
+}
+
+// checkGeneratedIdentifiers verifies that every Go identifier octoqlgen emits
+// into a generated struct or interface is unique: declared fields, Get<Field>
+// getters, and the synthesized MarshalJSON/UnmarshalJSON methods.
+func (g *generator) checkGeneratedIdentifiers() error {
+	names := make([]string, 0, len(g.typeMap))
+	for name := range g.typeMap {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		switch t := g.typeMap[name].(type) {
+		case *goStructType:
+			err := g.checkStructIdentifiers(t)
+			if err != nil {
+				return err
+			}
+		case *goInterfaceType:
+			err := g.checkInterfaceIdentifiers(t)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// checkStructIdentifiers reports an error if two identifiers octoqlgen would
+// emit for the given struct -- its declared fields, its getters, or its
+// (un)marshal methods -- share the same Go name.  The identifiers are checked
+// after casing normalization, since that is what turns names like foo_bar and
+// fooBar into the same Go identifier.
+func (g *generator) checkStructIdentifiers(t *goStructType) error {
+	type identifierSource struct {
+		description string
+		pos         *ast.Position
+	}
+	// The remedy depends on where the fields come from.  Output selections can
+	// be renamed with a GraphQL field alias, but input-object fields and
+	// operation variables cannot be aliased, so for those we point at the
+	// achievable fixes instead of suggesting an impossible alias.
+	remedy := "disambiguate the conflicting selection with a field alias"
+	if t.IsInput {
+		remedy = "rename the variable or input field, or change the casing configuration"
+	}
+	used := make(map[string]identifierSource)
+	register := func(name, description string, pos *ast.Position) error {
+		if name == "" || name == "_" {
+			return nil
+		}
+		existing, ok := used[name]
+		if ok {
+			// Prefer the position of whichever source has one, so the error
+			// points at the user's GraphQL rather than at nothing.
+			errPos := pos
+			if errPos == nil {
+				errPos = existing.pos
+			}
+			return errorf(errPos,
+				"generated type %s would emit the Go identifier %s for both %s and %s; %s",
+				t.GoName, name, existing.description, description, remedy)
+		}
+		used[name] = identifierSource{description: description, pos: pos}
+		return nil
+	}
+
+	// Declared struct fields.  Embedded fields (from named-fragment spreads)
+	// are promoted under their type's Go name, so that is the identifier they
+	// occupy.
+	for _, field := range t.Fields {
+		if field.IsEmbedded() {
+			embeddedName := field.GoType.Unwrap().Reference()
+			err := register(embeddedName,
+				fmt.Sprintf("embedded fragment %s", embeddedName), field.Position)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		err := register(field.GoName,
+			fmt.Sprintf("field %s (GraphQL %s)", field.GoName, field.GraphQLName),
+			field.Position)
+		if err != nil {
+			return err
+		}
+	}
+
+	// The MarshalJSON/UnmarshalJSON methods, emitted only when the struct needs
+	// custom (un)marshaling.
+	if t.NeedsMarshaling() {
+		for _, method := range []string{"MarshalJSON", "UnmarshalJSON"} {
+			err := register(method, method+" method", nil)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if t.IsInput {
+		return nil
+	}
+	flattened, err := t.FlattenedFields()
+	if err != nil {
+		return err
+	}
+	for _, field := range flattened {
+		getter := "Get" + field.GoName
+		err = register(getter,
+			fmt.Sprintf("getter %s (for field %s)", getter, field.GoName),
+			field.Position)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// interfaceMethod describes one method in a generated interface's method set,
+// including methods promoted from embedded interface fragments.  It is derived
+// from goInterfaceType.members, so the method set that is checked matches the
+// one WriteDefinition emits.
+type interfaceMethod struct {
+	name string
+	// signature is the method signature as it will be emitted, preserving the
+	// binding's original type spelling so diagnostics show what the user wrote.
+	signature string
+	// canonSignature is signature with Go's predeclared type aliases folded to
+	// their canonical spellings.  Compare this, not signature, when deciding
+	// whether two same-named methods legally collapse: Go's rule is identical
+	// types, not identical source text.
+	canonSignature string
+	// owner is the Go name of the interface that explicitly declares this
+	// method.  For methods promoted from an embedded interface, owner is that
+	// embedded interface, not the interface it was promoted into.
+	owner       string
+	description string
+	pos         *ast.Position
+}
+
+// predeclaredTypeAliases folds Go's predeclared type aliases (byte, rune, any)
+// to their canonical spelling.  Each pattern matches the alias as a whole
+// identifier, so it also rewrites them inside pointer, slice, array, and map
+// spellings (e.g. []byte) while leaving names like bytes untouched.
+//
+// A word boundary also matches after a dot, so a qualified pkg.byte would fold
+// to pkg.uint8.  That is harmless: byte, rune, and any are lowercase, so such a
+// type is unexported and can never be named through a cross-package selector.
+var predeclaredTypeAliases = []struct {
+	alias *regexp.Regexp
+	canon string
+}{
+	{regexp.MustCompile(`\bbyte\b`), "uint8"},
+	{regexp.MustCompile(`\brune\b`), "int32"},
+	{regexp.MustCompile(`\bany\b`), "interface{}"},
+}
+
+// canonicalizeTypeRef rewrites Go's predeclared type aliases to their canonical
+// spellings so type references Go considers identical compare equal.  Residual:
+// identical types spelled through a user-defined or imported alias are not
+// folded and will still be reported as conflicting.
+func canonicalizeTypeRef(ref string) string {
+	for _, a := range predeclaredTypeAliases {
+		ref = a.alias.ReplaceAllString(ref, a.canon)
+	}
+	return ref
+}
+
+// interfaceMethodSet returns the full method set of the Go interface t would
+// emit, expanding embedded interfaces into the methods Go promotes from them.
+// It builds from the same members list WriteDefinition emits, so the checked
+// method set cannot drift from the emitted one.  visited guards against
+// re-expanding an interface already in progress; GraphQL forbids fragment
+// cycles, so the embedding graph is acyclic and this is only defensive.
+func interfaceMethodSet(t *goInterfaceType, visited map[string]bool) []interfaceMethod {
+	if visited[t.GoName] {
+		return nil
+	}
+	visited[t.GoName] = true
+
+	var methods []interfaceMethod
+	for _, member := range t.members() {
+		switch member.kind {
+		case interfaceMarkerMember:
+			methods = append(methods, interfaceMethod{
+				name:           member.methodName,
+				signature:      "()",
+				canonSignature: "()",
+				owner:          t.GoName,
+				description:    fmt.Sprintf("the implements-marker method of interface %s", t.GoName),
+			})
+		case interfaceGetterMember:
+			methods = append(methods, interfaceMethod{
+				name:           member.methodName,
+				signature:      "() " + member.resultRef,
+				canonSignature: "() " + canonicalizeTypeRef(member.resultRef),
+				owner:          t.GoName,
+				description: fmt.Sprintf("getter %s (for field %s, GraphQL %s)",
+					member.methodName, member.field.GoName, member.field.GraphQLName),
+				pos: member.field.Position,
+			})
+		case interfaceEmbeddedMember:
+			// An embedded interface contributes its method set, not its name,
+			// so expand it.  A non-interface cannot be embedded, so there is
+			// nothing to promote.
+			embedded, ok := member.field.GoType.Unwrap().(*goInterfaceType)
+			if !ok {
+				continue
+			}
+			methods = append(methods, interfaceMethodSet(embedded, visited)...)
+		}
+	}
+	return methods
+}
+
+// checkInterfaceIdentifiers reports an error if the Go interface t would emit a
+// method set that fails to compile: two same-named methods with different
+// signatures, one or both promoted from an embedded interface.  It validates
+// the method set -- expanding embedded interfaces into the methods they promote
+// -- rather than the syntactic elements, which would mistake an embedded
+// interface for a method and miss genuine promoted-method conflicts.
+//
+// checkStructIdentifiers does not cover this: an interface with no concrete
+// implementations (reachable when omit_unreferenced_implementations is false)
+// has no struct in the type map to inspect.
+func (g *generator) checkInterfaceIdentifiers(t *goInterfaceType) error {
+	seen := make(map[string]interfaceMethod)
+	for _, method := range interfaceMethodSet(t, map[string]bool{}) {
+		existing, ok := seen[method.name]
+		if !ok {
+			seen[method.name] = method
+			continue
+		}
+		sameOwner := existing.owner == method.owner
+		if !sameOwner && existing.canonSignature == method.canonSignature {
+			// Identical methods promoted from distinct embedded interfaces are
+			// legal and collapse into one.  Comparing canonSignature (not
+			// signature) makes byte and uint8 collapse as Go collapses them.
+			continue
+		}
+		errPos := method.pos
+		if errPos == nil {
+			errPos = existing.pos
+		}
+		return errorf(errPos,
+			"generated interface %s would emit two methods named %s that do not "+
+				"agree: %s%s from %s, and %s%s from %s; "+
+				"disambiguate the conflicting selection with a field alias",
+			t.GoName, method.name,
+			method.name, existing.signature, existing.description,
+			method.name, method.signature, method.description)
+	}
+	return nil
 }
 
 // baseTypeForOperation returns the definition of the GraphQL type to which the
@@ -223,6 +520,7 @@ func (g *generator) convertArguments(
 			JSONName:    arg.Variable,
 			GraphQLName: arg.Variable,
 			Omitempty:   options.GetOmitempty(),
+			Position:    arg.Position,
 		}
 	}
 	goTyp := &goStructType{
@@ -422,11 +720,23 @@ func (g *generator) convertDefinition(
 		name = makeTypeName(namePrefix, def.Name, g.Config.GetDefaultCasingAlgorithm())
 	}
 
+	// Register and compare types against a position in the operation (the
+	// field, variable, or @octoqlgen directive that selected this type), not
+	// against pos, which is the schema location of the type's definition.  A
+	// conflict is between two selections in the user's operations, so pointing
+	// the error there -- and at two distinct locations -- is what makes it
+	// actionable.  options.pos is the selecting node's position (the field or
+	// variable, or the directive comment when one is present).
+	provenancePos := pos
+	if options != nil && options.pos != nil {
+		provenancePos = options.pos
+	}
+
 	// If we already generated the type, we can skip it as long as it matches
 	// (and must fail if it doesn't).  (This can happen for input/enum types,
 	// types of fields of interfaces, when options.TypeName is set, or, of
 	// course, on invalid configuration or internal error.)
-	existing, err := g.getType(name, def.Name, selectionSet, pos)
+	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
 	if existing != nil || err != nil {
 		return existing, err
 	}
@@ -464,7 +774,7 @@ func (g *generator) convertDefinition(
 			Selection:       selectionSet,
 			descriptionInfo: desc,
 		}
-		return g.addType(goType, goType.GoName, pos)
+		return g.addType(goType, goType.GoName, provenancePos)
 
 	case ast.InputObject:
 		goType := &goStructType{
@@ -475,7 +785,7 @@ func (g *generator) convertDefinition(
 		}
 		// To handle recursive types, we need to add the type to the type-map
 		// *before* converting its fields.
-		_, err := g.addType(goType, goType.GoName, pos)
+		_, err := g.addType(goType, goType.GoName, provenancePos)
 		if err != nil {
 			return nil, err
 		}
@@ -531,6 +841,7 @@ func (g *generator) convertDefinition(
 				GraphQLName: field.Name,
 				Description: field.Description,
 				Omitempty:   fieldOptions.GetOmitempty(),
+				Position:    field.Position,
 			}
 		}
 		return goType, nil
@@ -585,7 +896,7 @@ func (g *generator) convertDefinition(
 		if err != nil {
 			return nil, err
 		}
-		return g.addType(goType, goType.GoName, pos)
+		return g.addType(goType, goType.GoName, provenancePos)
 
 	case ast.Enum:
 		goType := &goEnumType{
@@ -613,7 +924,7 @@ func (g *generator) convertDefinition(
 			}
 			goNames[goName] = &goType.Values[i]
 		}
-		return g.addType(goType, goType.GoName, pos)
+		return g.addType(goType, goType.GoName, provenancePos)
 
 	case ast.Scalar:
 		if builtinTypes[def.Name] != "" {
@@ -624,7 +935,7 @@ func (g *generator) convertDefinition(
 				GoBuiltinName: builtinTypes[def.Name],
 				GraphQLName:   def.Name,
 			}
-			return g.addType(goType, goType.GoTypeName, pos)
+			return g.addType(goType, goType.GoTypeName, provenancePos)
 		}
 
 		// (If you had an entry in bindings, we would have returned it above.)
@@ -1006,12 +1317,23 @@ func (g *generator) convertFragmentSpread(
 		return nil, nil
 	}
 
-	typ, ok := g.typeMap[fragmentSpread.Name]
-	if !ok {
+	// If we've already generated the fragment's type, reuse it, but validate
+	// via getType that the entry stored under this fragment's name really is
+	// this fragment (right GraphQL type and selection) rather than an
+	// unrelated derived type that happens to share the name -- otherwise we
+	// would silently emit the wrong type and drop the fragment's fields.
+	fragment := fragmentSpread.Definition
+	typ, err := g.getType(
+		fragment.Name, fragment.Definition.Name,
+		describeGraphQLSource(fragment.Definition.Name, fragment.Name),
+		fragment.SelectionSet, fragment.Position)
+	if err != nil {
+		return nil, err
+	}
+	if typ == nil {
 		// If we haven't yet, convert the fragment itself.  Note that fragments
 		// aren't allowed to have cycles, so this won't recurse forever.
-		var err error
-		typ, err = g.convertNamedFragment(fragmentSpread.Definition)
+		typ, err = g.convertNamedFragment(fragment)
 		if err != nil {
 			return nil, err
 		}
@@ -1044,7 +1366,7 @@ func (g *generator) convertFragmentSpread(
 
 	// TODO(benkraft): Set directive here if we ever allow @octoqlgen
 	// directives on fragment-spreads.
-	return &goStructField{GoName: "" /* i.e. embedded */, GoType: typ}, nil
+	return &goStructField{GoName: "" /* i.e. embedded */, GoType: typ, Position: fragmentSpread.Position}, nil
 }
 
 // convertNamedFragment converts a single GraphQL named fragment-definition
@@ -1088,8 +1410,10 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
-		g.typeMap[fragment.Name] = goType
-		return goType, nil
+		// Route through addType (rather than writing g.typeMap directly) so a
+		// fragment whose Go name collides with an already-generated type is
+		// rejected instead of silently overwriting it.
+		return g.addType(goType, goType.GoName, fragment.Position)
 	case ast.Interface, ast.Union:
 		implementationTypes := g.schema.GetPossibleTypes(typ)
 		// Make sure we generate stable output by sorting the types by name when we get them
@@ -1101,7 +1425,10 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
-		g.typeMap[fragment.Name] = goType
+		_, err = g.addType(goType, goType.GoName, fragment.Position)
+		if err != nil {
+			return nil, err
+		}
 
 		for _, implDef := range implementationTypes {
 			implFields, convertErr := g.convertSelectionSet(
@@ -1120,7 +1447,13 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 				descriptionInfo: implDesc,
 			}
 			goType.Implementations = append(goType.Implementations, implTyp)
-			g.typeMap[implTyp.GoName] = implTyp
+			// As above, route the fragment's per-implementation type through
+			// addType so a name collision with a directly-selected type fails
+			// generation instead of silently dropping the other type's fields.
+			_, err = g.addType(implTyp, implTyp.GoName, fragment.Position)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		err = g.attachCatchAllImplementation(goType, typ.Name, fragment.Position)
@@ -1174,5 +1507,6 @@ func (g *generator) convertField(
 		JSONName:    field.Alias,
 		GraphQLName: field.Name,
 		Description: field.Definition.Description,
+		Position:    field.Position,
 	}, nil
 }
