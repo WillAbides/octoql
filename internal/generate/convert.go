@@ -90,7 +90,6 @@ func describeGraphQLSource(graphQLName, fragmentName string) string {
 	return fmt.Sprintf("the selection of GraphQL type %s", graphQLName)
 }
 
-// posString renders a source position for a conflict error.
 func posString(pos *ast.Position) string {
 	if pos == nil || pos.Src == nil {
 		return "an unknown location"
@@ -118,14 +117,8 @@ func (g *generator) addType(typ goType, goName string, pos *ast.Position) (goTyp
 }
 
 // checkGeneratedIdentifiers verifies that every Go identifier octoqlgen emits
-// into a generated struct is unique within that struct.  This covers both
-// field-vs-field collisions and field-vs-method collisions, where the methods
-// are the Get<Field> getters and the MarshalJSON/UnmarshalJSON methods
-// octoqlgen synthesizes.  The Go compiler would otherwise reject the generated
-// code -- pointing at code the user never wrote -- so we fail generation with
-// an actionable error instead.  We deliberately do not auto-rename to
-// disambiguate: silently changing a user's field names is the same class of
-// defect.  The fix is a GraphQL field alias.
+// into a generated struct or interface is unique: declared fields, Get<Field>
+// getters, and the synthesized MarshalJSON/UnmarshalJSON methods.
 func (g *generator) checkGeneratedIdentifiers() error {
 	names := make([]string, 0, len(g.typeMap))
 	for name := range g.typeMap {
@@ -220,7 +213,6 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 		}
 	}
 
-	// Getters are emitted for output structs only, one per flattened field.
 	if t.IsInput {
 		return nil
 	}
@@ -250,10 +242,9 @@ type interfaceMethod struct {
 	// binding's original type spelling so diagnostics show what the user wrote.
 	signature string
 	// canonSignature is signature with Go's predeclared type aliases folded to
-	// their canonical spellings, so overlap comparison matches Go's rule that
-	// overlapping methods must have identical *types*, not identical source
-	// text.  Compare this, not signature, when deciding whether two same-named
-	// methods legally collapse.
+	// their canonical spellings.  Compare this, not signature, when deciding
+	// whether two same-named methods legally collapse: Go's rule is identical
+	// types, not identical source text.
 	canonSignature string
 	// owner is the Go name of the interface that explicitly declares this
 	// method.  For methods promoted from an embedded interface, owner is that
@@ -263,22 +254,14 @@ type interfaceMethod struct {
 	pos         *ast.Position
 }
 
-// predeclaredTypeAliases folds Go's predeclared type aliases to the canonical
-// spelling of the identical underlying type.  Go treats each pair as the same
-// type, so two overlapping interface methods that differ only by which spelling
-// a binding used are still valid Go.  Each pattern matches the alias only as a
-// whole identifier, so it rewrites the aliases inside pointer, slice, array, and
-// map spellings (e.g. []byte, map[string]byte) while leaving unrelated names
-// such as bytes or myrune untouched.
+// predeclaredTypeAliases folds Go's predeclared type aliases (byte, rune, any)
+// to their canonical spelling.  Each pattern matches the alias as a whole
+// identifier, so it also rewrites them inside pointer, slice, array, and map
+// spellings (e.g. []byte) while leaving names like bytes untouched.
 //
-// A word boundary also matches after a dot, so a qualified reference like
-// pkg.byte would fold to pkg.uint8.  That is harmless: byte, rune, and any are
-// predeclared lowercase identifiers, so a package-level type with one of those
-// names is unexported and cannot be named through a qualified selector from
-// another package.  Such a reference is never valid Go, so folding it cannot
-// mask a real conflict between two compilable types -- and if one somehow
-// reached here, the concrete implementer's duplicate getter is caught by the
-// struct identifier check regardless.
+// A word boundary also matches after a dot, so a qualified pkg.byte would fold
+// to pkg.uint8.  That is harmless: byte, rune, and any are lowercase, so such a
+// type is unexported and can never be named through a cross-package selector.
 var predeclaredTypeAliases = []struct {
 	alias *regexp.Regexp
 	canon string
@@ -288,14 +271,10 @@ var predeclaredTypeAliases = []struct {
 	{regexp.MustCompile(`\bany\b`), "interface{}"},
 }
 
-// canonicalizeTypeRef rewrites Go's predeclared type aliases (byte, rune, any)
-// to their canonical spellings so type references that Go considers identical
-// compare equal.  It is deliberately limited to the predeclared aliases:
+// canonicalizeTypeRef rewrites Go's predeclared type aliases to their canonical
+// spellings so type references Go considers identical compare equal.  Residual:
 // identical types spelled through a user-defined or imported alias are not
-// resolved and will still be reported as conflicting.  Resolving those would
-// require go/types package resolution during generation, which this generator
-// avoids by treating bindings as opaque strings; the remedy for that residual
-// case is to spell the conflicting bindings consistently or alias the field.
+// folded and will still be reported as conflicting.
 func canonicalizeTypeRef(ref string) string {
 	for _, a := range predeclaredTypeAliases {
 		ref = a.alias.ReplaceAllString(ref, a.canon)
@@ -337,11 +316,9 @@ func interfaceMethodSet(t *goInterfaceType, visited map[string]bool) []interface
 				pos: member.field.Position,
 			})
 		case interfaceEmbeddedMember:
-			// A Go interface embeds another interface as a type element, which
-			// contributes that interface's method set -- not its name.  Expand
-			// the embedded interface into its promoted methods.  A non-interface
-			// cannot be legally embedded in an interface, so there is nothing to
-			// promote (and the compiler, not this check, owns that error).
+			// An embedded interface contributes its method set, not its name,
+			// so expand it.  A non-interface cannot be embedded, so there is
+			// nothing to promote.
 			embedded, ok := member.field.GoType.Unwrap().(*goInterfaceType)
 			if !ok {
 				continue
@@ -353,18 +330,11 @@ func interfaceMethodSet(t *goInterfaceType, visited map[string]bool) []interface
 }
 
 // checkInterfaceIdentifiers reports an error if the Go interface t would emit a
-// method set that fails to compile: two explicitly declared methods with the
-// same name, or two same-named methods (one or both promoted from an embedded
-// interface) with different signatures.  Go permits a same-named method to
-// appear more than once only when it comes from distinct embedded interfaces
-// with identical signatures; anything else is a compile error, which we reject
-// at generation time with an actionable message rather than emitting Go source
-// the user never wrote.
-//
-// We validate the interface's method set -- expanding embedded interfaces into
-// the methods they promote -- rather than its syntactic elements.  Checking
-// syntax would both mistake an embedded interface (a type element) for a method
-// and miss a genuine promoted-method conflict.
+// method set that fails to compile: two same-named methods with different
+// signatures, one or both promoted from an embedded interface.  It validates
+// the method set -- expanding embedded interfaces into the methods they promote
+// -- rather than the syntactic elements, which would mistake an embedded
+// interface for a method and miss genuine promoted-method conflicts.
 //
 // checkStructIdentifiers does not cover this: an interface with no concrete
 // implementations (reachable when omit_unreferenced_implementations is false)
@@ -380,12 +350,8 @@ func (g *generator) checkInterfaceIdentifiers(t *goInterfaceType) error {
 		sameOwner := existing.owner == method.owner
 		if !sameOwner && existing.canonSignature == method.canonSignature {
 			// Identical methods promoted from distinct embedded interfaces are
-			// legal and collapse into one.  We compare canonSignature so a
-			// method spelled byte and one spelled uint8 (the same Go type)
-			// collapse as Go collapses them.  Residual limitation: identical
-			// types spelled through a non-predeclared alias are not folded and
-			// will still be reported here; the message names both spellings so
-			// the user can make the bindings consistent or alias the field.
+			// legal and collapse into one.  Comparing canonSignature (not
+			// signature) makes byte and uint8 collapse as Go collapses them.
 			continue
 		}
 		errPos := method.pos
