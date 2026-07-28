@@ -149,8 +149,15 @@ fmt.Println(response.Repository.NameWithOwner)
 Pass a different endpoint to `githubapi.NewClient` for GHES, a proxy, or an
 `httptest.Server`. Pass nil as the HTTP client to use `http.DefaultClient`.
 
-For basic authentication or another authentication scheme, configure the
-`http.Client` or `http.RoundTripper` passed to `NewClient`.
+Use `Client.SetBearerToken` for OAuth 2.0 bearer authentication. For basic
+authentication or another scheme, configure the `http.Client` or
+`http.RoundTripper` passed to `NewClient`. Credentials applied by a custom
+`RoundTripper` are reapplied on every hop, bypassing normal redirect credential
+protections. Generated clients refuse redirects, but a custom transport that
+follows redirects itself can bypass that policy.
+
+An endpoint that returns a redirect now fails the operation with an error rather
+than following the redirect. Configure the final GraphQL endpoint directly.
 
 ## Runtime responses and errors
 
