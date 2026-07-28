@@ -239,65 +239,110 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 	return nil
 }
 
-// checkInterfaceIdentifiers reports an error if two identifiers octoqlgen would
-// emit into the given interface share the same Go name.  A Go interface may not
-// declare the same method twice, so a duplicate here would otherwise produce
-// Go source that fails to compile.  The identifiers mirror those emitted by
-// goInterfaceType.WriteDefinition: the implements-marker method, the embedded
-// interface references, and the Get<Field> getter for each shared field.
+// interfaceMethod describes one method in a generated interface's method set,
+// including methods promoted from embedded interface fragments.  It is derived
+// from goInterfaceType.members, so the method set that is checked matches the
+// one WriteDefinition emits.
+type interfaceMethod struct {
+	name      string
+	signature string
+	// owner is the Go name of the interface that explicitly declares this
+	// method.  For methods promoted from an embedded interface, owner is that
+	// embedded interface, not the interface it was promoted into.
+	owner       string
+	description string
+	pos         *ast.Position
+}
+
+// interfaceMethodSet returns the full method set of the Go interface t would
+// emit, expanding embedded interfaces into the methods Go promotes from them.
+// It builds from the same members list WriteDefinition emits, so the checked
+// method set cannot drift from the emitted one.  visited guards against
+// re-expanding an interface already in progress; GraphQL forbids fragment
+// cycles, so the embedding graph is acyclic and this is only defensive.
+func interfaceMethodSet(t *goInterfaceType, visited map[string]bool) []interfaceMethod {
+	if visited[t.GoName] {
+		return nil
+	}
+	visited[t.GoName] = true
+
+	var methods []interfaceMethod
+	for _, member := range t.members() {
+		switch member.kind {
+		case interfaceMarkerMember:
+			methods = append(methods, interfaceMethod{
+				name:        member.methodName,
+				signature:   "()",
+				owner:       t.GoName,
+				description: fmt.Sprintf("the implements-marker method of interface %s", t.GoName),
+			})
+		case interfaceGetterMember:
+			methods = append(methods, interfaceMethod{
+				name:      member.methodName,
+				signature: "() " + member.resultRef,
+				owner:     t.GoName,
+				description: fmt.Sprintf("getter %s (for field %s, GraphQL %s)",
+					member.methodName, member.field.GoName, member.field.GraphQLName),
+				pos: member.field.Position,
+			})
+		case interfaceEmbeddedMember:
+			// A Go interface embeds another interface as a type element, which
+			// contributes that interface's method set -- not its name.  Expand
+			// the embedded interface into its promoted methods.  A non-interface
+			// cannot be legally embedded in an interface, so there is nothing to
+			// promote (and the compiler, not this check, owns that error).
+			embedded, ok := member.field.GoType.Unwrap().(*goInterfaceType)
+			if !ok {
+				continue
+			}
+			methods = append(methods, interfaceMethodSet(embedded, visited)...)
+		}
+	}
+	return methods
+}
+
+// checkInterfaceIdentifiers reports an error if the Go interface t would emit a
+// method set that fails to compile: two explicitly declared methods with the
+// same name, or two same-named methods (one or both promoted from an embedded
+// interface) with different signatures.  Go permits a same-named method to
+// appear more than once only when it comes from distinct embedded interfaces
+// with identical signatures; anything else is a compile error, which we reject
+// at generation time with an actionable message rather than emitting Go source
+// the user never wrote.
+//
+// We validate the interface's method set -- expanding embedded interfaces into
+// the methods they promote -- rather than its syntactic elements.  Checking
+// syntax would both mistake an embedded interface (a type element) for a method
+// and miss a genuine promoted-method conflict.
 //
 // checkStructIdentifiers does not cover this: an interface with no concrete
 // implementations (reachable when omit_unreferenced_implementations is false)
 // has no struct in the type map to inspect.
 func (g *generator) checkInterfaceIdentifiers(t *goInterfaceType) error {
-	type identifierSource struct {
-		description string
-		pos         *ast.Position
-	}
-	used := make(map[string]identifierSource)
-	register := func(name, description string, pos *ast.Position) error {
-		if name == "" || name == "_" {
-			return nil
-		}
-		existing, ok := used[name]
-		if ok {
-			errPos := pos
-			if errPos == nil {
-				errPos = existing.pos
-			}
-			return errorf(errPos,
-				"generated interface %s would emit the Go identifier %s for both %s and %s; "+
-					"disambiguate the conflicting selection with a field alias",
-				t.GoName, name, existing.description, description)
-		}
-		used[name] = identifierSource{description: description, pos: pos}
-		return nil
-	}
-
-	// The implements-marker method occupies the interface's method namespace.
-	marker := "implementsGraphQLInterface" + t.GoName
-	err := register(marker, "the implements-marker method", nil)
-	if err != nil {
-		return err
-	}
-
-	for _, field := range t.SharedFields {
-		if field.IsEmbedded() {
-			embeddedName := field.GoType.Unwrap().Reference()
-			err = register(embeddedName,
-				fmt.Sprintf("embedded fragment %s", embeddedName), field.Position)
-			if err != nil {
-				return err
-			}
+	seen := make(map[string]interfaceMethod)
+	for _, method := range interfaceMethodSet(t, map[string]bool{}) {
+		existing, ok := seen[method.name]
+		if !ok {
+			seen[method.name] = method
 			continue
 		}
-		getter := "Get" + field.GoName
-		err = register(getter,
-			fmt.Sprintf("getter %s (for field %s, GraphQL %s)", getter, field.GoName, field.GraphQLName),
-			field.Position)
-		if err != nil {
-			return err
+		sameOwner := existing.owner == method.owner
+		if !sameOwner && existing.signature == method.signature {
+			// Identical methods promoted from distinct embedded interfaces are
+			// legal and collapse into one.
+			continue
 		}
+		errPos := method.pos
+		if errPos == nil {
+			errPos = existing.pos
+		}
+		return errorf(errPos,
+			"generated interface %s would emit two methods named %s that do not "+
+				"agree: %s%s from %s, and %s%s from %s; "+
+				"disambiguate the conflicting selection with a field alias",
+			t.GoName, method.name,
+			method.name, existing.signature, existing.description,
+			method.name, method.signature, method.description)
 	}
 	return nil
 }

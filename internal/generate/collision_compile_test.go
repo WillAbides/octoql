@@ -322,9 +322,90 @@ query Q {
   }
 }
 `,
-			wantGenerationErr: "Go identifier GetName for both getter GetName " +
-				"(for field Name, GraphQL name) and getter GetName " +
-				"(for field Name, GraphQL Name)",
+			wantGenerationErr: "generated interface QNamedHasName would emit " +
+				"two methods named GetName that do not agree",
+			wantGenerationErrAlso: []string{
+				"getter GetName (for field Name, GraphQL name)",
+				"getter GetName (for field Name, GraphQL Name)",
+			},
+		},
+		{
+			// An interface that both declares a getter GetName (for its own
+			// field) and embeds an interface fragment named GetName is valid
+			// Go: the embedded interface is a type element contributing its own
+			// method set, not a method named GetName.  A syntactic check that
+			// treats the embedded type reference as a method identifier would
+			// reject this working input, so generation must succeed and the
+			// output must compile.
+			name:                "interface field getter and embedded fragment name",
+			keepImplementations: true,
+			schema: `
+interface HasName {
+  name: String!
+  id: String!
+}
+type T implements HasName {
+  name: String!
+  id: String!
+}
+type Query {
+  thing: HasName
+}
+`,
+			operations: `
+query Q {
+  thing {
+    name
+    ...GetName
+  }
+}
+fragment GetName on HasName {
+  id
+}
+`,
+		},
+		{
+			// An interface declares getter GetFoo returning int (for its own
+			// field) and embeds an interface fragment whose method set includes
+			// GetFoo returning string.  Go forbids a method set with two
+			// same-named methods of differing signatures, so this must be
+			// rejected.  A check that never expands the embedded interface's
+			// methods would miss the conflict on the interface and emit
+			// uncompilable Go; the assertion pins the interface-pass diagnostic
+			// specifically, which only the method-set check produces.
+			name:                "interface getter and promoted method disagree",
+			keepImplementations: true,
+			schema: `
+interface HasFoo {
+  foo: Int!
+  Foo: String!
+}
+type T implements HasFoo {
+  foo: Int!
+  Foo: String!
+}
+type Query {
+  thing: HasFoo
+}
+`,
+			operations: `
+query Q {
+  thing {
+    foo
+    ...FooFrag
+  }
+}
+fragment FooFrag on HasFoo {
+  Foo
+}
+`,
+			wantGenerationErr: "two methods named GetFoo that do not agree",
+			wantGenerationErrAlso: []string{
+				"GetFoo() int",
+				"GetFoo() string",
+				"GraphQL foo",
+				"GraphQL Foo",
+			},
 		},
 		{
 			// Two operation variables differ only in case and normalize to the

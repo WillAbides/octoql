@@ -483,42 +483,103 @@ type goInterfaceType struct {
 	descriptionInfo
 }
 
+// interfaceMemberKind classifies a member octoqlgen declares directly on a
+// generated Go interface.
+type interfaceMemberKind int
+
+const (
+	interfaceMarkerMember interfaceMemberKind = iota
+	interfaceGetterMember
+	interfaceEmbeddedMember
+)
+
+// interfaceMember is one member octoqlgen writes directly into a generated Go
+// interface: the implements-marker method, a Get<Field> getter, or an embedded
+// interface element.  WriteDefinition emits these and checkInterfaceIdentifiers
+// validates the resulting method set from the same list, so the identifiers
+// that are emitted and the identifiers that are checked cannot drift apart.
+type interfaceMember struct {
+	kind interfaceMemberKind
+	// methodName is set for the marker and getter members.
+	methodName string
+	// resultRef is the getter's result type reference (getters only).
+	resultRef string
+	// field is the shared field a getter or embedded member came from; it is
+	// nil for the marker, and for an embedded member it carries the embedded
+	// type.
+	field *goStructField
+}
+
+func (t *goInterfaceType) markerMethodName() string {
+	return "implementsGraphQLInterface" + t.GoName
+}
+
+// members returns the members octoqlgen declares directly on the interface t.
+// It is the single source of truth for the marker-method spelling, the getter
+// spelling and signature, and the embedded elements, shared by WriteDefinition
+// (which emits them) and the identifier check (which validates the resulting
+// method set).
+func (t *goInterfaceType) members() []interfaceMember {
+	members := make([]interfaceMember, 0, len(t.SharedFields)+1)
+	members = append(members, interfaceMember{
+		kind:       interfaceMarkerMember,
+		methodName: t.markerMethodName(),
+	})
+	for _, sharedField := range t.SharedFields {
+		if sharedField.GoName == "" { // embedded type
+			members = append(members, interfaceMember{
+				kind:  interfaceEmbeddedMember,
+				field: sharedField,
+			})
+			continue
+		}
+		members = append(members, interfaceMember{
+			kind:       interfaceGetterMember,
+			methodName: "Get" + sharedField.GoName,
+			resultRef:  sharedField.GoType.Reference(),
+			field:      sharedField,
+		})
+	}
+	return members
+}
+
 func (t *goInterfaceType) WriteDefinition(w io.Writer, g *generator) error {
 	writeDescription(w, interfaceDescription(t))
 
 	// Write the interface.
 	fmt.Fprintf(w, "type %s interface {\n", t.GoName)
-	implementsMethodName := fmt.Sprintf("implementsGraphQLInterface%v", t.GoName)
-	fmt.Fprintf(w, "\t%s()\n", implementsMethodName)
-	for _, sharedField := range t.SharedFields {
-		if sharedField.GoName == "" { // embedded type
-			fmt.Fprintf(w, "\t%s\n", sharedField.GoType.Reference())
-			continue
-		}
-
-		methodName := "Get" + sharedField.GoName
-		description := ""
-		if sharedField.GraphQLName == "__typename" {
-			description = fmt.Sprintf(
-				"%s returns the receiver's concrete GraphQL type-name "+
-					"(see interface doc for possible values).", methodName)
-		} else {
-			description = fmt.Sprintf(
-				`%s returns the interface-field %q from its implementation.`,
-				methodName, sharedField.GraphQLName)
-			if sharedField.Description != "" {
+	for _, member := range t.members() {
+		switch member.kind {
+		case interfaceMarkerMember:
+			fmt.Fprintf(w, "\t%s()\n", member.methodName)
+		case interfaceEmbeddedMember:
+			fmt.Fprintf(w, "\t%s\n", member.field.GoType.Reference())
+		case interfaceGetterMember:
+			sharedField := member.field
+			description := ""
+			if sharedField.GraphQLName == "__typename" {
 				description = fmt.Sprintf(
-					"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
-					description, sharedField.Description)
+					"%s returns the receiver's concrete GraphQL type-name "+
+						"(see interface doc for possible values).", member.methodName)
+			} else {
+				description = fmt.Sprintf(
+					`%s returns the interface-field %q from its implementation.`,
+					member.methodName, sharedField.GraphQLName)
+				if sharedField.Description != "" {
+					description = fmt.Sprintf(
+						"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
+						description, sharedField.Description)
+				}
 			}
-		}
 
-		writeDescription(w, description)
-		fmt.Fprintf(w, "\t%s() %s\n", methodName, sharedField.GoType.Reference())
+			writeDescription(w, description)
+			fmt.Fprintf(w, "\t%s() %s\n", member.methodName, member.resultRef)
+		}
 	}
 	fmt.Fprintf(w, "}\n")
 
 	// Now, write out the implementations.
+	implementsMethodName := t.markerMethodName()
 	for _, impl := range t.Implementations {
 		fmt.Fprintf(w, "func (v *%s) %s() {}\n",
 			impl.Reference(), implementsMethodName)
