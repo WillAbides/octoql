@@ -29,6 +29,10 @@ type generator struct {
 	Operations []*operation
 	// The types needed for these operations.
 	typeMap map[string]goType
+	// The source position at which each Go type name was first registered, so
+	// a conflict error can point at the earlier construct as well as the new
+	// one.
+	typePositions map[string]*ast.Position
 	// Imports needed for these operations, path -> alias and alias -> true
 	imports     map[string]string
 	usedAliases map[string]bool
@@ -193,6 +197,7 @@ func newGenerator(
 	g := generator{
 		Config:               config,
 		typeMap:              map[string]goType{},
+		typePositions:        map[string]*ast.Position{},
 		imports:              map[string]string{},
 		usedAliases:          map[string]bool{},
 		templateCache:        map[string]*template.Template{},
@@ -481,6 +486,9 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 		if err = g.addOperation(op); err != nil {
 			return nil, err
 		}
+	}
+	if err = g.checkGeneratedIdentifiers(); err != nil {
+		return nil, err
 	}
 	operationNames := make(map[string]bool, len(g.Operations))
 	for _, operation := range g.Operations {

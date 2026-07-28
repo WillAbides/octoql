@@ -2187,7 +2187,7 @@ func TestGenerateErrors(t *testing.T) {
 			case "ConflictingTypeNames.go":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid Go file testdata/errors/ConflictingTypeNames.go: testdata/errors/ConflictingTypeNames.go:3:1: expected declaration, found _"))
 			case "ConflictingTypeNames.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.schema.graphql:2: conflicting definition for T; this can indicate either an octoqlgen internal error, a conflict between user-specified type-names, or some very tricksy GraphQL field/type names: expected 2 fields, got 1"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.graphql:7: conflicting definition for the Go type T: it is generated from both the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:3) and the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:7), which select different fields (expected 2 fields, got 1); give one of them a distinct name with an @octoqlgen(typename:) directive so they produce separate Go types"))
 			case "DefaultInputsNoOmitPointer.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointer.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "DefaultInputsNoOmitPointerForDirective.graphql":
