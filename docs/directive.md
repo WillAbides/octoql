@@ -423,3 +423,9 @@ query MyQuery($hide: Boolean!) {
   }
 }
 ```
+
+One field is excluded from the forced-pointer support above: `__typename` within
+an interface or union selection must not carry `@skip` or `@include`. octoqlgen
+relies on `__typename` to decode the concrete type of an abstract value, so a
+conditionally-omitted `__typename` leaves the response undecodable and fails at
+runtime. Request `__typename` unconditionally on abstract selections.
