@@ -14,9 +14,15 @@ the client, so a real `@octoqlgen` directive would be rejected as nonexistent.
 
 Directives may be applied to fields, arguments, or an entire operation or named
 fragment. A directive on the line preceding an operation or a named fragment
-applies to all relevant elements within it. Every other directive applies to all
-elements on the following line. In all cases other comments may appear between
-the directive and the elements it applies to.
+applies to all relevant elements within it. Every other directive is directly
+attached to the outermost element beginning on the following line. That direct
+attachment does not apply to nested elements, including a field's arguments and
+selections and an operation's variable definitions. A directive preceding peer
+nodes of the same kind at the same nesting depth on one line is rejected; put
+those nodes on separate lines. In all cases other comments may appear between
+the directive and the element it applies to.
+String option values must not be empty. Use `bind: "-"` to explicitly opt out
+of a configured binding.
 
 For example:
 
@@ -30,30 +36,30 @@ For example:
 # @octoqlgen(n: "c")
 query MyQuery(arg1: String,
   # @octoqlgen(n: "d")
-  arg2: String, arg3: MyInput,
+  arg2: String,
+  arg3: MyInput,
   arg4: String,
 ) {
   # @octoqlgen(n: "e")
-  field1, field2
+  field1
+  field2
   # @octoqlgen(n: "f")
-  field3 {
-    field4
-  }
+  field3(argument: "value") { field4 field5 }
 }
 ```
 
 Here directive `a` is ignored, `b` and `c` apply to all relevant nodes in the
-query, `d` applies to `arg2` and `arg3`, `e` applies to `field1` and `field2`,
-and `f` applies to `field3`.
+query, `d` applies to `arg2`, `e` applies to `field1`, and `f` applies to
+`field3` but not its argument, `field4`, or `field5`.
 
 Except as noted below, directives on nodes take precedence over directives on
 the entire operation, so `d`, `e`, and `f` take precedence over `b` and `c`.
 Multiple directives on the same node, such as `b` and `c`, must not conflict.
 
-Directives on nodes do *not* apply to their children, so `d` does not apply to
-the fields of `MyInput` and `f` does not apply to `field4`. Directives on
-operations and fragments do apply to children, so both `b` and `c` apply to the
-fields of `MyInput` and to `field4`.
+Directly attached directives do *not* apply to their children, so `d` does not
+apply to the fields of `MyInput` and `f` does not apply to `field4`. Directives
+on operations and fragments do apply to children, so both `b` and `c` apply to
+the fields of `MyInput` and to `field4`.
 
 Multiple `@octoqlgen` directives are allowed in the same location as long as
 they do not have conflicting options. Directives are valid on queries,

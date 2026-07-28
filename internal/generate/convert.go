@@ -117,9 +117,10 @@ func (g *generator) convertOperation(
 	if queryOptions.GetFlatten() {
 		fieldIndex, flattenErr := validateFlattenOption(
 			baseType, operation.SelectionSet, operation.Position)
-		if flattenErr == nil {
-			return fields[fieldIndex].GoType, nil
+		if flattenErr != nil {
+			return nil, flattenErr
 		}
+		return fields[fieldIndex].GoType, nil
 	}
 
 	goType := &goStructType{
@@ -193,6 +194,11 @@ func (g *generator) convertArguments(
 		if err != nil {
 			return nil, err
 		}
+		if arg.Type.NonNull && arg.DefaultValue == nil && options.GetOmitempty() {
+			return nil, errorf(arg.Position,
+				"omitempty may only be used on optional arguments: %s.%s",
+				operation.Name, arg.Variable)
+		}
 
 		goName := arg.Variable
 		goName = ApplyCasing(goName, g.Config.GetDefaultCasingAlgorithm(), true)
@@ -203,6 +209,12 @@ func (g *generator) convertArguments(
 		goTyp, err := g.convertType(nil, arg.Type, nil, options, queryOptions)
 		if err != nil {
 			return nil, err
+		}
+		_, isPointer := goTyp.(*goPointerType)
+		if arg.Type.NonNull && isPointer && !options.GetOmitempty() {
+			return nil, errorf(arg.Position,
+				"pointer on non-null argument can only be used together with omitempty: %s.%s",
+				operation.Name, arg.Variable)
 		}
 
 		fields[i] = &goStructField{
@@ -441,9 +453,10 @@ func (g *generator) convertDefinition(
 		}
 		if options.GetFlatten() {
 			fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
-			if flattenErr == nil {
-				return fields[fieldIndex].GoType, nil
+			if flattenErr != nil {
+				return nil, flattenErr
 			}
+			return fields[fieldIndex].GoType, nil
 		}
 		goType := &goStructType{
 			GoName:          name,
@@ -532,9 +545,10 @@ func (g *generator) convertDefinition(
 		// fragment spread applies to the whole abstract type.
 		if options.GetFlatten() {
 			fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
-			if flattenErr == nil {
-				return sharedFields[fieldIndex].GoType, nil
+			if flattenErr != nil {
+				return nil, flattenErr
 			}
+			return sharedFields[fieldIndex].GoType, nil
 		}
 		implementationTypes := g.schema.GetPossibleTypes(def)
 		// Make sure we generate stable output by sorting the types by name when we get them
@@ -1061,9 +1075,10 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 	if directive.GetFlatten() {
 		fieldIndex, flattenErr := validateFlattenOption(
 			typ, fragment.SelectionSet, fragment.Position)
-		if flattenErr == nil {
-			return fields[fieldIndex].GoType, nil
+		if flattenErr != nil {
+			return nil, flattenErr
 		}
+		return fields[fieldIndex].GoType, nil
 	}
 	switch typ.Kind {
 	case ast.Object:

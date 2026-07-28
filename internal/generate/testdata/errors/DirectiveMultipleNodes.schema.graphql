@@ -1,0 +1,6 @@
+type Query {
+  first: ValidScalar
+  second: ValidScalar
+}
+
+scalar ValidScalar

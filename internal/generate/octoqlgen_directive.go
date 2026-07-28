@@ -25,6 +25,17 @@ type octoqlgenDirective struct {
 	FieldDirectives map[string]map[string]*octoqlgenDirective
 }
 
+type directiveAttachment struct {
+	column     int
+	category   string
+	braceDepth int
+}
+
+type directiveAttachmentKey struct {
+	source *ast.Source
+	line   int
+}
+
 func newOctoqlgenDirective(pos *ast.Position) *octoqlgenDirective {
 	return &octoqlgenDirective{
 		pos:             pos,
@@ -62,6 +73,9 @@ func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) 
 		return errorf(pos, "invalid string value %v: %v", v, err)
 	}
 	if b, ok := ei.(string); ok {
+		if b == "" {
+			return errorf(pos, "%s must not be empty", optionName)
+		}
 		*dst = b
 		return nil
 	}
@@ -91,15 +105,21 @@ func (d *octoqlgenDirective) add(graphQLDirective *ast.Directive, pos *ast.Posit
 	// appropriate place in FieldDirectives.
 	var err error
 	forField := ""
+	hasForField := false
 	for _, arg := range graphQLDirective.Arguments {
-		if arg.Name == "for" {
-			if forField != "" {
-				return errorf(pos, `@octoqlgen directive had "for:" twice`)
-			}
-			err = setString("for", &forField, arg.Value, pos)
-			if err != nil {
-				return err
-			}
+		if arg.Name != "for" {
+			continue
+		}
+		if hasForField {
+			return errorf(pos, `@octoqlgen directive had "for:" twice`)
+		}
+		hasForField = true
+		err = setString("for", &forField, arg.Value, pos)
+		if err != nil {
+			return err
+		}
+		if forField == "" {
+			return errorf(pos, "for must not be empty")
 		}
 	}
 	if forField != "" {
@@ -212,7 +232,7 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 		// fragment.
 		return nil
 	case *ast.VariableDefinition:
-		if d.Omitempty != nil && node.Type.NonNull {
+		if d.GetOmitempty() && node.Type.NonNull && node.DefaultValue == nil {
 			return errorf(d.pos, "omitempty may only be used on optional arguments")
 		}
 
@@ -423,6 +443,7 @@ func (g *generator) parsePrecedingComment(
 	// For directives on octoqlgen-generated nodes, we don't actually need to
 	// parse anything.  (But we do need to merge below.)
 	var commentLines []string
+	var directiveLines []string
 	if pos != nil && pos.Src != nil {
 		sourceLines := strings.Split(pos.Src.Input, "\n")
 		for i := pos.Line - 1; i > 0; i-- {
@@ -430,15 +451,7 @@ func (g *generator) parsePrecedingComment(
 			trimmed := strings.TrimSpace(strings.TrimPrefix(line, "#"))
 			if strings.HasPrefix(line, "# @octoqlgen") {
 				hasDirective = true
-				var graphQLDirective *ast.Directive
-				graphQLDirective, err = parseDirective(trimmed, pos)
-				if err != nil {
-					return "", nil, err
-				}
-				err = directive.add(graphQLDirective, pos)
-				if err != nil {
-					return "", nil, err
-				}
+				directiveLines = append(directiveLines, trimmed)
 			} else if strings.HasPrefix(line, "#") {
 				commentLines = append(commentLines, trimmed)
 			} else {
@@ -447,7 +460,39 @@ func (g *generator) parsePrecedingComment(
 		}
 	}
 
+	if hasDirective {
+		key := directiveAttachmentKey{source: pos.Src, line: pos.Line}
+		attachment := directiveAttachment{
+			column:     pos.Column,
+			category:   directiveAttachmentCategory(node),
+			braceDepth: braceDepthAtPosition(pos),
+		}
+		existing, ok := g.directiveAttachments[key]
+		if !ok {
+			g.directiveAttachments[key] = attachment
+		} else if existing.column != attachment.column &&
+			existing.category == attachment.category &&
+			existing.braceDepth == attachment.braceDepth {
+			return "", nil, errorf(pos,
+				"@octoqlgen directive cannot apply to multiple peer nodes on one line; "+
+					"put each peer node on its own line")
+		} else if existing.column != attachment.column {
+			hasDirective = false
+		}
+	}
+
 	if hasDirective { // (else directive is empty)
+		for _, line := range directiveLines {
+			var graphQLDirective *ast.Directive
+			graphQLDirective, err = parseDirective(line, pos)
+			if err != nil {
+				return "", nil, err
+			}
+			err = directive.add(graphQLDirective, pos)
+			if err != nil {
+				return "", nil, err
+			}
+		}
 		err = directive.validate(node, g.schema)
 		if err != nil {
 			return "", nil, err
@@ -471,6 +516,106 @@ func (g *generator) parsePrecedingComment(
 	reverse(commentLines)
 
 	return strings.TrimSpace(strings.Join(commentLines, "\n")), directive, nil
+}
+
+func directiveAttachmentCategory(node interface{}) string {
+	switch node.(type) {
+	case *ast.Field, *ast.FragmentSpread, *ast.InlineFragment:
+		return "selection"
+	case *ast.VariableDefinition:
+		return "variable-definition"
+	case *ast.OperationDefinition, *ast.FragmentDefinition:
+		return "definition"
+	case *ast.FieldDefinition:
+		return "input-field"
+	default:
+		return fmt.Sprintf("%T", node)
+	}
+}
+
+func braceDepthAtPosition(pos *ast.Position) int {
+	if pos == nil || pos.Src == nil {
+		return 0
+	}
+
+	depth := 0
+	inBlockString := false
+	inString := false
+	sourceLines := strings.Split(pos.Src.Input, "\n")
+	for lineIndex, line := range sourceLines {
+		if lineIndex >= pos.Line-1 {
+			line = line[:byteOffsetAtColumn(line, pos.Column)]
+		}
+		for index := 0; index < len(line); index++ {
+			if inBlockString {
+				if line[index] == '\\' && strings.HasPrefix(line[index+1:], `"""`) {
+					index += 3
+					continue
+				}
+				if strings.HasPrefix(line[index:], `"""`) {
+					inBlockString = false
+					index += consecutiveQuotes(line[index:]) - 1
+				}
+				continue
+			}
+			if inString {
+				if line[index] == '\\' {
+					index++
+					continue
+				}
+				if line[index] == '"' {
+					inString = false
+				}
+				continue
+			}
+			if line[index] == '#' {
+				break
+			}
+			if strings.HasPrefix(line[index:], `"""`) {
+				inBlockString = true
+				index += 2
+				continue
+			}
+			if line[index] == '"' {
+				inString = true
+				continue
+			}
+			if line[index] == '{' {
+				depth++
+				continue
+			}
+			if line[index] == '}' {
+				depth--
+			}
+		}
+		if lineIndex >= pos.Line-1 {
+			break
+		}
+	}
+	return depth
+}
+
+func consecutiveQuotes(text string) int {
+	count := 0
+	for count < len(text) && text[count] == '"' {
+		count++
+	}
+	return count
+}
+
+func byteOffsetAtColumn(line string, column int) int {
+	if column <= 1 {
+		return 0
+	}
+
+	runeColumn := 1
+	for offset := range line {
+		if runeColumn == column {
+			return offset
+		}
+		runeColumn++
+	}
+	return len(line)
 }
 
 func parseDirective(line string, pos *ast.Position) (*ast.Directive, error) {

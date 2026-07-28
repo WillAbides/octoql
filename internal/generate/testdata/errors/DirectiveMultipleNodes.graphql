@@ -1,0 +1,4 @@
+query DirectiveMultipleNodes {
+  # @octoqlgen(pointer: false)
+  first second
+}
