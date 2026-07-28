@@ -40,6 +40,9 @@ func TestParse(t *testing.T) {
 // TestParseRejectsCommentDirective checks that a file written for the old
 // comment syntax fails instead of generating with its options silently
 // dropped.
+//
+// The comment-syntax directive below is the input under test, not a spelling
+// that was missed when the directives became real.  Do not rewrite it.
 func TestParseRejectsCommentDirective(t *testing.T) {
 	dir := t.TempDir()
 	filename := filepath.Join(dir, "legacy.graphql")
@@ -55,9 +58,12 @@ func TestParseRejectsCommentDirective(t *testing.T) {
 }
 
 // TestParseAllowsDirectiveInsideString checks that the comment-syntax check
-// does not fire on string content that merely looks like a directive.  It
-// lexes the source rather than scanning lines, so a `#` inside a string or
-// block string is not a comment.
+// does not fire on string content that merely looks like a directive.
+//
+// The check lexes rather than scanning lines; a line-scanning implementation
+// passes every other test in this package and fails only these two.  The
+// comment-syntax directives below are string content under test, not spellings
+// that were missed.  Do not rewrite them.
 func TestParseAllowsDirectiveInsideString(t *testing.T) {
 	for name, operation := range map[string]string{
 		"string": "query Ok { field(arg: \"# @octoqlgen(pointer: false)\") }\n",
