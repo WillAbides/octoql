@@ -71,9 +71,27 @@ go test -shuffle=on ./internal/generate
 
 Do not add global snapshot cleanup, sorting, or `TestMain` lifecycle behavior.
 
+## Documentation
+
+`docs/configuration.md` is generated from `octoqlgen.schema.yaml` by
+`internal/configdocgen`. Edit the schema, not the Markdown:
+
+- keep `description` terse and single-line, since it is what editors show on
+  hover through the `# yaml-language-server: $schema=` comment
+- put long-form Markdown prose in `x-doc`, which is available on the schema
+  root, on each `$defs` entry, and on every property
+
+Generation fails when a property has no `x-doc`, so a new configuration option
+cannot ship undocumented. Run `script/generate` after changing the schema.
+
+`docs/directive.md` and `docs/cli.md` are handwritten. Update `docs/cli.md` from
+actual `--help` output when CLI flags change.
+
 ## Project guidance
 
 - The root [README](README.md) is the primary user guide.
+- [docs/](docs/README.md) holds the configuration, directive, and CLI
+  references.
 - [AGENTS.md](AGENTS.md) records architecture and repository conventions.
 - Report vulnerabilities through the [security policy](docs/SECURITY.md).
 - Follow the [code of conduct](docs/CODE_OF_CONDUCT.md).
