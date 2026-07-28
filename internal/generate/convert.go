@@ -65,110 +65,6 @@ func (g *generator) getType(
 	return typ, nil
 }
 
-// inputFieldShape is what an option can change about a generated input field:
-// whether it is a pointer, whether it is omitted when empty, and any type
-// substituted for the generated one.
-//
-// Two option sets that produce the same shape are interchangeable, however
-// differently they are written.  `pointer: false` on a field that is already
-// non-null asks for nothing, and `bind: "-"` where no binding is configured
-// opts out of nothing.
-type inputFieldShape struct {
-	pointer   bool
-	omitempty bool
-	binding   string
-	typeName  string
-}
-
-// inputFieldShapes returns the shape each field of an input type would be
-// generated with under one operation's @octoqlgenDefaults.
-func (g *generator) inputFieldShapes(
-	def *ast.Definition,
-	queryOptions *octoqlgenDirective,
-) (map[string]inputFieldShape, error) {
-	shapes := make(map[string]inputFieldShape, len(def.Fields))
-	for _, field := range def.Fields {
-		options, err := g.directiveFor(field, def, field.Position, queryOptions)
-		if err != nil {
-			return nil, err
-		}
-		shapes[field.Name] = inputFieldShape{
-			pointer:   pointerWraps(field.Type, options),
-			omitempty: options.GetOmitempty(),
-			binding:   g.effectiveBinding(field.Type, options),
-			typeName:  options.TypeName,
-		}
-	}
-	return shapes, nil
-}
-
-// effectiveBinding returns the Go type bound to this field, resolving a local
-// binding, the global binding, and the "-" opt-out the same way convertType
-// does, so that an opt-out from a binding that was never configured reads as
-// no binding at all rather than as a difference.
-func (g *generator) effectiveBinding(typ *ast.Type, options *octoqlgenDirective) string {
-	if options.Bind != "" && options.Bind != "-" {
-		return options.Bind
-	}
-	binding, ok := g.Config.Bindings[typ.Name()]
-	if ok && options.Bind != "-" {
-		return binding.Type
-	}
-	return ""
-}
-
-// checkInputDefaultsAgree rejects a second operation that would have generated
-// a different shape for an input type another operation already generated.
-//
-// An input type is named by the schema, so every operation shares one Go type
-// for it, and the early-out above returns that type without rebuilding its
-// fields.  @octoqlgenDefaults are per-operation and may legitimately differ, so
-// without this the operation converted first would silently decide the shape
-// for all of them and reordering the operations would change the result.
-//
-// It compares the shape each field would be generated with rather than the
-// options requesting it, so options that ask for what the field already is do
-// not read as a disagreement.
-//
-// @octoqlgenFor is not the problem here: those declarations are reconciled
-// across operations before conversion, so they give every operation the same
-// answer.  That is also the remedy, which is what the error says.
-func (g *generator) checkInputDefaultsAgree(
-	def *ast.Definition,
-	name string,
-	queryOptions *octoqlgenDirective,
-	pos *ast.Position,
-) error {
-	existing, ok := g.inputTypeOptions[name]
-	if !ok {
-		return nil
-	}
-	shapes, err := g.inputFieldShapes(def, queryOptions)
-	if err != nil {
-		return err
-	}
-	for _, field := range def.Fields {
-		if existing.perField[field.Name] == shapes[field.Name] {
-			continue
-		}
-		return errorf(pos,
-			"conflicting @%s for the input type %s: this operation asks for "+
-				"something different for %s.%s than the one at %s, and both "+
-				"share one generated type; declare it once with "+
-				"@%s(field: \"%s.%s\", ...) instead",
-			octoqlgenDefaultsName, def.Name, def.Name, field.Name,
-			posString(existing.pos), octoqlgenForName, def.Name, field.Name)
-	}
-	return nil
-}
-
-// inputTypeOptions records the shape an input type was generated with, so a
-// later operation that would have generated it differently can be rejected.
-type inputTypeOptions struct {
-	perField map[string]inputFieldShape
-	pos      *ast.Position
-}
-
 // describeTypeSource returns a human-readable description of the GraphQL
 // construct that produced a generated type, for use in conflict errors.
 func describeTypeSource(typ goType) string {
@@ -746,21 +642,13 @@ func applyPointerSelection(
 	if isInterface {
 		return goTyp
 	}
-	if !pointerWraps(typ, options) {
+	if options.PointerIsFalse() {
+		return goTyp
+	}
+	if !options.GetPointer() && typ.NonNull {
 		return goTyp
 	}
 	return &goPointerType{goTyp}
-}
-
-// pointerWraps reports whether applyPointerSelection wraps a value of this
-// GraphQL type in a pointer, for callers that need the decision without the
-// type.  Both go through here so a check cannot answer differently from the
-// emission it is checking.
-func pointerWraps(typ *ast.Type, options *octoqlgenDirective) bool {
-	if options.PointerIsFalse() {
-		return false
-	}
-	return options.GetPointer() || !typ.NonNull
 }
 
 // getStructReference decides if a field should be of pointer type and have the omitempty flag set.
@@ -877,33 +765,15 @@ func (g *generator) convertDefinition(
 	// also requires this path for recursive types: it pre-inserts an empty
 	// struct via addType so getType on a second call returns that placeholder,
 	// and the early-out is required to avoid overwriting it.
-	// @octoqlgenFor declarations are reconciled across operations before any
-	// of this runs, so they cannot make the result depend on which operation
-	// converted the type first.  @octoqlgenDefaults are per-operation and may
-	// legitimately differ, so an input type they reach is checked below.
-	// For selection-based types (Object, Interface, Union), skip the early-
-	// out so the candidate is built and reaches addType for structural
-	// comparison.
-	if def.Kind == ast.InputObject || def.Kind == ast.Enum || def.Kind == ast.Scalar {
+	// Enums and scalars are generated entirely from the schema definition, so
+	// a second conversion cannot produce anything different and there is
+	// nothing to compare.  Every other kind, input objects included, builds
+	// its candidate and compares the fields it would emit.
+	if def.Kind == ast.Enum || def.Kind == ast.Scalar {
 		existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
-		if err != nil {
+		if existing != nil || err != nil {
 			return existing, err
 		}
-		if existing != nil {
-			err = g.checkInputDefaultsAgree(def, name, queryOptions, provenancePos)
-			if err != nil {
-				return nil, err
-			}
-			return existing, nil
-		}
-	}
-
-	if def.Kind == ast.InputObject {
-		shapes, err := g.inputFieldShapes(def, queryOptions)
-		if err != nil {
-			return nil, err
-		}
-		g.inputTypeOptions[name] = inputTypeOptions{perField: shapes, pos: provenancePos}
 	}
 
 	desc := descriptionInfo{
@@ -948,11 +818,31 @@ func (g *generator) convertDefinition(
 			descriptionInfo: desc,
 			IsInput:         true,
 		}
-		// To handle recursive types, we need to add the type to the type-map
-		// *before* converting its fields.
-		_, err := g.addType(goType, goType.GoName, provenancePos)
-		if err != nil {
-			return nil, err
+		// Look the type up before inserting anything, because the insert
+		// below is a placeholder whose fields are not built yet and must not
+		// be compared against a finished type.
+		existing, lookupErr := g.getType(
+			name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
+		if lookupErr != nil {
+			return nil, lookupErr
+		}
+		// A field of this same type, directly or through another input type,
+		// re-enters here while the fields are being converted.  It wants the
+		// type, not another conversion of it.
+		if g.convertingInputs[name] {
+			return existing, nil
+		}
+		g.convertingInputs[name] = true
+		defer delete(g.convertingInputs, name)
+
+		if existing == nil {
+			// To handle recursive types, we need to add the type to the
+			// type-map *before* converting its fields, so the re-entry above
+			// has something to return.
+			_, addErr := g.addType(goType, goType.GoName, provenancePos)
+			if addErr != nil {
+				return nil, addErr
+			}
 		}
 
 		for i, field := range def.Fields {
@@ -1008,6 +898,25 @@ func (g *generator) convertDefinition(
 				Omitempty:   fieldOptions.GetOmitempty(),
 				Position:    field.Position,
 			}
+		}
+
+		// An input type is named by the schema, so every operation shares one
+		// Go type for it, and @octoqlgenDefaults are per-operation.  Two
+		// operations that would generate it differently cannot both be
+		// satisfied, and without this the one converted first would silently
+		// decide for all of them.
+		if existing != nil {
+			matchErr := generatedTypeFieldsMatch(existing, goType)
+			if matchErr != nil {
+				return nil, errorf(provenancePos,
+					"conflicting definitions for the input type %s: this operation "+
+						"would generate it differently than the one at %s (%v); "+
+						"an input type is generated once, so declare the difference "+
+						"with @%s instead of @%s",
+					name, posString(g.typePositions[name]), matchErr,
+					octoqlgenForName, octoqlgenDefaultsName)
+			}
+			return existing, nil
 		}
 		return goType, nil
 

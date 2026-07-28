@@ -133,6 +133,10 @@ func TestSharedInputTypeDoesNotDependOnOperationOrder(t *testing.T) {
 // legitimately want different things, but an input type is named by the schema
 // and generated once, so they cannot both be satisfied.  Rejecting is the only
 // answer that does not depend on which operation converted first.
+//
+// The comparison is the same one every other generated type gets, on the
+// fields each operation would emit, so it covers list elements, bindings, and
+// struct references without knowing anything about them.
 func TestDefaultsOnSharedInputTypeMustAgree(t *testing.T) {
 	pointerFalse := `query QA($f: Filter) @octoqlgenDefaults(pointer: false) { a(filter: $f) { name } }`
 	pointerTrue := `query QB($f: Filter) @octoqlgenDefaults(pointer: true) { b(filter: $f) { name } }`
@@ -148,8 +152,9 @@ func TestDefaultsOnSharedInputTypeMustAgree(t *testing.T) {
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(),
-				"conflicting @octoqlgenDefaults for the input type Filter")
-			assert.Contains(t, err.Error(), "@octoqlgenFor(field: \"Filter.label\", ...)")
+				"conflicting definitions for the input type Filter")
+			assert.Regexp(t, `field 0 \(Label\) Go type: \*?string vs \*?string`, err.Error())
+			assert.Contains(t, err.Error(), "@octoqlgenFor")
 		})
 	}
 

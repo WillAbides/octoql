@@ -58,9 +58,9 @@ type generator struct {
 	// that conflicting declarations can be rejected.
 	forDeclarations map[fieldKey]forDeclaration
 
-	// The options each input type was generated with, so a later operation
-	// whose defaults would have generated it differently can be rejected.
-	inputTypeOptions map[string]inputTypeOptions
+	// The input types whose fields are being converted right now, so a field
+	// of the same type returns the type instead of converting it again.
+	convertingInputs map[string]bool
 
 	forbiddenImportPath string
 }
@@ -173,6 +173,7 @@ func (p *generationPlan) newRenderer(
 		usedAliases:         map[string]bool{},
 		templateCache:       map[string]*template.Template{},
 		fragments:           map[string]*ast.FragmentDefinition{},
+		convertingInputs:    map[string]bool{},
 		forbiddenImportPath: forbiddenImportPath,
 	}
 	if includePlanImports {
@@ -216,7 +217,7 @@ func newGenerator(
 		fragments:        make(map[string]*ast.FragmentDefinition, len(fragments)),
 		directives:       map[any]*octoqlgenDirective{},
 		forDeclarations:  map[fieldKey]forDeclaration{},
-		inputTypeOptions: map[string]inputTypeOptions{},
+		convertingInputs: map[string]bool{},
 	}
 
 	for _, fragment := range fragments {
