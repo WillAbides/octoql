@@ -23,8 +23,9 @@ Replace `<version>` here and throughout this guide with a release tag from the
 explicit tag keeps generation reproducible. octoql is pre-1.0, so review the
 release notes before moving between minor versions.
 
-Generated clients are self-contained and use only the standard library unless
-configured scalar bindings add imports. Application code does not import
+Generated clients are self-contained and use only the standard library by
+default. Configured `bindings`, `package_bindings`, and a custom `context_type`
+add imports for the types they name. Application code does not import
 `github.com/willabides/octoql`.
 
 ## Generate a client
@@ -119,8 +120,9 @@ schema:
   path: schema/github.graphql
 ```
 
-GitHub.com sources require a SHA-256 digest and full commit SHA. Authentication
-uses `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`. See the
+GitHub.com sources require a SHA-256 digest and a Git ref. Use a full commit SHA
+so generation is reproducible; `init` and `schema update` always write one.
+Authentication uses `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`. See the
 [configuration reference](docs/configuration.md) for all schema settings.
 
 `octoqlgen init` configures and fetches the latest `fpt` schema by default.
@@ -169,8 +171,15 @@ response, err := client.GetRepository(
 if err != nil {
 	return err
 }
+if response.Repository == nil {
+	return fmt.Errorf("repository not found")
+}
 fmt.Println(response.Repository.NameWithOwner)
 ```
+
+`Repository` is a pointer because `Query.repository` is nullable in GitHub's
+schema. GitHub returns null for repositories that do not exist or that the
+token cannot see, so check nullable values before dereferencing them.
 
 Pass a different endpoint to `githubapi.NewClient` for GHES, a proxy, or an
 `httptest.Server`. Pass nil as the HTTP client to use `http.DefaultClient`.
@@ -200,11 +209,17 @@ needs:
 | ------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
 | `*ResponseError`               | `StatusCode`, `RequestID`, and a size-capped `RawBody`                         | Any failure after an HTTP response was received               |
 | `Errors`                       | A `[]*Error` with `Message`, `Path`, `Locations`, and `Extensions`             | The response contained GraphQL errors                         |
-| `*RateLimitError`              | `Kind` (`RateLimitPrimary` or `RateLimitSecondary`) and a `RateLimit` snapshot | GitHub rejected the request for a rate limit                  |
+| `*RateLimitError`              | `Kind` (`RateLimitPrimary` or `RateLimitSecondary`) and a `RateLimit` snapshot | The failing response carried rate-limit signals (see below)   |
 | `*<Operation>PartialDataError` | Typed `PartialData()` for that operation                                       | `data` was non-null and decoded successfully alongside errors |
 
 Transport-level failures, such as a connection error before any response
 arrives, do not carry `*ResponseError`.
+
+A failure becomes a `*RateLimitError` only when the response carries matching
+signals. `RateLimitSecondary` requires a valid `Retry-After` header with status
+200, 403, or 429. `RateLimitPrimary` requires `X-RateLimit-Remaining: 0`
+together with status 403 or 429, or a GraphQL error of type `RATE_LIMITED`.
+Other rejections surface as ordinary errors.
 
 Read the latest observed primary rate-limit state with `client.RateLimit()`,
 which is a concurrency-safe advisory snapshot. The client never retries
@@ -263,7 +278,8 @@ The catch-all keeps responses usable when GitHub returns another current or
 future implementation. Abstract values are interfaces, so they are never wrapped
 in pointers: a nil interface already represents GraphQL null. Set
 [`omit_unreferenced_implementations`](docs/configuration.md#omit_unreferenced_implementations)
-to false to generate a struct for every implementation the schema allows.
+to false to generate a struct for every implementation the schema allows; the
+`OctoqlOther` catch-all is then unnecessary and is not generated.
 
 ## Pagination
 
@@ -302,8 +318,14 @@ for {
 		return err
 	}
 
+	if response.Repository == nil {
+		return fmt.Errorf("repository not found")
+	}
 	issues := response.Repository.Issues
 	for _, issue := range issues.Nodes {
+		if issue == nil {
+			continue
+		}
 		fmt.Println(issue.Number, issue.Title)
 	}
 
@@ -315,7 +337,9 @@ for {
 ```
 
 The client never retries or sleeps on its own, so pace loops yourself and check
-`client.RateLimit()` between pages when walking large result sets.
+`client.RateLimit()` between pages when walking large result sets. `nodes` is
+`[Issue]` in GitHub's schema, so its elements are nullable and generate as
+pointers.
 
 ## Generated types and GitHub defaults
 
@@ -363,7 +387,9 @@ configuration requires query and mutation names to begin with an uppercase
 letter.
 
 After `go generate ./...`, each handler operation has matching
-`Expect<Operation>`, `Default<Operation>`, and `Reset<Operation>` methods:
+`Expect<Operation>`, `Default<Operation>`, and `Reset<Operation>` methods. In a
+`_test.go` file, import the generated client package as `githubapi` and the
+generated handler package as `githubapitest`:
 
 ```go
 handler := githubapitest.NewTestHandler(t)
@@ -375,9 +401,9 @@ variables := githubapitest.GetRepositoryVariables{
 	Name:  "octo-repo",
 	First: 1,
 }
-handler.ExpectGetRepository(variables, githubapitest.Times(2)).
+handler.ExpectGetRepository(variables).
 	Respond(githubapitest.GetRepositoryResponse{
-		Repository: githubapitest.GetRepositoryRepository{
+		Repository: &githubapitest.GetRepositoryRepository{
 			NameWithOwner: "octo-org/octo-repo",
 		},
 	})
@@ -388,8 +414,12 @@ response, err := client.GetRepository(
 	variables,
 )
 require.NoError(t, err)
+require.NotNil(t, response.Repository)
 require.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)
 ```
+
+`Repository` is a pointer because `Query.repository` is nullable in GitHub's
+schema, so check it before dereferencing.
 
 An expectation defaults to one call. Pass `Times(n)` to require exactly `n`,
 `MinTimes(n)` to set a minimum, or `MinTimes(0)` to create an unlimited stub.
@@ -400,13 +430,15 @@ safe for concurrent requests.
 
 Each expectation offers several ways to answer a request:
 
-| Method                                | Purpose                                                     |
-| ------------------------------------- | ----------------------------------------------------------- |
-| `Respond(data, options...)`           | Return typed response data                                  |
-| `RespondError(err, options...)`       | Return a single GraphQL error with no data                  |
-| `RespondDataAndErrors(data, errs...)` | Return partial data alongside GraphQL errors                |
-| `Handle(fn)`                          | Serve the request with a custom function                    |
-| `WithOptions(options...)`             | Apply response options to every reply from this expectation |
+| Method                                | Purpose                                                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `Respond(data, options...)`           | Return typed response data                                                                                 |
+| `RespondError(err, options...)`       | Return a single GraphQL error with no data                                                                 |
+| `RespondDataAndErrors(data, errs...)` | Return partial data alongside GraphQL errors                                                               |
+| `Handle(fn)`                          | Serve the request with a custom function                                                                   |
+| `WithOptions(options...)`             | Apply response options to this expectation's `Respond`, `RespondError`, and `RespondDataAndErrors` replies |
+
+`WithOptions` does not affect `Handle`, which writes its own status and headers.
 
 `Handle` receives the `http.ResponseWriter` and, for operations that declare
 variables, the decoded variables.
@@ -415,13 +447,13 @@ Response options adjust the HTTP reply. They may be passed to `Respond`,
 `RespondError`, or `WithOptions`. `RespondDataAndErrors` takes no options
 directly, so use `WithOptions` with it:
 
-| Option                               | Effect                                                  |
-| ------------------------------------ | ------------------------------------------------------- |
-| `WithStatus(code)`                   | Set the HTTP status code                                |
-| `WithHeader(name, values...)`        | Set one response header                                 |
-| `WithHeaders(header)`                | Set several response headers at once                    |
-| `WithPrimaryRateLimit(rateLimit)`    | Emit primary `X-RateLimit-*` headers                    |
-| `WithSecondaryRateLimit(retryAfter)` | Emit a secondary rate-limit response with `Retry-After` |
+| Option                               | Effect                               |
+| ------------------------------------ | ------------------------------------ |
+| `WithStatus(code)`                   | Set the HTTP status code             |
+| `WithHeader(name, values...)`        | Set one response header              |
+| `WithHeaders(header)`                | Set several response headers at once |
+| `WithPrimaryRateLimit(rateLimit)`    | Emit primary `X-RateLimit-*` headers |
+| `WithSecondaryRateLimit(retryAfter)` | Set the `Retry-After` header         |
 
 Together these cover the error paths that are otherwise hard to reproduce, such
 as exercising a client's rate-limit handling:

@@ -36,7 +36,7 @@ octoqlgen init --schema-version ghes-3.21
 
 | Flag                       | Effect                                                                      |
 | -------------------------- | --------------------------------------------------------------------------- |
-| `--config=PATH`            | Path for the new octoqlgen configuration                                    |
+| `--config=PATH`            | Path for the new octoqlgen configuration. Defaults to `octoqlgen.yaml`      |
 | `--schema-version=VERSION` | GitHub Docs schema version: `fpt`, `ghec`, or `ghes-X.Y`. Defaults to `fpt` |
 
 This resolves and fetches the requested GitHub Docs schema, then writes a
@@ -54,9 +54,9 @@ Generate GraphQL client code.
 octoqlgen generate --config ../../octoqlgen.yaml
 ```
 
-| Flag            | Effect                                  |
-| --------------- | --------------------------------------- |
-| `--config=PATH` | Path to an octoqlgen configuration file |
+| Flag            | Effect                                                                |
+| --------------- | --------------------------------------------------------------------- |
+| `--config=PATH` | Path to an octoqlgen configuration file. Defaults to `octoqlgen.yaml` |
 
 Generation verifies or fetches the configured schema before it writes code, so
 a separate `schema fetch` is not required. When `test_handler` is configured, a
@@ -70,6 +70,8 @@ Fetch or verify a pinned GraphQL schema.
 octoqlgen schema fetch
 octoqlgen schema fetch --output schema.graphql
 ```
+
+`fetch` is the default subcommand, so bare `octoqlgen schema` fetches.
 
 | Flag                  | Effect                                                                |
 | --------------------- | --------------------------------------------------------------------- |
@@ -88,9 +90,9 @@ octoqlgen schema update
 git diff -- octoqlgen.yaml
 ```
 
-| Flag            | Effect                                  |
-| --------------- | --------------------------------------- |
-| `--config=PATH` | Path to an octoqlgen configuration file |
+| Flag            | Effect                                                                |
+| --------------- | --------------------------------------------------------------------- |
+| `--config=PATH` | Path to an octoqlgen configuration file. Defaults to `octoqlgen.yaml` |
 
 This fetches the latest version of the configured repository path from its
 default branch, validates and writes it, then updates `schema.source.revision`

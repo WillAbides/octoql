@@ -91,7 +91,7 @@ octoqlgen generates:
 ```go
 type MyInput struct {
 	MyField      <type>  `json:"myField,omitempty"`
-	MyOtherField *<type> `json:"myField"`
+	MyOtherField *<type> `json:"myOtherField"`
 	MyThirdField <type>  `json:"myThirdField"`
 }
 ```

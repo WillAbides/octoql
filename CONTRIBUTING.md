@@ -101,5 +101,6 @@ actual `--help` output when CLI flags change.
 - Follow the [code of conduct](docs/CODE_OF_CONDUCT.md).
 
 Project history remains in Git. The repository does not maintain a changelog.
-Release publication is disabled; contributors may validate local snapshots but
-must not publish artifacts.
+Releases publish only through release-train in CI on `main`; direct GoReleaser
+publication is disabled. Contributors may validate local snapshots but must not
+publish artifacts.

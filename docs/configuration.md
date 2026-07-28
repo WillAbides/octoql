@@ -10,8 +10,9 @@ or a version such as `--schema-version ghes-3.21`, to initialize another
 GitHub Docs schema. Then run generation, normally through a `go:generate`
 directive. Pass `--config PATH` when the file is not named `octoqlgen.yaml`.
 
-Every path and glob in this file resolves relative to the configuration file
-itself, not to the current working directory.
+Every local path and glob in this file resolves relative to the configuration
+file itself, not to the current working directory. `schema.source.path` is the
+exception: it is relative to the GitHub repository it names.
 
 This page is a catalog of every available option. It is not a template to
 copy wholesale: many options below are alternatives to one another, and most
@@ -67,8 +68,10 @@ Type: `object` · Optional
 
 The GitHub.com repository, revision, and path the schema is fetched from.
 
-Fetching requires GitHub authentication through `GH_TOKEN`,
-`GITHUB_TOKEN`, or `gh auth token`.
+Fetching a pinned revision from a public repository works without
+credentials. Private repositories, and the revision resolution that
+`octoqlgen init` and `octoqlgen schema update` perform, need GitHub
+authentication through `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`.
 
 #### `schema.source.repository`
 
@@ -82,7 +85,10 @@ Example: `octo-org/octo-repo`
 
 Type: `string` · Required
 
-The full commit SHA pinning the schema.
+The Git ref pinning the schema. Any ref GitHub accepts works,
+including branches and tags, but use a full commit SHA so generation
+is reproducible. `octoqlgen init` and `octoqlgen schema update` always
+write a full commit SHA.
 
 `octoqlgen schema update` fetches the latest version of the
 configured repository path from its default branch and rewrites this
@@ -125,8 +131,9 @@ Type: `string` · Required
 The file to write the generated client to, relative to `octoqlgen.yaml`.
 
 The generated client is self-contained. It uses only the standard library
-unless configured bindings add imports, and application code never
-imports `github.com/willabides/octoql`.
+by default; configured `bindings`, `package_bindings`, and a custom
+`context_type` add imports for the types they name. Application code
+never imports `github.com/willabides/octoql`.
 
 Example: `githubapi/generated.go`
 
@@ -200,7 +207,8 @@ may return either a string or an array of strings. `Base64String`,
 `URI`, and `X509Certificate` map to `string`. This setting extends or
 overrides all of those mappings.
 
-octoqlgen does not validate bound types in any way. They must define
+octoqlgen checks that a bound type name is a supported type expression,
+but it does not check the type's JSON behavior. Bound types must define
 whatever logic is needed, such as `MarshalJSON`/`UnmarshalJSON` methods or
 JSON tags, to convert to and from JSON. For this reason binding object,
 interface, or union types is not recommended, because nothing guarantees
@@ -321,9 +329,9 @@ bindings:
     type: github.com/you/yourpkg/models.TypeName
 ```
 
-Multiple packages may be specified, and later ones take precedence over
-earlier ones. Explicit entries in `bindings` take precedence over all
-package bindings.
+Multiple packages may be specified. When more than one package exports the
+same type name, the earlier package wins. Explicit entries in `bindings`
+take precedence over all package bindings.
 
 Take care that this is not the package holding the generated code, or the
 result is circular.
@@ -353,8 +361,9 @@ Each option accepts one of the following values:
 - `default`: use octoqlgen's default algorithm, which converts GraphQL
   names to exported Go names. This is usually best for schemas using
   idiomatic GraphQL naming.
-- `raw`: map the GraphQL name exactly, without converting it to Go style.
-  This is usually best for schemas with casing conflicts, such as enums
+- `raw`: keep the GraphQL spelling, without converting it to Go style.
+  Generated identifiers are still capitalized where Go requires it. This
+  is usually best for schemas with casing conflicts, such as enums
   whose values differ only in casing.
 - `auto_camel_case`: convert `snake_case` to `camelCase` before standard
   processing. This applies to field names, type names, and enum values.
