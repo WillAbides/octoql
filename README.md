@@ -18,20 +18,6 @@ Initialize a project with:
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> init
 ```
 
-For a standalone binary instead, install a release archive with
-[bindown](https://github.com/WillAbides/bindown):
-
-```sh
-bindown template-source add octoql https://github.com/WillAbides/octoql/releases/latest/download/bindown.yaml
-bindown dependency add octoqlgen --source octoql
-```
-
-Or build a standalone binary from source at a specific commit:
-
-```sh
-go install github.com/willabides/octoql/cmd/octoqlgen@<commit>
-```
-
 Generated clients are self-contained and use only the standard library unless
 configured scalar bindings add imports. Application code does not import
 `github.com/willabides/octoql`.
