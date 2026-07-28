@@ -13,8 +13,7 @@
 # node on the following line. A directive preceding multiple nodes on one line
 # is rejected; put each node on its own line. (In all cases it's fine for there
 # to be other comments between the directive and the node to which it applies.)
-# For
-# example, in the following query:
+# For example, in the following query:
 #  # @octoqlgen(n: "a")
 #
 #  # @octoqlgen(n: "b")
