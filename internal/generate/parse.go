@@ -220,13 +220,20 @@ func rejectCommentDirectives(source *ast.Source) error {
 // directive is ordinary comment text and must not be rejected.  A bare prefix
 // test would reject `# @octoqlgenFor applies to the input type below`, and also
 // any word that merely starts the same way.
+//
+// Whitespace before "(" is not a boundary.  The old syntax parsed the comment
+// as GraphQL, which ignores it, so `# @octoqlgen (pointer: false)` carried a
+// real option and has to be refused rather than silently dropped.  That refuses
+// prose whose first word after the name is parenthesised, which is the cheaper
+// mistake of the two.
 func commentDirectiveName(comment string) string {
 	for _, name := range []string{octoqlgenDefaultsName, octoqlgenForName, octoqlgenDirectiveName} {
 		rest, ok := strings.CutPrefix(comment, "@"+name)
 		if !ok {
 			continue
 		}
-		if strings.TrimSpace(rest) == "" || strings.HasPrefix(rest, "(") {
+		rest = strings.TrimSpace(rest)
+		if rest == "" || strings.HasPrefix(rest, "(") {
 			return name
 		}
 	}

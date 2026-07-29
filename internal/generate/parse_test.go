@@ -64,6 +64,10 @@ func TestParseRejectsCommentDirective(t *testing.T) {
 // thing to do, especially while migrating, and those names begin with
 // @octoqlgen.  As with the tests above, the comment-syntax directives here are
 // the input under test.  Do not rewrite them.
+//
+// The old syntax handed the comment to the GraphQL parser, which ignores
+// whitespace before the argument list, so `# @octoqlgen (pointer: false)` was a
+// working directive and has to be rejected rather than read as prose.
 func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
 	for comment, wantRejected := range map[string]bool{
 		"@octoqlgen(pointer: false)":              true,
@@ -74,6 +78,17 @@ func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
 		"@octoqlgenFor applies to the input type": false,
 		"@octoqlgenDefaults covers every field":   false,
 		"@octoqlgenesis is handled elsewhere":     false,
+
+		// Spellings the old syntax accepted, which must not be read as prose.
+		"@octoqlgen (pointer: false)":         true,
+		`@octoqlgenFor (field: "Q.f")`:        true,
+		"@octoqlgenDefaults  (pointer: true)": true,
+		"@octoqlgen\t(pointer: false)":        true,
+
+		// The cost of the rule above, accepted deliberately: prose whose first
+		// word after the name is parenthesised is refused.  A wrong error is
+		// better than an option that is silently dropped on migration.
+		"@octoqlgen (deprecated) use a node option": true,
 	} {
 		t.Run(comment, func(t *testing.T) {
 			dir := t.TempDir()
