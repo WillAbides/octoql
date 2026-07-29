@@ -4,6 +4,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -12,6 +13,8 @@ import (
 	"github.com/vektah/gqlparser/v2/parser"
 	"github.com/vektah/gqlparser/v2/validator"
 	_ "github.com/vektah/gqlparser/v2/validator/rules"
+
+	"github.com/willabides/octoql/internal/directive"
 )
 
 func getSchema(globs StringList) (*ast.Schema, error) {
@@ -99,6 +102,15 @@ func expandFilenames(globs []string) ([]string, error) {
 		if err != nil {
 			return nil, errorf(nil, "can't expand file-glob %v: %v", glob, err)
 		}
+		// octoqlgen writes the companion declaration beside the schema with a
+		// .graphql extension, so a glob broad enough to reach the schema
+		// directory matches a file octoqlgen created rather than one the user
+		// wrote.  It holds SDL, so parsing it as operations fails.  Skipping it
+		// by name keeps a malformed operation file an error, which skipping
+		// whatever fails to parse would not.
+		matches = slices.DeleteFunc(matches, func(match string) bool {
+			return path.Base(match) == directive.FileName
+		})
 		if len(matches) == 0 {
 			return nil, errorf(nil, "%v did not match any files", glob)
 		}

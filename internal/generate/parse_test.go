@@ -8,7 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/willabides/octoql/internal/directive"
 )
 
 var (
@@ -184,4 +186,45 @@ func TestParseErrors(t *testing.T) {
 		t.Errorf("expected error from getQueries")
 		t.Logf("%#v", g)
 	}
+}
+
+// TestOperationGlobSkipsTheCompanionDirectiveFile checks that a glob broad
+// enough to reach the schema directory still generates.
+//
+// octoqlgen writes the companion beside the schema and gives it a .graphql
+// extension, so `operations: ["**/*.graphql"]` starts matching a file the tool
+// itself created.  It holds SDL rather than operations, so parsing it as a
+// query document fails — an upgrade breaking a config the user never edited,
+// pointing at a file they did not write.
+func TestOperationGlobSkipsTheCompanionDirectiveFile(t *testing.T) {
+	dir := t.TempDir()
+	schemaDir := filepath.Join(dir, "schema")
+	require.NoError(t, os.MkdirAll(schemaDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(schemaDir, "schema.graphqls"),
+		[]byte("type Query { field: String }\n"), 0o600))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(schemaDir, directive.FileName),
+		[]byte(directive.FileContents), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "op.graphql"),
+		[]byte("query Q { field }\n"), 0o600))
+
+	document, err := getQueries(dir, []string{dir + "/**/*.graphql"})
+
+	require.NoError(t, err)
+	require.Len(t, document.Operations, 1)
+	assert.Equal(t, "Q", document.Operations[0].Name)
+}
+
+// TestOperationGlobMatchingOnlyTheCompanionIsAnError checks that skipping the
+// companion does not turn a glob with no operations in it into a silent
+// success.
+func TestOperationGlobMatchingOnlyTheCompanionIsAnError(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, directive.FileName),
+		[]byte(directive.FileContents), 0o600))
+
+	_, err := getQueries(dir, []string{dir + "/*.graphql"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "did not match any files")
 }
