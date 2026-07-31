@@ -103,6 +103,34 @@ query QB($f: Filter) { b(filter: $f) { name } }
 	}
 }
 
+func TestForAllowsSplitAgreeingDeclarations(t *testing.T) {
+	source, err := generateSplit(t, `
+query QA($f: Filter)
+  @octoqlgenFor(field: "Filter.label", pointer: false)
+  @octoqlgenFor(field: "Filter.label", bind: "-")
+{ a(filter: $f) { name } }
+query QB($f: Filter)
+  @octoqlgenFor(field: "Filter.label", pointer: false)
+  @octoqlgenFor(field: "Filter.label", bind: "-")
+{ b(filter: $f) { name } }
+`)
+
+	require.NoError(t, err)
+	assertDeclares(t, source, "Label string")
+}
+
+func TestDefaultsStructAppliesInsideFragment(t *testing.T) {
+	source, err := generateSplit(t, `
+query Q { a { ...ThingFields } }
+fragment ThingFields on Thing @octoqlgenDefaults(struct: true) {
+  name
+}
+`)
+
+	require.NoError(t, err)
+	assert.Contains(t, source, "type ThingFields struct")
+}
+
 // TestSharedInputTypeDoesNotDependOnOperationOrder covers the half of the
 // order dependence a conflict check alone does not reach.
 //

@@ -106,9 +106,8 @@ Configuring a [test handler](#typed-test-handlers) makes uppercase names a hard
 requirement for every operation. octoql does not support GraphQL subscriptions,
 and `octoqlgen` rejects subscription operations.
 
-Operations may also be embedded in Go string literals. See the
-[directive reference](docs/directive.md) for embedded operations
-and per-operation options.
+Operations are defined in `.graphql`, `.graphqls`, or `.gql` files. See the
+[directive reference](docs/directive.md) for per-operation options.
 
 ## Schema sources and updates
 

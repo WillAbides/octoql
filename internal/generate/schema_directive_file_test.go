@@ -1,7 +1,6 @@
 package generate
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,30 +70,18 @@ func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
 func TestDirectiveFilesAreCurrent(t *testing.T) {
 	repositoryRoot := filepath.Join("..", "..")
 
-	checked := 0
-	err := filepath.WalkDir(repositoryRoot, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			if entry.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if entry.Name() != directive.FileName {
-			return nil
-		}
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return readErr
-		}
+	for _, path := range []string{
+		"cmd/octoqlgen/internal/schema/githubapi/" + directive.FileName,
+		"example/" + directive.FileName,
+		"internal/generate/testdata/queries/" + directive.FileName,
+		"internal/generatefeatures/githubdefaults/" + directive.FileName,
+		"internal/generatefeatures/nocontext/" + directive.FileName,
+		"internal/handlertest/" + directive.FileName,
+		"internal/integration/" + directive.FileName,
+	} {
+		data, err := os.ReadFile(filepath.Join(repositoryRoot, path))
+		require.NoError(t, err)
 		assert.Equal(t, directive.FileContents, string(data),
 			"%s is out of date; copy directive.FileContents over it", path)
-		checked++
-		return nil
-	})
-
-	require.NoError(t, err)
-	assert.Positive(t, checked, "expected checked-in @octoqlgen declarations")
+	}
 }

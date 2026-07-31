@@ -436,6 +436,29 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 	assert.Contains(t, err.Error(), "requires a configured remote")
 }
 
+func TestWriteDirectiveFileRejectsCollisions(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	for name, schemaPath := range map[string]string{
+		"schema path": filepath.Join(directory, directive.FileName),
+		"user file":   filepath.Join(directory, "schema.graphql"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := schemaPath
+			if name == "user file" {
+				require.NoError(t, os.WriteFile(
+					filepath.Join(directory, directive.FileName), []byte("user-owned"), 0o600))
+			}
+
+			err := writeDirectiveFile(atomicOutputWriter{}, path)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "directive")
+		})
+	}
+}
+
 func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 	t.Parallel()
 

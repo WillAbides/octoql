@@ -59,6 +59,20 @@ func TestParseRejectsCommentDirective(t *testing.T) {
 	assert.Contains(t, err.Error(), "legacy.graphql:1")
 }
 
+func TestSchemaRejectsCommentDirective(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "schema.graphql")
+	err := os.WriteFile(filename, []byte(
+		"# @octoqlgen(pointer: false)\ntype Query { field: String }\n"), 0o600)
+	require.NoError(t, err)
+
+	_, err = getSchema([]string{filename})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "is a real directive now, not a comment")
+	assert.Contains(t, err.Error(), "schema.graphql:1")
+}
+
 // TestParseDistinguishesDirectivesFromProse checks that the comment-syntax
 // check reads a whole directive name and not a prefix of one.
 //

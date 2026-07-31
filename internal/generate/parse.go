@@ -29,7 +29,12 @@ func getSchema(globs StringList) (*ast.Schema, error) {
 		if readErr != nil {
 			return nil, errorf(nil, "unreadable schema file %v: %v", filename, readErr)
 		}
-		sources[i] = &ast.Source{Name: filename, Input: string(text)}
+		source := &ast.Source{Name: filename, Input: string(text)}
+		err = rejectCommentDirectives(source)
+		if err != nil {
+			return nil, err
+		}
+		sources[i] = source
 	}
 
 	// Ideally here we'd just call gqlparser.LoadSchema. But the schema we are

@@ -232,9 +232,6 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 			return errorf(d.pos, "bind is not implemented for named fragments")
 		}
 
-		if d.Struct != nil {
-			return errorf(d.pos, "struct is only applicable to fields, not fragment-definitions")
-		}
 		// A fragment's generated type is named after the fragment.
 		if d.Alias != "" {
 			return errorf(d.pos,
@@ -564,6 +561,7 @@ func (g *generator) collectDirectivesForNode(node any, directives *ast.Directive
 	*directives = others
 
 	directive := newOctoqlgenDirective(ours[0].Position)
+	declaredFields := make(map[fieldKey]bool)
 	for _, graphQLDirective := range ours {
 		pos := graphQLDirective.Position
 		switch graphQLDirective.Name {
@@ -572,10 +570,7 @@ func (g *generator) collectDirectivesForNode(node any, directives *ast.Directive
 			if err != nil {
 				return err
 			}
-			err = g.recordForDeclaration(key, directive.FieldDirectives[key.typeName][key.fieldName], pos)
-			if err != nil {
-				return err
-			}
+			declaredFields[key] = true
 		case octoqlgenDefaultsName:
 			err := directive.applyArguments(graphQLDirective, pos)
 			if err != nil {
@@ -596,6 +591,14 @@ func (g *generator) collectDirectivesForNode(node any, directives *ast.Directive
 	err := directive.validate(node, g.schema)
 	if err != nil {
 		return err
+	}
+
+	for key := range declaredFields {
+		fieldDirective := directive.FieldDirectives[key.typeName][key.fieldName]
+		err = g.recordForDeclaration(key, fieldDirective, fieldDirective.pos)
+		if err != nil {
+			return err
+		}
 	}
 
 	g.directives[node] = directive
