@@ -25,9 +25,10 @@ const (
 )
 
 type Request struct {
-	Source config.Source
-	Path   string
-	SHA256 string
+	Source            config.Source
+	Path              string
+	SHA256            string
+	SkipDirectiveFile bool
 }
 
 type Materializer struct {
@@ -71,12 +72,14 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 			if err != nil {
 				return nil, err
 			}
-			// Restore the companion file if it is missing or was written by a
-			// different version, so an existing checkout picks it up without
-			// having to refetch the schema.
-			err = publishDirectiveFile(deps.fileSystem, request.Path)
-			if err != nil {
-				return nil, err
+			if !request.SkipDirectiveFile {
+				// Restore the companion file if it is missing or was written by a
+				// different version, so an existing checkout picks it up without
+				// having to refetch the schema.
+				err = publishDirectiveFile(deps.fileSystem, request.Path)
+				if err != nil {
+					return nil, err
+				}
 			}
 			return existing, nil
 		}
@@ -114,6 +117,12 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 		return data, nil
 	}
 
+	if !request.SkipDirectiveFile {
+		_, err = checkDirectiveFile(deps.fileSystem, request.Path)
+		if err != nil {
+			return nil, err
+		}
+	}
 	err = publish(
 		deps.fileSystem,
 		request.Path,
@@ -123,9 +132,11 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	err = publishDirectiveFile(deps.fileSystem, request.Path)
-	if err != nil {
-		return nil, err
+	if !request.SkipDirectiveFile {
+		err = publishDirectiveFile(deps.fileSystem, request.Path)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return data, nil
 }
@@ -138,7 +149,7 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 // stays byte-for-byte what its source served and the pinned checksum keeps
 // describing the file on disk.
 func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
-	path, err := companionPath(schemaPath)
+	path, err := checkDirectiveFile(fileSystem, schemaPath)
 	if err != nil {
 		return err
 	}
@@ -149,14 +160,27 @@ func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
 		if bytes.Equal(existing, wanted) {
 			return nil
 		}
-		if !isGeneratedDirectiveFile(existing) {
-			return fmt.Errorf("refusing to replace non-generated directive file %q", path)
-		}
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("reading directive file %q: %w", path, err)
 	}
 
 	return replace(fileSystem, path, wanted)
+}
+
+func checkDirectiveFile(fileSystem fileSystem, schemaPath string) (string, error) {
+	path, err := companionPath(schemaPath)
+	if err != nil {
+		return "", err
+	}
+	existing, err := fileSystem.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return path, nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("reading directive file %q: %w", path, err)
+	}
+	if !isGeneratedDirectiveFile(existing) {
+		return "", fmt.Errorf("refusing to replace non-generated directive file %q", path)
+	}
+	return path, nil
 }
 
 func companionPath(schemaPath string) (string, error) {

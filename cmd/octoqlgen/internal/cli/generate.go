@@ -44,9 +44,10 @@ func (cmd *generateCommand) Run() error {
 	}
 
 	_, err = cmd.materializer.Materialize(cmd.context, &schema.Request{
-		Path:   loaded.SchemaPath(),
-		SHA256: loaded.Schema.SHA256Value(),
-		Source: loaded.Schema.SourceValue(),
+		Path:              loaded.SchemaPath(),
+		SHA256:            loaded.Schema.SHA256Value(),
+		Source:            loaded.Schema.SourceValue(),
+		SkipDirectiveFile: true,
 	})
 	if err != nil {
 		return fmt.Errorf(

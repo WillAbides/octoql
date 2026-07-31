@@ -343,13 +343,13 @@ func (cmd *schemaUpdateCommand) Run() error {
 	if !bytes.Equal(finalConfig, rawConfig) || !sameFileSnapshot(finalSchema, originalSchema) {
 		return errors.New("config or schema changed while updating; no files were published")
 	}
+	err = checkDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+	if err != nil {
+		return err
+	}
 	err = cmd.outputWriter.Write(loaded.SchemaPath(), result.Data)
 	if err != nil {
 		return fmt.Errorf("publishing updated schema: %w", err)
-	}
-	err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
-	if err != nil {
-		return err
 	}
 	currentConfig, err := os.ReadFile(configPath)
 	if err != nil {
@@ -361,6 +361,10 @@ func (cmd *schemaUpdateCommand) Run() error {
 	err = cmd.outputWriter.Write(configPath, updatedConfig)
 	if err != nil {
 		return fmt.Errorf("config update failed: %w", err)
+	}
+	err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+	if err != nil {
+		return err
 	}
 	_, err = cmd.loadConfig(userConfigPath)
 	if err != nil {
@@ -486,6 +490,19 @@ type outputReader interface {
 // octoqlgen wrote, so editors can resolve the directive in the user's
 // operations.  The schema itself is left exactly as its source served it.
 func writeDirectiveFile(writer outputWriter, schemaPath string) error {
+	err := checkDirectiveFile(writer, schemaPath)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
+	err = writer.Write(path, []byte(directive.FileContents))
+	if err != nil {
+		return fmt.Errorf("writing directive file %q: %w", path, err)
+	}
+	return nil
+}
+
+func checkDirectiveFile(writer outputWriter, schemaPath string) error {
 	if filepath.Base(schemaPath) == directive.FileName {
 		return fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
 	}
@@ -499,10 +516,6 @@ func writeDirectiveFile(writer outputWriter, schemaPath string) error {
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("reading directive file %q: %w", path, err)
 		}
-	}
-	err := writer.Write(path, []byte(directive.FileContents))
-	if err != nil {
-		return fmt.Errorf("writing directive file %q: %w", path, err)
 	}
 	return nil
 }
