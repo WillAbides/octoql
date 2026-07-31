@@ -110,6 +110,15 @@ func (cmd *initCommand) Run() (err error) {
 	}
 	configDir := filepath.Dir(cmd.ConfigPath)
 	schemaPath := filepath.Join(configDir, model.Schema.Path)
+	err = checkDirectiveFile(atomicOutputWriter{}, schemaPath)
+	if err != nil {
+		return err
+	}
+	companionPath := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
+	companionSnapshot, err := snapshotFile(companionPath)
+	if err != nil {
+		return fmt.Errorf("checking directive file %q: %w", companionPath, err)
+	}
 	schemaCreated := false
 	existingSchema, err := os.ReadFile(schemaPath)
 	if err == nil && !bytes.Equal(existingSchema, result.Data) {
@@ -130,7 +139,14 @@ func (cmd *initCommand) Run() (err error) {
 		if schemaCreated && !initializationComplete {
 			err = errors.Join(err, os.Remove(schemaPath))
 		}
+		if !companionSnapshot.exists && !initializationComplete {
+			err = errors.Join(err, os.Remove(companionPath))
+		}
 	}()
+	err = writeDirectiveFile(atomicOutputWriter{}, schemaPath)
+	if err != nil {
+		return err
+	}
 	gitignorePath := filepath.Join(configDir, ".octoql", ".gitignore")
 	err = os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
 	if err != nil {
@@ -448,6 +464,10 @@ func (cmd *schemaFetchCommand) Run() error {
 		return err
 	}
 	if cmd.Output != "" {
+		err = checkDirectiveFile(cmd.outputWriter, cmd.Output)
+		if err != nil {
+			return err
+		}
 		err = cmd.outputWriter.Write(cmd.Output, data)
 		if err != nil {
 			return fmt.Errorf("writing schema output %q: %w", cmd.Output, err)

@@ -168,9 +168,9 @@ func TestMaterializerSkipsCompanionForGeneration(t *testing.T) {
 	require.NoError(t, os.WriteFile(companionPath, []byte("user-owned"), 0o600))
 
 	data, err := NewMaterializer().Materialize(t.Context(), &Request{
-		Path:              schemaPath,
-		SHA256:            checksum(exactSchema),
-		SkipDirectiveFile: true,
+		Path:                      schemaPath,
+		SHA256:                    checksum(exactSchema),
+		SkipExistingDirectiveFile: true,
 	})
 
 	require.NoError(t, err)

@@ -25,10 +25,10 @@ const (
 )
 
 type Request struct {
-	Source            config.Source
-	Path              string
-	SHA256            string
-	SkipDirectiveFile bool
+	Source                    config.Source
+	Path                      string
+	SHA256                    string
+	SkipExistingDirectiveFile bool
 }
 
 type Materializer struct {
@@ -72,7 +72,7 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 			if err != nil {
 				return nil, err
 			}
-			if !request.SkipDirectiveFile {
+			if !request.SkipExistingDirectiveFile {
 				// Restore the companion file if it is missing or was written by a
 				// different version, so an existing checkout picks it up without
 				// having to refetch the schema.
@@ -117,11 +117,9 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 		return data, nil
 	}
 
-	if !request.SkipDirectiveFile {
-		_, err = checkDirectiveFile(deps.fileSystem, request.Path)
-		if err != nil {
-			return nil, err
-		}
+	_, err = checkDirectiveFile(deps.fileSystem, request.Path)
+	if err != nil {
+		return nil, err
 	}
 	err = publish(
 		deps.fileSystem,
@@ -132,11 +130,9 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	if !request.SkipDirectiveFile {
-		err = publishDirectiveFile(deps.fileSystem, request.Path)
-		if err != nil {
-			return nil, err
-		}
+	err = publishDirectiveFile(deps.fileSystem, request.Path)
+	if err != nil {
+		return nil, err
 	}
 	return data, nil
 }
