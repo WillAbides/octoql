@@ -1,10 +1,10 @@
 package generate
 
 import (
+	"bytes"
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -113,9 +113,21 @@ func expandFilenames(globs []string) ([]string, error) {
 		// wrote.  It holds SDL, so parsing it as operations fails.  Skipping it
 		// by name keeps a malformed operation file an error, which skipping
 		// whatever fails to parse would not.
-		matches = slices.DeleteFunc(matches, func(match string) bool {
-			return path.Base(match) == directive.FileName
-		})
+		filtered := matches[:0]
+		for _, match := range matches {
+			filename := path.Join(base, match)
+			if path.Base(match) == directive.FileName {
+				data, readErr := os.ReadFile(filename)
+				if readErr != nil {
+					return nil, errorf(nil, "unreadable query-spec file %v: %v", filename, readErr)
+				}
+				if bytes.HasPrefix(data, []byte(directive.FileHeader)) {
+					continue
+				}
+			}
+			filtered = append(filtered, match)
+		}
+		matches = filtered
 		if len(matches) == 0 {
 			return nil, errorf(nil, "%v did not match any files", glob)
 		}

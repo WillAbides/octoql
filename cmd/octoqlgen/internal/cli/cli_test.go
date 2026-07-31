@@ -777,6 +777,14 @@ func (w *stubOutputWriter) writtenTo(path string) ([]byte, bool) {
 	return data, ok
 }
 
+func (w *stubOutputWriter) ReadFile(path string) ([]byte, error) {
+	data, ok := w.written[path]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return data, nil
+}
+
 type stubRemoteResolver struct {
 	err    error
 	result schema.RemoteResult

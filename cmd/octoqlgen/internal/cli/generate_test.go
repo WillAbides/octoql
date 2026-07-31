@@ -604,6 +604,14 @@ type recordingOutputWriter struct {
 	writes  map[string]int
 }
 
+func (w *recordingOutputWriter) ReadFile(path string) ([]byte, error) {
+	data, ok := w.outputs[path]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return data, nil
+}
+
 func (w *recordingOutputWriter) Write(path string, data []byte) error {
 	if w.outputs == nil {
 		w.outputs = map[string][]byte{}
