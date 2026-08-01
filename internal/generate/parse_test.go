@@ -27,7 +27,10 @@ func sortQueries(queryDoc *ast.QueryDocument) {
 
 func getTestQueries(t *testing.T, ext string) *ast.QueryDocument {
 	graphqlQueries, err := getQueries(
-		parseDataDir, []string{filepath.Join(parseDataDir, "*."+ext)})
+		parseDataDir,
+		[]string{filepath.Join(parseDataDir, "*."+ext)},
+		nil,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +142,9 @@ func TestParseErrors(t *testing.T) {
 		t.Run(ext, func(t *testing.T) {
 			g, err := getQueries(
 				parseErrorsDir,
-				[]string{filepath.Join(parseErrorsDir, "*."+ext)})
+				[]string{filepath.Join(parseErrorsDir, "*."+ext)},
+				nil,
+			)
 			if err == nil {
 				t.Errorf("expected error from getQueries(*.%v)", ext)
 				t.Logf("%#v", g)
