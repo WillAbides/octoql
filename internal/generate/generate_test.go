@@ -271,6 +271,35 @@ func TestGenerateExcludesSchemaFromOperationGlobs(t *testing.T) {
 	}
 }
 
+func TestGenerateExcludesSchemaAliasesFromOperationGlobs(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	require.NoError(t, os.WriteFile(
+		schemaPath,
+		[]byte("type Query { field: String }\n"),
+		0o600,
+	))
+	require.NoError(t, os.Link(schemaPath, filepath.Join(dir, "schema-alias.graphql")))
+	operationPath := filepath.Join(dir, "operation.graphql")
+	require.NoError(t, os.WriteFile(
+		operationPath,
+		[]byte("query Q { field }\n"),
+		0o600,
+	))
+
+	config := &Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{filepath.Join(dir, "*.graphql")},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "client",
+		ContextType: "-",
+	}
+	outputs, err := Generate(config)
+
+	require.NoError(t, err)
+	assert.Contains(t, string(outputs[config.Generated]), "func (c *Client) Q(")
+}
+
 func TestGenerateSelfContainedClientWithOperationVariableNames(t *testing.T) {
 	dir := t.TempDir()
 	schema := `

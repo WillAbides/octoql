@@ -139,12 +139,37 @@ func getQueries(
 		return nil, err
 	}
 
-	excluded := make(map[string]bool, len(excludedFilenames))
+	excluded := make([]inspectedPath, 0, len(excludedFilenames))
 	for _, filename := range excludedFilenames {
-		excluded[filename] = true
+		inspected, inspectErr := inspectPath("excluded query", filename)
+		if inspectErr != nil {
+			return nil, errorf(
+				nil,
+				"resolving excluded query path %q: %v",
+				filename,
+				inspectErr,
+			)
+		}
+		excluded = append(excluded, inspected)
 	}
 	for _, filename := range filenames {
-		if excluded[filename] {
+		inspected, inspectErr := inspectPath("query", filename)
+		if inspectErr != nil {
+			return nil, errorf(
+				nil,
+				"resolving query path %q: %v",
+				filename,
+				inspectErr,
+			)
+		}
+		isExcluded := false
+		for _, excludedPath := range excluded {
+			if pathsAlias(excludedPath, inspected) {
+				isExcluded = true
+				break
+			}
+		}
+		if isExcluded {
 			continue
 		}
 		text, err := os.ReadFile(filename)
