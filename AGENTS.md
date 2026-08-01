@@ -17,8 +17,23 @@
   repository has no changelog; project history remains in Git.
 - `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
-- `@octoqlgen` is the only supported generator comment directive. Do not add a
-  compatibility alias for a prior spelling.
+- Options come from three real GraphQL directives, one per scope: `@octoqlgen`
+  for the node it is attached to, `@octoqlgenDefaults` for the fields inside an
+  operation or fragment, and `@octoqlgenFor` for a named type's field. They are
+  declared into the loaded schema and stripped from operations before they are
+  sent. Each declares only the options its scope supports, so keep the option
+  sets narrow rather than re-adding hand-written location checks. Do not
+  reintroduce comment-based directives, source-position attachment, or a
+  compatibility alias for a prior spelling. Operations come from `.graphql`
+  files only; do not restore extraction from Go string literals.
+- A named type generates one Go type, so `@octoqlgenFor` declarations for the
+  same field must agree across operations. Silence is not disagreement.
+- `internal/directive` owns the `@octoqlgen` declaration. octoqlgen writes it to
+  a companion `octoqlgen-directive.graphql` beside each schema so editors can
+  resolve it, and never into the schema itself: the schema keeps the exact bytes
+  its source served so `schema.sha256` describes it, and GraphQL rejects a
+  directive declared twice. The generator always uses its own declaration and
+  discards any it finds in a loaded schema.
 - octoql does not support GraphQL subscriptions. Preserve per-error
   `Error.Extensions`, but ignore top-level response extensions. Do not restore
   the removed no-op `use_extensions` option.

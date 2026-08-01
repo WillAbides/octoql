@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
+	"github.com/willabides/octoql/internal/directive"
 )
 
 const (
@@ -95,6 +96,10 @@ func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
 	assert.Empty(t, stdout.String())
 	assert.Equal(t, "schema.graphql", outputWriter.path)
 	assert.Equal(t, []byte("exact schema bytes\n"), outputWriter.data)
+	// The schema is written exactly as fetched; the declaration goes beside it.
+	companion, ok := outputWriter.writtenTo(directive.FileName)
+	require.True(t, ok)
+	assert.Contains(t, string(companion), "directive @octoqlgen(")
 	assert.Equal(t, "github/docs", materializer.request.Source.Repository)
 	assert.Equal(t, "src/graphql/data/ghec/schema.docs.graphql", materializer.request.Source.Path)
 	assert.Equal(t, cliRevision, materializer.request.Source.Revision)
@@ -490,7 +495,14 @@ func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
 }
 
-func TestSchemaUpdateCommandRefreshesDirectiveWhenSchemaIsUnchanged(t *testing.T) {
+// TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged covers the two
+// unrelated things called a directive here: the yaml-language-server comment in
+// the config, and the @octoqlgen declaration beside the schema.
+//
+// Nothing else rewrites the declaration, so when the schema is unchanged this
+// is the only path that restores it if it is missing or came from another
+// version of octoqlgen.
+func TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged(t *testing.T) {
 	t.Parallel()
 
 	directory := t.TempDir()
@@ -538,6 +550,12 @@ func TestSchemaUpdateCommandRefreshesDirectiveWhenSchemaIsUnchanged(t *testing.T
 	require.NoError(t, err)
 	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
 	assert.Equal(t, "schema is unchanged\n", stdout.String())
+	companion, err := os.ReadFile(filepath.Join(directory, directive.FileName))
+	require.NoError(t, err)
+	assert.Equal(t, directive.FileContents, string(companion))
+	schemaContent, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	assert.Equal(t, cliSchema, string(schemaContent), "the schema itself must be untouched")
 }
 
 func TestHelpSnapshots(t *testing.T) {
@@ -724,9 +742,16 @@ func (m *stubMaterializer) Materialize(
 }
 
 type stubOutputWriter struct {
-	err  error
-	path string
-	data []byte
+	err     error
+	path    string
+	data    []byte
+	written map[string][]byte
+}
+
+// writtenTo returns the bytes written to a path, and whether it was written.
+func (w *stubOutputWriter) writtenTo(path string) ([]byte, bool) {
+	data, ok := w.written[path]
+	return data, ok
 }
 
 type stubRemoteResolver struct {
@@ -741,7 +766,18 @@ func (r *stubRemoteResolver) Resolve(_ context.Context, source config.Source) (s
 }
 
 func (w *stubOutputWriter) Write(path string, data []byte) error {
-	w.path = path
-	w.data = append([]byte{}, data...)
-	return w.err
+	if w.err != nil {
+		return w.err
+	}
+	if w.written == nil {
+		w.written = map[string][]byte{}
+	}
+	w.written[path] = append([]byte{}, data...)
+	// The directive file is a companion to the schema, so leave the
+	// single-write fields describing the schema itself.
+	if filepath.Base(path) != directive.FileName {
+		w.path = path
+		w.data = append([]byte{}, data...)
+	}
+	return nil
 }

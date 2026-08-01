@@ -446,14 +446,11 @@ type Item {
 `,
 			operations: `
 query Q {
-  # @octoqlgen(typename: "Shared")
-  a {
-    # @octoqlgen(alias: "nodeId")
-    id
+  a @octoqlgen(typename: "Shared") {
+    id @octoqlgen(alias: "nodeId")
     name
   }
-  # @octoqlgen(typename: "Shared")
-  b {
+  b @octoqlgen(typename: "Shared") {
     id
     name
   }
@@ -488,10 +485,8 @@ type Item {
 `,
 			operations: `
 query Q($hide: Boolean!) {
-  # @octoqlgen(typename: "Shared")
-  a { id  flag @skip(if: $hide) }
-  # @octoqlgen(typename: "Shared")
-  b { id  flag }
+  a @octoqlgen(typename: "Shared") { id  flag @skip(if: $hide) }
+  b @octoqlgen(typename: "Shared") { id  flag }
 }
 `,
 			wantGenerationErr: "conflicting definition for the Go type Shared",
@@ -504,10 +499,10 @@ query Q($hide: Boolean!) {
 			// A direct selection with @octoqlgen(typename:"F") is processed
 			// before a spread of fragment F on the same interface type.  The
 			// fragment carries @octoqlgen(alias:"userId") on an id sub-field
-			// inside an inline fragment — invisible to selectionsMatch because
-			// it is a preceding-comment directive, not an AST alias.  The
-			// outer SelectionSets are structurally identical (explicit
-			// __typename in both), so selectionsMatch passes and
+			// inside an inline fragment — invisible to selectionsMatch, which
+			// compares field names and aliases and not the options attached to
+			// them.  The outer SelectionSets are structurally identical
+			// (explicit __typename in both), so selectionsMatch passes and
 			// generatedTypeFieldsMatch on the interface's SharedFields passes
 			// (the inline-fragment field is implementation-specific, not
 			// shared).  The conflict is only detectable by building the
@@ -537,13 +532,11 @@ type Query {
 fragment F on Node {
   __typename
   ... on User {
-    # @octoqlgen(alias: "userId")
-    id
+    id @octoqlgen(alias: "userId")
   }
 }
 query Q {
-  # @octoqlgen(typename: "F")
-  a {
+  a @octoqlgen(typename: "F") {
     __typename
     ... on User {
       id

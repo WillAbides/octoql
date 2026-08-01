@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
+	"github.com/willabides/octoql/internal/directive"
 )
 
 const schemaRevision = "45d83f459620340069df7c375a8867be62616d61"
@@ -43,6 +44,87 @@ func TestMaterializerExistingFile(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, data)
+}
+
+// TestMaterializerWritesDirectiveFile checks that materializing a schema also
+// leaves the @octoqlgen declaration beside it, so editors can resolve the
+// directive in the user's operations.
+//
+// The declaration is a separate file so the schema keeps the exact bytes its
+// source served, which is what the pinned checksum describes.
+func TestMaterializerWritesDirectiveFile(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		_, _ = response.Write(exactSchema)
+	}))
+	t.Cleanup(server.Close)
+
+	destination := filepath.Join(t.TempDir(), "nested", "schema.graphql")
+	materializer := testGitHubMaterializer(server.Client())
+	materializer.GitHubAPIBaseURL = func(string) string {
+		return server.URL
+	}
+	_, err := materializer.Materialize(t.Context(), &Request{
+		Path:   destination,
+		SHA256: checksum(exactSchema),
+		Source: config.Source{
+			Repository: "octo-org/octo-repo",
+			Path:       "schema.graphql",
+			Revision:   schemaRevision,
+		},
+	})
+	require.NoError(t, err)
+
+	written, err := os.ReadFile(destination)
+	require.NoError(t, err)
+	assert.Equal(t, exactSchema, written, "the schema itself must be untouched")
+
+	companionPath := filepath.Join(filepath.Dir(destination), directive.FileName)
+	companion, err := os.ReadFile(companionPath)
+	require.NoError(t, err)
+	assert.Equal(t, directive.FileContents, string(companion))
+	assert.Empty(t, temporaryFiles(t, companionPath))
+}
+
+// TestMaterializerRestoresDirectiveFile checks that an existing checkout picks
+// up the declaration, and that a copy from another version is replaced, without
+// having to refetch the schema.
+func TestMaterializerRestoresDirectiveFile(t *testing.T) {
+	t.Parallel()
+
+	for name, existing := range map[string]*string{
+		"missing": nil,
+		"stale":   ptrTo("# an older octoqlgen wrote this\ndirective @octoqlgen on FIELD\n"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			directoryPath := t.TempDir()
+			destination := filepath.Join(directoryPath, "schema.graphql")
+			require.NoError(t, os.WriteFile(destination, exactSchema, 0o600))
+			companionPath := filepath.Join(directoryPath, directive.FileName)
+			if existing != nil {
+				require.NoError(t, os.WriteFile(companionPath, []byte(*existing), 0o600))
+			}
+
+			materializer := NewMaterializer()
+			data, err := materializer.Materialize(t.Context(), &Request{
+				Path:   destination,
+				SHA256: checksum(exactSchema),
+			})
+
+			require.NoError(t, err)
+			assert.Equal(t, exactSchema, data)
+			companion, err := os.ReadFile(companionPath)
+			require.NoError(t, err)
+			assert.Equal(t, directive.FileContents, string(companion))
+		})
+	}
+}
+
+func ptrTo[T any](value T) *T {
+	return &value
 }
 
 func TestMaterializerExistingFileMismatch(t *testing.T) {

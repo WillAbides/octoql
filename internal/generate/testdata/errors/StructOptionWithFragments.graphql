@@ -1,6 +1,5 @@
 query StructOptionOnObject {
-  # @octoqlgen(struct: true)
-  myInterface {
+  myInterface @octoqlgen(struct: true) {
     f
     ... on MyObject {
       g

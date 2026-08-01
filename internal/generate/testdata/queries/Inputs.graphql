@@ -1,9 +1,6 @@
 # Copyright (c) 2026 octoql contributors
 # SPDX-License-Identifier: MIT
 
-# @octoqlgen(typename: "GitHubInputResponse")
-# @octoqlgen(for: "InputWithDefaults.optionalLabel", omitempty: true)
-# @octoqlgen(for: "IssueFilter.assignee", pointer: true)
 query GitHubInputs(
   $repository: RepositorySelector!
   $filter: IssueFilter
@@ -12,9 +9,12 @@ query GitHubInputs(
   $optional: OmitemptyInput
   $structs: UseStructReferencesInput!
   $publishedDates: [[[Date!]!]!]!
-  # @octoqlgen(pointer: true)
-  $optionalPublishedDates: [[[Date!]!]!]
-) {
+  $optionalPublishedDates: [[[Date!]!]!] @octoqlgen(pointer: true)
+)
+  @octoqlgen(typename: "GitHubInputResponse")
+  @octoqlgenFor(field: "InputWithDefaults.optionalLabel", omitempty: true)
+  @octoqlgenFor(field: "IssueFilter.assignee", pointer: true)
+{
   repositoryBySelector(input: $repository) {
     id
     issues(filter: $filter) {

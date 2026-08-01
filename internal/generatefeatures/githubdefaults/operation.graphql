@@ -2,13 +2,11 @@ query GetReview {
   review {
     fullDatabaseId
     createdAt
-    # @octoqlgen(struct: true)
-    author {
+    author @octoqlgen(struct: true) {
       login
       url
     }
-    # @octoqlgen(struct: true)
-    editor {
+    editor @octoqlgen(struct: true) {
       login
       url
     }

@@ -1,13 +1,16 @@
 package generate
 
 import (
+	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/willabides/octoql/internal/directive"
 )
 
 var (
@@ -25,74 +28,114 @@ func sortQueries(queryDoc *ast.QueryDocument) {
 	})
 }
 
-func getTestQueries(t *testing.T, ext string) *ast.QueryDocument {
-	graphqlQueries, err := getQueries(
-		parseDataDir,
-		[]string{filepath.Join(parseDataDir, "*."+ext)},
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestParse(t *testing.T) {
+	queries, err := getQueries(
+		parseDataDir, []string{filepath.Join(parseDataDir, "*.graphql")}, nil)
+	require.NoError(t, err)
 
-	// The different file-types may have the operations/fragments in a
-	// different order.
-	sortQueries(graphqlQueries)
+	sortQueries(queries)
 
-	return graphqlQueries
+	assert.NotEmpty(t, queries.Operations)
+	assert.NotEmpty(t, queries.Fragments)
 }
 
-// TestParse tests that query-extraction from different language source files
-// produces equivalent results.  We do not test the results it produces (that's
-// covered by TestGenerate), just that they are equivalent in different
-// languages (since TestGenerate only uses .graphql as input).
-// TODO: redo this as more standard snapshot tests?
-func TestParse(t *testing.T) {
-	extensions := []string{"go"}
+// TestParseRejectsCommentDirective checks that a file written for the old
+// comment syntax fails instead of generating with its options silently
+// dropped.
+//
+// The comment-syntax directive below is the input under test, not a spelling
+// that was missed when the directives became real.  Do not rewrite it.
+func TestParseRejectsCommentDirective(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "legacy.graphql")
+	err := os.WriteFile(filename, []byte(
+		"# @octoqlgen(pointer: false)\nquery Legacy { field }\n"), 0o600)
+	require.NoError(t, err)
 
-	graphqlQueries := getTestQueries(t, "graphql")
+	_, err = getQueries(dir, []string{filename}, nil)
 
-	// check it's at least non-empty
-	if len(graphqlQueries.Operations) == 0 || len(graphqlQueries.Fragments) == 0 {
-		t.Fatalf("Didn't find any queries in *.graphql files")
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "is a real directive now, not a comment")
+	assert.Contains(t, err.Error(), "legacy.graphql:1")
+}
 
-	sortQueries(graphqlQueries)
+// TestParseDistinguishesDirectivesFromProse checks that the comment-syntax
+// check reads a whole directive name and not a prefix of one.
+//
+// Explaining @octoqlgenFor or @octoqlgenDefaults in a comment is a reasonable
+// thing to do, especially while migrating, and those names begin with
+// @octoqlgen.  As with the tests above, the comment-syntax directives here are
+// the input under test.  Do not rewrite them.
+//
+// The old syntax handed the comment to the GraphQL parser, which ignores
+// whitespace before the argument list, so `# @octoqlgen (pointer: false)` was a
+// working directive and has to be rejected rather than read as prose.
+func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
+	for comment, wantRejected := range map[string]bool{
+		"@octoqlgen(pointer: false)":              true,
+		"@octoqlgen":                              true,
+		`@octoqlgenFor(field: "Q.f")`:             true,
+		"@octoqlgenDefaults(pointer: false)":      true,
+		"@octoqlgen applies to the node it is on": false,
+		"@octoqlgenFor applies to the input type": false,
+		"@octoqlgenDefaults covers every field":   false,
+		"@octoqlgenesis is handled elsewhere":     false,
 
-	for _, ext := range extensions {
-		t.Run(ext, func(t *testing.T) {
-			queries := getTestQueries(t, ext)
+		// Spellings the old syntax accepted, which must not be read as prose.
+		"@octoqlgen (pointer: false)":         true,
+		`@octoqlgenFor (field: "Q.f")`:        true,
+		"@octoqlgenDefaults  (pointer: true)": true,
+		"@octoqlgen\t(pointer: false)":        true,
 
-			got, want := ast.Dump(graphqlQueries), removeComments(ast.Dump(queries))
+		// The cost of the rule above, accepted deliberately: prose whose first
+		// word after the name is parenthesised is refused.  A wrong error is
+		// better than an option that is silently dropped on migration.
+		"@octoqlgen (deprecated) use a node option": true,
+	} {
+		t.Run(comment, func(t *testing.T) {
+			dir := t.TempDir()
+			filename := filepath.Join(dir, "operation.graphql")
+			err := os.WriteFile(filename,
+				[]byte("# "+comment+"\nquery Q { field }\n"), 0o600)
+			require.NoError(t, err)
 
-			if got != want {
-				// TODO: nice diffing
-				t.Errorf("got:\n%v\nwant:\n%v\n", got, want)
+			_, err = getQueries(dir, []string{filename}, nil)
+
+			if !wantRejected {
+				assert.NoError(t, err)
+				return
 			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "is a real directive now, not a comment")
 		})
 	}
 }
 
-func TestParseRejectsLegacyDirective(t *testing.T) {
-	queries, err := getQueriesFromGo(
-		"package legacy\n\nconst query = `# @"+"genqlient\nquery Legacy { field }\n`",
-		".",
-		"legacy.go",
-	)
-	assert.NoError(t, err)
-	assert.Empty(t, queries)
-}
+// TestParseAllowsDirectiveInsideString checks that the comment-syntax check
+// does not fire on string content that merely looks like a directive.
+//
+// The check lexes rather than scanning lines; a line-scanning implementation
+// passes every other test in this package and fails only these two.  The
+// comment-syntax directives below are string content under test, not spellings
+// that were missed.  Do not rewrite them.
+func TestParseAllowsDirectiveInsideString(t *testing.T) {
+	for name, operation := range map[string]string{
+		"string": "query Ok { field(arg: \"# @octoqlgen(pointer: false)\") }\n",
+		"block string": "query Ok { field(arg: \"\"\"\n" +
+			"# @octoqlgen(pointer: false)\n" +
+			"\"\"\") }\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			filename := filepath.Join(dir, "ok.graphql")
+			err := os.WriteFile(filename, []byte(operation), 0o600)
+			require.NoError(t, err)
 
-func removeComments(gotWithComments string) string {
-	var gots []string
-	for _, s := range strings.Split(gotWithComments, "\n") {
-		if strings.Contains(s, `Comment:`) {
-			continue
-		}
-		gots = append(gots, s)
+			_, err = getQueries(dir, []string{filename}, nil)
+
+			assert.NoError(t, err)
+		})
 	}
-	got := strings.Join(gots, "\n")
-	return got
 }
 
 func filepathJoinAll(a string, bs []string) []string {
@@ -133,22 +176,55 @@ func TestExpandFilenames(t *testing.T) {
 	}
 }
 
-// TestParseErrors tests that query-extraction from different language source files
-// produces appropriate errors if your query is invalid.
+// TestParseErrors tests that query-extraction produces appropriate errors if
+// your query is invalid.
 func TestParseErrors(t *testing.T) {
-	extensions := []string{"graphql", "go"}
-
-	for _, ext := range extensions {
-		t.Run(ext, func(t *testing.T) {
-			g, err := getQueries(
-				parseErrorsDir,
-				[]string{filepath.Join(parseErrorsDir, "*."+ext)},
-				nil,
-			)
-			if err == nil {
-				t.Errorf("expected error from getQueries(*.%v)", ext)
-				t.Logf("%#v", g)
-			}
-		})
+	g, err := getQueries(
+		parseErrorsDir,
+		[]string{filepath.Join(parseErrorsDir, "*.graphql")}, nil)
+	if err == nil {
+		t.Errorf("expected error from getQueries")
+		t.Logf("%#v", g)
 	}
+}
+
+// TestOperationGlobSkipsTheCompanionDirectiveFile checks that a glob broad
+// enough to reach the schema directory still generates.
+//
+// octoqlgen writes the companion beside the schema and gives it a .graphql
+// extension, so `operations: ["**/*.graphql"]` starts matching a file the tool
+// itself created.  It holds SDL rather than operations, so parsing it as a
+// query document fails — an upgrade breaking a config the user never edited,
+// pointing at a file they did not write.
+func TestOperationGlobSkipsTheCompanionDirectiveFile(t *testing.T) {
+	dir := t.TempDir()
+	schemaDir := filepath.Join(dir, "schema")
+	require.NoError(t, os.MkdirAll(schemaDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(schemaDir, "schema.graphqls"),
+		[]byte("type Query { field: String }\n"), 0o600))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(schemaDir, directive.FileName),
+		[]byte(directive.FileContents), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "op.graphql"),
+		[]byte("query Q { field }\n"), 0o600))
+
+	document, err := getQueries(dir, []string{dir + "/**/*.graphql"}, nil)
+
+	require.NoError(t, err)
+	require.Len(t, document.Operations, 1)
+	assert.Equal(t, "Q", document.Operations[0].Name)
+}
+
+// TestOperationGlobMatchingOnlyTheCompanionIsAnError checks that skipping the
+// companion does not turn a glob with no operations in it into a silent
+// success.
+func TestOperationGlobMatchingOnlyTheCompanionIsAnError(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, directive.FileName),
+		[]byte(directive.FileContents), 0o600))
+
+	_, err := getQueries(dir, []string{dir + "/*.graphql"}, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "did not match any files")
 }

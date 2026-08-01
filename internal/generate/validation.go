@@ -66,9 +66,15 @@ func structFieldsMatch(existing, candidate []*goStructField) error {
 // selectionsMatch recursively compares the two selection-sets, and returns an
 // error if they differ.
 //
-// It does not check arguments and directives, only field names, aliases,
-// order, and fragment-structure.  It does not recurse into named fragments, it
-// only checks that their names match.
+// It checks field names, aliases, order, and fragment-structure.  It does not
+// check arguments or directives, and it does not recurse into named fragments,
+// it only checks that their names match.
+//
+// Two selections that request the same fields can still generate different Go,
+// for example when one of them sets pointer or bind.  That difference is caught
+// by generatedTypeFieldsMatch, which compares the fields octoqlgen is about to
+// emit rather than the options asking for them, so it also covers @skip,
+// @include, and anything else that reaches the generated type.
 //
 // If both selection-sets are nil/empty, they compare equal.
 func selectionsMatch(
@@ -134,6 +140,35 @@ func selectionsMatch(
 		}
 	}
 	return nil
+}
+
+// directiveOptionsMatch reports whether two @octoqlgenFor declarations ask for
+// the same thing.  A missing directive is equivalent to one that sets nothing.
+//
+// This compares declarations against each other, before conversion, so there is
+// no generated field to compare instead: the point is to reject two operations
+// that disagree, not to compare what was emitted.
+func directiveOptionsMatch(a, b *octoqlgenDirective) bool {
+	if a == nil {
+		a = &octoqlgenDirective{}
+	}
+	if b == nil {
+		b = &octoqlgenDirective{}
+	}
+	return boolOptionsMatch(a.Omitempty, b.Omitempty) &&
+		boolOptionsMatch(a.Pointer, b.Pointer) &&
+		boolOptionsMatch(a.Struct, b.Struct) &&
+		boolOptionsMatch(a.Flatten, b.Flatten) &&
+		a.Bind == b.Bind &&
+		a.TypeName == b.TypeName &&
+		a.Alias == b.Alias
+}
+
+func boolOptionsMatch(a, b *bool) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // validateBindingSelection checks that if you requested in your type-binding

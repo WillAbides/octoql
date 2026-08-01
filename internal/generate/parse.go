@@ -1,21 +1,20 @@
 package generate
 
 import (
-	"fmt"
-	goAst "go/ast"
-	goParser "go/parser"
-	goToken "go/token"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
+	"slices"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/lexer"
 	"github.com/vektah/gqlparser/v2/parser"
 	"github.com/vektah/gqlparser/v2/validator"
 	_ "github.com/vektah/gqlparser/v2/validator/rules"
+
+	"github.com/willabides/octoql/internal/directive"
 )
 
 func getSchema(globs StringList) (*ast.Schema, []string, error) {
@@ -26,9 +25,9 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 
 	sources := make([]*ast.Source, len(filenames))
 	for i, filename := range filenames {
-		text, err := os.ReadFile(filename)
-		if err != nil {
-			return nil, nil, errorf(nil, "unreadable schema file %v: %v", filename, err)
+		text, readErr := os.ReadFile(filename)
+		if readErr != nil {
+			return nil, nil, errorf(nil, "unreadable schema file %v: %v", filename, readErr)
 		}
 		sources[i] = &ast.Source{Name: filename, Input: string(text)}
 	}
@@ -61,6 +60,11 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 			return nil, nil, errorf(nil, "invalid prelude (probably a gqlparser bug): %v", graphqlError)
 		}
 		document.Merge(preludeAST)
+	}
+
+	err = addOctoqlgenDirectiveDefinition(document)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	schema, graphqlError := validator.ValidateSchemaDocument(document)
@@ -103,6 +107,15 @@ func expandFilenames(globs []string) ([]string, error) {
 		if err != nil {
 			return nil, errorf(nil, "can't expand file-glob %v: %v", glob, err)
 		}
+		// octoqlgen writes the companion declaration beside the schema with a
+		// .graphql extension, so a glob broad enough to reach the schema
+		// directory matches a file octoqlgen created rather than one the user
+		// wrote.  It holds SDL, so parsing it as operations fails.  Skipping it
+		// by name keeps a malformed operation file an error, which skipping
+		// whatever fails to parse would not.
+		matches = slices.DeleteFunc(matches, func(match string) bool {
+			return path.Base(match) == directive.FileName
+		})
 		if len(matches) == 0 {
 			return nil, errorf(nil, "%v did not match any files", glob)
 		}
@@ -186,16 +199,6 @@ func getQueries(
 
 			addQueryDoc(queryDoc)
 
-		case ".go":
-			queryDocs, err := getQueriesFromGo(string(text), basedir, filename)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, queryDoc := range queryDocs {
-				addQueryDoc(queryDoc)
-			}
-
 		default:
 			return nil, errorf(nil, "unknown file type: %v", filename)
 		}
@@ -211,9 +214,15 @@ func getQueriesFromString(text string, basedir, filename string) (*ast.QueryDocu
 		filename = relname
 	}
 
+	source := &ast.Source{Name: filename, Input: text}
+
+	err = rejectCommentDirectives(source)
+	if err != nil {
+		return nil, err
+	}
+
 	// Cf. gqlparser.LoadQuery
-	document, graphqlError := parser.ParseQuery(
-		&ast.Source{Name: filename, Input: text})
+	document, graphqlError := parser.ParseQuery(source)
 	if graphqlError != nil { // ParseQuery returns type *graphql.Error, yuck
 		return nil, errorf(nil, "invalid query-spec file %v: %v", filename, graphqlError)
 	}
@@ -221,48 +230,65 @@ func getQueriesFromString(text string, basedir, filename string) (*ast.QueryDocu
 	return document, nil
 }
 
-func getQueriesFromGo(text string, basedir, filename string) ([]*ast.QueryDocument, error) {
-	fset := goToken.NewFileSet()
-	f, err := goParser.ParseFile(fset, filename, text, 0)
-	if err != nil {
-		return nil, errorf(nil, "invalid Go file %v: %v", filename, err)
+// rejectCommentDirectives fails on the comment form @octoqlgen options used to
+// take.
+//
+// Ignoring these silently would drop the options they carry, which is how a
+// field annotated `pointer: true` could quietly become a non-pointer that
+// decodes null as the Go zero value.  Failing is the only safe reading of a
+// file written for the old syntax.
+//
+// It lexes rather than scanning lines so that a `#` inside a string or block
+// string is not mistaken for a comment.
+func rejectCommentDirectives(source *ast.Source) error {
+	lex := lexer.New(source)
+	for {
+		token, err := lex.ReadToken()
+		if err != nil {
+			// Let the parser report syntax errors; it produces better messages.
+			return nil
+		}
+		if token.Kind == lexer.EOF {
+			return nil
+		}
+		if token.Kind != lexer.Comment {
+			continue
+		}
+		comment := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(token.Value), "#"))
+		name := commentDirectiveName(comment)
+		if name == "" {
+			continue
+		}
+		return errorf(&token.Pos,
+			"@%s is a real directive now, not a comment; attach it to the node "+
+				"it applies to, as in `myField @%s(pointer: false)`",
+			name, octoqlgenDirectiveName)
 	}
+}
 
-	var retval []*ast.QueryDocument
-	goAst.Inspect(f, func(node goAst.Node) bool {
-		if err != nil {
-			return false // don't bother to recurse if something already failed
+// commentDirectiveName returns the octoqlgen directive a comment is written in
+// the old form of, or "" if the comment merely mentions one.
+//
+// The name has to be followed by "(" or by nothing, because prose about a
+// directive is ordinary comment text and must not be rejected.  A bare prefix
+// test would reject `# @octoqlgenFor applies to the input type below`, and also
+// any word that merely starts the same way.
+//
+// Whitespace before "(" is not a boundary.  The old syntax parsed the comment
+// as GraphQL, which ignores it, so `# @octoqlgen (pointer: false)` carried a
+// real option and has to be refused rather than silently dropped.  That refuses
+// prose whose first word after the name is parenthesised, which is the cheaper
+// mistake of the two.
+func commentDirectiveName(comment string) string {
+	for _, name := range []string{octoqlgenDefaultsName, octoqlgenForName, octoqlgenDirectiveName} {
+		rest, ok := strings.CutPrefix(comment, "@"+name)
+		if !ok {
+			continue
 		}
-
-		basicLit, ok := node.(*goAst.BasicLit)
-		if !ok || basicLit.Kind != goToken.STRING {
-			return true // recurse
+		rest = strings.TrimSpace(rest)
+		if rest == "" || strings.HasPrefix(rest, "(") {
+			return name
 		}
-
-		var value string
-		value, err = strconv.Unquote(basicLit.Value)
-		if err != nil {
-			return false
-		}
-
-		if !strings.HasPrefix(strings.TrimSpace(value), "# @octoqlgen") {
-			return true
-		}
-
-		// We put the filename as <real filename>:<line>, which errors.go knows
-		// how to parse back out (since it's what gqlparser will give to us in
-		// our errors).
-		pos := fset.Position(basicLit.Pos())
-		fakeFilename := fmt.Sprintf("%v:%v", pos.Filename, pos.Line)
-		var query *ast.QueryDocument
-		query, err = getQueriesFromString(value, basedir, fakeFilename)
-		if err != nil {
-			return false
-		}
-		retval = append(retval, query)
-
-		return true
-	})
-
-	return retval, err
+	}
+	return ""
 }

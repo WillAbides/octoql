@@ -507,7 +507,7 @@ func (g *generator) convertArguments(
 			return nil, errorf(arg.Position, "variable name must not be a go keyword")
 		}
 
-		_, options, err := g.parsePrecedingComment(arg, nil, arg.Position, queryOptions)
+		options, err := g.directiveFor(arg, nil, arg.Position, queryOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -765,13 +765,11 @@ func (g *generator) convertDefinition(
 	// also requires this path for recursive types: it pre-inserts an empty
 	// struct via addType so getType on a second call returns that placeholder,
 	// and the early-out is required to avoid overwriting it.
-	// Known limitation: an operation-level @octoqlgen(for:) directive can
-	// change an input type's generated fields; contradictory declarations
-	// across operations are not detected here.
-	// For selection-based types (Object, Interface, Union), skip the early-
-	// out so the candidate is built and reaches addType for structural
-	// comparison.
-	if def.Kind == ast.InputObject || def.Kind == ast.Enum || def.Kind == ast.Scalar {
+	// Enums and scalars are generated entirely from the schema definition, so
+	// a second conversion cannot produce anything different and there is
+	// nothing to compare.  Every other kind, input objects included, builds
+	// its candidate and compares the fields it would emit.
+	if def.Kind == ast.Enum || def.Kind == ast.Scalar {
 		existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
 		if existing != nil || err != nil {
 			return existing, err
@@ -820,15 +818,35 @@ func (g *generator) convertDefinition(
 			descriptionInfo: desc,
 			IsInput:         true,
 		}
-		// To handle recursive types, we need to add the type to the type-map
-		// *before* converting its fields.
-		_, err := g.addType(goType, goType.GoName, provenancePos)
-		if err != nil {
-			return nil, err
+		// Look the type up before inserting anything, because the insert
+		// below is a placeholder whose fields are not built yet and must not
+		// be compared against a finished type.
+		existing, lookupErr := g.getType(
+			name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
+		if lookupErr != nil {
+			return nil, lookupErr
+		}
+		// A field of this same type, directly or through another input type,
+		// re-enters here while the fields are being converted.  It wants the
+		// type, not another conversion of it.
+		if g.convertingInputs[name] {
+			return existing, nil
+		}
+		g.convertingInputs[name] = true
+		defer delete(g.convertingInputs, name)
+
+		if existing == nil {
+			// To handle recursive types, we need to add the type to the
+			// type-map *before* converting its fields, so the re-entry above
+			// has something to return.
+			_, addErr := g.addType(goType, goType.GoName, provenancePos)
+			if addErr != nil {
+				return nil, addErr
+			}
 		}
 
 		for i, field := range def.Fields {
-			_, fieldOptions, err := g.parsePrecedingComment(
+			fieldOptions, err := g.directiveFor(
 				field, def, field.Position, queryOptions)
 			if err != nil {
 				return nil, err
@@ -880,6 +898,25 @@ func (g *generator) convertDefinition(
 				Omitempty:   fieldOptions.GetOmitempty(),
 				Position:    field.Position,
 			}
+		}
+
+		// An input type is named by the schema, so every operation shares one
+		// Go type for it, and @octoqlgenDefaults are per-operation.  Two
+		// operations that would generate it differently cannot both be
+		// satisfied, and without this the one converted first would silently
+		// decide for all of them.
+		if existing != nil {
+			matchErr := generatedTypeFieldsMatch(existing, goType)
+			if matchErr != nil {
+				return nil, errorf(provenancePos,
+					"conflicting definitions for the input type %s: this operation "+
+						"would generate it differently than the one at %s (%v); "+
+						"an input type is generated once, so declare the difference "+
+						"with @%s instead of @%s",
+					name, posString(g.typePositions[name]), matchErr,
+					octoqlgenForName, octoqlgenDefaultsName)
+			}
+			return existing, nil
 		}
 		return goType, nil
 
@@ -1185,7 +1222,7 @@ func (g *generator) convertSelectionSet(
 ) ([]*goStructField, error) {
 	fields := make([]*goStructField, 0, len(selectionSet))
 	for _, selection := range selectionSet {
-		_, selectionOptions, err := g.parsePrecedingComment(
+		selectionOptions, err := g.directiveFor(
 			selection, nil, selection.GetPosition(), queryOptions)
 		if err != nil {
 			return nil, err
@@ -1428,10 +1465,11 @@ func (g *generator) convertFragmentSpread(
 func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goType, error) {
 	typ := g.schema.Types[fragment.TypeCondition]
 
-	comment, directive, err := g.parsePrecedingComment(fragment, nil, fragment.Position, nil)
+	directive, err := g.directiveFor(fragment, nil, fragment.Position, nil)
 	if err != nil {
 		return nil, err
 	}
+	comment := precedingComment(fragment.Position)
 
 	desc := descriptionInfo{
 		CommentOverride:    comment,

@@ -49,7 +49,18 @@ type generator struct {
 	// set consistently, even post-validation.
 	fragments map[string]*ast.FragmentDefinition
 
-	directiveAttachments map[directiveAttachmentKey]directiveAttachment
+	// The octoqlgen options that applied to each node, keyed by the AST node
+	// they were attached to.  Populated by collectDirectives, which also
+	// removes the directives from the AST so they never reach the server.
+	directives map[any]*octoqlgenDirective
+
+	// Every @octoqlgenFor declaration, keyed by the type and field it names, so
+	// that conflicting declarations can be rejected.
+	forDeclarations map[fieldKey]forDeclaration
+
+	// The input types whose fields are being converted right now, so a field
+	// of the same type returns the type instead of converting it again.
+	convertingInputs map[string]bool
 
 	forbiddenImportPath string
 }
@@ -162,6 +173,7 @@ func (p *generationPlan) newRenderer(
 		usedAliases:         map[string]bool{},
 		templateCache:       map[string]*template.Template{},
 		fragments:           map[string]*ast.FragmentDefinition{},
+		convertingInputs:    map[string]bool{},
 		forbiddenImportPath: forbiddenImportPath,
 	}
 	if includePlanImports {
@@ -195,15 +207,17 @@ func newGenerator(
 	fragments ast.FragmentDefinitionList,
 ) *generator {
 	g := generator{
-		Config:               config,
-		typeMap:              map[string]goType{},
-		typePositions:        map[string]*ast.Position{},
-		imports:              map[string]string{},
-		usedAliases:          map[string]bool{},
-		templateCache:        map[string]*template.Template{},
-		schema:               schema,
-		fragments:            make(map[string]*ast.FragmentDefinition, len(fragments)),
-		directiveAttachments: make(map[directiveAttachmentKey]directiveAttachment),
+		Config:           config,
+		typeMap:          map[string]goType{},
+		typePositions:    map[string]*ast.Position{},
+		imports:          map[string]string{},
+		usedAliases:      map[string]bool{},
+		templateCache:    map[string]*template.Template{},
+		schema:           schema,
+		fragments:        make(map[string]*ast.FragmentDefinition, len(fragments)),
+		directives:       map[any]*octoqlgenDirective{},
+		forDeclarations:  map[fieldKey]forDeclaration{},
+		convertingInputs: map[string]bool{},
 	}
 
 	for _, fragment := range fragments {
@@ -298,7 +312,7 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 	// object-typed scope will *not* have access to `__typename`, but they
 	// indeed don't need it, since we do know the type in that context.
 	// TODO(benkraft): We should omit __typename if you asked for
-	// `# @octoqlgen(struct: true)`.
+	// `@octoqlgen(struct: true)`.
 	observers.OnField(func(_ *validator.Walker, field *ast.Field) {
 		if field.Name == "__typename" {
 			definition := *field.Definition
@@ -401,10 +415,11 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 	f := formatter.NewFormatter(&builder)
 	f.FormatQueryDocument(queryDoc)
 
-	commentLines, directive, err := g.parsePrecedingComment(op, nil, op.Position, nil)
+	directive, err := g.directiveFor(op, nil, op.Position, nil)
 	if err != nil {
 		return err
 	}
+	commentLines := precedingComment(op.Position)
 
 	inputType, err := g.convertArguments(op, directive)
 	if err != nil {
@@ -421,15 +436,7 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 		docComment = "// " + strings.ReplaceAll(commentLines, "\n", "\n// ")
 	}
 
-	// If the filename is a pseudo-filename filename.go:startline, just
-	// put the filename in the export; we don't figure out the line offset
-	// anyway, and if you want to check those exports in they will change a
-	// lot if they have line numbers.
-	// TODO: refactor to use the errorPos machinery for this
 	sourceFilename := op.Position.Src.Name
-	if i := strings.LastIndex(sourceFilename, ":"); i != -1 {
-		sourceFilename = sourceFilename[:i]
-	}
 
 	g.Operations = append(g.Operations, &operation{
 		Type: op.Operation,
@@ -487,6 +494,14 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 	// in convert.go, and it additionally updates g.typeMap to include all the
 	// types it needs.
 	g := newGenerator(config, schema, document.Fragments)
+
+	// Move every @octoqlgen directive off the AST and into g.directives before
+	// anything formats an operation, so the query bodies we send never contain
+	// them.
+	if err = g.collectDirectives(document); err != nil {
+		return nil, err
+	}
+
 	for _, op := range document.Operations {
 		if err = g.addOperation(op); err != nil {
 			return nil, err

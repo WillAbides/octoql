@@ -16,6 +16,7 @@ import (
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
+	"github.com/willabides/octoql/internal/directive"
 )
 
 const (
@@ -70,6 +71,13 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 			if err != nil {
 				return nil, err
 			}
+			// Restore the companion file if it is missing or was written by a
+			// different version, so an existing checkout picks it up without
+			// having to refetch the schema.
+			err = publishDirectiveFile(deps.fileSystem, request.Path)
+			if err != nil {
+				return nil, err
+			}
 			return existing, nil
 		}
 		if !errors.Is(readErr, fs.ErrNotExist) {
@@ -115,7 +123,39 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	if err != nil {
 		return nil, err
 	}
+	err = publishDirectiveFile(deps.fileSystem, request.Path)
+	if err != nil {
+		return nil, err
+	}
 	return data, nil
+}
+
+// publishDirectiveFile writes the @octoqlgen declaration next to a schema
+// octoqlgen materialized, so editors and other GraphQL tooling can resolve the
+// directive in the user's operations.
+//
+// It is a separate file rather than an addition to the schema so the schema
+// stays byte-for-byte what its source served and the pinned checksum keeps
+// describing the file on disk.
+func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
+	path := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
+	wanted := []byte(directive.FileContents)
+
+	existing, err := fileSystem.ReadFile(path)
+	if err == nil {
+		if bytes.Equal(existing, wanted) {
+			return nil
+		}
+		// Written by a different version of octoqlgen; replace it.
+		err = fileSystem.Remove(path)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("replacing directive file %q: %w", path, err)
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("reading directive file %q: %w", path, err)
+	}
+
+	return publish(fileSystem, path, wanted, "")
 }
 
 type dependencies struct {

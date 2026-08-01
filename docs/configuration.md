@@ -45,6 +45,12 @@ Keep this in the gitignored `.octoql` directory when the source is
 remote, so the reviewed pin in `octoqlgen.yaml` is the committed
 artifact rather than the schema itself.
 
+octoqlgen writes `octoqlgen-directive.graphql` into the same
+directory, declaring `@octoqlgen` so editors can resolve it. The
+schema keeps the exact bytes its source served, so `schema.sha256`
+still describes it. See
+[editor support](directive.md#editor-support).
+
 Example: `.octoql/schema.graphql`
 
 ### `schema.sha256`
@@ -111,9 +117,8 @@ Type: `array` · Required
 Filenames or globs holding the operations to generate code for, relative
 to `octoqlgen.yaml`.
 
-These may be `.graphql` files containing operations in SDL form, or Go
-files, in which case any string literal starting with (optional
-whitespace and) the string `# @octoqlgen` is extracted as an operation.
+These are `.graphql` files containing operations in SDL form. Extracting
+operations from string literals in Go files is not supported.
 
 Operations are always written as a list, even when only one path is
 needed.
