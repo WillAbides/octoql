@@ -457,12 +457,17 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 	// Step 1: Read in the schema and operations from the files defined by the
 	// config (and validate the operations against the schema).  This is all
 	// defined in parse.go.
-	schema, err := getSchema(config.Schema)
+	schema, schemaFilenames, err := getSchema(config.Schema)
 	if err != nil {
 		return nil, err
 	}
 
-	document, err := getAndValidateQueries(config.baseDir, config.Operations, schema)
+	document, err := getAndValidateQueries(
+		config.baseDir,
+		config.Operations,
+		schemaFilenames,
+		schema,
+	)
 	if err != nil {
 		return nil, err
 	}

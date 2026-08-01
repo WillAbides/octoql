@@ -18,17 +18,17 @@ import (
 	_ "github.com/vektah/gqlparser/v2/validator/rules"
 )
 
-func getSchema(globs StringList) (*ast.Schema, error) {
+func getSchema(globs StringList) (*ast.Schema, []string, error) {
 	filenames, err := expandFilenames(globs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	sources := make([]*ast.Source, len(filenames))
 	for i, filename := range filenames {
 		text, err := os.ReadFile(filename)
 		if err != nil {
-			return nil, errorf(nil, "unreadable schema file %v: %v", filename, err)
+			return nil, nil, errorf(nil, "unreadable schema file %v: %v", filename, err)
 		}
 		sources[i] = &ast.Source{Name: filename, Input: string(text)}
 	}
@@ -41,7 +41,7 @@ func getSchema(globs StringList) (*ast.Schema, error) {
 	document, graphqlError := parser.ParseSchemas(sources...)
 	if graphqlError != nil {
 		// Schema doesn't even parse.
-		return nil, errorf(nil, "invalid schema: %v", graphqlError)
+		return nil, nil, errorf(nil, "invalid schema: %v", graphqlError)
 	}
 
 	// Check if we have a builtin type. (String is an arbitrary choice.)
@@ -58,21 +58,26 @@ func getSchema(globs StringList) (*ast.Schema, error) {
 		var preludeAST *ast.SchemaDocument
 		preludeAST, graphqlError = parser.ParseSchema(validator.Prelude)
 		if graphqlError != nil {
-			return nil, errorf(nil, "invalid prelude (probably a gqlparser bug): %v", graphqlError)
+			return nil, nil, errorf(nil, "invalid prelude (probably a gqlparser bug): %v", graphqlError)
 		}
 		document.Merge(preludeAST)
 	}
 
 	schema, graphqlError := validator.ValidateSchemaDocument(document)
 	if graphqlError != nil {
-		return nil, errorf(nil, "invalid schema: %v", graphqlError)
+		return nil, nil, errorf(nil, "invalid schema: %v", graphqlError)
 	}
 
-	return schema, nil
+	return schema, filenames, nil
 }
 
-func getAndValidateQueries(basedir string, filenames StringList, schema *ast.Schema) (*ast.QueryDocument, error) {
-	queryDoc, err := getQueries(basedir, filenames)
+func getAndValidateQueries(
+	basedir string,
+	filenames StringList,
+	excludedFilenames []string,
+	schema *ast.Schema,
+) (*ast.QueryDocument, error) {
+	queryDoc, err := getQueries(basedir, filenames, excludedFilenames)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +117,11 @@ func expandFilenames(globs []string) ([]string, error) {
 	return filenames, nil
 }
 
-func getQueries(basedir string, globs StringList) (*ast.QueryDocument, error) {
+func getQueries(
+	basedir string,
+	globs StringList,
+	excludedFilenames []string,
+) (*ast.QueryDocument, error) {
 	// We merge all the queries into a single query-document, since operations
 	// in one might reference fragments in another.
 	//
@@ -130,7 +139,14 @@ func getQueries(basedir string, globs StringList) (*ast.QueryDocument, error) {
 		return nil, err
 	}
 
+	excluded := make(map[string]bool, len(excludedFilenames))
+	for _, filename := range excludedFilenames {
+		excluded[filename] = true
+	}
 	for _, filename := range filenames {
+		if excluded[filename] {
+			continue
+		}
 		text, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, errorf(nil, "unreadable query-spec file %v: %v", filename, err)

@@ -205,6 +205,72 @@ func TestGenerateDeterministic(t *testing.T) {
 	}
 }
 
+func TestGenerateExcludesSchemaFromOperationGlobs(t *testing.T) {
+	tests := []struct {
+		name      string
+		operation string
+		wantError string
+	}{
+		{
+			name:      "operation remains",
+			operation: "query Q { field }\n",
+		},
+		{
+			name:      "schema is only match",
+			wantError: "no queries found",
+		},
+		{
+			name:      "malformed operation remains an error",
+			operation: "type Mutation { field: String }\n",
+			wantError: "invalid query-spec file",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			schemaDir := filepath.Join(dir, ".octoql")
+			require.NoError(t, os.MkdirAll(schemaDir, 0o755))
+			schemaPath := filepath.Join(schemaDir, "schema.graphql")
+			require.NoError(t, os.WriteFile(
+				schemaPath,
+				[]byte("type Query { field: String }\n"),
+				0o600,
+			))
+			if test.operation != "" {
+				operationDir := filepath.Join(dir, "graphql")
+				require.NoError(t, os.MkdirAll(operationDir, 0o755))
+				require.NoError(t, os.WriteFile(
+					filepath.Join(operationDir, "operation.graphql"),
+					[]byte(test.operation),
+					0o600,
+				))
+			}
+
+			config := &Config{
+				Schema:      []string{schemaPath},
+				Operations:  []string{filepath.Join(dir, "**", "*.graphql")},
+				Generated:   filepath.Join(dir, "generated.go"),
+				Package:     "client",
+				ContextType: "-",
+			}
+			outputs, err := Generate(config)
+			if test.wantError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.wantError)
+				if test.operation == "" {
+					assert.NotContains(t, err.Error(), "invalid query-spec file")
+				}
+				assert.Nil(t, outputs)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Contains(t, string(outputs[config.Generated]), "func (c *Client) Q(")
+		})
+	}
+}
+
 func TestGenerateSelfContainedClientWithOperationVariableNames(t *testing.T) {
 	dir := t.TempDir()
 	schema := `
