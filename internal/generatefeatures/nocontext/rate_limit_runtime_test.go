@@ -155,6 +155,7 @@ func TestNonnegativeHeaderUnixRepresentability(t *testing.T) {
 
 func TestDoClassifiesRateLimits(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 19, 0, 0, 0, time.UTC)
+	reset := time.Unix(1784404800, 0).UTC()
 	previousNow := _octoqlRateLimitNow
 	_octoqlRateLimitNow = func() time.Time {
 		return now
@@ -164,9 +165,11 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 	})
 
 	tests := map[string]struct {
+		wantReset         time.Time
 		body              string
 		header            http.Header
 		statusCode        int
+		wantRemaining     int
 		wantData          bool
 		wantRate          bool
 		wantSecond        bool
@@ -184,6 +187,68 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 			statusCode:        http.StatusOK,
 			wantData:          true,
 			wantRate:          true,
+			wantResponseError: true,
+		},
+		"primary limit with remaining points": {
+			wantReset: reset,
+			body:      `{"errors":[{"type":"RATE_LIMITED","message":"query cost exceeds remaining points"}]}`,
+			header: http.Header{
+				"X-RateLimit-Remaining": {"3"},
+				"X-RateLimit-Reset":     {"1784404800"},
+				"X-RateLimit-Resource":  {"graphql"},
+			},
+			statusCode:        http.StatusOK,
+			wantRemaining:     3,
+			wantRate:          true,
+			wantResponseError: true,
+		},
+		"primary limit without remaining header": {
+			wantReset: reset,
+			body:      `{"errors":[{"type":"RATE_LIMITED","message":"quota exhausted"}]}`,
+			header: http.Header{
+				"X-RateLimit-Reset":    {"1784404800"},
+				"X-RateLimit-Resource": {"graphql"},
+			},
+			statusCode:        http.StatusOK,
+			wantRate:          true,
+			wantResponseError: true,
+		},
+		"primary limit on too many requests": {
+			wantReset: reset,
+			body:      `{"errors":[{"message":"too many requests"}]}`,
+			header: http.Header{
+				"X-RateLimit-Reset":    {"1784404800"},
+				"X-RateLimit-Resource": {"graphql"},
+			},
+			statusCode:        http.StatusTooManyRequests,
+			wantRate:          true,
+			wantResponseError: true,
+		},
+		"primary limit on forbidden response with zero remaining": {
+			wantReset: reset,
+			body:      `{"errors":[{"message":"API rate limit exceeded"}]}`,
+			header: http.Header{
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Reset":     {"1784404800"},
+				"X-RateLimit-Resource":  {"graphql"},
+			},
+			statusCode:        http.StatusForbidden,
+			wantRate:          true,
+			wantResponseError: true,
+		},
+		"forbidden response with remaining points is not primary": {
+			body: `{"errors":[{"message":"forbidden"}]}`,
+			header: http.Header{
+				"X-RateLimit-Remaining": {"3"},
+				"X-RateLimit-Reset":     {"1784404800"},
+			},
+			statusCode:        http.StatusForbidden,
+			wantResponseError: true,
+		},
+		"rate limited GraphQL error on service unavailable is not rate limit": {
+			body:              `{"errors":[{"type":"RATE_LIMITED","message":"temporarily unavailable"}]}`,
+			header:            http.Header{},
+			statusCode:        http.StatusServiceUnavailable,
 			wantResponseError: true,
 		},
 		"secondary limit on GraphQL response": {
@@ -293,7 +358,8 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 					wantKind = RateLimitSecondary
 				}
 				assert.Equal(t, wantKind, rateLimitError.Kind)
-				assert.Equal(t, time.Time{}, rateLimitError.RateLimit.Reset)
+				assert.Equal(t, test.wantRemaining, rateLimitError.RateLimit.Remaining)
+				assert.Equal(t, test.wantReset, rateLimitError.RateLimit.Reset)
 				if test.wantSecond {
 					assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
 					assert.Equal(t, now.Add(30*time.Second), rateLimitError.RateLimit.RetryAt)
