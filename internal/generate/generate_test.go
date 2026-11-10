@@ -133,7 +133,8 @@ func (i *localTypeImporter) Import(importPath string) (*types.Package, error) {
 			importPath,
 			"github.com/willabides/octoql/internal/generate/",
 		))
-		pkg, err := typeCheckDirectory(relDir, importPath, i)
+		var err error
+		pkg, err = typeCheckDirectory(relDir, importPath, i)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +157,8 @@ func (i *localTypeImporter) Import(importPath string) (*types.Package, error) {
 			"..",
 			filepath.FromSlash(strings.TrimPrefix(importPath, "github.com/willabides/octoql/")),
 		)
-		pkg, err := typeCheckDirectory(relDir, importPath, cachedStdlibImporter{})
+		var err error
+		pkg, err = typeCheckDirectory(relDir, importPath, cachedStdlibImporter{})
 		if err != nil {
 			return nil, err
 		}
