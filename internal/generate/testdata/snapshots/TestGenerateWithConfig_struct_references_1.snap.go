@@ -492,12 +492,11 @@ func _octoqlHeaderValue(header http.Header, name string) string {
 }
 
 func _octoqlClassifyRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit, err error) error {
-	if err == nil {
-		return nil
+	if err == nil || !_octoqlIsRateLimitStatus(statusCode) {
+		return err
 	}
 
-	isSecondaryResponse := _octoqlIsSecondaryRateLimitStatus(statusCode)
-	if rateLimit.retryAfterValid && isSecondaryResponse {
+	if rateLimit.retryAfterValid {
 		return &RateLimitError{
 			Kind:      RateLimitSecondary,
 			RateLimit: rateLimit.RateLimit,
@@ -505,12 +504,7 @@ func _octoqlClassifyRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit,
 		}
 	}
 
-	isPrimaryStatus := _octoqlIsPrimaryRateLimitStatus(statusCode)
-	isPrimaryGraphQLError := _octoqlHasGraphQLRateLimitError(err)
-	hasNoRemaining := rateLimit.remainingValid && rateLimit.Remaining == 0
-	hasPrimarySignal := isPrimaryStatus || isPrimaryGraphQLError
-	isPrimaryLimit := hasNoRemaining && hasPrimarySignal
-	if isPrimaryLimit {
+	if _octoqlIsPrimaryRateLimit(statusCode, rateLimit, err) {
 		return &RateLimitError{
 			Kind:      RateLimitPrimary,
 			RateLimit: rateLimit.RateLimit,
@@ -520,7 +514,7 @@ func _octoqlClassifyRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit,
 	return err
 }
 
-func _octoqlIsSecondaryRateLimitStatus(statusCode int) bool {
+func _octoqlIsRateLimitStatus(statusCode int) bool {
 	switch statusCode {
 	case http.StatusOK, http.StatusForbidden, http.StatusTooManyRequests:
 		return true
@@ -529,13 +523,16 @@ func _octoqlIsSecondaryRateLimitStatus(statusCode int) bool {
 	}
 }
 
-func _octoqlIsPrimaryRateLimitStatus(statusCode int) bool {
+func _octoqlIsPrimaryRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit, err error) bool {
 	switch statusCode {
-	case http.StatusForbidden, http.StatusTooManyRequests:
+	case http.StatusTooManyRequests:
 		return true
-	default:
-		return false
+	case http.StatusForbidden:
+		if rateLimit.remainingValid && rateLimit.Remaining == 0 {
+			return true
+		}
 	}
+	return _octoqlHasGraphQLRateLimitError(err)
 }
 
 func _octoqlHasGraphQLRateLimitError(err error) bool {

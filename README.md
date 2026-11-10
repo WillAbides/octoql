@@ -236,9 +236,10 @@ arrives, do not carry `*ResponseError`.
 
 A failure becomes a `*RateLimitError` only when the response carries matching
 signals. `RateLimitSecondary` requires a valid `Retry-After` header with status
-200, 403, or 429. `RateLimitPrimary` requires `X-RateLimit-Remaining: 0`, and
-additionally one of: status 403, status 429, or a GraphQL error of type
-`RATE_LIMITED`. Other rejections surface as ordinary errors.
+200, 403, or 429. When `RateLimitSecondary` does not apply, `RateLimitPrimary`
+requires a GraphQL error of type `RATE_LIMITED` (with status 200, 403, or 429),
+status 429, or status 403 with `X-RateLimit-Remaining: 0`. Other rejections
+surface as ordinary errors.
 
 Read the latest observed primary rate-limit state with `client.RateLimit()`,
 which is a concurrency-safe advisory snapshot. The client never retries

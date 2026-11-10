@@ -30,7 +30,7 @@ func sortQueries(queryDoc *ast.QueryDocument) {
 
 func TestParse(t *testing.T) {
 	queries, err := getQueries(
-		parseDataDir, []string{filepath.Join(parseDataDir, "*.graphql")})
+		parseDataDir, []string{filepath.Join(parseDataDir, "*.graphql")}, nil)
 	require.NoError(t, err)
 
 	sortQueries(queries)
@@ -47,7 +47,7 @@ func TestParseRejectsCommentDirective(t *testing.T) {
 		"# @octoqlgen(pointer: false)\nquery Legacy { field }\n"), 0o600)
 	require.NoError(t, err)
 
-	_, err = getQueries(dir, []string{filename})
+	_, err = getQueries(dir, []string{filename}, nil)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "is a real directive now, not a comment")
@@ -61,7 +61,7 @@ func TestSchemaRejectsCommentDirective(t *testing.T) {
 		"# @octoqlgen(pointer: false)\ntype Query { field: String }\n"), 0o600)
 	require.NoError(t, err)
 
-	_, err = getSchema([]string{filename})
+	_, _, err = getSchema([]string{filename})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "is a real directive now, not a comment")
@@ -93,7 +93,7 @@ func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
 				[]byte("# "+comment+"\nquery Q { field }\n"), 0o600)
 			require.NoError(t, err)
 
-			_, err = getQueries(dir, []string{filename})
+			_, err = getQueries(dir, []string{filename}, nil)
 
 			if !wantRejected {
 				assert.NoError(t, err)
@@ -119,7 +119,7 @@ func TestParseAllowsDirectiveInsideString(t *testing.T) {
 			err := os.WriteFile(filename, []byte(operation), 0o600)
 			require.NoError(t, err)
 
-			_, err = getQueries(dir, []string{filename})
+			_, err = getQueries(dir, []string{filename}, nil)
 
 			assert.NoError(t, err)
 		})
@@ -169,7 +169,7 @@ func TestExpandFilenames(t *testing.T) {
 func TestParseErrors(t *testing.T) {
 	g, err := getQueries(
 		parseErrorsDir,
-		[]string{filepath.Join(parseErrorsDir, "*.graphql")})
+		[]string{filepath.Join(parseErrorsDir, "*.graphql")}, nil)
 	if err == nil {
 		t.Errorf("expected error from getQueries")
 		t.Logf("%#v", g)
@@ -188,7 +188,7 @@ func TestOperationGlobSkipsTheCompanionDirectiveFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "op.graphql"),
 		[]byte("query Q { field }\n"), 0o600))
 
-	document, err := getQueries(dir, []string{dir + "/**/*.graphql"})
+	document, err := getQueries(dir, []string{dir + "/**/*.graphql"}, nil)
 
 	require.NoError(t, err)
 	require.Len(t, document.Operations, 1)
@@ -200,7 +200,7 @@ func TestOperationGlobMatchingOnlyTheCompanionIsAnError(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, directive.FileName),
 		[]byte(directive.FileContents), 0o600))
 
-	_, err := getQueries(dir, []string{dir + "/*.graphql"})
+	_, err := getQueries(dir, []string{dir + "/*.graphql"}, nil)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "did not match any files")
