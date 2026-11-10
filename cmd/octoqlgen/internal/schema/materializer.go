@@ -73,9 +73,6 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 				return nil, err
 			}
 			if !request.SkipExistingDirectiveFile {
-				// Restore the companion file if it is missing or was written by a
-				// different version, so an existing checkout picks it up without
-				// having to refetch the schema.
 				err = publishDirectiveFile(deps.fileSystem, request.Path)
 				if err != nil {
 					return nil, err
@@ -137,13 +134,6 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	return data, nil
 }
 
-// publishDirectiveFile writes the @octoqlgen declaration next to a schema
-// octoqlgen materialized, so editors and other GraphQL tooling can resolve the
-// directive in the user's operations.
-//
-// It is a separate file rather than an addition to the schema so the schema
-// stays byte-for-byte what its source served and the pinned checksum keeps
-// describing the file on disk.
 func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
 	path, err := checkDirectiveFile(fileSystem, schemaPath)
 	if err != nil {

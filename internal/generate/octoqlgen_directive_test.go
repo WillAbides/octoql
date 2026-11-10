@@ -15,8 +15,6 @@ import (
 	"github.com/willabides/octoql/internal/directive"
 )
 
-// assertDeclares checks that source declares the given struct field, ignoring
-// the column alignment gofmt applies.
 func assertDeclares(t *testing.T, source, declaration string) {
 	t.Helper()
 	assert.Contains(t,
@@ -24,11 +22,7 @@ func assertDeclares(t *testing.T, source, declaration string) {
 		strings.Join(strings.Fields(declaration), " "))
 }
 
-// testDirective parses a single directive the way the query parser does, so
-// the unit tests below exercise the same ast.Directive values
-// collectDirectives works with.
 func testDirective(t *testing.T, name, args string) *ast.Directive {
-	t.Helper()
 	doc, err := parser.ParseQuery(&ast.Source{
 		Input: "query Q @" + name + args + " { field }",
 	})
@@ -98,14 +92,6 @@ func TestOctoqlgenDirectiveAddAllowsBindOptOut(t *testing.T) {
 	assert.Equal(t, "-", directive.Bind)
 }
 
-// TestDirectiveAppliesOnlyToItsOwnNode checks that an option never reaches a
-// node it was not written on, including for nodes that share a source line.
-//
-// The motivating failure was `pointer: false` written for one field silently
-// removing the pointer from a neighbouring field: a null in the response then
-// decoded as the Go zero value, so a boolean like isSuspended read as false.
-// Attaching options to AST nodes rather than to source lines makes that
-// impossible to express.
 func TestDirectiveAppliesOnlyToItsOwnNode(t *testing.T) {
 	var unsafeResponse struct {
 		IsSuspended bool `json:"isSuspended"`
@@ -213,10 +199,6 @@ query Viewer {
 	}
 }
 
-// TestDirectiveNeverReachesTheServer checks that @octoqlgen is removed from
-// the operation octoqlgen sends.  The directive is octoqlgen's own and is not
-// declared by the server's schema, so leaving it in would make every request
-// fail.
 func TestDirectiveNeverReachesTheServer(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := filepath.Join(dir, "schema.graphql")
@@ -253,11 +235,8 @@ query Viewer($skipName: Boolean!) @octoqlgen(typename: "ViewerResp") {
 	require.NoError(t, err)
 	source := string(generated[filepath.Join(dir, "generated.go")])
 
-	// The options were applied...
 	assert.Contains(t, source, "type ViewerResp struct")
 	assert.Contains(t, source, "type ViewerUser struct")
-	// ...but do not appear anywhere in the generated file, and in particular
-	// not in the operation body.  Unrelated directives are left alone.
 	assert.NotContains(t, source, "@octoqlgen")
 	assert.Contains(t, source, `@skip(if: $skipName)`)
 }
@@ -430,14 +409,6 @@ type User {
 	assert.NotContains(t, source, "type ViewerResponse struct")
 }
 
-// TestTypeReuseRejectsDivergentPointerOption checks that two selections sharing
-// a user-specified type name are only allowed to share a generated type when
-// they also generate the same Go.
-//
-// The reuse guard compares the fields octoqlgen is about to emit, not the
-// options asking for them, so this covers pointer without needing to know that
-// pointer is what differs.  The collision corpus covers alias, @skip, and
-// implementation-level differences the same way.
 func TestTypeReuseRejectsDivergentPointerOption(t *testing.T) {
 	const schema = `
 type Query {
@@ -468,7 +439,6 @@ query B {
 	}
 
 	generate := func(t *testing.T, operationText string) (string, error) {
-		t.Helper()
 		dir := t.TempDir()
 		schemaPath := filepath.Join(dir, "schema.graphql")
 		operationPath := filepath.Join(dir, "operation.graphql")
@@ -514,12 +484,6 @@ query B {
 	})
 }
 
-// TestGeneratorOwnsTheDirectiveDefinition checks that a declaration already in
-// the schema does not change how octoqlgen interprets its own directive.
-//
-// Schema files octoqlgen writes carry a copy of the declaration so editors can
-// resolve @octoqlgen. That copy may have been written by a different version
-// of octoqlgen, or edited by hand, so the generator must use its own.
 func TestGeneratorOwnsTheDirectiveDefinition(t *testing.T) {
 	const baseSchema = `
 type Query {
@@ -533,9 +497,7 @@ type User {
 	for name, declaration := range map[string]string{
 		"no declaration":      "",
 		"current declaration": "\n" + directive.SDL,
-		// Missing the argument and location this operation needs, so
-		// generation only succeeds if the generator ignores it.
-		"stale declaration": "\ndirective @octoqlgen(alias: String) on FIELD\n",
+		"stale declaration":   "\ndirective @octoqlgen(alias: String) on FIELD\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -568,12 +530,6 @@ query Viewer @octoqlgen(typename: "Resp") {
 	}
 }
 
-// TestDirectiveRejectsOptionsThatWouldBeIgnored covers options accepted at a
-// location where nothing reads them.
-//
-// Silently ignoring an option is the same shape of defect as silently dropping
-// one: the user writes an instruction, generation succeeds, and the generated
-// code does not reflect it.
 func TestDirectiveRejectsOptionsThatWouldBeIgnored(t *testing.T) {
 	const schema = `
 type Query {
@@ -660,9 +616,6 @@ query Q($f: Filter) @octoqlgenFor(field: "Filter.label", alias: "Renamed") {
 	}
 }
 
-// TestDirectiveKeepsAliasWhereItApplies guards the check above against
-// over-reaching: alias remains valid on a selected field, both directly and
-// through for.
 func TestDirectiveKeepsAliasWhereItApplies(t *testing.T) {
 	const schema = `
 type Query {

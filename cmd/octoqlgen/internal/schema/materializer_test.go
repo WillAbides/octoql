@@ -46,12 +46,6 @@ func TestMaterializerExistingFile(t *testing.T) {
 	assert.Equal(t, exactSchema, data)
 }
 
-// TestMaterializerWritesDirectiveFile checks that materializing a schema also
-// leaves the @octoqlgen declaration beside it, so editors can resolve the
-// directive in the user's operations.
-//
-// The declaration is a separate file so the schema keeps the exact bytes its
-// source served, which is what the pinned checksum describes.
 func TestMaterializerWritesDirectiveFile(t *testing.T) {
 	t.Parallel()
 
@@ -87,9 +81,6 @@ func TestMaterializerWritesDirectiveFile(t *testing.T) {
 	assert.Empty(t, temporaryFiles(t, companionPath))
 }
 
-// TestMaterializerRestoresDirectiveFile checks that an existing checkout picks
-// up the declaration, and that a copy from another version is replaced, without
-// having to refetch the schema.
 func TestMaterializerRestoresDirectiveFile(t *testing.T) {
 	t.Parallel()
 

@@ -1,7 +1,7 @@
 # octoqlgen's directives
 
 octoqlgen is configured from your operations by three directives, one for each
-scope an option can have:
+scope:
 
 | Directive | Scope | Goes on |
 | --- | --- | --- |
@@ -9,21 +9,15 @@ scope an option can have:
 | [`@octoqlgenDefaults`](#octoqlgendefaults) | the fields inside | operations, fragments |
 | [`@octoqlgenFor`](#octoqlgenfor) | a named type's field, everywhere | operations, fragments |
 
-They are real GraphQL directives, written directly on the element they apply to.
-octoqlgen declares them in the schema it loads and removes them from every
-operation before sending it, so the server neither has to define them nor ever
-sees them.
+They are real GraphQL directives attached directly to the element they configure.
+octoqlgen declares them in the loaded schema and strips them from every
+operation before sending it, so the server never sees them.
 
-Having one directive per scope means each declares only the options its scope
-supports, so an option written where it would do nothing is a GraphQL error your
-editor can show, rather than something octoqlgen has to check.
+Each directive declares only the options valid for its scope. These are the only
+supported spellings, and there are no compatibility aliases.
 
-These are the only supported spellings. There are no compatibility aliases.
-
-Earlier versions of octoqlgen took these options in a comment on the preceding
-line. That form is no longer accepted, and octoqlgen reports an error rather
-than generating with its options silently dropped. Move each option onto the
-element it applies to:
+Earlier versions of octoqlgen took options in a comment on the preceding line.
+That form is now rejected rather than ignored:
 
 ```graphql
 # no longer supported
@@ -36,20 +30,14 @@ isSuspended @octoqlgen(pointer: false)
 
 ## Editor support
 
-octoqlgen's directives have to be declared in a schema for editors and other
-GraphQL tooling to resolve them. octoqlgen declares them internally, so
-generation works without any declaration on disk, but an editor reading only the
-schema file reports every use as unknown.
+octoqlgen declares its directives internally during code generation, and writes
+`octoqlgen-directive.graphql` next to any schema it materializes so editors and
+GraphQL tooling can resolve them and show option descriptions on hover. Keeping
+the declarations in a separate file leaves the schema bytes untouched so
+`schema.sha256` continues to match the source.
 
-To fix that, octoqlgen writes `octoqlgen-directive.graphql` next to any schema it
-materializes, holding just the declarations. The schema itself keeps the exact
-bytes its source served, so `schema.sha256` still describes it.
-
-Each option carries a description there, so an editor that reads it can also
-complete the option names and show what they do on hover.
-
-Tooling that reads every `.graphql` file in the project picks the declaration up
-with no further setup. Tooling that takes an explicit list, such as
+Tooling that reads every `.graphql` file in the project picks the file up
+automatically. Tooling that takes an explicit list, such as
 [graphql-config](https://the-guild.dev/graphql/config), needs it added:
 
 ```yaml
@@ -58,16 +46,15 @@ schema:
   - octoqlgen-directive.graphql
 ```
 
-Declare it in exactly one place per project. GraphQL does not allow a directive
-to be declared twice, so tooling that reads several schema files at once reports
-an error if more than one of them declares `@octoqlgen`.
+Declare the directives in only one place per project, because GraphQL rejects
+duplicate directive definitions.
 
 ## Placement
 
 `@octoqlgen` applies only to the element it is attached to, not to that
-element's arguments or selections. To reach the elements inside an operation or
-fragment, use `@octoqlgenDefaults`; to reach a named type's field, use
-`@octoqlgenFor`.
+element's arguments or selections. Use `@octoqlgenDefaults` to set defaults for
+fields inside an operation or fragment, and `@octoqlgenFor` to configure a
+named type's field.
 
 String option values must not be empty. Use `bind: "-"` to explicitly opt out
 of a configured binding.
@@ -101,10 +88,8 @@ take precedence over `b` and `c`.
 fields of `MyInput` and `f` does not apply to `field4`. Defaults do apply to
 children, so both `b` and `c` apply to the fields of `MyInput` and to `field4`.
 
-Each directive may be repeated in the same location as long as the repeats do
-not have conflicting options. Placing one anywhere other than the locations in
-the table above is a GraphQL validation error. octoql does not support
-subscriptions.
+Each directive is repeatable in the same location as long as the repeats do not
+have conflicting options. octoql does not support subscriptions.
 
 ## `@octoqlgenDefaults`
 
@@ -118,22 +103,15 @@ query MyQuery @octoqlgenDefaults(pointer: false) {
 }
 ```
 
-`@octoqlgen` describes the node it is attached to, so these options are rejected
-there on an operation or fragment; write them as defaults instead. The remaining
-options are not defaults at all: `typename` and `alias` name a single generated
-construct, so applying them to every field would ask for one name to be used
-many times, and `flatten` is only meaningful where a selection is a single
-fragment spread.
+`@octoqlgen` describes the node it is attached to, so `omitempty`, `pointer`,
+and `struct` are rejected on `@octoqlgen` when attached to an operation or
+fragment. Use `@octoqlgenDefaults` instead.
 
 ## `@octoqlgenFor`
 
-Applies options to the named field of the named type, written as
-`"MyType.myField"`, wherever octoqlgen generates that field. It goes on an
-operation or fragment.
-
-This is how to reach an input type's fields. They are defined by the schema
-rather than written in your operation, so there is no place to attach a
-directive to them.
+Applies options to `"MyType.myField"` wherever octoqlgen generates that field.
+It goes on an operation or fragment, and is how you configure input object
+fields defined in the schema.
 
 ```graphql
 query MyQuery($arg: MyInput)
@@ -156,22 +134,14 @@ type MyInput struct {
 and uses it for the argument to `MyQuery`. Similarly, if `MyOutput.id` is ever
 requested in the response, it uses the given type.
 
-A named type generates one Go type, so declarations for the same field have to
-agree. Two operations that ask for different things cannot both be satisfied;
-octoqlgen rejects that rather than letting whichever operation it converts first
-decide, which would make the generated code depend on the order of your
-operations.
+A named type generates a single Go type, so `@octoqlgenFor` declarations for the
+same field must agree across operations. Operations that do not declare options
+for that field do not need to repeat the declaration. To generate distinct Go
+types for the same GraphQL type across operations, use [`typename`](#typename)
+or annotate the selected fields directly.
 
-Declarations only have to agree with each other. An operation that says nothing
-about a field is not disagreeing, so adding an operation that happens to use the
-type does not oblige it to repeat the declaration.
-
-To give two operations genuinely different Go types for one GraphQL type, give
-them different names with [`typename`](#typename), or annotate the selected
-fields directly instead.
-
-`struct` and `flatten` are not available here: both depend on the shape of a
-particular selection, which a type-wide declaration does not have.
+`struct` and `flatten` depend on a specific selection's shape and cannot be set
+with `@octoqlgenFor`.
 
 ## `omitempty`
 
@@ -307,10 +277,9 @@ it only affects the Go field name, not the GraphQL query. This is especially
 useful with GraphQL servers that limit the number of aliases a query may use.
 
 Only applicable to selected fields, either directly or through
-[`@octoqlgenFor`](#octoqlgenfor). A variables-struct field is named after its
-variable and an input-type field after its GraphQL field, so `alias` is rejected
-in both places rather than accepted and ignored. Rename the variable itself to
-change the Go name of a variables field.
+[`@octoqlgenFor`](#octoqlgenfor). Variable and input-object fields take their
+names from the GraphQL variable or field, so `alias` is rejected on both. Rename
+the variable to change the Go name of a variables field.
 
 ## `bind`
 

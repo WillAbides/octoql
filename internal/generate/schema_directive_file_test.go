@@ -15,15 +15,6 @@ import (
 	"github.com/willabides/octoql/internal/directive"
 )
 
-// TestOperationsResolveAgainstOnDiskSchema simulates what an editor's GraphQL
-// language server does: read the schema files from disk as they are, then
-// validate an operation against them.
-//
-// The generator declares @octoqlgen itself and never needs the declaration to
-// be on disk, so a missing one is invisible to every other test here.  An
-// editor has no such luxury and reports each use of the directive as unknown,
-// which is why octoqlgen writes the declaration beside the schemas it
-// materializes and why these fixture directories carry it too.
 func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
 	schemaFilename := filepath.Join(dataDir, "schema.graphql")
 	directiveFilename := filepath.Join(dataDir, directive.FileName)
@@ -65,8 +56,6 @@ func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
 	assert.Positive(t, checked)
 }
 
-// TestDirectiveFilesAreCurrent catches a checked-in declaration drifting from
-// the one octoqlgen writes.
 func TestDirectiveFilesAreCurrent(t *testing.T) {
 	repositoryRoot := filepath.Join("..", "..")
 
@@ -82,6 +71,6 @@ func TestDirectiveFilesAreCurrent(t *testing.T) {
 		data, err := os.ReadFile(filepath.Join(repositoryRoot, path))
 		require.NoError(t, err)
 		assert.Equal(t, directive.FileContents, string(data),
-			"%s is out of date; copy directive.FileContents over it", path)
+			"%s is out of date, copy directive.FileContents over it", path)
 	}
 }

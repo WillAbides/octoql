@@ -96,7 +96,6 @@ func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
 	assert.Empty(t, stdout.String())
 	assert.Equal(t, "schema.graphql", outputWriter.path)
 	assert.Equal(t, []byte("exact schema bytes\n"), outputWriter.data)
-	// The schema is written exactly as fetched; the declaration goes beside it.
 	companion, ok := outputWriter.writtenTo(directive.FileName)
 	require.True(t, ok)
 	assert.Contains(t, string(companion), "directive @octoqlgen(")
@@ -518,13 +517,6 @@ func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
 }
 
-// TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged covers the two
-// unrelated things called a directive here: the yaml-language-server comment in
-// the config, and the @octoqlgen declaration beside the schema.
-//
-// Nothing else rewrites the declaration, so when the schema is unchanged this
-// is the only path that restores it if it is missing or came from another
-// version of octoqlgen.
 func TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged(t *testing.T) {
 	t.Parallel()
 
@@ -771,7 +763,6 @@ type stubOutputWriter struct {
 	written map[string][]byte
 }
 
-// writtenTo returns the bytes written to a path, and whether it was written.
 func (w *stubOutputWriter) writtenTo(path string) ([]byte, bool) {
 	data, ok := w.written[path]
 	return data, ok
@@ -804,8 +795,6 @@ func (w *stubOutputWriter) Write(path string, data []byte) error {
 		w.written = map[string][]byte{}
 	}
 	w.written[path] = append([]byte{}, data...)
-	// The directive file is a companion to the schema, so leave the
-	// single-write fields describing the schema itself.
 	if filepath.Base(path) != directive.FileName {
 		w.path = path
 		w.data = append([]byte{}, data...)

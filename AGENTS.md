@@ -25,15 +25,15 @@
   sets narrow rather than re-adding hand-written location checks. Do not
   reintroduce comment-based directives, source-position attachment, or a
   compatibility alias for a prior spelling. Operations come from `.graphql`
-  files only; do not restore extraction from Go string literals.
+  files only. Do not restore extraction from Go string literals.
 - A named type generates one Go type, so `@octoqlgenFor` declarations for the
   same field must agree across operations. Silence is not disagreement.
-- `internal/directive` owns the `@octoqlgen` declaration. octoqlgen writes it to
-  a companion `octoqlgen-directive.graphql` beside each schema so editors can
-  resolve it, and never into the schema itself: the schema keeps the exact bytes
-  its source served so `schema.sha256` describes it, and GraphQL rejects a
-  directive declared twice. The generator always uses its own declaration and
-  discards any it finds in a loaded schema.
+- `internal/directive` owns the `@octoqlgen` declarations. octoqlgen writes them
+  to a companion `octoqlgen-directive.graphql` beside each schema so editors can
+  resolve them, and never into the schema itself. The schema keeps the exact
+  bytes its source served so `schema.sha256` describes it, and GraphQL rejects
+  duplicate directive declarations. The generator always uses its own
+  declarations and discards any it finds in a loaded schema.
 - octoql does not support GraphQL subscriptions. Preserve per-error
   `Error.Extensions`, but ignore top-level response extensions. Do not restore
   the removed no-op `use_extensions` option.

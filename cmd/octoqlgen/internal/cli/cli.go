@@ -335,9 +335,6 @@ func (cmd *schemaUpdateCommand) Run() error {
 				return fmt.Errorf("validating published config: %w", loadErr)
 			}
 		}
-		// The schema is unchanged, but the directive file may be missing or
-		// left over from another version of octoqlgen, and nothing else
-		// rewrites it.
 		err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
 		if err != nil {
 			return err
@@ -509,9 +506,6 @@ type outputWriter interface {
 	ReadFile(string) ([]byte, error)
 }
 
-// writeDirectiveFile puts the @octoqlgen declaration next to a schema file
-// octoqlgen wrote, so editors can resolve the directive in the user's
-// operations.  The schema itself is left exactly as its source served it.
 func writeDirectiveFile(writer outputWriter, schemaPath string) error {
 	err := checkDirectiveFile(writer, schemaPath)
 	if err != nil {

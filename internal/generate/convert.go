@@ -758,17 +758,10 @@ func (g *generator) convertDefinition(
 		provenancePos = options.pos
 	}
 
-	// For schema-definition types (InputObject, Enum, Scalar), take an early-
-	// out if the type has already been generated: these types are generated
-	// from the schema definition rather than from the selection, so a
-	// selection-plan comparison has nothing meaningful to compare.  InputObject
-	// also requires this path for recursive types: it pre-inserts an empty
-	// struct via addType so getType on a second call returns that placeholder,
-	// and the early-out is required to avoid overwriting it.
-	// Enums and scalars are generated entirely from the schema definition, so
-	// a second conversion cannot produce anything different and there is
-	// nothing to compare.  Every other kind, input objects included, builds
-	// its candidate and compares the fields it would emit.
+	// Enums and scalars are generated solely from the schema definition, so
+	// reuse existing types immediately. Object, Interface, Union, and
+	// InputObject types build candidates so their emitted fields can be
+	// compared.
 	if def.Kind == ast.Enum || def.Kind == ast.Scalar {
 		existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
 		if existing != nil || err != nil {
@@ -818,17 +811,11 @@ func (g *generator) convertDefinition(
 			descriptionInfo: desc,
 			IsInput:         true,
 		}
-		// Look the type up before inserting anything, because the insert
-		// below is a placeholder whose fields are not built yet and must not
-		// be compared against a finished type.
 		existing, lookupErr := g.getType(
 			name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
 		if lookupErr != nil {
 			return nil, lookupErr
 		}
-		// A field of this same type, directly or through another input type,
-		// re-enters here while the fields are being converted.  It wants the
-		// type, not another conversion of it.
 		if g.convertingInputs[name] {
 			return existing, nil
 		}
@@ -836,9 +823,6 @@ func (g *generator) convertDefinition(
 		defer delete(g.convertingInputs, name)
 
 		if existing == nil {
-			// To handle recursive types, we need to add the type to the
-			// type-map *before* converting its fields, so the re-entry above
-			// has something to return.
 			_, addErr := g.addType(goType, goType.GoName, provenancePos)
 			if addErr != nil {
 				return nil, addErr
@@ -900,11 +884,6 @@ func (g *generator) convertDefinition(
 			}
 		}
 
-		// An input type is named by the schema, so every operation shares one
-		// Go type for it, and @octoqlgenDefaults are per-operation.  Two
-		// operations that would generate it differently cannot both be
-		// satisfied, and without this the one converted first would silently
-		// decide for all of them.
 		if existing != nil {
 			matchErr := generatedTypeFieldsMatch(existing, goType)
 			if matchErr != nil {

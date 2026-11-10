@@ -10,10 +10,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// loadCompanion loads the companion file the way an editor would, alongside a
-// minimal schema.
 func loadCompanion(t *testing.T) *ast.Schema {
-	t.Helper()
 	schema, err := gqlparser.LoadSchema(
 		&ast.Source{Name: FileName, Input: FileContents},
 		&ast.Source{Name: "schema.graphql", Input: "type Query {\n  placeholder: String\n}\n"},
@@ -22,9 +19,6 @@ func loadCompanion(t *testing.T) *ast.Schema {
 	return schema
 }
 
-// TestCompanionDeclaresEveryDirective guards the file octoqlgen writes beside a
-// schema.  A malformed declaration would not break generation, which uses its
-// own copy, so it would surface only as a broken editor.
 func TestCompanionDeclaresEveryDirective(t *testing.T) {
 	schema := loadCompanion(t)
 
@@ -56,9 +50,6 @@ func TestCompanionDeclaresEveryDirective(t *testing.T) {
 	}
 }
 
-// TestScopedDirectivesNarrowTheirOptions checks the property the split exists
-// for: an option that only makes sense in one scope is not an argument of the
-// others, so GraphQL rejects it instead of octoqlgen having to.
 func TestScopedDirectivesNarrowTheirOptions(t *testing.T) {
 	schema := loadCompanion(t)
 
@@ -70,30 +61,19 @@ func TestScopedDirectivesNarrowTheirOptions(t *testing.T) {
 		return names
 	}
 
-	// alias and typename name one generated construct, so as a default they
-	// would ask for one name to be used many times.  flatten applies only where
-	// a selection is a single fragment spread.
 	assert.NotContains(t, argumentNames(DefaultsName), "alias")
 	assert.NotContains(t, argumentNames(DefaultsName), "typename")
 	assert.NotContains(t, argumentNames(DefaultsName), "flatten")
 	assert.NotContains(t, argumentNames(DefaultsName), "bind")
 
-	// struct and flatten both depend on a particular selection, which a
-	// type-wide declaration does not have.
 	assert.NotContains(t, argumentNames(ForName), "struct")
 	assert.NotContains(t, argumentNames(ForName), "flatten")
 
-	// The target is required, so GraphQL rejects a declaration without one.
 	field := schema.Directives[ForName].Arguments.ForName("field")
 	require.NotNil(t, field)
 	assert.True(t, field.Type.NonNull)
 }
 
-// TestEveryArgumentIsDocumented keeps the declarations self-describing.
-//
-// The descriptions are what an editor shows on hover, and the SDL is the only
-// place they can live, so an argument added without one is invisible to the
-// tooling this file exists to serve.
 func TestEveryArgumentIsDocumented(t *testing.T) {
 	schema := loadCompanion(t)
 
@@ -101,7 +81,7 @@ func TestEveryArgumentIsDocumented(t *testing.T) {
 	for _, name := range []string{Name, DefaultsName, ForName} {
 		for _, argument := range schema.Directives[name].Arguments {
 			assert.NotEmpty(t, strings.TrimSpace(argument.Description),
-				"@%s(%s:) needs a description; it is what an editor shows on hover",
+				"@%s(%s:) needs a description for editor hover text",
 				name, argument.Name)
 			checked++
 		}

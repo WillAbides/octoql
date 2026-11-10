@@ -39,12 +39,7 @@ func TestParse(t *testing.T) {
 	assert.NotEmpty(t, queries.Fragments)
 }
 
-// TestParseRejectsCommentDirective checks that a file written for the old
-// comment syntax fails instead of generating with its options silently
-// dropped.
-//
-// The comment-syntax directive below is the input under test, not a spelling
-// that was missed when the directives became real.  Do not rewrite it.
+// Do not rewrite the comment-syntax directive below.
 func TestParseRejectsCommentDirective(t *testing.T) {
 	dir := t.TempDir()
 	filename := filepath.Join(dir, "legacy.graphql")
@@ -73,17 +68,7 @@ func TestSchemaRejectsCommentDirective(t *testing.T) {
 	assert.Contains(t, err.Error(), "schema.graphql:1")
 }
 
-// TestParseDistinguishesDirectivesFromProse checks that the comment-syntax
-// check reads a whole directive name and not a prefix of one.
-//
-// Explaining @octoqlgenFor or @octoqlgenDefaults in a comment is a reasonable
-// thing to do, especially while migrating, and those names begin with
-// @octoqlgen.  As with the tests above, the comment-syntax directives here are
-// the input under test.  Do not rewrite them.
-//
-// The old syntax handed the comment to the GraphQL parser, which ignores
-// whitespace before the argument list, so `# @octoqlgen (pointer: false)` was a
-// working directive and has to be rejected rather than read as prose.
+// Do not rewrite the comment-syntax directives below.
 func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
 	for comment, wantRejected := range map[string]bool{
 		"@octoqlgen(pointer: false)":              true,
@@ -95,15 +80,10 @@ func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
 		"@octoqlgenDefaults covers every field":   false,
 		"@octoqlgenesis is handled elsewhere":     false,
 
-		// Spellings the old syntax accepted, which must not be read as prose.
-		"@octoqlgen (pointer: false)":         true,
-		`@octoqlgenFor (field: "Q.f")`:        true,
-		"@octoqlgenDefaults  (pointer: true)": true,
-		"@octoqlgen\t(pointer: false)":        true,
-
-		// The cost of the rule above, accepted deliberately: prose whose first
-		// word after the name is parenthesised is refused.  A wrong error is
-		// better than an option that is silently dropped on migration.
+		"@octoqlgen (pointer: false)":               true,
+		`@octoqlgenFor (field: "Q.f")`:              true,
+		"@octoqlgenDefaults  (pointer: true)":       true,
+		"@octoqlgen\t(pointer: false)":              true,
 		"@octoqlgen (deprecated) use a node option": true,
 	} {
 		t.Run(comment, func(t *testing.T) {
@@ -125,13 +105,7 @@ func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
 	}
 }
 
-// TestParseAllowsDirectiveInsideString checks that the comment-syntax check
-// does not fire on string content that merely looks like a directive.
-//
-// The check lexes rather than scanning lines; a line-scanning implementation
-// passes every other test in this package and fails only these two.  The
-// comment-syntax directives below are string content under test, not spellings
-// that were missed.  Do not rewrite them.
+// Do not rewrite the comment-syntax directives below.
 func TestParseAllowsDirectiveInsideString(t *testing.T) {
 	for name, operation := range map[string]string{
 		"string": "query Ok { field(arg: \"# @octoqlgen(pointer: false)\") }\n",
@@ -202,14 +176,6 @@ func TestParseErrors(t *testing.T) {
 	}
 }
 
-// TestOperationGlobSkipsTheCompanionDirectiveFile checks that a glob broad
-// enough to reach the schema directory still generates.
-//
-// octoqlgen writes the companion beside the schema and gives it a .graphql
-// extension, so `operations: ["**/*.graphql"]` starts matching a file the tool
-// itself created.  It holds SDL rather than operations, so parsing it as a
-// query document fails — an upgrade breaking a config the user never edited,
-// pointing at a file they did not write.
 func TestOperationGlobSkipsTheCompanionDirectiveFile(t *testing.T) {
 	dir := t.TempDir()
 	schemaDir := filepath.Join(dir, "schema")
@@ -229,9 +195,6 @@ func TestOperationGlobSkipsTheCompanionDirectiveFile(t *testing.T) {
 	assert.Equal(t, "Q", document.Operations[0].Name)
 }
 
-// TestOperationGlobMatchingOnlyTheCompanionIsAnError checks that skipping the
-// companion does not turn a glob with no operations in it into a silent
-// success.
 func TestOperationGlobMatchingOnlyTheCompanionIsAnError(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, directive.FileName),

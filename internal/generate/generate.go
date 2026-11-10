@@ -49,17 +49,8 @@ type generator struct {
 	// set consistently, even post-validation.
 	fragments map[string]*ast.FragmentDefinition
 
-	// The octoqlgen options that applied to each node, keyed by the AST node
-	// they were attached to.  Populated by collectDirectives, which also
-	// removes the directives from the AST so they never reach the server.
-	directives map[any]*octoqlgenDirective
-
-	// Every @octoqlgenFor declaration, keyed by the type and field it names, so
-	// that conflicting declarations can be rejected.
-	forDeclarations map[fieldKey]forDeclaration
-
-	// The input types whose fields are being converted right now, so a field
-	// of the same type returns the type instead of converting it again.
+	directives       map[any]*octoqlgenDirective
+	forDeclarations  map[fieldKey]forDeclaration
 	convertingInputs map[string]bool
 
 	forbiddenImportPath string
@@ -490,9 +481,6 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 	// types it needs.
 	g := newGenerator(config, schema, document.Fragments)
 
-	// Move every @octoqlgen directive off the AST and into g.directives before
-	// anything formats an operation, so the query bodies we send never contain
-	// them.
 	if err = g.collectDirectives(document); err != nil {
 		return nil, err
 	}
