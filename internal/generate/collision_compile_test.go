@@ -1,7 +1,9 @@
 package generate
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -560,7 +562,11 @@ query Q {
 		},
 	}
 
-	for _, test := range tests {
+	compileDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(compileDir, "go.mod"), []byte("module probe\n\ngo 1.26.0\n"), 0o600))
+	hasCompileCases := false
+
+	for index, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			source, err := probeGenerated(t, test.schema, test.operations, test.casing, test.keepImplementations)
 			if test.wantGenerationErr != "" {
@@ -572,8 +578,17 @@ query Q {
 				return
 			}
 			require.NoError(t, err)
-			require.NoError(t, probeCompile(test.name, source))
+
+			caseDir := filepath.Join(compileDir, fmt.Sprintf("case_%02d", index))
+			require.NoError(t, os.MkdirAll(caseDir, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(caseDir, "generated.go"), source, 0o600))
+			hasCompileCases = true
 		})
+	}
+
+	if hasCompileCases {
+		output, compileErr := probeCompile(t, compileDir)
+		require.NoError(t, compileErr, output)
 	}
 }
 
@@ -617,6 +632,9 @@ func probeGenerated(
 	return outputs[config.Generated], nil
 }
 
-func probeCompile(name string, source []byte) error {
-	return typeCheckSource(name, source, false)
+func probeCompile(t *testing.T, dir string) (string, error) {
+	cmd := exec.CommandContext(t.Context(), "go", "build", "./...")
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	return string(output), err
 }

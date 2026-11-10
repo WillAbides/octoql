@@ -256,11 +256,24 @@ func TestEnsureGitHubPublicSchema(t *testing.T) {
 	})
 }
 
-func compileGitHubPublicSchemaOutput(t *testing.T, _ string, source []byte) {
+func compileGitHubPublicSchemaOutput(t *testing.T, generatedDir string, source []byte) {
 	t.Helper()
 
-	err := typeCheckSource("github_public_schema", source, false)
+	goMod := "module github.com/willabides/octoql-public-schema-test\n\ngo 1.26.0\n"
+	err := os.WriteFile(filepath.Join(generatedDir, "go.mod"), []byte(goMod), 0o600)
 	if err != nil {
 		t.Fatal(err)
+	}
+	err = os.WriteFile(filepath.Join(generatedDir, "generated.go"), source, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command("go", "build", "-mod=readonly", "./...")
+	cmd.Dir = generatedDir
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOSUMDB=off")
+	output, commandErr := cmd.CombinedOutput()
+	if commandErr != nil {
+		t.Fatalf("go build -mod=readonly ./...: %v\n%s", commandErr, output)
 	}
 }

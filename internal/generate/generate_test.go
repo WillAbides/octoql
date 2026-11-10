@@ -6,10 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
-	"go/importer"
 	"go/parser"
 	"go/token"
-	"go/types"
 	"maps"
 	"os"
 	"os/exec"
@@ -17,13 +15,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/gkampitakis/go-snaps/snaps"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/tools/go/packages"
 )
 
 const (
@@ -61,185 +57,72 @@ func addTestScalarBindings(bindings map[string]*TypeBinding) map[string]*TypeBin
 	return bindings
 }
 
-var (
-	sharedTypeImporterOnce  sync.Once
-	sharedTypeImporterMutex sync.Mutex
-	sharedStdlibImporter    = importer.Default()
-	sharedImportedPackages  = map[string]*types.Package{}
-)
-
-func ensurePreloadedPackages() {
-	sharedTypeImporterOnce.Do(func() {
-		pkgs, err := packages.Load(
-			&packages.Config{
-				Mode: packages.NeedName | packages.NeedTypes | packages.NeedDeps,
-			},
-			"bytes",
-			"context",
-			"encoding/json",
-			"errors",
-			"fmt",
-			"io",
-			"net/http",
-			"net/url",
-			"slices",
-			"strconv",
-			"strings",
-			"sync",
-			"testing",
-			"time",
-		)
-		if err != nil {
-			return
-		}
-		for _, pkg := range pkgs {
-			if pkg.Types != nil {
-				sharedImportedPackages[pkg.PkgPath] = pkg.Types
-			}
-		}
-	})
-}
-
-type cachedStdlibImporter struct{}
-
-func (cachedStdlibImporter) Import(importPath string) (*types.Package, error) {
-	pkg, ok := sharedImportedPackages[importPath]
-	if ok {
-		return pkg, nil
-	}
-	pkg, err := sharedStdlibImporter.Import(importPath)
-	if err != nil {
-		return nil, err
-	}
-	sharedImportedPackages[importPath] = pkg
-	return pkg, nil
-}
-
-type localTypeImporter struct {
-	allowModulePackages bool
-	localPackages       map[string]*types.Package
-}
-
-func (i *localTypeImporter) Import(importPath string) (*types.Package, error) {
-	pkg, ok := i.localPackages[importPath]
-	if ok {
-		return pkg, nil
-	}
-	if strings.Contains(importPath, ".") && !i.allowModulePackages {
-		return nil, fmt.Errorf("non-stdlib import %q is not allowed", importPath)
-	}
-	if strings.HasPrefix(importPath, "github.com/willabides/octoql/internal/generate/testdata/tmp/") {
-		relDir := filepath.FromSlash(strings.TrimPrefix(
-			importPath,
-			"github.com/willabides/octoql/internal/generate/",
-		))
-		var err error
-		pkg, err = typeCheckDirectory(relDir, importPath, i)
-		if err != nil {
-			return nil, err
-		}
-		i.localPackages[importPath] = pkg
-		return pkg, nil
-	}
-
-	ensurePreloadedPackages()
-
-	sharedTypeImporterMutex.Lock()
-	defer sharedTypeImporterMutex.Unlock()
-
-	pkg, ok = sharedImportedPackages[importPath]
-	if ok {
-		return pkg, nil
-	}
-	if strings.HasPrefix(importPath, "github.com/willabides/octoql/") {
-		relDir := filepath.Join(
-			"..",
-			"..",
-			filepath.FromSlash(strings.TrimPrefix(importPath, "github.com/willabides/octoql/")),
-		)
-		var err error
-		pkg, err = typeCheckDirectory(relDir, importPath, cachedStdlibImporter{})
-		if err != nil {
-			return nil, err
-		}
-		sharedImportedPackages[importPath] = pkg
-		return pkg, nil
-	}
-
-	return cachedStdlibImporter{}.Import(importPath)
-}
-
-func typeCheckSource(name string, content []byte, allowModulePackages bool) error {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, name+".go", content, parser.AllErrors)
-	if err != nil {
-		return fmt.Errorf("generated code does not parse: %w", err)
-	}
-	checker := types.Config{
-		Importer: &localTypeImporter{
-			allowModulePackages: allowModulePackages,
-			localPackages:       map[string]*types.Package{},
-		},
-	}
-	_, err = checker.Check(file.Name.Name, fset, []*ast.File{file}, nil)
-	if err != nil {
-		return fmt.Errorf("generated code does not compile: %w", err)
-	}
-	return nil
-}
-
-func typeCheckDirectory(
-	dir string,
-	importPath string,
-	imp types.Importer,
-) (*types.Package, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	fset := token.NewFileSet()
-	var files []*ast.File
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-		parsed, parseErr := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.AllErrors)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-		files = append(files, parsed)
-	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no Go files in %s", dir)
-	}
-	checker := types.Config{Importer: imp}
-	return checker.Check(importPath, fset, files, nil)
-}
-
 // buildGoFile returns an error if the given Go code is not valid.
 //
-// namePrefix is used for diagnostics.
+// namePrefix is used for the temp-file, and is just for debugging.
 func buildGoFile(namePrefix string, content []byte) error {
-	return typeCheckSource(namePrefix, content, true)
+	return buildGoFiles(map[string][]byte{namePrefix: content})
 }
 
 func buildGoFiles(files map[string][]byte) error {
+	if len(files) == 0 {
+		return nil
+	}
+	// We need to put this within the current module, rather than in
+	// /tmp, so that it can access internal/testutil.
+	tempRoot := filepath.Join("testdata", "tmp")
+	err := os.MkdirAll(tempRoot, 0o755)
+	if err != nil {
+		return err
+	}
+	tempDir, err := os.MkdirTemp(tempRoot, "build-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
+
 	names := make([]string, 0, len(files))
 	for name := range files {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	for _, name := range names {
-		err := buildGoFile(name, files[name])
+	for index, name := range names {
+		packageDir := filepath.Join(
+			tempDir,
+			fmt.Sprintf("pkg_%02d_%s", index, sanitizeBuildDirName(name)),
+		)
+		err = os.MkdirAll(packageDir, 0o755)
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(filepath.Join(packageDir, "generated.go"), files[name], 0o600)
 		if err != nil {
 			return err
 		}
 	}
+
+	cmd := exec.Command("go", "build", "./...")
+	cmd.Dir = tempDir
+	cmd.Env = append(os.Environ(), "GOWORK=off")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("generated code does not compile: %w\n%s", err, output)
+	}
 	return nil
+}
+
+func sanitizeBuildDirName(name string) string {
+	var builder strings.Builder
+	for _, r := range name {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			builder.WriteRune(r)
+			continue
+		}
+		builder.WriteByte('_')
+	}
+	return builder.String()
 }
 
 func generatedStringConstant(t *testing.T, source []byte, name string) string {
@@ -1506,24 +1389,10 @@ query WireSemantics {
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
-)
 
-func assertWireJSONEqual(t *testing.T, expected, actual string) {
-	t.Helper()
-	var leftValue any
-	if err := json.Unmarshal([]byte(expected), &leftValue); err != nil {
-		t.Fatal(err)
-	}
-	var rightValue any
-	if err := json.Unmarshal([]byte(actual), &rightValue); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(leftValue, rightValue) {
-		t.Fatalf("JSON differs:\nwant: %s\ngot:  %s", expected, actual)
-	}
-}
+	"github.com/stretchr/testify/require"
+)
 
 func TestSpecialSliceWireSemantics(t *testing.T) {
 	tests := []struct {
@@ -1547,14 +1416,11 @@ func TestSpecialSliceWireSemantics(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var response WireSemanticsResponse
-			if err := json.Unmarshal([]byte(test.wire), &response); err != nil {
-				t.Fatal(err)
-			}
+			err := json.Unmarshal([]byte(test.wire), &response)
+			require.NoError(t, err)
 			remarshaled, err := json.Marshal(&response)
-			if err != nil {
-				t.Fatal(err)
-			}
-			assertWireJSONEqual(t, test.wire, string(remarshaled))
+			require.NoError(t, err)
+			require.JSONEq(t, test.wire, string(remarshaled))
 		})
 	}
 }
@@ -1587,18 +1453,12 @@ func TestSpecialSliceWireSemanticsReusedDestination(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var response WireSemanticsResponse
 			err := json.Unmarshal([]byte(populated), &response)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			err = json.Unmarshal([]byte(test.update), &response)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			remarshaled, err := json.Marshal(&response)
-			if err != nil {
-				t.Fatal(err)
-			}
-			assertWireJSONEqual(t, test.want, string(remarshaled))
+			require.NoError(t, err)
+			require.JSONEq(t, test.want, string(remarshaled))
 		})
 	}
 }
@@ -2271,42 +2131,22 @@ func compileGeneratedOutputs(
 	if len(outputs) == 0 {
 		return
 	}
-	hasTestFiles := false
-	packageDirs := map[string]bool{}
 	for filename, content := range outputs {
-		dir := filepath.Dir(filename)
-		packageDirs[dir] = true
-		if strings.HasSuffix(filename, "_test.go") {
-			hasTestFiles = true
-		}
-		err := os.MkdirAll(dir, 0o755)
+		err := os.MkdirAll(filepath.Dir(filename), 0o755)
 		require.NoError(t, err)
 		err = os.WriteFile(filename, content, 0o600)
 		require.NoError(t, err)
 	}
 
-	if !hasTestFiles {
-		imp := &localTypeImporter{
-			allowModulePackages: true,
-			localPackages:       map[string]*types.Package{},
+	subcommand := "build"
+	for filename := range outputs {
+		if strings.HasSuffix(filename, "_test.go") {
+			subcommand = "test"
+			break
 		}
-		dirs := make([]string, 0, len(packageDirs))
-		for dir := range packageDirs {
-			dirs = append(dirs, dir)
-		}
-		sort.Strings(dirs)
-		for _, dir := range dirs {
-			absDir, err := filepath.Abs(dir)
-			require.NoError(t, err)
-			importPath, err := packagePathFromModule(absDir)
-			require.NoError(t, err)
-			_, err = imp.Import(importPath)
-			require.NoErrorf(t, err, "generated package %s does not compile", dir)
-		}
-		return
 	}
 
-	command := exec.Command("go", "test", "./...")
+	command := exec.Command("go", subcommand, "./...")
 	command.Dir = directory
 	command.Env = append(os.Environ(), "GOWORK=off")
 	output, err := command.CombinedOutput()

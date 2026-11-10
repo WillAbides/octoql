@@ -189,6 +189,22 @@ func TestConfigValidateAndFillDefaults(t *testing.T) {
 	assert.Equal(t, TestHandlerTypesClient, config.TestHandlerTypes)
 	require.NotNil(t, config.OmitUnreferencedImplementations)
 	assert.True(t, *config.OmitUnreferencedImplementations)
+
+	t.Run("parses go.mod module declarations with comments", func(t *testing.T) {
+		t.Parallel()
+
+		moduleDir := t.TempDir()
+		err := os.WriteFile(
+			filepath.Join(moduleDir, "go.mod"),
+			[]byte("module example.com/app // application module\n\ngo 1.26.0\n"),
+			0o600,
+		)
+		require.NoError(t, err)
+
+		pkgPath, err := packagePathFromModule(filepath.Join(moduleDir, "client"))
+		require.NoError(t, err)
+		assert.Equal(t, "example.com/app/client", pkgPath)
+	})
 }
 
 func TestConfigValidationErrors(t *testing.T) {

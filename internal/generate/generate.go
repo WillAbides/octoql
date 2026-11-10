@@ -7,14 +7,10 @@ package generate
 import (
 	"bytes"
 	"encoding/json"
-	goast "go/ast"
 	"go/format"
-	"go/parser"
-	"go/token"
 	"io"
 	"maps"
 	"sort"
-	"strconv"
 	"strings"
 	"text/template"
 
@@ -718,113 +714,16 @@ func renderClientGenerator(g *generator) ([]byte, error) {
 	}
 
 	unformatted := buf.Bytes()
-	return formatAndProcessImports(g.Config.Generated, "", unformatted, g.imports)
-}
-
-func formatAndProcessImports(
-	filename string,
-	toolSuffix string,
-	unformatted []byte,
-	importAliases map[string]string,
-) ([]byte, error) {
 	formatted, err := format.Source(unformatted)
 	if err != nil {
-		return nil, goSourceError("gofmt"+toolSuffix, unformatted, err)
+		return nil, goSourceError("gofmt", unformatted, err)
 	}
-	pruned, err := pruneUnusedImports(formatted, importAliases)
+	importsed, err := imports.Process(g.Config.Generated, formatted, nil)
 	if err != nil {
-		return nil, goSourceError("goimports"+toolSuffix, formatted, err)
-	}
-	imported, err := imports.Process(
-		filename,
-		pruned,
-		&imports.Options{
-			FormatOnly: true,
-			Comments:   true,
-			TabIndent:  true,
-			TabWidth:   8,
-		},
-	)
-	if err != nil {
-		return nil, goSourceError("goimports"+toolSuffix, formatted, err)
-	}
-	return imported, nil
-}
-
-func pruneUnusedImports(
-	formatted []byte,
-	importAliases map[string]string,
-) ([]byte, error) {
-	if len(importAliases) == 0 {
-		return formatted, nil
-	}
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "", formatted, parser.ParseComments)
-	if err != nil {
-		return nil, err
-	}
-	usedIdents := make(map[string]bool, len(importAliases))
-	goast.Inspect(file, func(node goast.Node) bool {
-		selector, ok := node.(*goast.SelectorExpr)
-		if !ok {
-			return true
-		}
-		ident, ok := selector.X.(*goast.Ident)
-		if ok {
-			usedIdents[ident.Name] = true
-		}
-		return true
-	})
-
-	allUsed := true
-	for _, alias := range importAliases {
-		if !usedIdents[alias] {
-			allUsed = false
-			break
-		}
-	}
-	if allUsed {
-		return formatted, nil
+		return nil, goSourceError("goimports", formatted, err)
 	}
 
-	var filteredDecls []goast.Decl
-	for _, decl := range file.Decls {
-		genDecl, ok := decl.(*goast.GenDecl)
-		if !ok || genDecl.Tok != token.IMPORT {
-			filteredDecls = append(filteredDecls, decl)
-			continue
-		}
-		var keptSpecs []goast.Spec
-		for _, spec := range genDecl.Specs {
-			importSpec, ok := spec.(*goast.ImportSpec)
-			if !ok {
-				continue
-			}
-			importPath, unquoteErr := strconv.Unquote(importSpec.Path.Value)
-			if unquoteErr != nil {
-				return nil, unquoteErr
-			}
-			alias := importAliases[importPath]
-			if importSpec.Name != nil {
-				alias = importSpec.Name.Name
-			}
-			if usedIdents[alias] {
-				keptSpecs = append(keptSpecs, importSpec)
-			}
-		}
-		if len(keptSpecs) > 0 {
-			genDecl.Specs = keptSpecs
-			filteredDecls = append(filteredDecls, genDecl)
-		}
-	}
-	file.Decls = filteredDecls
-
-	var buffer bytes.Buffer
-	err = format.Node(&buffer, fset, file)
-	if err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
+	return importsed, nil
 }
 
 func renderExportedOperations(plan *generationPlan) ([]byte, error) {

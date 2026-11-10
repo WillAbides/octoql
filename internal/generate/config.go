@@ -2,14 +2,13 @@ package generate
 
 import (
 	"fmt"
-	"go/parser"
 	"go/token"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -166,38 +165,15 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 		pkgNameGuess = ""
 	}
 
-	parsedPkgName, hasGoFiles := directoryPackageName(dir)
-	modulePkgPath, moduleErr := packagePathFromModule(dir)
-	if moduleErr == nil {
-		if parsedPkgName != "" {
-			return parsedPkgName, modulePkgPath, nil
-		}
-		if !hasGoFiles {
-			pathSuffix := path.Base(modulePkgPath)
-			if token.IsIdentifier(pathSuffix) {
-				pkgNameGuess = pathSuffix
-			}
-			if pkgNameGuess != "" {
-				return pkgNameGuess, modulePkgPath, nil
-			}
-			return "", "", fmt.Errorf("no package found in %v", dir)
-		}
-	}
-	if !hasGoFiles {
-		return pkgNameGuess, "", fmt.Errorf("no package found in %v", dir)
-	}
-
-	pkgs, err := packages.Load(&packages.Config{
-		Mode: packages.NeedName,
-		Dir:  dir,
-	}, ".")
+	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName}, dir)
 	if err != nil { // e.g. not in a Go module
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
 		if moduleErr == nil && pkgNameGuess != "" {
 			return pkgNameGuess, modulePkgPath, nil
 		}
 		return pkgNameGuess, "", err
-	}
-	if len(pkgs) != 1 { // probably never happens?
+	} else if len(pkgs) != 1 { // probably never happens?
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
 		if moduleErr == nil && pkgNameGuess != "" {
 			return pkgNameGuess, modulePkgPath, nil
 		}
@@ -219,6 +195,7 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 		pkgNameGuess = pathSuffix
 	}
 	if pkg.PkgPath == "" || pkg.PkgPath == "command-line-arguments" {
+		modulePkgPath, moduleErr := packagePathFromModule(dir)
 		if moduleErr == nil {
 			pkg.PkgPath = modulePkgPath
 		}
@@ -226,46 +203,9 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 
 	if pkgNameGuess != "" {
 		return pkgNameGuess, pkg.PkgPath, nil
+	} else {
+		return "", "", fmt.Errorf("no package found in %v", dir)
 	}
-	return "", "", fmt.Errorf("no package found in %v", dir)
-}
-
-func directoryPackageName(dir string) (string, bool) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", false
-	}
-
-	fset := token.NewFileSet()
-	packageName := ""
-	hasGoFiles := false
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-		hasGoFiles = true
-		parsed, parseErr := parser.ParseFile(
-			fset,
-			filepath.Join(dir, name),
-			nil,
-			parser.PackageClauseOnly,
-		)
-		if parseErr != nil || parsed == nil || parsed.Name == nil || !token.IsIdentifier(parsed.Name.Name) {
-			return "", true
-		}
-		if parsed.Name.Name == "documentation" {
-			continue
-		}
-		if packageName != "" && packageName != parsed.Name.Name {
-			return "", true
-		}
-		packageName = parsed.Name.Name
-	}
-	return packageName, hasGoFiles
 }
 
 func packagePathFromModule(directory string) (string, error) {
@@ -275,7 +215,7 @@ func packagePathFromModule(directory string) (string, error) {
 		moduleFile := filepath.Join(currentDirectory, "go.mod")
 		content, err := os.ReadFile(moduleFile)
 		if err == nil {
-			moduleName := modulePath(content)
+			moduleName := modfile.ModulePath(content)
 			if moduleName == "" {
 				return "", fmt.Errorf("go.mod in %q has no module path", currentDirectory)
 			}
@@ -299,24 +239,6 @@ func packagePathFromModule(directory string) (string, error) {
 		}
 		currentDirectory = parent
 	}
-}
-
-func modulePath(goMod []byte) string {
-	for line := range strings.SplitSeq(string(goMod), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 || fields[0] != "module" {
-			continue
-		}
-		if !strings.HasPrefix(fields[1], `"`) {
-			return fields[1]
-		}
-		unquoted, err := strconv.Unquote(fields[1])
-		if err == nil {
-			return unquoted
-		}
-		return ""
-	}
-	return ""
 }
 
 // ValidateAndFillDefaults ensures that the configuration is valid, and fills

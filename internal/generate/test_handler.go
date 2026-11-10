@@ -2,9 +2,12 @@ package generate
 
 import (
 	"bytes"
+	"go/format"
 	"go/token"
 	"sort"
 	"strconv"
+
+	"golang.org/x/tools/imports"
 )
 
 type testHandlerType struct {
@@ -305,10 +308,17 @@ func renderTestHandler(plan *generationPlan) ([]byte, error) {
 	}
 
 	unformatted := buffer.Bytes()
-	return formatAndProcessImports(
+	formatted, err := format.Source(unformatted)
+	if err != nil {
+		return nil, goSourceError("gofmt test handler", unformatted, err)
+	}
+	imported, err := imports.Process(
 		plan.config.TestHandlerGenerated,
-		" test handler",
-		unformatted,
-		handlerGenerator.imports,
+		formatted,
+		nil,
 	)
+	if err != nil {
+		return nil, goSourceError("goimports test handler", formatted, err)
+	}
+	return imported, nil
 }
