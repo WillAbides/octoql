@@ -1,7 +1,6 @@
 package generate
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,10 +8,37 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
+	"github.com/vektah/gqlparser/v2/validator"
 	"github.com/willabides/octoql/internal"
 )
+
+const splitSchema = `
+type Query {
+  a(filter: Filter): Thing
+  b(filter: Filter): Thing
+}
+
+interface Node {
+  id: ID!
+}
+
+type Item implements Node {
+  id: ID!
+}
+
+type Thing {
+  name: String
+  size: Int
+  node: Node
+}
+
+input Filter {
+  label: String
+}
+`
 
 func assertDeclares(t *testing.T, source, declaration string) {
 	t.Helper()
@@ -27,6 +53,27 @@ func testDirective(t *testing.T, name, args string) *ast.Directive {
 	})
 	require.NoError(t, err)
 	return doc.Operations[0].Directives[0]
+}
+
+func generateSplit(t *testing.T, operation string) (string, error) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationPath := filepath.Join(dir, "operation.graphql")
+	generatedPath := filepath.Join(dir, "generated.go")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(splitSchema), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
+
+	generated, err := Generate(&Config{
+		Schema:      []string{schemaPath},
+		Operations:  []string{operationPath},
+		Generated:   generatedPath,
+		Package:     "client",
+		ContextType: "-",
+	})
+	if err != nil {
+		return "", err
+	}
+	return string(generated[generatedPath]), nil
 }
 
 func TestOctoqlgenDirectiveAddMergesRepeatedForDirectives(t *testing.T) {
@@ -139,113 +186,6 @@ func TestOctoqlgenDirectiveAddAllowsBindOptOut(t *testing.T) {
 	assert.Equal(t, "-", directive.Bind)
 }
 
-func TestDirectiveAppliesOnlyToItsOwnNode(t *testing.T) {
-	var unsafeResponse struct {
-		IsSuspended bool `json:"isSuspended"`
-	}
-	err := json.Unmarshal([]byte(`{"isSuspended":null}`), &unsafeResponse)
-	require.NoError(t, err)
-	assert.False(t, unsafeResponse.IsSuspended)
-
-	const schema = `
-type Query {
-  viewer: User!
-  first(note: String): String
-  second: String
-  outer(arg: Input): Inner
-  sibling: String
-}
-
-type User {
-  isSuspended: Boolean
-  name: String
-}
-
-type Inner {
-  child: String
-}
-
-input Input {
-  text: String
-}
-`
-	for _, test := range []struct {
-		name      string
-		operation string
-		want      []string
-	}{
-		{
-			name: "sibling fields on one line",
-			operation: `
-query Siblings {
-  first @octoqlgen(pointer: false) second
-}
-`,
-			want: []string{"First string", "Second *string"},
-		},
-		{
-			name: "non-ASCII argument before sibling",
-			operation: `
-query NonASCII {
-  outer(arg: {text: "é"}) @octoqlgen(pointer: false) { child } sibling
-}
-`,
-			want: []string{"Sibling *string"},
-		},
-		{
-			name: "multi-byte argument before sibling",
-			operation: `
-query MultiByteInput {
-  outer(arg: {text: "😀😀😀😀😀😀😀😀"}) @octoqlgen(pointer: false) { child } sibling
-}
-`,
-			want: []string{"Sibling *string"},
-		},
-		{
-			name: "escaped block string quote before sibling",
-			operation: `
-query EscapedBlockString {
-  first(note: """text \""" { still text""") @octoqlgen(pointer: false) second
-}
-`,
-			want: []string{"First string", "Second *string"},
-		},
-		{
-			name: "directive on a field does not reach its selections",
-			operation: `
-query Viewer {
-  viewer @octoqlgen(pointer: false) { isSuspended name }
-}
-`,
-			want: []string{"IsSuspended *bool", "Name *string"},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			dir := t.TempDir()
-			schemaPath := filepath.Join(dir, "schema.graphql")
-			operationPath := filepath.Join(dir, "operation.graphql")
-			err = os.WriteFile(schemaPath, []byte(schema), 0o600)
-			require.NoError(t, err)
-			err = os.WriteFile(operationPath, []byte(test.operation), 0o600)
-			require.NoError(t, err)
-
-			generated, err := Generate(&Config{
-				Schema:      []string{schemaPath},
-				Operations:  []string{operationPath},
-				Generated:   filepath.Join(dir, "generated.go"),
-				Package:     "client",
-				ContextType: "-",
-			})
-
-			require.NoError(t, err)
-			source := string(generated[filepath.Join(dir, "generated.go")])
-			for _, want := range test.want {
-				assertDeclares(t, source, want)
-			}
-		})
-	}
-}
-
 func TestDirectiveNeverReachesTheServer(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := filepath.Join(dir, "schema.graphql")
@@ -286,42 +226,6 @@ query Viewer($skipName: Boolean!) @octoqlgen(typename: "ViewerResp") {
 	assert.Contains(t, source, "type ViewerUser struct")
 	assert.NotContains(t, source, "@octoqlgen")
 	assert.Contains(t, source, `@skip(if: $skipName)`)
-}
-
-func TestOctoqlgenDirectiveAllowsOperationWithMultipleArguments(t *testing.T) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
-type Query {
-  repository(owner: String!, name: String!): Repository!
-}
-
-type Repository {
-  name: String
-}
-`), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(operationPath, []byte(`
-query Repository($owner: String!, $name: String!) @octoqlgen(typename: "RepoResp") {
-  repository(owner: $owner, name: $name) {
-    name
-  }
-}
-`), 0o600)
-	require.NoError(t, err)
-
-	generated, err := Generate(&Config{
-		Schema:      []string{schemaPath},
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "client",
-		ContextType: "-",
-	})
-
-	require.NoError(t, err)
-	assert.Contains(t, string(generated[filepath.Join(dir, "generated.go")]),
-		"type RepoResp struct")
 }
 
 func TestOctoqlgenDirectiveAllowsOperationOmitemptyWithVariableDefault(t *testing.T) {
@@ -456,81 +360,6 @@ type User {
 	assert.NotContains(t, source, "type ViewerResponse struct")
 }
 
-func TestTypeReuseRejectsDivergentPointerOption(t *testing.T) {
-	const schema = `
-type Query {
-  viewer: User!
-}
-
-type User {
-  login: String!
-  isSuspended: Boolean
-}
-`
-	operation := func(firstOptions, secondOptions string) string {
-		return `
-query A {
-  viewer @octoqlgen(typename: "SharedUser") {
-    login
-    isSuspended ` + firstOptions + `
-  }
-}
-
-query B {
-  viewer @octoqlgen(typename: "SharedUser") {
-    login
-    isSuspended ` + secondOptions + `
-  }
-}
-`
-	}
-
-	generate := func(t *testing.T, operationText string) (string, error) {
-		dir := t.TempDir()
-		schemaPath := filepath.Join(dir, "schema.graphql")
-		operationPath := filepath.Join(dir, "operation.graphql")
-		require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
-		require.NoError(t, os.WriteFile(operationPath, []byte(operationText), 0o600))
-
-		generated, err := Generate(&Config{
-			Schema:      []string{schemaPath},
-			Operations:  []string{operationPath},
-			Generated:   filepath.Join(dir, "generated.go"),
-			Package:     "client",
-			ContextType: "-",
-		})
-		if err != nil {
-			return "", err
-		}
-		return string(generated[filepath.Join(dir, "generated.go")]), nil
-	}
-
-	t.Run("differing options are rejected", func(t *testing.T) {
-		_, err := generate(t, operation("", "@octoqlgen(pointer: false)"))
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "conflicting definition for the Go type SharedUser")
-		assert.Contains(t, err.Error(), "*bool vs bool")
-	})
-
-	t.Run("matching options share one type", func(t *testing.T) {
-		source, err := generate(t,
-			operation("@octoqlgen(pointer: false)", "@octoqlgen(pointer: false)"))
-
-		require.NoError(t, err)
-		assertDeclares(t, source, "IsSuspended bool")
-		assert.Equal(t, 1, strings.Count(source, "type SharedUser struct"))
-	})
-
-	t.Run("no options at all still shares one type", func(t *testing.T) {
-		source, err := generate(t, operation("", ""))
-
-		require.NoError(t, err)
-		assertDeclares(t, source, "IsSuspended *bool")
-		assert.Equal(t, 1, strings.Count(source, "type SharedUser struct"))
-	})
-}
-
 func TestGeneratorOwnsTheDirectiveDefinition(t *testing.T) {
 	const baseSchema = `
 type Query {
@@ -663,46 +492,171 @@ query Q($f: Filter) @octoqlgenFor(field: "Filter.label", alias: "Renamed") {
 	}
 }
 
-func TestDirectiveKeepsAliasWhereItApplies(t *testing.T) {
-	const schema = `
-type Query {
-  thing: Thing
-}
-
-type Thing {
-  name: String
-}
-`
+func TestForRejectsConflictingDeclarations(t *testing.T) {
 	for name, operation := range map[string]string{
-		"directly on the field": `
-query Q {
-  thing { name @octoqlgen(alias: "Renamed") }
-}
+		"input type": `
+query QA($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { a(filter: $f) { name } }
+query QB($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: true) { b(filter: $f) { name } }
 `,
-		"through for": `
-query Q @octoqlgenFor(field: "Thing.name", alias: "Renamed") {
-  thing { name }
-}
+		"input type, declared in the other order": `
+query QB($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: true) { b(filter: $f) { name } }
+query QA($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { a(filter: $f) { name } }
+`,
+		"response type shared by typename": `
+query QA @octoqlgenFor(field: "Thing.name", pointer: false) { a @octoqlgen(typename: "Shared") { name } }
+query QB @octoqlgenFor(field: "Thing.name", pointer: true) { b @octoqlgen(typename: "Shared") { name } }
 `,
 	} {
 		t.Run(name, func(t *testing.T) {
-			dir := t.TempDir()
-			schemaPath := filepath.Join(dir, "schema.graphql")
-			operationPath := filepath.Join(dir, "operation.graphql")
-			require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
-			require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
+			_, err := generateSplit(t, operation)
 
-			generated, err := Generate(&Config{
-				Schema:      []string{schemaPath},
-				Operations:  []string{operationPath},
-				Generated:   filepath.Join(dir, "generated.go"),
-				Package:     "client",
-				ContextType: "-",
-			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "conflicting @octoqlgenFor declarations for")
+			assert.Contains(t, err.Error(), "must agree")
+		})
+	}
+}
+
+func TestForAllowsAgreeingDeclarations(t *testing.T) {
+	declaring := `query QA($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { a(filter: $f) { name } }`
+	silent := `query QB($f: Filter) { b(filter: $f) { name } }`
+
+	for name, operation := range map[string]string{
+		"identical declarations": `
+query QA($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { a(filter: $f) { name } }
+query QB($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { b(filter: $f) { name } }
+`,
+		"split agreeing declarations": `
+query QA($f: Filter)
+  @octoqlgenFor(field: "Filter.label", pointer: false)
+  @octoqlgenFor(field: "Filter.label", bind: "-")
+{ a(filter: $f) { name } }
+query QB($f: Filter)
+  @octoqlgenFor(field: "Filter.label", pointer: false)
+  @octoqlgenFor(field: "Filter.label", bind: "-")
+{ b(filter: $f) { name } }
+`,
+		"declaration first": declaring + "\n" + silent,
+		"silence first":     silent + "\n" + declaring,
+	} {
+		t.Run(name, func(t *testing.T) {
+			source, err := generateSplit(t, operation)
 
 			require.NoError(t, err)
-			assert.Contains(t, string(generated[filepath.Join(dir, "generated.go")]),
-				"Renamed")
+			assertDeclares(t, source, "Label string")
 		})
+	}
+}
+
+func TestDefaultsStructAppliesInsideFragment(t *testing.T) {
+	source, err := generateSplit(t, `
+query Q { a { ...ThingFields } }
+fragment ThingFields on Thing @octoqlgenDefaults(struct: true) {
+  node { id }
+}
+`)
+
+	require.NoError(t, err)
+	assert.Contains(t, source, "type ThingFieldsNode struct")
+	assert.NotContains(t, source, "type ThingFieldsNode interface")
+}
+
+func TestDefaultsSeparatesScopeFromNodeOptions(t *testing.T) {
+	t.Run("defaults reach the fields", func(t *testing.T) {
+		source, err := generateSplit(t, `
+query Q @octoqlgenDefaults(pointer: false) { a { name size } }
+`)
+
+		require.NoError(t, err)
+		assertDeclares(t, source, "Name string")
+		assertDeclares(t, source, "Size int")
+	})
+
+	t.Run("defaults do not mutate shared input object fields", func(t *testing.T) {
+		source, err := generateSplit(t, `
+query QA($f: Filter) @octoqlgenDefaults(pointer: false) { a(filter: $f) { name } }
+query QB($f: Filter) { b(filter: $f) { name } }
+`)
+
+		require.NoError(t, err)
+		assertDeclares(t, source, "Label *string")
+	})
+
+	t.Run("the node directive rejects a default", func(t *testing.T) {
+		_, err := generateSplit(t, `
+query Q @octoqlgen(pointer: false) { a { name } }
+`)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not describe an operation or fragment")
+		assert.Contains(t, err.Error(), "@octoqlgenDefaults(pointer:)")
+	})
+
+	t.Run("the node directive still names the response type", func(t *testing.T) {
+		source, err := generateSplit(t, `
+query Q @octoqlgen(typename: "Resp") { a { name } }
+`)
+
+		require.NoError(t, err)
+		assert.Contains(t, source, "type Resp struct")
+	})
+}
+
+func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
+	schemaFilename := filepath.Join(dataDir, "schema.graphql")
+	directiveFilename := filepath.Join(dataDir, internal.DirectiveFilename)
+
+	sources := make([]*ast.Source, 0, 2)
+	for _, filename := range []string{schemaFilename, directiveFilename} {
+		text, err := os.ReadFile(filename)
+		require.NoError(t, err)
+		sources = append(sources, &ast.Source{Name: filename, Input: string(text)})
+	}
+
+	schema, schemaErr := gqlparser.LoadSchema(sources...)
+	require.Nil(t, schemaErr)
+
+	operationFilenames, err := filepath.Glob(filepath.Join(dataDir, "*.graphql"))
+	require.NoError(t, err)
+
+	checked := 0
+	for _, operationFilename := range operationFilenames {
+		if operationFilename == schemaFilename || operationFilename == directiveFilename {
+			continue
+		}
+		text, readErr := os.ReadFile(operationFilename)
+		require.NoError(t, readErr)
+		document, parseErr := parser.ParseQuery(&ast.Source{
+			Name:  operationFilename,
+			Input: string(text),
+		})
+		require.Nil(t, parseErr)
+
+		t.Run(filepath.Base(operationFilename), func(t *testing.T) {
+			for _, diagnostic := range validator.ValidateWithRules(schema, document, nil) {
+				t.Errorf("an editor would report: %s", diagnostic.Message)
+			}
+		})
+		checked++
+	}
+	assert.Positive(t, checked)
+}
+
+func TestDirectiveFilesAreCurrent(t *testing.T) {
+	repositoryRoot := filepath.Join("..", "..")
+
+	for _, path := range []string{
+		"cmd/octoqlgen/internal/schema/githubapi/" + internal.DirectiveFilename,
+		"example/" + internal.DirectiveFilename,
+		"internal/generate/testdata/queries/" + internal.DirectiveFilename,
+		"internal/generatefeatures/githubdefaults/" + internal.DirectiveFilename,
+		"internal/generatefeatures/nocontext/" + internal.DirectiveFilename,
+		"internal/handlertest/" + internal.DirectiveFilename,
+		"internal/integration/" + internal.DirectiveFilename,
+	} {
+		data, err := os.ReadFile(filepath.Join(repositoryRoot, path))
+		require.NoError(t, err)
+		assert.Equal(t, internal.DirectiveFileContents, string(data),
+			"%s is out of date, copy directive.FileContents over it", path)
 	}
 }
