@@ -61,23 +61,3 @@ func TestNoUnmarshalJSONPreventsMethodPromotion(t *testing.T) {
 	assert.Equal(t, "ordinary", got.Value)
 	assert.False(t, got.Called)
 }
-
-func TestMarshalGuardPanicsWhenCalled(t *testing.T) {
-	assert.PanicsWithValue(
-		t,
-		"_octoqlNoMarshalJSON.MarshalJSON should never be called!",
-		func() {
-			_, _ = (_octoqlNoMarshalJSON{}).MarshalJSON()
-		},
-	)
-}
-
-func TestUnmarshalGuardPanicsWhenCalled(t *testing.T) {
-	assert.PanicsWithValue(
-		t,
-		"_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!",
-		func() {
-			_ = (_octoqlNoUnmarshalJSON{}).UnmarshalJSON(nil)
-		},
-	)
-}

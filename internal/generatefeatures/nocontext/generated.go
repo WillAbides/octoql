@@ -1057,52 +1057,52 @@ func (e *Error) GraphQLExtensions() map[string]any {
 	return maps.Clone(e.Extensions)
 }
 
-// GetRepositoryRepository includes the requested fields of the GraphQL type Repository.
-type GetRepositoryRepository struct {
+// getRepositoryRepository includes the requested fields of the GraphQL type Repository.
+type getRepositoryRepository struct {
 	NameWithOwner string `json:"nameWithOwner"`
 }
 
-// GetNameWithOwner returns GetRepositoryRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetNameWithOwner() string { return v.NameWithOwner }
+// GetNameWithOwner returns getRepositoryRepository.NameWithOwner, and is useful for accessing the field via an interface.
+func (v *getRepositoryRepository) GetNameWithOwner() string { return v.NameWithOwner }
 
-// GetRepositoryResponse is returned by GetRepository on success.
-type GetRepositoryResponse struct {
-	Repository *GetRepositoryRepository `json:"repository"`
+// getRepositoryResponse is returned by getRepository on success.
+type getRepositoryResponse struct {
+	Repository *getRepositoryRepository `json:"repository"`
 }
 
-// GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *GetRepositoryResponse) GetRepository() *GetRepositoryRepository { return v.Repository }
+// GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
+func (v *getRepositoryResponse) GetRepository() *getRepositoryRepository { return v.Repository }
 
-// GetRepositoryVariables contains the variables accepted by GetRepository.
-type GetRepositoryVariables struct {
+// getRepositoryVariables contains the variables accepted by getRepository.
+type getRepositoryVariables struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
 }
 
-// The query executed by GetRepository.
-const GetRepository_Operation = "\nquery GetRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tnameWithOwner\n\t}\n}\n"
+// The query executed by getRepository.
+const getRepository_Operation = "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tnameWithOwner\n\t}\n}\n"
 
-// GetRepositoryPartialDataError contains partial data returned by GetRepository.
-type GetRepositoryPartialDataError struct {
-	data *GetRepositoryResponse
+// getRepositoryPartialDataError contains partial data returned by getRepository.
+type getRepositoryPartialDataError struct {
+	data *getRepositoryResponse
 	err  error
 }
 
-func (e *GetRepositoryPartialDataError) Error() string {
+func (e *getRepositoryPartialDataError) Error() string {
 	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
 	return e.err.Error()
 }
 
-func (e *GetRepositoryPartialDataError) Unwrap() error {
+func (e *getRepositoryPartialDataError) Unwrap() error {
 	if e == nil {
 		return nil
 	}
 	return e.err
 }
 
-func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
+func (e *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
 	if e == nil {
 		return nil
 	}
@@ -1110,19 +1110,19 @@ func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
 }
 
 // PartialDataValue returns the partial response as an untyped value.
-func (e *GetRepositoryPartialDataError) PartialDataValue() any {
+func (e *getRepositoryPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) GetRepository(
-	vars GetRepositoryVariables,
-) (*GetRepositoryResponse, error) {
-	var response GetRepositoryResponse
+func (c *Client) getRepository(
+	vars getRepositoryVariables,
+) (*getRepositoryResponse, error) {
+	var response getRepositoryResponse
 	hasData, err := c._octoqlExecute(
 		context.Background(),
 		_octoqlPayload{
-			OperationName: "GetRepository",
-			Query:         GetRepository_Operation,
+			OperationName: "getRepository",
+			Query:         getRepository_Operation,
 			Variables:     &vars,
 		},
 		&response,
@@ -1131,7 +1131,7 @@ func (c *Client) GetRepository(
 		return nil, err
 	}
 	if err != nil {
-		return nil, &GetRepositoryPartialDataError{
+		return nil, &getRepositoryPartialDataError{
 			data: &response,
 			err:  err,
 		}

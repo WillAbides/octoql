@@ -1,4 +1,4 @@
-query GetRepository($owner: String!, $name: String!) {
+query getRepository($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
     nameWithOwner
   }

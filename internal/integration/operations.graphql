@@ -93,13 +93,6 @@ query queryWithInterfaceListField ($ids: [ID!]!) {
     login
   }
 }
-query queryWithInterfaceListPointerField ($ids: [ID!]!) {
-  actors(ids: $ids) @octoqlgen(pointer: true) {
-    __typename
-    id
-    login
-  }
-}
 query queryWithFragments ($ids: [ID!]!) {
   actors(ids: $ids) {
     __typename

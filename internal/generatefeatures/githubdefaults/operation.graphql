@@ -1,7 +1,8 @@
-query GetReview {
+query getReview {
   review {
     fullDatabaseId
     createdAt
+    propertyValue
     author @octoqlgen(struct: true) {
       login
       url
@@ -9,6 +10,25 @@ query GetReview {
     editor @octoqlgen(struct: true) {
       login
       url
+    }
+  }
+}
+
+query runtimeAbstracts($id: ID!) {
+  node(id: $id) {
+    id
+    url
+    ... on Repository {
+      nameWithOwner
+    }
+  }
+  nestedNodes {
+    id
+    url
+  }
+  actorNode: node(id: $id) {
+    ... on Actor {
+      login
     }
   }
 }

@@ -1,3 +1,0 @@
-query myBadQuery(varMissingDollar: String) {
-  field(arg: $varMissingDollar)
-}

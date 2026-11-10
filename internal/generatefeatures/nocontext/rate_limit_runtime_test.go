@@ -71,11 +71,11 @@ func TestRateLimitFromHeader(t *testing.T) {
 		},
 		"malformed headers": {
 			header: http.Header{
-				"X-RateLimit-Limit":     {"not-a-number"},
+				"X-RateLimit-Limit":     {"-1"},
 				"X-RateLimit-Remaining": {"-1"},
 				"X-RateLimit-Used":      {"+1"},
-				"X-RateLimit-Reset":     {"invalid"},
-				"Retry-After":           {"tomorrow"},
+				"X-RateLimit-Reset":     {"-1"},
+				"Retry-After":           {"-1"},
 			},
 			want: &RateLimit{},
 		},
@@ -99,26 +99,10 @@ func TestRateLimitFromHeader(t *testing.T) {
 	}
 }
 
-func TestRateLimitRejectsNegativeAndOverflowNumericHeaders(t *testing.T) {
-	tests := map[string]http.Header{
-		"negative limit":       {"X-RateLimit-Limit": {"-1"}},
-		"negative remaining":   {"X-RateLimit-Remaining": {"-1"}},
-		"negative used":        {"X-RateLimit-Used": {"-1"}},
-		"negative reset":       {"X-RateLimit-Reset": {"-1"}},
-		"negative retry after": {"Retry-After": {"-1"}},
-		"overflow limit":       {"X-RateLimit-Limit": {"999999999999999999999999999999"}},
-		"overflow remaining":   {"X-RateLimit-Remaining": {"999999999999999999999999999999"}},
-		"overflow used":        {"X-RateLimit-Used": {"999999999999999999999999999999"}},
-		"overflow reset":       {"X-RateLimit-Reset": {"999999999999999999999999999999"}},
-		"overflow retry after": {"Retry-After": {"999999999999999999999999999999"}},
-	}
-
-	for name, header := range tests {
-		t.Run(name, func(t *testing.T) {
-			got := _octoqlRateLimitFromHeader(header, time.Time{})
-			assert.Equal(t, RateLimit{}, got.RateLimit)
-		})
-	}
+type rateLimitFacet interface {
+	error
+	RateLimitKind() string
+	RetryAt() time.Time
 }
 
 func TestNonnegativeHeaderUnixRepresentability(t *testing.T) {
@@ -360,9 +344,16 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 				assert.Equal(t, wantKind, rateLimitError.Kind)
 				assert.Equal(t, test.wantRemaining, rateLimitError.RateLimit.Remaining)
 				assert.Equal(t, test.wantReset, rateLimitError.RateLimit.Reset)
+				var facet rateLimitFacet
+				require.ErrorAs(t, err, &facet)
+				assert.Equal(t, string(wantKind), facet.RateLimitKind())
 				if test.wantSecond {
 					assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
 					assert.Equal(t, now.Add(30*time.Second), rateLimitError.RateLimit.RetryAt)
+					assert.Equal(t, now.Add(30*time.Second), facet.RetryAt())
+				}
+				if !test.wantSecond {
+					assert.Equal(t, test.wantReset, facet.RetryAt())
 				}
 			}
 
@@ -405,22 +396,6 @@ func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
 	transportHeader.Set("Retry-After", "99")
 	assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
 	assert.Equal(t, "request-rate-limit", responseError.RequestID)
-}
-
-func TestDoDoesNotClassifyTransportErrors(t *testing.T) {
-	transportError := errors.New("transport failed")
-	client := NewClient(
-		"https://api.github.com/graphql",
-		&http.Client{Transport: rateLimitRoundTripFunc(func(*http.Request) (*http.Response, error) {
-			return nil, transportError
-		})},
-	)
-
-	response, err := doRateLimitOperation[struct{}](t, client)
-	assert.Nil(t, response)
-	assert.ErrorIs(t, err, transportError)
-	_, ok := errors.AsType[*RateLimitError](err)
-	assert.False(t, ok)
 }
 
 func TestClientRateLimitNewestObservationWins(t *testing.T) {

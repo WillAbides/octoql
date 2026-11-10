@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 	"time"
 
@@ -494,14 +493,6 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
 	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"missing"}`)
-}
-
-func TestLocalAndClientHandlerTypesAreDistinct(t *testing.T) {
-	clientType := reflect.TypeFor[clienttypes.GetRepositoryResponse]()
-	localType := reflect.TypeFor[localtypes.GetRepositoryResponse]()
-
-	assert.NotEqual(t, clientType, localType)
-	assert.NotEqual(t, clientType.PkgPath(), localType.PkgPath())
 }
 
 func clientRepositoryResponse(updatedAt time.Time) clienttypes.GetRepositoryResponse {

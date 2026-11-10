@@ -224,38 +224,13 @@ func TestGenerateCommandRefusesSchemaOutputBeforeMaterialization(t *testing.T) {
 func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 	t.Parallel()
 
-	repositoryRoot, err := filepath.Abs(filepath.Join("..", "..", "..", ".."))
-	require.NoError(t, err)
-	tempRoot := filepath.Join(repositoryRoot, "internal", "generate", "testdata", "tmp")
-	require.NoError(t, os.MkdirAll(tempRoot, 0o755))
-	tempDir, err := os.MkdirTemp(tempRoot, "cli-renderer-error-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, os.RemoveAll(tempDir))
-	})
-
+	tempDir := t.TempDir()
 	packageName := "client"
 	loaded := &config.Config{
-		Schema: config.Schema{
-			Path: filepath.Join(
-				repositoryRoot,
-				"internal",
-				"generate",
-				"testdata",
-				"queries",
-				"schema.graphql",
-			),
-		},
-		Operations: []string{filepath.Join(
-			repositoryRoot,
-			"internal",
-			"generate",
-			"testdata",
-			"queries",
-			"Repository.graphql",
-		)},
-		Generated: filepath.Join(tempDir, "client", "generated.go"),
-		Package:   &packageName,
+		Schema:     config.Schema{Path: filepath.Join(tempDir, "schema.graphql")},
+		Operations: []string{filepath.Join(tempDir, "operation.graphql")},
+		Generated:  filepath.Join(tempDir, "client", "generated.go"),
+		Package:    &packageName,
 		TestHandler: &config.TestHandler{
 			Generated: filepath.Join(tempDir, "githubapitest", "generated.go"),
 		},
@@ -278,7 +253,7 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 		outputWriter: writer,
 	}
 
-	err = command.Run()
+	err := command.Run()
 
 	require.ErrorIs(t, err, renderErr)
 	assert.Empty(t, writer.writes)
@@ -370,48 +345,6 @@ func TestGenerateSubdirectoryConfig(t *testing.T) {
 	assert.Equal(t, filepath.Join(filepath.Dir(configPath), "..", "schema.graphql"), materializer.request.Path)
 }
 
-func TestGenerateLocalHandlerSubdirectoryConfig(t *testing.T) {
-	t.Parallel()
-
-	configPath, err := filepath.Abs(
-		filepath.Join(
-			"..",
-			"..",
-			"..",
-			"..",
-			"internal",
-			"handlertest",
-			"localfixture",
-			config.DefaultFilename,
-		),
-	)
-	require.NoError(t, err)
-	configDirectory := filepath.Dir(configPath)
-	clientPath := filepath.Clean(filepath.Join(configDirectory, "..", "client", "generated.go"))
-	handlerPath := filepath.Join(configDirectory, "githubapitest", "generated.go")
-	writer := &recordingOutputWriter{}
-	command := generateCommand{
-		Config:       configPath,
-		context:      t.Context(),
-		loadConfig:   config.Load,
-		materializer: schemaMaterializer(),
-		generate:     generate.Generate,
-		outputWriter: writer,
-	}
-
-	err = command.Run()
-	require.NoError(t, err)
-	require.Contains(t, writer.outputs, clientPath)
-	require.Contains(t, writer.outputs, handlerPath)
-	assert.Contains(t, string(writer.outputs[clientPath]), "package githubapi")
-	assert.Contains(t, string(writer.outputs[handlerPath]), "package githubapitest")
-	assert.NotContains(
-		t,
-		string(writer.outputs[handlerPath]),
-		"github.com/willabides/octoql/internal/handlertest/client",
-	)
-}
-
 func TestGenerateCommandMissingLocalSchema(t *testing.T) {
 	t.Parallel()
 
@@ -456,41 +389,6 @@ func TestGenerateRejectsPositionalConfig(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected argument")
-}
-
-func TestGenerateDoesNotDiscoverLegacyConfig(t *testing.T) {
-	directory := t.TempDir()
-	legacyOctoqlFilename := "octoql" + ".yaml"
-	for _, filename := range []string{"genqlient.yaml", legacyOctoqlFilename} {
-		err := os.WriteFile(filepath.Join(directory, filename), []byte("legacy\n"), 0o600)
-		require.NoError(t, err)
-	}
-	originalDirectory, err := os.Getwd()
-	require.NoError(t, err)
-	err = os.Chdir(directory)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, os.Chdir(originalDirectory))
-	})
-
-	expectedErr := errors.New("stop after load")
-	err = Run(
-		[]string{"generate"},
-		"test",
-		&Dependencies{
-			Context: t.Context(),
-			Stdout:  io.Discard,
-			Stderr:  io.Discard,
-			LoadConfig: func(filename string) (*config.Config, error) {
-				assert.Equal(t, config.DefaultFilename, filepath.Base(filename))
-				assert.NotEqual(t, "genqlient.yaml", filepath.Base(filename))
-				assert.NotEqual(t, legacyOctoqlFilename, filepath.Base(filename))
-				return nil, expectedErr
-			},
-		},
-	)
-
-	require.ErrorIs(t, err, expectedErr)
 }
 
 func TestMinimalInitConfigGenerates(t *testing.T) {

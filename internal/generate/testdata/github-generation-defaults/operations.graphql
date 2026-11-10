@@ -114,22 +114,3 @@ query AllActorImplementations($login: String!) {
     }
   }
 }
-
-query RuntimeAbstracts($id: ID!) {
-  node(id: $id) {
-    id
-    url
-    ... on Repository {
-      nameWithOwner
-    }
-  }
-  nestedNodes {
-    id
-    url
-  }
-  actorNode: node(id: $id) {
-    ... on Actor {
-      login
-    }
-  }
-}
