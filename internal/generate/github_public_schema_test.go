@@ -259,7 +259,7 @@ func TestEnsureGitHubPublicSchema(t *testing.T) {
 func compileGitHubPublicSchemaOutput(t *testing.T, generatedDir string, source []byte) {
 	t.Helper()
 
-	goMod := "module github.com/willabides/octoql-public-schema-test\n\ngo 1.26.0\n"
+	goMod := "module github.com/willabides/octoql-public-schema-test\n\ngo 1.27.3\n"
 	err := os.WriteFile(filepath.Join(generatedDir, "go.mod"), []byte(goMod), 0o600)
 	if err != nil {
 		t.Fatal(err)

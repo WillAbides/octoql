@@ -6,7 +6,7 @@ approach can be discussed.
 
 ## Prerequisites
 
-- Go 1.26 or newer
+- Go 1.27 or newer
 - Git
 
 Clone the repository, then download the module dependencies:

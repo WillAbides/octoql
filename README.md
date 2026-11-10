@@ -8,7 +8,7 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
 
 ## Requirements and installation
 
-octoql requires Go 1.26 or newer. Run `octoqlgen` from a `go:generate`
+octoql requires Go 1.27 or newer. Run `octoqlgen` from a `go:generate`
 directive with an explicit release version; this does not add a dependency to
 the module that owns the generated client.
 
