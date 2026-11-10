@@ -459,7 +459,7 @@ func runGeneratedPackageTests(t *testing.T, generatedSource, testSource []byte) 
 	t.Helper()
 
 	dir := t.TempDir()
-	goMod := "module github.com/willabides/octoql-github-defaults-test\n\ngo 1.26.0\n"
+	goMod := "module github.com/willabides/octoql-github-defaults-test\n\ngo 1.27.3\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), generatedSource, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated_test.go"), testSource, 0o600))

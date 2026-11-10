@@ -563,7 +563,7 @@ query Q {
 	}
 
 	compileDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(compileDir, "go.mod"), []byte("module probe\n\ngo 1.26.0\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(compileDir, "go.mod"), []byte("module probe\n\ngo 1.27.3\n"), 0o600))
 	hasCompileCases := false
 
 	for index, test := range tests {
@@ -602,7 +602,7 @@ func probeGenerated(
 	keepImplementations bool,
 ) ([]byte, error) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module probe\n\ngo 1.26.0\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module probe\n\ngo 1.27.3\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), []byte("package probe\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "operations.graphql"), []byte(operations), 0o600))

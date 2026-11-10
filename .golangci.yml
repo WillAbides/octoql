@@ -32,6 +32,7 @@ linters:
         - commentedOutCode
         - importShadow
         - paramTypeCombine
+        - sprintfQuotedString
         - unnamedResult
         - ifElseChain
         - sloppyReassign
@@ -68,7 +69,7 @@ linters:
       - linters:
           - staticcheck
         path: ^internal/generate/parse\.go$
-        text: 'SA1019: validator\.Validate is deprecated'
+        text: 'SA1019: github\.com/vektah/gqlparser/v2/validator\.Validate is deprecated'
       - linters:
           - staticcheck
         path: ^internal/integration/integration_test\.go$
