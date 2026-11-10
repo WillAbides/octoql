@@ -5,11 +5,9 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/vektah/gqlparser/v2/ast"
-	"github.com/vektah/gqlparser/v2/lexer"
 	"github.com/vektah/gqlparser/v2/parser"
 	"github.com/vektah/gqlparser/v2/validator"
 	_ "github.com/vektah/gqlparser/v2/validator/rules"
@@ -24,16 +22,11 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 
 	sources := make([]*ast.Source, len(filenames))
 	for i, filename := range filenames {
-		text, readErr := os.ReadFile(filename)
-		if readErr != nil {
-			return nil, nil, errorf(nil, "unreadable schema file %v: %v", filename, readErr)
-		}
-		source := &ast.Source{Name: filename, Input: string(text)}
-		err = rejectCommentDirectives(source)
+		text, err := os.ReadFile(filename)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errorf(nil, "unreadable schema file %v: %v", filename, err)
 		}
-		sources[i] = source
+		sources[i] = &ast.Source{Name: filename, Input: string(text)}
 	}
 
 	// Ideally here we'd just call gqlparser.LoadSchema. But the schema we are
@@ -212,58 +205,11 @@ func getQueriesFromString(text string, basedir, filename string) (*ast.QueryDocu
 		filename = relname
 	}
 
-	source := &ast.Source{Name: filename, Input: text}
-
-	err = rejectCommentDirectives(source)
-	if err != nil {
-		return nil, err
-	}
-
 	// Cf. gqlparser.LoadQuery
-	document, graphqlError := parser.ParseQuery(source)
+	document, graphqlError := parser.ParseQuery(&ast.Source{Name: filename, Input: text})
 	if graphqlError != nil { // ParseQuery returns type *graphql.Error, yuck
 		return nil, errorf(nil, "invalid query-spec file %v: %v", filename, graphqlError)
 	}
 
 	return document, nil
-}
-
-// rejectCommentDirectives rejects legacy comment-based @octoqlgen directives.
-func rejectCommentDirectives(source *ast.Source) error {
-	lex := lexer.New(source)
-	for {
-		token, err := lex.ReadToken()
-		if err != nil {
-			return nil
-		}
-		if token.Kind == lexer.EOF {
-			return nil
-		}
-		if token.Kind != lexer.Comment {
-			continue
-		}
-		comment := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(token.Value), "#"))
-		name := commentDirectiveName(comment)
-		if name == "" {
-			continue
-		}
-		return errorf(&token.Pos,
-			"@%s is a real directive now, not a comment; attach it to the node "+
-				"it applies to, as in `myField @%s(pointer: false)`",
-			name, octoqlgenDirectiveName)
-	}
-}
-
-func commentDirectiveName(comment string) string {
-	for _, name := range []string{octoqlgenDefaultsName, octoqlgenForName, octoqlgenDirectiveName} {
-		rest, ok := strings.CutPrefix(comment, "@"+name)
-		if !ok {
-			continue
-		}
-		rest = strings.TrimSpace(rest)
-		if rest == "" || strings.HasPrefix(rest, "(") {
-			return name
-		}
-	}
-	return ""
 }

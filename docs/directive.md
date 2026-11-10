@@ -16,18 +16,6 @@ operation before sending it, so the server never sees them.
 Each directive declares only the options valid for its scope. These are the only
 supported spellings, and there are no compatibility aliases.
 
-Earlier versions of octoqlgen took options in a comment on the preceding line.
-That form is now rejected rather than ignored:
-
-```graphql
-# no longer supported
-# @octoqlgen(pointer: false)
-isSuspended
-
-# write this instead
-isSuspended @octoqlgen(pointer: false)
-```
-
 ## Editor support
 
 octoqlgen declares its directives internally during code generation, and writes
