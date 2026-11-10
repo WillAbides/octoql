@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,8 @@ import (
 // never wrote) or that silently drops a requested field.  The remaining cases
 // must generate and compile cleanly, guarding against over-rejection.
 func TestGenerateCollisionCompileCorpus(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name                string
 		schema              string
@@ -559,7 +562,11 @@ query Q {
 		},
 	}
 
-	for _, test := range tests {
+	compileDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(compileDir, "go.mod"), []byte("module probe\n\ngo 1.26.0\n"), 0o600))
+	hasCompileCases := false
+
+	for index, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			source, err := probeGenerated(t, test.schema, test.operations, test.casing, test.keepImplementations)
 			if test.wantGenerationErr != "" {
@@ -572,9 +579,16 @@ query Q {
 			}
 			require.NoError(t, err)
 
-			output, compileErr := probeCompile(t, source)
-			require.NoError(t, compileErr, output)
+			caseDir := filepath.Join(compileDir, fmt.Sprintf("case_%02d", index))
+			require.NoError(t, os.MkdirAll(caseDir, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(caseDir, "generated.go"), source, 0o600))
+			hasCompileCases = true
 		})
+	}
+
+	if hasCompileCases {
+		output, compileErr := probeCompile(t, compileDir)
+		require.NoError(t, compileErr, output)
 	}
 }
 
@@ -587,8 +601,6 @@ func probeGenerated(
 	casing Casing,
 	keepImplementations bool,
 ) ([]byte, error) {
-	t.Helper()
-
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module probe\n\ngo 1.26.0\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), []byte("package probe\n"), 0o600))
@@ -620,13 +632,7 @@ func probeGenerated(
 	return outputs[config.Generated], nil
 }
 
-func probeCompile(t *testing.T, source []byte) (string, error) {
-	t.Helper()
-
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module probe\n\ngo 1.26.0\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), source, 0o600))
-
+func probeCompile(t *testing.T, dir string) (string, error) {
 	cmd := exec.CommandContext(t.Context(), "go", "build", "./...")
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()

@@ -2,6 +2,7 @@ package generate
 
 import (
 	"fmt"
+	"go/parser"
 	"go/token"
 	"os"
 	"path"
@@ -165,15 +166,38 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 		pkgNameGuess = ""
 	}
 
-	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName}, dir)
+	parsedPkgName, hasGoFiles := directoryPackageName(dir)
+	modulePkgPath, moduleErr := packagePathFromModule(dir)
+	if moduleErr == nil {
+		if parsedPkgName != "" {
+			return parsedPkgName, modulePkgPath, nil
+		}
+		if !hasGoFiles {
+			pathSuffix := path.Base(modulePkgPath)
+			if token.IsIdentifier(pathSuffix) {
+				pkgNameGuess = pathSuffix
+			}
+			if pkgNameGuess != "" {
+				return pkgNameGuess, modulePkgPath, nil
+			}
+			return "", "", fmt.Errorf("no package found in %v", dir)
+		}
+	}
+	if !hasGoFiles {
+		return pkgNameGuess, "", fmt.Errorf("no package found in %v", dir)
+	}
+
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName,
+		Dir:  dir,
+	}, ".")
 	if err != nil { // e.g. not in a Go module
-		modulePkgPath, moduleErr := packagePathFromModule(dir)
 		if moduleErr == nil && pkgNameGuess != "" {
 			return pkgNameGuess, modulePkgPath, nil
 		}
 		return pkgNameGuess, "", err
-	} else if len(pkgs) != 1 { // probably never happens?
-		modulePkgPath, moduleErr := packagePathFromModule(dir)
+	}
+	if len(pkgs) != 1 { // probably never happens?
 		if moduleErr == nil && pkgNameGuess != "" {
 			return pkgNameGuess, modulePkgPath, nil
 		}
@@ -195,7 +219,6 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 		pkgNameGuess = pathSuffix
 	}
 	if pkg.PkgPath == "" || pkg.PkgPath == "command-line-arguments" {
-		modulePkgPath, moduleErr := packagePathFromModule(dir)
 		if moduleErr == nil {
 			pkg.PkgPath = modulePkgPath
 		}
@@ -203,9 +226,46 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 
 	if pkgNameGuess != "" {
 		return pkgNameGuess, pkg.PkgPath, nil
-	} else {
-		return "", "", fmt.Errorf("no package found in %v", dir)
 	}
+	return "", "", fmt.Errorf("no package found in %v", dir)
+}
+
+func directoryPackageName(dir string) (string, bool) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", false
+	}
+
+	fset := token.NewFileSet()
+	packageName := ""
+	hasGoFiles := false
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		hasGoFiles = true
+		parsed, parseErr := parser.ParseFile(
+			fset,
+			filepath.Join(dir, name),
+			nil,
+			parser.PackageClauseOnly,
+		)
+		if parseErr != nil || parsed == nil || parsed.Name == nil || !token.IsIdentifier(parsed.Name.Name) {
+			return "", true
+		}
+		if parsed.Name.Name == "documentation" {
+			continue
+		}
+		if packageName != "" && packageName != parsed.Name.Name {
+			return "", true
+		}
+		packageName = parsed.Name.Name
+	}
+	return packageName, hasGoFiles
 }
 
 func packagePathFromModule(directory string) (string, error) {
