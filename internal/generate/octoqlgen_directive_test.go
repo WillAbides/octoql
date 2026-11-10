@@ -31,40 +31,55 @@ func testDirective(t *testing.T, name, args string) *ast.Directive {
 }
 
 func TestOctoqlgenDirectiveAddMergesRepeatedForDirectives(t *testing.T) {
-	directive := newOctoqlgenDirective(nil)
+	forDirectives := make(map[fieldKey]*octoqlgenDirective)
 
-	_, err := directive.addFor(
-		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: true)`), nil)
+	err := addFor(
+		forDirectives,
+		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: true)`),
+		nil,
+	)
 	require.NoError(t, err)
 
-	_, err = directive.addFor(
-		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", omitempty: true)`), nil)
+	err = addFor(
+		forDirectives,
+		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", omitempty: true)`),
+		nil,
+	)
 	require.NoError(t, err)
 
-	fieldDirective := directive.FieldDirectives["IssueFilter"]["assignee"]
+	fieldDirective := forDirectives[fieldKey{typeName: "IssueFilter", fieldName: "assignee"}]
 	require.NotNil(t, fieldDirective)
 	assert.True(t, fieldDirective.GetPointer())
 	assert.True(t, fieldDirective.GetOmitempty())
 }
 
 func TestOctoqlgenDirectiveAddRejectsConflictingRepeatedForDirectives(t *testing.T) {
-	directive := newOctoqlgenDirective(nil)
+	forDirectives := make(map[fieldKey]*octoqlgenDirective)
 
-	_, err := directive.addFor(
-		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: true)`), nil)
+	err := addFor(
+		forDirectives,
+		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: true)`),
+		nil,
+	)
 	require.NoError(t, err)
 
-	_, err = directive.addFor(
-		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: false)`), nil)
+	err = addFor(
+		forDirectives,
+		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: false)`),
+		nil,
+	)
 
 	assert.EqualError(t, err, "conflicting values for pointer")
 }
 
 func TestOctoqlgenDirectiveAddRejectsEmptyFor(t *testing.T) {
-	directive := newOctoqlgenDirective(nil)
+	forDirectives := make(map[fieldKey]*octoqlgenDirective)
 
-	_, err := directive.addFor(
-		testDirective(t, octoqlgenForName, `(field: "", pointer: false)`), nil)
+	err := addFor(
+		forDirectives,
+		testDirective(t, octoqlgenForName, `(field: "", pointer: false)`),
+		nil,
+	)
 
 	assert.EqualError(t, err, `field must not be empty`)
 }

@@ -147,8 +147,6 @@ func directiveOptionsMatch(a, b *octoqlgenDirective) bool {
 	}
 	return boolOptionsMatch(a.Omitempty, b.Omitempty) &&
 		boolOptionsMatch(a.Pointer, b.Pointer) &&
-		boolOptionsMatch(a.Struct, b.Struct) &&
-		boolOptionsMatch(a.Flatten, b.Flatten) &&
 		a.Bind == b.Bind &&
 		a.TypeName == b.TypeName &&
 		a.Alias == b.Alias

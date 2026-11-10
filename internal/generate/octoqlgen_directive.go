@@ -20,16 +20,11 @@ type octoqlgenDirective struct {
 	Bind      string
 	TypeName  string
 	Alias     string
-	// FieldDirectives contains the directives to be
-	// applied to specific fields via the "for" option.
-	// Map from type-name -> field-name -> directive.
-	FieldDirectives map[string]map[string]*octoqlgenDirective
 }
 
 func newOctoqlgenDirective(pos *ast.Position) *octoqlgenDirective {
 	return &octoqlgenDirective{
-		pos:             pos,
-		FieldDirectives: make(map[string]map[string]*octoqlgenDirective),
+		pos: pos,
 	}
 }
 
@@ -43,33 +38,20 @@ func setBool(optionName string, dst **bool, v *ast.Value, pos *ast.Position) err
 	if *dst != nil {
 		return errorf(pos, "conflicting values for %v", optionName)
 	}
-	ei, err := v.Value(nil) // no vars allowed
-	if err != nil {
-		return errorf(pos, "invalid boolean value %v: %v", v, err)
-	}
-	if b, ok := ei.(bool); ok {
-		*dst = &b
-		return nil
-	}
-	return errorf(pos, "expected boolean, got non-boolean value %T(%v)", ei, ei)
+	b := v.Raw == "true"
+	*dst = &b
+	return nil
 }
 
 func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) error {
 	if *dst != "" {
 		return errorf(pos, "conflicting values for %v", optionName)
 	}
-	ei, err := v.Value(nil) // no vars allowed
-	if err != nil {
-		return errorf(pos, "invalid string value %v: %v", v, err)
+	if v.Raw == "" {
+		return errorf(pos, "%s must not be empty", optionName)
 	}
-	if b, ok := ei.(string); ok {
-		if b == "" {
-			return errorf(pos, "%s must not be empty", optionName)
-		}
-		*dst = b
-		return nil
-	}
-	return errorf(pos, "expected string, got non-string value %T(%v)", ei, ei)
+	*dst = v.Raw
+	return nil
 }
 
 // applyArguments applies the option arguments of one directive to this struct.
@@ -77,7 +59,6 @@ func (d *octoqlgenDirective) applyArguments(graphQLDirective *ast.Directive, pos
 	var err error
 	for _, arg := range graphQLDirective.Arguments {
 		switch arg.Name {
-		// TODO(benkraft): Use reflect and struct tags?
 		case "omitempty":
 			err = setBool("omitempty", &d.Omitempty, arg.Value, pos)
 		case "pointer":
@@ -92,11 +73,6 @@ func (d *octoqlgenDirective) applyArguments(graphQLDirective *ast.Directive, pos
 			err = setString("typename", &d.TypeName, arg.Value, pos)
 		case "alias":
 			err = setString("alias", &d.Alias, arg.Value, pos)
-		case "field":
-			// Handled by addFor.
-		default:
-			return errorf(pos, "unknown argument %v for @%v",
-				arg.Name, graphQLDirective.Name)
 		}
 		if err != nil {
 			return err
@@ -105,46 +81,31 @@ func (d *octoqlgenDirective) applyArguments(graphQLDirective *ast.Directive, pos
 	return nil
 }
 
-func (d *octoqlgenDirective) addFor(graphQLDirective *ast.Directive, pos *ast.Position) (fieldKey, error) {
+func addFor(
+	forDirectives map[fieldKey]*octoqlgenDirective,
+	graphQLDirective *ast.Directive,
+	pos *ast.Position,
+) error {
+	fieldArg := graphQLDirective.Arguments.ForName("field")
 	target := ""
-	seen := false
-	for _, arg := range graphQLDirective.Arguments {
-		if arg.Name != "field" {
-			continue
-		}
-		if seen {
-			return fieldKey{}, errorf(pos, `@%s had "field:" twice`, octoqlgenForName)
-		}
-		seen = true
-		err := setString("field", &target, arg.Value, pos)
-		if err != nil {
-			return fieldKey{}, err
-		}
-	}
-	if target == "" {
-		return fieldKey{}, errorf(pos, "field must not be empty")
+	err := setString("field", &target, fieldArg.Value, pos)
+	if err != nil {
+		return err
 	}
 
 	parts := strings.Split(target, ".")
 	if len(parts) != 2 {
-		return fieldKey{}, errorf(pos, `field must be of the form "MyType.myField"`)
+		return errorf(pos, `field must be of the form "MyType.myField"`)
 	}
 	key := fieldKey{typeName: parts[0], fieldName: parts[1]}
 
-	if d.FieldDirectives[key.typeName] == nil {
-		d.FieldDirectives[key.typeName] = make(map[string]*octoqlgenDirective)
-	}
-	fieldDir := d.FieldDirectives[key.typeName][key.fieldName]
+	fieldDir := forDirectives[key]
 	if fieldDir == nil {
 		fieldDir = newOctoqlgenDirective(pos)
-		d.FieldDirectives[key.typeName][key.fieldName] = fieldDir
+		forDirectives[key] = fieldDir
 	}
 
-	err := fieldDir.applyArguments(graphQLDirective, pos)
-	if err != nil {
-		return fieldKey{}, err
-	}
-	return key, nil
+	return fieldDir.applyArguments(graphQLDirective, pos)
 }
 
 type fieldKey struct {
@@ -154,45 +115,42 @@ type fieldKey struct {
 
 func (k fieldKey) String() string { return k.typeName + "." + k.fieldName }
 
-func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) error {
-	// TODO(benkraft): This function has a lot of duplicated checks, figure out
-	// how to organize them better to avoid the duplication.
-	for typeName, byField := range d.FieldDirectives {
-		typ, ok := schema.Types[typeName]
-		if !ok {
-			return errorf(d.pos, `@%s got invalid type-name "%s"`, octoqlgenForName, typeName)
-		}
-		for fieldName, fieldDir := range byField {
-			var field *ast.FieldDefinition
-			for _, typeField := range typ.Fields {
-				if typeField.Name == fieldName {
-					field = typeField
-					break
-				}
-			}
-			if field == nil {
-				return errorf(fieldDir.pos,
-					`@%s got invalid field-name "%s" for type "%s"`,
-					octoqlgenForName, fieldName, typeName)
-			}
-
-			if fieldDir.Omitempty != nil && typ.Kind != ast.InputObject {
-				return errorf(fieldDir.pos,
-					"omitempty is only applicable to input-type fields, and %s.%s is not one",
-					typeName, fieldName)
-			}
-			if fieldDir.Alias != "" && typ.Kind == ast.InputObject {
-				return errorf(fieldDir.pos,
-					"alias is only applicable to selected fields, and %s.%s is an input-type field",
-					typeName, fieldName)
-			}
-
-			if fieldDir.TypeName != "" && fieldDir.Bind != "" && fieldDir.Bind != "-" {
-				return errorf(fieldDir.pos, "typename and bind may not be used together")
-			}
+func (d *octoqlgenDirective) validateFor(key fieldKey, schema *ast.Schema) error {
+	typ, ok := schema.Types[key.typeName]
+	if !ok {
+		return errorf(d.pos, `@%s got invalid type-name "%s"`, octoqlgenForName, key.typeName)
+	}
+	var field *ast.FieldDefinition
+	for _, typeField := range typ.Fields {
+		if typeField.Name == key.fieldName {
+			field = typeField
+			break
 		}
 	}
+	if field == nil {
+		return errorf(d.pos,
+			`@%s got invalid field-name "%s" for type "%s"`,
+			octoqlgenForName, key.fieldName, key.typeName)
+	}
 
+	if d.Omitempty != nil && typ.Kind != ast.InputObject {
+		return errorf(d.pos,
+			"omitempty is only applicable to input-type fields, and %s is not one",
+			key)
+	}
+	if d.Alias != "" && typ.Kind == ast.InputObject {
+		return errorf(d.pos,
+			"alias is only applicable to selected fields, and %s is an input-type field",
+			key)
+	}
+
+	if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
+		return errorf(d.pos, "typename and bind may not be used together")
+	}
+	return nil
+}
+
+func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) error {
 	switch node := node.(type) {
 	case *ast.OperationDefinition:
 		if d.Bind != "" {
@@ -241,11 +199,6 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 					"rename the variable instead")
 		}
 
-		if len(d.FieldDirectives) > 0 {
-			return errorf(d.pos, "@%s is only applicable to operations and fragments",
-				octoqlgenForName)
-		}
-
 		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
 			return errorf(d.pos, "typename and bind may not be used together")
 		}
@@ -270,11 +223,6 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 			if err != nil {
 				return err
 			}
-		}
-
-		if len(d.FieldDirectives) > 0 {
-			return errorf(d.pos, "@%s is only applicable to operations and fragments",
-				octoqlgenForName)
 		}
 
 		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
@@ -510,16 +458,15 @@ func (g *generator) collectDirectivesForNode(node any, directives *ast.Directive
 	*directives = others
 
 	directive := newOctoqlgenDirective(ours[0].Position)
-	declaredFields := make(map[fieldKey]bool)
+	forDirectives := make(map[fieldKey]*octoqlgenDirective)
 	for _, graphQLDirective := range ours {
 		pos := graphQLDirective.Position
 		switch graphQLDirective.Name {
 		case octoqlgenForName:
-			key, err := directive.addFor(graphQLDirective, pos)
+			err := addFor(forDirectives, graphQLDirective, pos)
 			if err != nil {
 				return err
 			}
-			declaredFields[key] = true
 		case octoqlgenDefaultsName:
 			err := directive.applyArguments(graphQLDirective, pos)
 			if err != nil {
@@ -542,8 +489,11 @@ func (g *generator) collectDirectivesForNode(node any, directives *ast.Directive
 		return err
 	}
 
-	for key := range declaredFields {
-		fieldDirective := directive.FieldDirectives[key.typeName][key.fieldName]
+	for key, fieldDirective := range forDirectives {
+		err = fieldDirective.validateFor(key, g.schema)
+		if err != nil {
+			return err
+		}
 		err = g.recordForDeclaration(key, fieldDirective, fieldDirective.pos)
 		if err != nil {
 			return err
