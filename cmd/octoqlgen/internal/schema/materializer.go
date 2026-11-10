@@ -3,6 +3,7 @@ package schema
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -34,7 +35,6 @@ type Materializer struct {
 	HTTPClient            httpDoer
 	CommandRunner         commandRunner
 	LookupEnvironment     func(string) (string, bool)
-	FileSystem            fileSystem
 	GitHubAPIBaseURL      func(string) string
 	GitHubGraphQLEndpoint func(string) string
 	MaxResponseBytes      int64
@@ -46,7 +46,6 @@ func NewMaterializer() *Materializer {
 		HTTPClient:            &httpClient{},
 		CommandRunner:         execRunner{},
 		LookupEnvironment:     os.LookupEnv,
-		FileSystem:            osFileSystem{},
 		GitHubAPIBaseURL:      defaultGitHubAPIBaseURL,
 		GitHubGraphQLEndpoint: defaultGitHubGraphQLEndpoint,
 		MaxResponseBytes:      DefaultMaxResponseBytes,
@@ -61,7 +60,7 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 
 	deps := m.dependencies()
 	if request.Path != "" {
-		existing, readErr := deps.fileSystem.ReadFile(request.Path)
+		existing, readErr := os.ReadFile(request.Path)
 		if readErr == nil {
 			err := verifyChecksum(existing, request.SHA256)
 			if err != nil {
@@ -71,7 +70,7 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 			if err != nil {
 				return nil, err
 			}
-			err = publishDirectiveFile(deps.fileSystem, request.Path)
+			err = publishDirectiveFile(request.Path)
 			if err != nil {
 				return nil, err
 			}
@@ -112,7 +111,6 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	}
 
 	err = publish(
-		deps.fileSystem,
 		request.Path,
 		data,
 		request.SHA256,
@@ -120,38 +118,38 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	err = publishDirectiveFile(deps.fileSystem, request.Path)
+	err = publishDirectiveFile(request.Path)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
+func publishDirectiveFile(schemaPath string) error {
 	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
 	wanted := []byte(internal.DirectiveFileContents)
 
-	existing, err := fileSystem.ReadFile(path)
-	if err == nil {
-		if bytes.Equal(existing, wanted) {
-			return nil
-		}
-		err = fileSystem.Remove(path)
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("replacing directive file %q: %w", path, err)
-		}
-	} else if !errors.Is(err, fs.ErrNotExist) {
+	existing, err := os.ReadFile(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return publish(path, wanted, "")
+	case err != nil:
 		return fmt.Errorf("reading directive file %q: %w", path, err)
 	}
-
-	return publish(fileSystem, path, wanted, "")
+	if bytes.Equal(existing, wanted) {
+		return nil
+	}
+	err = os.Remove(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("replacing directive file %q: %w", path, err)
+	}
+	return publish(path, wanted, "")
 }
 
 type dependencies struct {
 	httpClient            httpDoer
 	commandRunner         commandRunner
 	lookupEnvironment     func(string) (string, bool)
-	fileSystem            fileSystem
 	githubAPIBaseURL      func(string) string
 	githubGraphQLEndpoint func(string) string
 	maxResponseBytes      int64
@@ -160,50 +158,28 @@ type dependencies struct {
 
 func (m *Materializer) dependencies() dependencies {
 	defaults := NewMaterializer()
-
-	httpClient := m.HTTPClient
-	if httpClient == nil {
-		httpClient = defaults.HTTPClient
+	deps := dependencies{
+		httpClient:            cmp.Or(m.HTTPClient, defaults.HTTPClient),
+		commandRunner:         cmp.Or(m.CommandRunner, defaults.CommandRunner),
+		lookupEnvironment:     m.LookupEnvironment,
+		githubAPIBaseURL:      m.GitHubAPIBaseURL,
+		githubGraphQLEndpoint: m.GitHubGraphQLEndpoint,
+		maxResponseBytes:      m.MaxResponseBytes,
+		timeout:               cmp.Or(m.Timeout, defaults.Timeout),
 	}
-	commandRunner := m.CommandRunner
-	if commandRunner == nil {
-		commandRunner = defaults.CommandRunner
+	if deps.lookupEnvironment == nil {
+		deps.lookupEnvironment = defaults.LookupEnvironment
 	}
-	lookupEnvironment := m.LookupEnvironment
-	if lookupEnvironment == nil {
-		lookupEnvironment = defaults.LookupEnvironment
+	if deps.githubAPIBaseURL == nil {
+		deps.githubAPIBaseURL = defaults.GitHubAPIBaseURL
 	}
-	fsys := m.FileSystem
-	if fsys == nil {
-		fsys = defaults.FileSystem
+	if deps.githubGraphQLEndpoint == nil {
+		deps.githubGraphQLEndpoint = defaults.GitHubGraphQLEndpoint
 	}
-	githubAPIBaseURL := m.GitHubAPIBaseURL
-	if githubAPIBaseURL == nil {
-		githubAPIBaseURL = defaults.GitHubAPIBaseURL
+	if deps.maxResponseBytes <= 0 {
+		deps.maxResponseBytes = defaults.MaxResponseBytes
 	}
-	githubGraphQLEndpoint := m.GitHubGraphQLEndpoint
-	if githubGraphQLEndpoint == nil {
-		githubGraphQLEndpoint = defaults.GitHubGraphQLEndpoint
-	}
-	maxResponseBytes := m.MaxResponseBytes
-	if maxResponseBytes <= 0 {
-		maxResponseBytes = defaults.MaxResponseBytes
-	}
-	timeout := m.Timeout
-	if timeout <= 0 {
-		timeout = defaults.Timeout
-	}
-
-	return dependencies{
-		httpClient:            httpClient,
-		commandRunner:         commandRunner,
-		lookupEnvironment:     lookupEnvironment,
-		fileSystem:            fsys,
-		githubAPIBaseURL:      githubAPIBaseURL,
-		githubGraphQLEndpoint: githubGraphQLEndpoint,
-		maxResponseBytes:      maxResponseBytes,
-		timeout:               timeout,
-	}
+	return deps
 }
 
 func verifyChecksum(data []byte, expected string) error {
@@ -233,51 +209,14 @@ func isRemote(source config.Source) bool {
 	return source.Repository != "" || source.Path != "" || source.Revision != ""
 }
 
-type fileSystem interface {
-	ReadFile(string) ([]byte, error)
-	MkdirAll(string, fs.FileMode) error
-	CreateTemp(string, string) (tempFile, error)
-	Link(string, string) error
-	Remove(string) error
-}
-
-type tempFile interface {
-	io.Writer
-	Name() string
-	Sync() error
-	Close() error
-}
-
-type osFileSystem struct{}
-
-func (osFileSystem) ReadFile(name string) ([]byte, error) {
-	return os.ReadFile(name)
-}
-
-func (osFileSystem) MkdirAll(path string, perm fs.FileMode) error {
-	return os.MkdirAll(path, perm)
-}
-
-func (osFileSystem) CreateTemp(dir, pattern string) (tempFile, error) {
-	return os.CreateTemp(dir, pattern)
-}
-
-func (osFileSystem) Link(oldname, newname string) error {
-	return os.Link(oldname, newname)
-}
-
-func (osFileSystem) Remove(name string) error {
-	return os.Remove(name)
-}
-
-func publish(fileSystem fileSystem, destination string, data []byte, expectedSHA256 string) (err error) {
+func publish(destination string, data []byte, expectedSHA256 string) (err error) {
 	directory := filepath.Dir(destination)
-	err = fileSystem.MkdirAll(directory, 0o755)
+	err = os.MkdirAll(directory, 0o755)
 	if err != nil {
 		return fmt.Errorf("creating schema directory %q: %w", directory, err)
 	}
 
-	temp, err := fileSystem.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
+	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
 	if err != nil {
 		return fmt.Errorf("creating temporary schema file: %w", err)
 	}
@@ -286,7 +225,7 @@ func publish(fileSystem fileSystem, destination string, data []byte, expectedSHA
 		if !isClosed {
 			err = errors.Join(err, temp.Close())
 		}
-		err = errors.Join(err, fileSystem.Remove(temp.Name()))
+		err = errors.Join(err, os.Remove(temp.Name()))
 	}()
 
 	_, err = io.Copy(temp, bytes.NewReader(data))
@@ -303,7 +242,7 @@ func publish(fileSystem fileSystem, destination string, data []byte, expectedSHA
 		return fmt.Errorf("closing temporary schema file: %w", err)
 	}
 
-	err = fileSystem.Link(temp.Name(), destination)
+	err = os.Link(temp.Name(), destination)
 	if err == nil {
 		return nil
 	}
@@ -311,7 +250,7 @@ func publish(fileSystem fileSystem, destination string, data []byte, expectedSHA
 		return fmt.Errorf("publishing schema file %q: %w", destination, err)
 	}
 
-	winner, readErr := fileSystem.ReadFile(destination)
+	winner, readErr := os.ReadFile(destination)
 	if readErr != nil {
 		return fmt.Errorf("reading concurrently materialized schema file %q: %w", destination, readErr)
 	}
