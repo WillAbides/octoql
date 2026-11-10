@@ -264,26 +264,14 @@ func TestClientSetBearerTokenValidation(t *testing.T) {
 	}
 }
 
-func TestNilClientSetBearerToken(t *testing.T) {
+func TestNilClient(t *testing.T) {
 	var client *Client
-	err := client.SetBearerToken("github_pat_valid")
-	assert.EqualError(t, err, "octoql: client is nil")
-}
+	assert.EqualError(t, client.SetBearerToken("github_pat_valid"), "octoql: client is nil")
+	assert.EqualError(t, client.SetAllowRedirects(true), "octoql: client is nil")
+	assert.False(t, client.AllowRedirects())
 
-func TestClientExecuteNilClient(t *testing.T) {
-	var client *Client
-	var response testData
-
-	hasData, err := client._octoqlExecute(
-		t.Context(),
-		_octoqlPayload{
-			OperationName: validOperationName,
-			Query:         validOperationQuery,
-		},
-		&response,
-	)
-
-	assert.False(t, hasData)
+	response, err := invokeRepositoryQuery(client)
+	assert.Nil(t, response)
 	assert.EqualError(t, err, "octoql: client is nil")
 }
 
@@ -696,13 +684,6 @@ func TestNewClientDoesNotMutateHTTPRedirectPolicy(t *testing.T) {
 	assert.Nil(t, http.DefaultClient.CheckRedirect)
 }
 
-func TestNilClientSetAllowRedirects(t *testing.T) {
-	var client *Client
-	err := client.SetAllowRedirects(true)
-	assert.EqualError(t, err, "octoql: client is nil")
-	assert.False(t, client.AllowRedirects())
-}
-
 func TestZeroValueClientRefusesRedirects(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Location", "/redirected")
@@ -735,23 +716,20 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 		nil,
 		&closeErrorReadCloser{
 			Reader: strings.NewReader(`{
-				"data":{"repository":{"name":"partial"}},
+				"data":{"repository":{"nameWithOwner":"octo-org/partial"}},
 				"errors":[{"message":"field failed"}]
 			}`),
 			err: closeError,
 		},
 	)
 
-	response, err := doOperation[testData](
-		t.Context(),
-		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
-	)
-	require.NotNil(t, response)
-	assert.Equal(t, "partial", response.Repository.Name)
+	response, err := invokeRepositoryQuery(client)
+	assert.Nil(t, response)
 	assert.ErrorIs(t, err, closeError)
+	partialErr, ok := errors.AsType[*getRepositoryPartialDataError](err)
+	require.True(t, ok)
+	require.NotNil(t, partialErr.PartialData())
+	assert.Equal(t, "octo-org/partial", partialErr.PartialData().Repository.NameWithOwner)
 	_, graphqlErrorsFound := errors.AsType[Errors](err)
 	assert.True(t, graphqlErrorsFound)
 	_, responseErrorFound := errors.AsType[*ResponseError](err)

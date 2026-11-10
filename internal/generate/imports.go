@@ -148,9 +148,9 @@ func (g *generator) Imports() string {
 	for path, alias := range g.imports {
 		if path == alias || strings.HasSuffix(path, "/"+alias) {
 			builder.WriteString("\t" + strconv.Quote(path) + "\n")
-		} else {
-			builder.WriteString("\t" + alias + " " + strconv.Quote(path) + "\n")
+			continue
 		}
+		builder.WriteString("\t" + alias + " " + strconv.Quote(path) + "\n")
 	}
 	builder.WriteString(")\n\n")
 	return builder.String()

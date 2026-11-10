@@ -1,6 +1,7 @@
 package nocontext
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -19,41 +20,168 @@ type responseData struct {
 	Count int `json:"count"`
 }
 
-func TestDoReturnsConcreteData(t *testing.T) {
-	client := responseAPIClient(
-		http.StatusOK,
-		http.Header{},
-		`{"data":{"repository":{"name":"octoql"}}}`,
-	)
-
-	response, err := responseAPIData[responseData](t, client)
-
-	require.NoError(t, err)
-	require.NotNil(t, response)
-	assert.Equal(t, "octoql", response.Repository.Name)
+type responseErrorFacet interface {
+	error
+	GitHubRequestID() string
+	HTTPStatusCode() int
 }
 
-func TestDoIgnoresTopLevelExtensions(t *testing.T) {
-	client := responseAPIClient(
-		http.StatusOK,
-		http.Header{},
-		`{
-			"data":{"repository":{"name":"octoql"}},
-			"extensions":{"trace":"abc"}
-		}`,
-	)
+type partialDataFacet interface {
+	error
+	PartialDataValue() any
+}
 
-	response, err := doOperation[responseData](
-		t.Context(),
-		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
-	)
+func TestGeneratedQueryResponseSemantics(t *testing.T) {
+	tests := []struct {
+		check      func(*testing.T, *getRepositoryResponse, error)
+		header     http.Header
+		name       string
+		body       string
+		statusCode int
+		wantData   bool
+	}{
+		{
+			name:       "success ignores top-level extensions",
+			statusCode: http.StatusOK,
+			wantData:   true,
+			header: http.Header{
+				"X-GitHub-Request-ID": {"request-123"},
+			},
+			body: `{
+				"data":{"repository":{"nameWithOwner":"octo-org/octo-repo"}},
+				"extensions":{"trace":"abc"}
+			}`,
+			check: func(t *testing.T, response *getRepositoryResponse, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)
+			},
+		},
+		{
+			name:       "partial data and response error facets",
+			statusCode: http.StatusOK,
+			wantData:   true,
+			header:     http.Header{"X-GitHub-Request-ID": {"request-partial"}},
+			body: `{
+				"data":{"repository":{"nameWithOwner":"octo-org/partial"}},
+				"errors":[{
+					"type":"FORBIDDEN",
+					"message":"owner unavailable",
+					"path":["repository","owner"],
+					"extensions":{"code":"missing"}
+				}]
+			}`,
+			check: func(t *testing.T, response *getRepositoryResponse, err error) {
+				t.Helper()
+				require.NotNil(t, response)
+				assert.Equal(t, "octo-org/partial", response.Repository.NameWithOwner)
 
-	require.NoError(t, err)
-	require.NotNil(t, response)
-	assert.Equal(t, "octoql", response.Repository.Name)
+				responseError, ok := errors.AsType[*ResponseError](err)
+				require.True(t, ok)
+				assert.Equal(t, http.StatusOK, responseError.StatusCode)
+				assert.Equal(t, "request-partial", responseError.RequestID)
+				assert.Empty(t, responseError.RawBody)
+
+				var facet responseErrorFacet
+				require.ErrorAs(t, err, &facet)
+				assert.Equal(t, http.StatusOK, facet.HTTPStatusCode())
+				assert.Equal(t, "request-partial", facet.GitHubRequestID())
+
+				var partialFacet partialDataFacet
+				require.ErrorAs(t, err, &partialFacet)
+				assert.Equal(t, response, partialFacet.PartialDataValue())
+
+				graphqlErrors, ok := errors.AsType[Errors](err)
+				require.True(t, ok)
+				require.Len(t, graphqlErrors, 1)
+				assert.Equal(t, ErrorType("FORBIDDEN"), graphqlErrors[0].Type)
+				assert.Equal(t, Path{"repository", "owner"}, graphqlErrors[0].Path)
+				assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
+
+				_, ok = errors.AsType[*RateLimitError](err)
+				assert.False(t, ok)
+			},
+		},
+		{
+			name:       "non-2xx with decodable data",
+			statusCode: http.StatusForbidden,
+			wantData:   true,
+			header:     http.Header{"X-GitHub-Request-ID": {"request-forbidden-partial"}},
+			body: `{
+				"data":{"repository":{"nameWithOwner":"octo-org/partial"}},
+				"errors":[{"type":"FORBIDDEN","message":"request rejected"}]
+			}`,
+			check: func(t *testing.T, response *getRepositoryResponse, err error) {
+				t.Helper()
+				require.NotNil(t, response)
+				assert.Equal(t, "octo-org/partial", response.Repository.NameWithOwner)
+				responseError, ok := errors.AsType[*ResponseError](err)
+				require.True(t, ok)
+				assert.Equal(t, http.StatusForbidden, responseError.StatusCode)
+			},
+		},
+		{
+			name:       "non-2xx without data",
+			statusCode: http.StatusForbidden,
+			header:     http.Header{"X-GitHub-Request-ID": {"request-forbidden"}},
+			body:       `{"errors":[{"type":"FORBIDDEN","message":"rejected"}]}`,
+			check: func(t *testing.T, _ *getRepositoryResponse, err error) {
+				t.Helper()
+				responseError, ok := errors.AsType[*ResponseError](err)
+				require.True(t, ok)
+				assert.Equal(t, http.StatusForbidden, responseError.StatusCode)
+				assert.Equal(t, "request-forbidden", responseError.RequestID)
+				assert.Equal(t, `{"errors":[{"type":"FORBIDDEN","message":"rejected"}]}`, string(responseError.RawBody))
+				_, ok = errors.AsType[Errors](err)
+				assert.True(t, ok)
+			},
+		},
+		{
+			name:       "null data and GraphQL errors",
+			statusCode: http.StatusOK,
+			header:     http.Header{},
+			body: `{
+				"data":null,
+				"errors":[{"type":"NOT_FOUND","message":"repository unavailable"}]
+			}`,
+			check: func(t *testing.T, _ *getRepositoryResponse, err error) {
+				t.Helper()
+				_, hasErrors := errors.AsType[Errors](err)
+				assert.True(t, hasErrors)
+			},
+		},
+		{
+			name:       "invalid generated data",
+			statusCode: http.StatusOK,
+			header:     http.Header{},
+			body:       `{"data":{"repository":"not an object"}}`,
+			check: func(t *testing.T, _ *getRepositoryResponse, err error) {
+				t.Helper()
+				_, hasDecodeError := errors.AsType[*json.UnmarshalTypeError](err)
+				assert.True(t, hasDecodeError)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := responseAPIClient(test.statusCode, test.header, test.body)
+			response, err := invokeRepositoryQuery(client)
+
+			if err == nil {
+				assert.Equal(t, test.wantData, response != nil)
+			}
+			if err != nil {
+				assert.Nil(t, response)
+				partialErr, hasPartial := errors.AsType[*getRepositoryPartialDataError](err)
+				assert.Equal(t, test.wantData, hasPartial)
+				if hasPartial {
+					response = partialErr.PartialData()
+				}
+			}
+			test.check(t, response, err)
+		})
+	}
 }
 
 func TestDoPointerData(t *testing.T) {
@@ -99,63 +227,6 @@ func TestDoPointerData(t *testing.T) {
 	})
 }
 
-func TestDoReturnsResponseErrorFacets(t *testing.T) {
-	client := responseAPIClient(
-		http.StatusOK,
-		http.Header{"X-GitHub-Request-ID": {"request-partial"}},
-		`{
-			"data":{"repository":{"name":"partial"}},
-			"errors":[{
-				"type":"FORBIDDEN",
-				"message":"owner unavailable",
-				"path":["repository","owner"],
-				"extensions":{"code":"missing"}
-			}]
-		}`,
-	)
-
-	response, err := responseAPIData[responseData](t, client)
-
-	require.NotNil(t, response)
-	assert.Equal(t, "partial", response.Repository.Name)
-
-	responseError, ok := errors.AsType[*ResponseError](err)
-	require.True(t, ok)
-	assert.Equal(t, http.StatusOK, responseError.StatusCode)
-	assert.Equal(t, "request-partial", responseError.RequestID)
-	assert.Empty(t, responseError.RawBody)
-
-	graphqlErrors, ok := errors.AsType[Errors](err)
-	require.True(t, ok)
-	require.Len(t, graphqlErrors, 1)
-	assert.Equal(t, ErrorType("FORBIDDEN"), graphqlErrors[0].Type)
-	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
-
-	_, ok = errors.AsType[*RateLimitError](err)
-	assert.False(t, ok)
-}
-
-func TestDoNonSuccessfulResponseError(t *testing.T) {
-	body := `{"errors":[{"type":"FORBIDDEN","message":"rejected"}]}`
-	client := responseAPIClient(
-		http.StatusForbidden,
-		http.Header{"X-GitHub-Request-ID": {"request-forbidden"}},
-		body,
-	)
-
-	response, err := responseAPIData[responseData](t, client)
-
-	assert.Nil(t, response)
-	responseError, ok := errors.AsType[*ResponseError](err)
-	require.True(t, ok)
-	assert.Equal(t, http.StatusForbidden, responseError.StatusCode)
-	assert.Equal(t, "request-forbidden", responseError.RequestID)
-	assert.Equal(t, body, string(responseError.RawBody))
-
-	_, ok = errors.AsType[Errors](err)
-	assert.True(t, ok)
-}
-
 func TestResponseErrorBoundsRawBody(t *testing.T) {
 	body := strings.Repeat("x", 70*1024)
 	client := responseAPIClient(
@@ -164,7 +235,7 @@ func TestResponseErrorBoundsRawBody(t *testing.T) {
 		body,
 	)
 
-	_, err := responseAPIData[responseData](t, client)
+	_, err := invokeRepositoryQuery(client)
 
 	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
@@ -183,7 +254,7 @@ func TestClientResponseSizeLimit(t *testing.T) {
 			"X-GitHub-Request-ID":   {"request-too-large"},
 			"X-RateLimit-Remaining": {"0"},
 		},
-		`{"data":{"repository":{"name":"`+
+		`{"data":{"repository":{"nameWithOwner":"`+
 			strings.Repeat("x", int(responseSizeLimit))+
 			`"}}}`,
 	)
@@ -193,7 +264,7 @@ func TestClientResponseSizeLimit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, responseSizeLimit, client.ResponseSizeLimit())
 
-	response, err := responseAPIData[responseData](t, client)
+	response, err := invokeRepositoryQuery(client)
 
 	require.Error(t, err)
 	assert.Nil(t, response)
@@ -228,32 +299,15 @@ func TestClientSetResponseSizeLimitRejectsNonpositiveValues(t *testing.T) {
 	}
 }
 
-func TestDoRejectsExtensionsOnlyResponse(t *testing.T) {
-	body := `{"extensions":{"trace":"abc"}}`
-	client := responseAPIClient(
-		http.StatusOK,
-		http.Header{},
-		body,
-	)
-
-	response, err := doOperation[responseData](
-		t.Context(),
-		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
-	)
-	assert.Nil(t, response)
-	responseError, ok := errors.AsType[*ResponseError](err)
-	require.True(t, ok)
-	assert.Equal(t, body, string(responseError.RawBody))
-}
-
-func TestDoRejectsEmptyErrorOnlyResponse(t *testing.T) {
+func TestDoRejectsMissingDataAndErrorsResponses(t *testing.T) {
 	tests := []struct {
 		name string
 		body string
 	}{
+		{
+			name: "extensions only",
+			body: `{"extensions":{"trace":"abc"}}`,
+		},
 		{
 			name: "empty errors",
 			body: `{"errors":[]}`,
@@ -272,13 +326,7 @@ func TestDoRejectsEmptyErrorOnlyResponse(t *testing.T) {
 				test.body,
 			)
 
-			response, err := doOperation[responseData](
-				t.Context(),
-				client,
-				validOperationName,
-				validOperationQuery,
-				nil,
-			)
+			response, err := invokeRepositoryQuery(client)
 
 			assert.Nil(t, response)
 			responseError, ok := errors.AsType[*ResponseError](err)
@@ -321,13 +369,7 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.False(t, known)
 	assert.Equal(t, RateLimit{}, rateLimit)
 
-	_, err := doOperation[struct{}](
-		t.Context(),
-		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
-	)
+	_, err := invokeRepositoryQuery(client)
 	require.NoError(t, err)
 	rateLimit, known = client.RateLimit()
 	require.True(t, known)
@@ -338,13 +380,7 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.Zero(t, rateLimit.RetryAfter)
 	assert.True(t, rateLimit.RetryAt.IsZero())
 
-	_, err = doOperation[struct{}](
-		t.Context(),
-		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
-	)
+	_, err = invokeRepositoryQuery(client)
 	require.NoError(t, err)
 	preserved, known := client.RateLimit()
 	require.True(t, known)
@@ -368,15 +404,9 @@ func responseAPIClient(
 	)
 }
 
-func responseAPIData[T any](
-	t *testing.T,
-	client *Client,
-) (*T, error) {
-	return doOperation[T](
-		t.Context(),
-		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
-	)
+func invokeRepositoryQuery(client *Client) (*getRepositoryResponse, error) {
+	return client.getRepository(getRepositoryVariables{
+		Owner: "octo-org",
+		Name:  "octo-repo",
+	})
 }

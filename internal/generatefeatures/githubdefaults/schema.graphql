@@ -3,15 +3,40 @@ schema {
 }
 
 scalar BigInt
+scalar CustomPropertyValue
 scalar DateTime
 scalar URI
+
+interface Node {
+  id: ID!
+  url: URI!
+}
 
 interface Actor {
   login: String!
   url: URI!
 }
 
-type Bot implements Actor {
+type Repository implements Node {
+  id: ID!
+  url: URI!
+  nameWithOwner: String!
+}
+
+type Issue implements Node {
+  id: ID!
+  url: URI!
+  title: String!
+}
+
+type Bot implements Node & Actor {
+  id: ID!
+  login: String!
+  url: URI!
+}
+
+type Organization implements Node & Actor {
+  id: ID!
   login: String!
   url: URI!
 }
@@ -19,10 +44,13 @@ type Bot implements Actor {
 type Review {
   fullDatabaseId: BigInt!
   createdAt: DateTime!
+  propertyValue: CustomPropertyValue
   author: Actor
   editor: Actor
 }
 
 type Query {
   review: Review!
+  node(id: ID!): Node
+  nestedNodes: [[[Node]]]
 }

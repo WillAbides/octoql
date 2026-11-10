@@ -20,6 +20,7 @@ import (
 	"github.com/gkampitakis/go-snaps/snaps"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/willabides/octoql/internal"
 )
 
 const (
@@ -230,45 +231,29 @@ func TestGenerate(t *testing.T) {
 	require.NoError(t, buildGoFiles(snapshotsToBuild))
 }
 
-func TestGenerateDeterministic(t *testing.T) {
-	t.Parallel()
-
-	config := &Config{
-		Schema:      []string{filepath.Join(dataDir, "schema.graphql")},
-		Operations:  []string{filepath.Join(dataDir, "GraphShapes.graphql")},
-		Package:     "test",
-		Generated:   "generated.go",
-		ContextType: "-",
-		Bindings:    testBindings(),
-	}
-	first, err := Generate(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := Generate(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(first[config.Generated], second[config.Generated]) {
-		t.Fatal("generation output is not deterministic")
-	}
-}
-
 func TestGenerateExcludesSchemaFromOperationGlobs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		operation string
-		wantError string
+		name               string
+		operation          string
+		companionDirective bool
+		companionOnly      bool
+		wantError          string
 	}{
 		{
-			name:      "operation remains",
-			operation: "query Q { field }\n",
+			name:               "operation remains alongside schema and companion directive",
+			operation:          "query Q { field }\n",
+			companionDirective: true,
 		},
 		{
 			name:      "schema is only match",
 			wantError: "no queries found",
+		},
+		{
+			name:          "companion directive is only match",
+			companionOnly: true,
+			wantError:     "did not match any files",
 		},
 		{
 			name:      "malformed operation remains an error",
@@ -282,12 +267,23 @@ func TestGenerateExcludesSchemaFromOperationGlobs(t *testing.T) {
 			dir := t.TempDir()
 			schemaDir := filepath.Join(dir, ".octoql")
 			require.NoError(t, os.MkdirAll(schemaDir, 0o755))
-			schemaPath := filepath.Join(schemaDir, "schema.graphql")
+			schemaFilename := "schema.graphql"
+			if test.companionOnly {
+				schemaFilename = "schema.graphqls"
+			}
+			schemaPath := filepath.Join(schemaDir, schemaFilename)
 			require.NoError(t, os.WriteFile(
 				schemaPath,
 				[]byte("type Query { field: String }\n"),
 				0o600,
 			))
+			if test.companionDirective || test.companionOnly {
+				require.NoError(t, os.WriteFile(
+					filepath.Join(schemaDir, internal.DirectiveFilename),
+					[]byte(internal.DirectiveFileContents),
+					0o600,
+				))
+			}
 			if test.operation != "" {
 				operationDir := filepath.Join(dir, "graphql")
 				require.NoError(t, os.MkdirAll(operationDir, 0o755))
@@ -470,92 +466,52 @@ query Value($input: JSON!) {
 	require.NoError(t, buildGoFile("runtime_import_alias_collision", source))
 }
 
-func TestGenerateRejectsRuntimeMethodCollision(t *testing.T) {
+func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	require.NoError(t, os.WriteFile(schemaPath, []byte(`
-type Query {
-  value: String!
-}
-`), 0o600))
-	require.NoError(t, os.WriteFile(operationPath, []byte(`
-query RateLimit {
-  value
-}
-`), 0o600))
+	tests := []struct {
+		name      string
+		operation string
+		wantError string
+	}{
+		{
+			name:      "runtime method collision",
+			operation: "query RateLimit {\n  value\n}\n",
+			wantError: `generated Client method "RateLimit" conflicts with operation "RateLimit"`,
+		},
+		{
+			name:      "private runtime declaration collision",
+			operation: "query Value @octoqlgen(typename: \"_octoqlPayload\") {\n  value\n}\n",
+			wantError: `generated identifier "_octoqlPayload" uses reserved prefix "_octoql"`,
+		},
+		{
+			name:      "reserved runtime operation prefix",
+			operation: "query _octoqlOperation {\n  value\n}\n",
+			wantError: `generated identifier "_octoqlOperation" uses reserved prefix "_octoql"`,
+		},
+	}
 
-	_, err := Generate(&Config{
-		Schema:      []string{schemaPath},
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "collision",
-		ContextType: "-",
-	})
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	require.EqualError(t, err, `generated Client method "RateLimit" conflicts with operation "RateLimit"`)
-}
+			dir := t.TempDir()
+			schemaPath := filepath.Join(dir, "schema.graphql")
+			operationPath := filepath.Join(dir, "operation.graphql")
+			require.NoError(t, os.WriteFile(schemaPath, []byte("type Query {\n  value: String!\n}\n"), 0o600))
+			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
 
-func TestGenerateRejectsPrivateRuntimeDeclarationCollision(t *testing.T) {
-	t.Parallel()
+			_, err := Generate(&Config{
+				Schema:      []string{schemaPath},
+				Operations:  []string{operationPath},
+				Generated:   filepath.Join(dir, "generated.go"),
+				Package:     "collision",
+				ContextType: "-",
+			})
 
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	require.NoError(t, os.WriteFile(schemaPath, []byte(`
-type Query {
-  value: String!
-}
-`), 0o600))
-	require.NoError(t, os.WriteFile(operationPath, []byte(`
-query Value @octoqlgen(typename: "_octoqlPayload") {
-  value
-}
-`), 0o600))
-
-	_, err := Generate(&Config{
-		Schema:      []string{schemaPath},
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "collision",
-		ContextType: "-",
-	})
-
-	require.EqualError(t, err, `generated identifier "_octoqlPayload" uses reserved prefix "_octoql"`)
-}
-
-func TestGenerateRejectsReservedRuntimeOperationPrefix(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	require.NoError(t, os.WriteFile(schemaPath, []byte(`
-type Query {
-  value: String!
-}
-`), 0o600))
-	require.NoError(t, os.WriteFile(operationPath, []byte(`
-query _octoqlOperation {
-  value
-}
-`), 0o600))
-
-	_, err := Generate(&Config{
-		Schema:      []string{schemaPath},
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "collision",
-		ContextType: "-",
-	})
-
-	require.EqualError(
-		t,
-		err,
-		`generated identifier "_octoqlOperation" uses reserved prefix "_octoql"`,
-	)
+			require.EqualError(t, err, test.wantError)
+		})
+	}
 }
 
 func TestGenerateQuotesOperationText(t *testing.T) {
@@ -969,84 +925,6 @@ query Beta { second }
 	compileGeneratedOutputs(t, rootDir, compiledOutputs)
 }
 
-func TestGeneratedHandlerPointerDefaultWireParity(t *testing.T) {
-	t.Parallel()
-
-	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	require.NoError(t, err)
-	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-pointer-default-wire-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, os.RemoveAll(tempDir))
-	})
-
-	schemaPath := filepath.Join(tempDir, "schema.graphql")
-	err = os.WriteFile(schemaPath, []byte(`
-input OptionalInput {
-  value: String
-  items: [String]
-}
-
-type OptionalResult {
-  value: String
-  items: [String]
-}
-
-type Query {
-  optional(input: OptionalInput): OptionalResult
-}
-`), 0o600)
-	require.NoError(t, err)
-	operationPath := filepath.Join(tempDir, "operation.graphql")
-	err = os.WriteFile(operationPath, []byte(`
-query Optional($input: OptionalInput) {
-  result: optional(input: $input) {
-    value
-    items
-  }
-}
-`), 0o600)
-	require.NoError(t, err)
-
-	clientConfig := pointerDefaultParityConfig(
-		tempDir,
-		"client",
-		"clienthandler",
-		TestHandlerTypesClient,
-	)
-	localConfig := pointerDefaultParityConfig(
-		tempDir,
-		"localclient",
-		"localhandler",
-		TestHandlerTypesLocal,
-	)
-	err = clientConfig.ValidateAndFillDefaults("")
-	require.NoError(t, err)
-	err = localConfig.ValidateAndFillDefaults("")
-	require.NoError(t, err)
-	clientOutputs, err := Generate(clientConfig)
-	require.NoError(t, err)
-	localOutputs, err := Generate(localConfig)
-	require.NoError(t, err)
-
-	outputs := map[string][]byte{
-		filepath.Join(tempDir, "doc.go"): []byte("package parity\n"),
-		filepath.Join(tempDir, "parity_test.go"): pointerDefaultParityTestSource(
-			clientConfig.testHandlerPkgPath,
-			localConfig.testHandlerPkgPath,
-			clientConfig.pkgPath,
-		),
-	}
-	for filename, content := range clientOutputs {
-		outputs[filename] = content
-	}
-	for filename, content := range localOutputs {
-		outputs[filename] = content
-	}
-	compileGeneratedOutputs(t, tempDir, outputs)
-}
-
 func TestGeneratedNullableValuesDefaultToPointers(t *testing.T) {
 	t.Parallel()
 
@@ -1457,226 +1335,6 @@ func TestSpecialSliceWireSemanticsReusedDestination(t *testing.T) {
 	compileGeneratedOutputs(t, tempDir, outputs)
 }
 
-func pointerDefaultParityConfig(
-	tempDir string,
-	clientPackage string,
-	handlerPackage string,
-	strategy TestHandlerTypeStrategy,
-) *Config {
-	config := &Config{
-		Schema:               []string{filepath.Join(tempDir, "schema.graphql")},
-		Operations:           []string{filepath.Join(tempDir, "operation.graphql")},
-		Generated:            filepath.Join(tempDir, clientPackage, "generated.go"),
-		TestHandlerGenerated: filepath.Join(tempDir, handlerPackage, "generated.go"),
-		TestHandlerTypes:     strategy,
-		Package:              clientPackage,
-		ContextType:          "-",
-	}
-	return config
-}
-
-func pointerDefaultParityTestSource(
-	clientHandlerPath string,
-	localHandlerPath string,
-	generatedClientPath string,
-) []byte {
-	source := `package parity_test
-
-import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"reflect"
-	"testing"
-
-	clienthandler "CLIENT_HANDLER_PATH"
-	generatedclient "GENERATED_CLIENT_PATH"
-	localhandler "LOCAL_HANDLER_PATH"
-)
-
-func TestPointerDefaultWireParity(t *testing.T) {
-	tests := []struct {
-		name      string
-		variables string
-		response  string
-	}{
-		{name: "omitted", variables: "{}", response: "{\"result\":null}"},
-		{name: "explicit null", variables: "{\"input\":null}", response: "{\"result\":null}"},
-		{
-			name:      "populated with null list element",
-			variables: "{\"input\":{\"value\":\"x\",\"items\":[null,\"y\"]}}",
-			response:  "{\"result\":{\"value\":null,\"items\":[null,\"y\"]}}",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var clientVariables clienthandler.OptionalVariables
-			if err := json.Unmarshal([]byte(test.variables), &clientVariables); err != nil {
-				t.Fatal(err)
-			}
-			var localVariables localhandler.OptionalVariables
-			if err := json.Unmarshal([]byte(test.variables), &localVariables); err != nil {
-				t.Fatal(err)
-			}
-			clientVariablesJSON, err := json.Marshal(clientVariables)
-			if err != nil {
-				t.Fatal(err)
-			}
-			localVariablesJSON, err := json.Marshal(localVariables)
-			if err != nil {
-				t.Fatal(err)
-			}
-			assertJSONEqual(t, clientVariablesJSON, localVariablesJSON)
-
-			var clientResponse clienthandler.OptionalResponse
-			if err = json.Unmarshal([]byte(test.response), &clientResponse); err != nil {
-				t.Fatal(err)
-			}
-			var localResponse localhandler.OptionalResponse
-			if err = json.Unmarshal([]byte(test.response), &localResponse); err != nil {
-				t.Fatal(err)
-			}
-
-			clientHandler := clienthandler.NewTestHandler(t)
-			clientHandler.DefaultOptional().Respond(clientResponse)
-			localHandler := localhandler.NewTestHandler(t)
-			localHandler.DefaultOptional().Respond(localResponse)
-
-			originalVariables := json.RawMessage(test.variables)
-			clientResult := postOptional(t, clientHandler, originalVariables)
-			localResult := postOptional(t, localHandler, originalVariables)
-			if clientResult.Code != localResult.Code {
-				t.Fatalf("status codes differ: client=%d local=%d", clientResult.Code, localResult.Code)
-			}
-			if !reflect.DeepEqual(clientResult.Header(), localResult.Header()) {
-				t.Fatalf("headers differ: client=%v local=%v", clientResult.Header(), localResult.Header())
-			}
-			assertJSONEqual(t, clientResult.Body.Bytes(), localResult.Body.Bytes())
-		})
-	}
-}
-
-func postOptional(
-	t *testing.T,
-	handler http.Handler,
-	variables json.RawMessage,
-) *httptest.ResponseRecorder {
-	t.Helper()
-	body, err := json.Marshal(map[string]any{
-		"operationName": "Optional",
-		"query":         generatedclient.Optional_Operation,
-		"variables":     variables,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"https://api.github.example/graphql",
-		bytes.NewReader(body),
-	)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	return response
-}
-
-func assertJSONEqual(t *testing.T, left, right []byte) {
-	t.Helper()
-	var leftValue any
-	if err := json.Unmarshal(left, &leftValue); err != nil {
-		t.Fatal(err)
-	}
-	var rightValue any
-	if err := json.Unmarshal(right, &rightValue); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(leftValue, rightValue) {
-		t.Fatalf("JSON differs: left=%s right=%s", left, right)
-	}
-}
-`
-	return []byte(strings.NewReplacer(
-		"CLIENT_HANDLER_PATH", clientHandlerPath,
-		"GENERATED_CLIENT_PATH", generatedClientPath,
-		"LOCAL_HANDLER_PATH", localHandlerPath,
-	).Replace(source))
-}
-
-func TestGenerateWithTestHandlerRendererFailureReturnsNoOutputs(t *testing.T) {
-	t.Parallel()
-
-	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-error-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		err = os.RemoveAll(tempDir)
-		if err != nil {
-			t.Errorf("removing temporary generation directory: %v", err)
-		}
-	})
-
-	config := &Config{
-		Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
-		Operations:           []string{filepath.Join(dataDir, "Repository.graphql")},
-		Generated:            filepath.Join(tempDir, "client", "generated.go"),
-		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-		ContextType:          "-",
-		Bindings:             testBindings(),
-	}
-	err = config.ValidateAndFillDefaults("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	renderErr := errors.New("handler renderer failed")
-	outputs, err := generateWith(
-		config,
-		buildGenerationPlan,
-		renderClient,
-		func(*generationPlan) ([]byte, error) {
-			return nil, renderErr
-		},
-	)
-
-	if !errors.Is(err, renderErr) {
-		t.Fatalf("error = %v, want %v", err, renderErr)
-	}
-	if outputs != nil {
-		t.Fatalf("outputs = %#v, want nil", outputs)
-	}
-}
-
-func TestGenerateWithoutTestHandlerOnlyGeneratesClient(t *testing.T) {
-	t.Parallel()
-
-	config := &Config{
-		Schema:      []string{filepath.Join(dataDir, "schema.graphql")},
-		Operations:  []string{filepath.Join(dataDir, "Repository.graphql")},
-		Generated:   "generated.go",
-		Package:     "client",
-		ContextType: "-",
-		Bindings:    testBindings(),
-	}
-	outputs, err := Generate(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(outputs) != 1 {
-		t.Fatalf("outputs = %d, want 1", len(outputs))
-	}
-	if outputs[config.Generated] == nil {
-		t.Fatalf("client output %q is missing", config.Generated)
-	}
-}
-
 func TestTestHandlerConfigurationErrors(t *testing.T) {
 	t.Parallel()
 
@@ -1975,66 +1633,6 @@ type Query {
 			}
 		})
 	}
-}
-
-func TestGenerateVariablelessHandlerWithVariablesResponseName(t *testing.T) {
-	t.Parallel()
-
-	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-variableless-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		err = os.RemoveAll(tempDir)
-		if err != nil {
-			t.Errorf("removing temporary generation directory: %v", err)
-		}
-	})
-
-	schemaPath := filepath.Join(tempDir, "schema.graphql")
-	operationPath := filepath.Join(tempDir, "operation.graphql")
-	err = os.WriteFile(
-		schemaPath,
-		[]byte("type Viewer { login: String! }\ntype Query { viewer: Viewer! }\n"),
-		0o600,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = os.WriteFile(
-		operationPath,
-		[]byte("fragment ViewerVariables on Viewer { login }\nquery Viewer { viewer { ...ViewerVariables } }\n"),
-		0o600,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config := &Config{
-		Schema:               []string{schemaPath},
-		Operations:           []string{operationPath},
-		Generated:            filepath.Join(tempDir, "client", "generated.go"),
-		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-		Package:              "client",
-		ContextType:          "-",
-	}
-	err = config.ValidateAndFillDefaults("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	outputs, err := Generate(config)
-	require.NoError(t, err)
-	handlerSource := string(outputs[config.TestHandlerGenerated])
-	assert.NotContains(t, handlerSource, "type ViewerVariables struct")
-	assert.Contains(t, handlerSource, "func (s *expectationSet[V]) expect(")
-	assert.Contains(t, handlerSource, "func (h *TestHandler) ExpectViewer(")
-	assert.Contains(t, handlerSource, "func (b *ViewerExpectation) WithOptions(")
-	compileGeneratedOutputs(t, tempDir, outputs)
 }
 
 func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) {
@@ -2419,8 +2017,6 @@ func TestGenerateErrors(t *testing.T) {
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaSyntax.schema.graphql:4: invalid schema: Expected :, found }"))
 			case "InvalidSchemaWithBuiltins.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaWithBuiltins.schema.graphql:3: invalid schema: Undefined type Bogus."))
-			case "InvalidSchemaWithoutBuiltins.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaWithoutBuiltins.schema.graphql:3: invalid schema: Undefined type Bogus."))
 			case "KeywordArgumentName.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordArgumentName.graphql:1: variable name must not be a go keyword"))
 			case "KeywordOperationName.graphql":

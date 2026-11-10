@@ -172,7 +172,8 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 			return pkgNameGuess, modulePkgPath, nil
 		}
 		return pkgNameGuess, "", err
-	} else if len(pkgs) != 1 { // probably never happens?
+	}
+	if len(pkgs) != 1 { // probably never happens?
 		modulePkgPath, moduleErr := packagePathFromModule(dir)
 		if moduleErr == nil && pkgNameGuess != "" {
 			return pkgNameGuess, modulePkgPath, nil
@@ -203,9 +204,8 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 
 	if pkgNameGuess != "" {
 		return pkgNameGuess, pkg.PkgPath, nil
-	} else {
-		return "", "", fmt.Errorf("no package found in %v", dir)
 	}
+	return "", "", fmt.Errorf("no package found in %v", dir)
 }
 
 func packagePathFromModule(directory string) (string, error) {
@@ -294,38 +294,32 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	}
 
 	pkgName, pkgPath, err := getPackageNameAndPath(c.Generated)
-	if err != nil {
-		// Try to guess a name anyway (or use one you specified) -- pkgPath
-		// isn't always needed. (But you'll run into trouble binding against
-		// the generated package, so at least warn.)
-		if c.Package != "" {
-			warnErr := warn(errorf(nil, "warning: unable to identify current package-path "+
-				"(using 'package' config '%v'): %v\n", c.Package, err))
-			if warnErr != nil {
-				return warnErr
-			}
-		} else if pkgName != "" {
-			warnErr := warn(errorf(nil, "warning: unable to identify current package-path "+
-				"(using directory name '%v': %v\n", pkgName, err))
-			if warnErr != nil {
-				return warnErr
-			}
-			c.Package = pkgName
-		} else {
-			return errorf(nil, "unable to guess package-name: %v"+
-				"\nSet package name in octoqlgen.yaml"+
-				"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", err)
+	switch {
+	case err != nil && c.Package != "":
+		warnErr := warn(errorf(nil, "warning: unable to identify current package-path "+
+			"(using 'package' config '%v'): %v\n", c.Package, err))
+		if warnErr != nil {
+			return warnErr
 		}
-	} else { // err == nil
-		if c.Package == pkgName || c.Package == "" {
-			c.Package = pkgName
-		} else {
-			warnErr := warn(errorf(nil, "warning: package setting in octoqlgen.yaml '%v' looks wrong "+
-				"('%v' is in package '%v') but proceeding with '%v' anyway\n",
-				c.Package, c.Generated, pkgName, c.Package))
-			if warnErr != nil {
-				return warnErr
-			}
+	case err != nil && pkgName != "":
+		warnErr := warn(errorf(nil, "warning: unable to identify current package-path "+
+			"(using directory name '%v': %v\n", pkgName, err))
+		if warnErr != nil {
+			return warnErr
+		}
+		c.Package = pkgName
+	case err != nil:
+		return errorf(nil, "unable to guess package-name: %v"+
+			"\nSet package name in octoqlgen.yaml"+
+			"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", err)
+	case c.Package == pkgName || c.Package == "":
+		c.Package = pkgName
+	default:
+		warnErr := warn(errorf(nil, "warning: package setting in octoqlgen.yaml '%v' looks wrong "+
+			"('%v' is in package '%v') but proceeding with '%v' anyway\n",
+			c.Package, c.Generated, pkgName, c.Package))
+		if warnErr != nil {
+			return warnErr
 		}
 	}
 	// This is a no-op in some of the error cases, but it still doesn't hurt.

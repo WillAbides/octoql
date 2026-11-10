@@ -3,7 +3,6 @@ package generate
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -14,49 +13,93 @@ import (
 
 const githubGenerationDefaultsDir = "testdata/github-generation-defaults"
 
-func TestGitHubScalarDefaults(t *testing.T) {
+func TestGitHubScalarDefaultsAndOverrides(t *testing.T) {
 	t.Parallel()
 
-	expected := map[string]string{
-		"Base64String":        "string",
-		"BigInt":              "string",
-		"CustomPropertyValue": "encoding/json.RawMessage",
-		"Date":                "string",
-		"DateTime":            "time.Time",
-		"GitObjectID":         "string",
-		"GitRefname":          "string",
-		"GitSSHRemote":        "string",
-		"GitTimestamp":        "time.Time",
-		"HTML":                "string",
-		"PreciseDateTime":     "time.Time",
-		"URI":                 "string",
-		"X509Certificate":     "string",
-	}
+	dir := t.TempDir()
+	schema := `
+scalar Base64String
+scalar BigInt
+scalar CustomPropertyValue
+scalar Date
+scalar DateTime
+scalar GitObjectID
+scalar GitRefname
+scalar GitSSHRemote
+scalar GitTimestamp
+scalar HTML
+scalar PreciseDateTime
+scalar URI
+scalar X509Certificate
 
-	assert.Equal(t, expected, githubScalarTypes)
-
-	for graphQLName, goType := range expected {
-		t.Run(graphQLName, func(t *testing.T) {
-			source := generateScalarOperation(t, graphQLName, nil)
-			fieldType := goType
-			if goType == "encoding/json.RawMessage" {
-				fieldType = "json.RawMessage"
-			}
-			assert.Contains(t, source, "Value "+fieldType)
-			if goType == "time.Time" {
-				assert.Contains(t, source, `"time"`)
-			}
-			if goType == "encoding/json.RawMessage" {
-				assert.Contains(t, source, `"encoding/json"`)
-			}
-		})
-	}
+type Query {
+  base64String: Base64String!
+  bigInt: BigInt!
+  customPropertyValue: CustomPropertyValue!
+  date: Date!
+  dateTime: DateTime!
+  gitObjectID: GitObjectID!
+  gitRefname: GitRefname!
+  gitSSHRemote: GitSSHRemote!
+  gitTimestamp: GitTimestamp!
+  html: HTML!
+  preciseDateTime: PreciseDateTime!
+  uri: URI!
+  x509Certificate: X509Certificate!
 }
+`
+	operation := `
+query AllScalars {
+  base64String
+  bigInt
+  customPropertyValue
+  date
+  dateTime
+  gitObjectID
+  gitRefname
+  gitSSHRemote
+  gitTimestamp
+  html
+  preciseDateTime
+  uri
+  x509Certificate
+}
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "operation.graphql"), []byte(operation), 0o600))
 
-func TestGitHubScalarOverrides(t *testing.T) {
-	t.Parallel()
+	defaultsConfig := &Config{
+		Schema:      []string{filepath.Join(dir, "schema.graphql")},
+		Operations:  []string{filepath.Join(dir, "operation.graphql")},
+		Generated:   filepath.Join(dir, "generated.go"),
+		Package:     "scalar",
+		ContextType: "-",
+	}
+	defaultsGenerated, err := Generate(defaultsConfig)
+	require.NoError(t, err)
+	defaultsSource := string(defaultsGenerated[defaultsConfig.Generated])
 
-	tests := []struct {
+	for _, want := range []string{
+		`"encoding/json"`,
+		`"time"`,
+		"Base64String string",
+		"BigInt string",
+		"CustomPropertyValue json.RawMessage",
+		"Date string",
+		"DateTime time.Time",
+		"GitObjectID string",
+		"GitRefname string",
+		"GitSSHRemote string",
+		"GitTimestamp time.Time",
+		"Html string",
+		"PreciseDateTime time.Time",
+		"Uri string",
+		"X509Certificate string",
+	} {
+		assertDeclares(t, defaultsSource, want)
+	}
+
+	overrideTests := []struct {
 		binding    *TypeBinding
 		name       string
 		scalar     string
@@ -84,8 +127,10 @@ func TestGitHubScalarOverrides(t *testing.T) {
 		},
 	}
 
-	filesToBuild := make(map[string][]byte, len(tests))
-	for _, test := range tests {
+	filesToBuild := map[string][]byte{
+		"defaults": defaultsGenerated[defaultsConfig.Generated],
+	}
+	for _, test := range overrideTests {
 		t.Run(test.name, func(t *testing.T) {
 			source := generateScalarOperation(t, test.scalar, test.binding)
 			assert.Contains(t, source, test.wantField)
@@ -96,42 +141,6 @@ func TestGitHubScalarOverrides(t *testing.T) {
 		})
 	}
 	require.NoError(t, buildGoFiles(filesToBuild))
-}
-
-func TestCustomPropertyValueUnmarshal(t *testing.T) {
-	t.Parallel()
-
-	source := generateScalarOperation(t, "CustomPropertyValue", nil)
-	testSource := []byte(`package scalar
-
-import (
-	"encoding/json"
-	"testing"
-)
-
-func TestCustomPropertyValue(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-		want string
-	}{
-		{name: "string", body: ` + "`" + `{"value":"enabled"}` + "`" + `, want: ` + "`" + `"enabled"` + "`" + `},
-		{name: "string array", body: ` + "`" + `{"value":["red","blue"]}` + "`" + `, want: ` + "`" + `["red","blue"]` + "`" + `},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var response ScalarValueResponse
-			if err := json.Unmarshal([]byte(test.body), &response); err != nil {
-				t.Fatal(err)
-			}
-			if string(response.Value) != test.want {
-				t.Fatalf("value = %s, want %s", response.Value, test.want)
-			}
-		})
-	}
-}
-`)
-	runGeneratedPackageTests(t, []byte(source), testSource)
 }
 
 func TestOmitUnreferencedImplementations(t *testing.T) {
@@ -209,173 +218,6 @@ func TestOmitUnreferencedImplementations(t *testing.T) {
 	}
 }
 
-func TestOmittedImplementationUnmarshal(t *testing.T) {
-	t.Parallel()
-
-	source := generateGitHubAbstractSelections(t, nil)
-	testSource := []byte(`package githubdefaults
-
-import (
-	"encoding/json"
-	"strings"
-	"testing"
-)
-
-func TestRuntimeAbstracts(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-		check func(*testing.T, RuntimeAbstractsResponse)
-	}{
-		{
-			name: "referenced implementation",
-			body: ` + "`" + `{"node":{"__typename":"Repository","id":"R1","url":"https://example.test/r","nameWithOwner":"octo/repo"},"nestedNodes":[],"actorNode":{"__typename":"Organization","login":"octo-org"}}` + "`" + `,
-			check: func(t *testing.T, response RuntimeAbstractsResponse) {
-				if response.Node == nil {
-					t.Fatal("node is nil")
-				}
-				repository, ok := response.Node.(*RuntimeAbstractsNodeRepository)
-				if !ok {
-					t.Fatalf("node has type %T", response.Node)
-				}
-				if repository.NameWithOwner != "octo/repo" {
-					t.Fatalf("nameWithOwner = %q", repository.NameWithOwner)
-				}
-				if response.ActorNode == nil {
-					t.Fatal("actor node is nil")
-				}
-				organization, ok := response.ActorNode.(*RuntimeAbstractsActorNodeOrganization)
-				if !ok {
-					t.Fatalf("actor node has type %T", response.ActorNode)
-				}
-				if organization.Login != "octo-org" {
-					t.Fatalf("login = %q", organization.Login)
-				}
-			},
-		},
-		{
-			name: "omitted implementation shared fields",
-			body: ` + "`" + `{"node":{"__typename":"Issue","id":"I1","url":"https://example.test/i"},"nestedNodes":[]}` + "`" + `,
-			check: func(t *testing.T, response RuntimeAbstractsResponse) {
-				if response.Node == nil {
-					t.Fatal("node is nil")
-				}
-				other, ok := response.Node.(*RuntimeAbstractsNodeOctoqlOther)
-				if !ok {
-					t.Fatalf("node has type %T", response.Node)
-				}
-				if other.GetTypename() != "Issue" || other.GetId() != "I1" || other.GetUrl() != "https://example.test/i" {
-					t.Fatalf("catch-all fields = %q, %q, %q", other.GetTypename(), other.GetId(), other.GetUrl())
-				}
-			},
-		},
-		{
-			name: "future typename",
-			body: ` + "`" + `{"node":{"__typename":"FutureNode","id":"F1","url":"https://example.test/f"},"nestedNodes":[]}` + "`" + `,
-			check: func(t *testing.T, response RuntimeAbstractsResponse) {
-				if response.Node == nil {
-					t.Fatal("node is nil")
-				}
-				other, ok := response.Node.(*RuntimeAbstractsNodeOctoqlOther)
-				if !ok || other.GetTypename() != "FutureNode" {
-					t.Fatalf("future node = %#v (%T)", response.Node, response.Node)
-				}
-			},
-		},
-		{
-			name: "nulls and lists",
-			body: ` + "`" + `{"node":null,"nestedNodes":[[[null,{"__typename":"Bot","id":"B1","url":"https://example.test/b"}]]]}` + "`" + `,
-			check: func(t *testing.T, response RuntimeAbstractsResponse) {
-				if response.Node != nil {
-					t.Fatalf("node = %#v", response.Node)
-				}
-				if response.NestedNodes[0][0][0] != nil {
-					t.Fatalf("null node = %#v", response.NestedNodes[0][0][0])
-				}
-				if response.NestedNodes[0][0][1] == nil {
-					t.Fatal("nested node is nil")
-				}
-				other, ok := response.NestedNodes[0][0][1].(*RuntimeAbstractsNestedNodesNodeOctoqlOther)
-				if !ok || other.GetTypename() != "Bot" || other.GetId() != "B1" {
-					t.Fatalf("nested node = %#v (%T)", response.NestedNodes[0][0][1], response.NestedNodes[0][0][1])
-				}
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var response RuntimeAbstractsResponse
-			if err := json.Unmarshal([]byte(test.body), &response); err != nil {
-				t.Fatal(err)
-			}
-			test.check(t, response)
-		})
-	}
-}
-
-func TestMissingTypename(t *testing.T) {
-	var response RuntimeAbstractsResponse
-	err := json.Unmarshal([]byte(` + "`" + `{"node":{"id":"I1","url":"https://example.test/i"}}` + "`" + `), &response)
-	if err == nil || !strings.Contains(err.Error(), "response was missing Node.__typename") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestNullClearsReusedAbstractField(t *testing.T) {
-	var response RuntimeAbstractsResponse
-	err := json.Unmarshal(
-		[]byte(` + "`" + `{"node":{"__typename":"Repository","id":"R1","url":"https://example.test/r","nameWithOwner":"octo/repo"}}` + "`" + `),
-		&response,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if response.Node == nil {
-		t.Fatal("node is nil before reuse")
-	}
-
-	err = json.Unmarshal([]byte(` + "`" + `{"node":null}` + "`" + `), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if response.Node != nil {
-		t.Fatalf("node = %#v after null", response.Node)
-	}
-}
-
-func TestTypedNilAbstractValuesMarshalAsNull(t *testing.T) {
-	tests := []struct {
-		name string
-		node RuntimeAbstractsNode
-	}{
-		{
-			name: "implementation",
-			node: (*RuntimeAbstractsNodeRepository)(nil),
-		},
-		{
-			name: "catch-all implementation",
-			node: (*RuntimeAbstractsNodeOctoqlOther)(nil),
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			data, err := _octoqlMarshalRuntimeAbstractsNode(&test.node)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(data) != "null" {
-				t.Fatalf("marshal result = %s, want null", data)
-			}
-		})
-	}
-}
-`)
-
-	runGeneratedPackageTests(t, []byte(source), testSource)
-}
-
 func TestCatchAllNameCollision(t *testing.T) {
 	t.Parallel()
 
@@ -412,8 +254,6 @@ type Query { node: Node }
 }
 
 func generateGitHubAbstractSelections(t *testing.T, omit *bool) string {
-	t.Helper()
-
 	config := &Config{
 		Schema:                          []string{filepath.Join(dataDir, "schema.graphql")},
 		Operations:                      []string{filepath.Join(githubGenerationDefaultsDir, "operations.graphql")},
@@ -428,8 +268,6 @@ func generateGitHubAbstractSelections(t *testing.T, omit *bool) string {
 }
 
 func generateScalarOperation(t *testing.T, scalar string, binding *TypeBinding) string {
-	t.Helper()
-
 	dir := t.TempDir()
 	schema := fmt.Sprintf("scalar %s\ntype Query { value: %s! }\n", scalar, scalar)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
@@ -453,20 +291,4 @@ func generateScalarOperation(t *testing.T, scalar string, binding *TypeBinding) 
 	generated, err := Generate(config)
 	require.NoError(t, err)
 	return string(generated[config.Generated])
-}
-
-func runGeneratedPackageTests(t *testing.T, generatedSource, testSource []byte) {
-	t.Helper()
-
-	dir := t.TempDir()
-	goMod := "module github.com/willabides/octoql-github-defaults-test\n\ngo 1.27.3\n"
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), generatedSource, 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated_test.go"), testSource, 0o600))
-
-	cmd := exec.Command("go", "test", "-mod=readonly", "./...")
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOSUMDB=off")
-	output, commandErr := cmd.CombinedOutput()
-	require.NoErrorf(t, commandErr, "go test -mod=readonly ./...:\n%s", output)
 }

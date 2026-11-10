@@ -376,7 +376,8 @@ func (g *generator) validateOperation(op *ast.OperationDefinition) error {
 
 	if op.Name == "" {
 		return errorf(op.Position, "operations must have operation-names")
-	} else if goKeywords[op.Name] {
+	}
+	if goKeywords[op.Name] {
 		return errorf(op.Position, "operation name must not be a go keyword")
 	}
 

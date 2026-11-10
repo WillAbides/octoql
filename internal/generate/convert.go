@@ -719,7 +719,8 @@ func (g *generator) convertDefinition(
 
 	// Determine the name to use for this type.
 	var name string
-	if options.TypeName != "" {
+	switch {
+	case options.TypeName != "":
 		if goKeywords[options.TypeName] {
 			return nil, errorf(pos, "typename option must not be a go keyword")
 		}
@@ -734,15 +735,15 @@ func (g *generator) convertDefinition(
 		}
 		// (But the prefix is shared.)
 		namePrefix = newPrefixList(options.TypeName)
-	} else if def.Kind == ast.InputObject || def.Kind == ast.Enum {
+	case def.Kind == ast.InputObject || def.Kind == ast.Enum:
 		// If we're an input-object or enum, there is only one type we will
 		// ever possibly generate for this type, so we don't need any of the
 		// qualifiers.  This is especially helpful because the caller is very
 		// likely to need to reference these types in their code.
 		name = ApplyCasing(def.Name, g.Config.GetDefaultCasingAlgorithm(), true)
 		// (namePrefix is ignored in this case.)
-	} else {
-		// Else, construct a name using the usual algorithm (see names.go).
+	default:
+		// Construct a name using the usual algorithm (see names.go).
 		name = makeTypeName(namePrefix, def.Name, g.Config.GetDefaultCasingAlgorithm())
 	}
 

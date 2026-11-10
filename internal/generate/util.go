@@ -37,9 +37,9 @@ func snakeToCamel(s string) string {
 		if nextUpper {
 			result.WriteRune(unicode.ToUpper(r))
 			nextUpper = false
-		} else {
-			result.WriteRune(r)
+			continue
 		}
+		result.WriteRune(r)
 	}
 
 	return result.String()
@@ -51,13 +51,12 @@ func goConstName(s string) string {
 	}
 	var prev rune
 	return strings.Map(func(r rune) rune {
-		var ret rune
-		if r == '_' {
+		ret := unicode.ToLower(r)
+		switch {
+		case r == '_':
 			ret = -1
-		} else if prev == '_' || prev == 0 {
+		case prev == '_' || prev == 0:
 			ret = unicode.ToUpper(r)
-		} else {
-			ret = unicode.ToLower(r)
 		}
 		prev = r
 		return ret

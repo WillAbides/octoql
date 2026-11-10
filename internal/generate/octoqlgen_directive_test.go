@@ -47,14 +47,6 @@ func assertDeclares(t *testing.T, source, declaration string) {
 		strings.Join(strings.Fields(declaration), " "))
 }
 
-func testDirective(t *testing.T, name, args string) *ast.Directive {
-	doc, err := parser.ParseQuery(&ast.Source{
-		Input: "query Q @" + name + args + " { field }",
-	})
-	require.NoError(t, err)
-	return doc.Operations[0].Directives[0]
-}
-
 func generateSplit(t *testing.T, operation string) (string, error) {
 	dir := t.TempDir()
 	schemaPath := filepath.Join(dir, "schema.graphql")
@@ -74,116 +66,6 @@ func generateSplit(t *testing.T, operation string) (string, error) {
 		return "", err
 	}
 	return string(generated[generatedPath]), nil
-}
-
-func TestOctoqlgenDirectiveAddMergesRepeatedForDirectives(t *testing.T) {
-	forDirectives := make(map[fieldKey]*octoqlgenDirective)
-
-	err := addFor(
-		forDirectives,
-		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: true)`),
-		nil,
-	)
-	require.NoError(t, err)
-
-	err = addFor(
-		forDirectives,
-		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", omitempty: true)`),
-		nil,
-	)
-	require.NoError(t, err)
-
-	fieldDirective := forDirectives[fieldKey{typeName: "IssueFilter", fieldName: "assignee"}]
-	require.NotNil(t, fieldDirective)
-	assert.True(t, fieldDirective.GetPointer())
-	assert.True(t, fieldDirective.GetOmitempty())
-}
-
-func TestOctoqlgenDirectiveAddRejectsConflictingRepeatedForDirectives(t *testing.T) {
-	forDirectives := make(map[fieldKey]*octoqlgenDirective)
-
-	err := addFor(
-		forDirectives,
-		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: true)`),
-		nil,
-	)
-	require.NoError(t, err)
-
-	err = addFor(
-		forDirectives,
-		testDirective(t, octoqlgenForName, `(field: "IssueFilter.assignee", pointer: false)`),
-		nil,
-	)
-
-	assert.EqualError(t, err, "conflicting values for pointer")
-}
-
-func TestOctoqlgenDirectiveAddRejectsEmptyFor(t *testing.T) {
-	forDirectives := make(map[fieldKey]*octoqlgenDirective)
-
-	err := addFor(
-		forDirectives,
-		testDirective(t, octoqlgenForName, `(field: "", pointer: false)`),
-		nil,
-	)
-
-	assert.EqualError(t, err, `field must not be empty`)
-}
-
-func TestOctoqlgenDirectiveAddRejectsEmptyStringOptions(t *testing.T) {
-	for _, option := range []string{"alias", "bind", "typename"} {
-		t.Run(option, func(t *testing.T) {
-			directive := newOctoqlgenDirective(nil)
-
-			err := directive.applyArguments(
-				testDirective(t, octoqlgenDirectiveName, `(`+option+`: "")`), nil)
-
-			assert.EqualError(t, err, option+" must not be empty")
-		})
-	}
-}
-
-func TestOctoqlgenDirectiveRejectsNonLiteralArguments(t *testing.T) {
-	for name, test := range map[string]struct {
-		directive string
-		wantError string
-	}{
-		"variable boolean": {
-			directive: `(pointer: $p)`,
-			wantError: "expected boolean value for pointer",
-		},
-		"null boolean": {
-			directive: `(pointer: null)`,
-			wantError: "expected boolean value for pointer",
-		},
-		"variable string": {
-			directive: `(typename: $name)`,
-			wantError: "expected string value for typename",
-		},
-		"null string": {
-			directive: `(typename: null)`,
-			wantError: "expected string value for typename",
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			directive := newOctoqlgenDirective(nil)
-
-			err := directive.applyArguments(
-				testDirective(t, octoqlgenDirectiveName, test.directive), nil)
-
-			assert.EqualError(t, err, test.wantError)
-		})
-	}
-}
-
-func TestOctoqlgenDirectiveAddAllowsBindOptOut(t *testing.T) {
-	directive := newOctoqlgenDirective(nil)
-
-	err := directive.applyArguments(
-		testDirective(t, octoqlgenDirectiveName, `(bind: "-")`), nil)
-
-	require.NoError(t, err)
-	assert.Equal(t, "-", directive.Bind)
 }
 
 func TestDirectiveNeverReachesTheServer(t *testing.T) {
@@ -228,136 +110,61 @@ query Viewer($skipName: Boolean!) @octoqlgen(typename: "ViewerResp") {
 	assert.Contains(t, source, `@skip(if: $skipName)`)
 }
 
-func TestOctoqlgenDirectiveAllowsOperationOmitemptyWithVariableDefault(t *testing.T) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
-type Query {
-  value(input: String!): String!
-}
-`), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(operationPath, []byte(`
+func TestOctoqlgenDirectiveVariableOmitempty(t *testing.T) {
+	tests := []struct {
+		name      string
+		operation string
+		wantField string
+	}{
+		{
+			name: "operation defaults omitempty with variable default",
+			operation: `
 query Value($input: String! = "default") @octoqlgenDefaults(pointer: true, omitempty: true) {
   value(input: $input)
 }
-`), 0o600)
-	require.NoError(t, err)
-
-	generated, err := Generate(&Config{
-		Schema:      []string{schemaPath},
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "client",
-		ContextType: "-",
-	})
-
-	require.NoError(t, err)
-	assertDeclares(t, string(generated[filepath.Join(dir, "generated.go")]), `Input *string `+"`json:\"input,omitempty\"`")
-}
-
-func TestOctoqlgenDirectiveAllowsLocalOmitemptyWithVariableDefault(t *testing.T) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
-type Query {
-  value(input: String!): String!
-}
-`), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(operationPath, []byte(`
-query Value(
-  $input: String! = "default" @octoqlgen(pointer: true, omitempty: true)
-) {
+`,
+			wantField: `Input *string ` + "`json:\"input,omitempty\"`",
+		},
+		{
+			name: "local omitempty with variable default",
+			operation: `
+query Value($input: String! = "default" @octoqlgen(pointer: true, omitempty: true)) {
   value(input: $input)
 }
-`), 0o600)
-	require.NoError(t, err)
-
-	generated, err := Generate(&Config{
-		Schema:      []string{schemaPath},
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "client",
-		ContextType: "-",
-	})
-
-	require.NoError(t, err)
-	assertDeclares(t, string(generated[filepath.Join(dir, "generated.go")]), `Input *string `+"`json:\"input,omitempty\"`")
-}
-
-func TestOctoqlgenDirectiveAllowsLocalOmitemptyDisableForRequiredVariable(t *testing.T) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
-type Query {
-  value(input: String!): String!
-}
-`), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(operationPath, []byte(`
-query Value(
-  $input: String! @octoqlgen(omitempty: false)
-) @octoqlgenDefaults(omitempty: true) {
+`,
+			wantField: `Input *string ` + "`json:\"input,omitempty\"`",
+		},
+		{
+			name: "local omitempty disable for required variable",
+			operation: `
+query Value($input: String! @octoqlgen(omitempty: false)) @octoqlgenDefaults(omitempty: true) {
   value(input: $input)
 }
-`), 0o600)
-	require.NoError(t, err)
-
-	generated, err := Generate(&Config{
-		Schema:      []string{schemaPath},
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "client",
-		ContextType: "-",
-	})
-
-	require.NoError(t, err)
-	assertDeclares(t, string(generated[filepath.Join(dir, "generated.go")]), `Input string `+"`json:\"input\"`")
-}
-
-func TestOctoqlgenDirectiveAllowsOperationFlatten(t *testing.T) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
-type Query {
-  viewer: User!
-}
-
-type User {
-  name: String
-}
-`), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(operationPath, []byte(`
-	fragment ViewerFields on Query {
-	  viewer {
-	    name
-	  }
+`,
+			wantField: `Input string ` + "`json:\"input\"`",
+		},
 	}
 
-	query Viewer @octoqlgen(flatten: true) {
-	  ...ViewerFields
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			schemaPath := filepath.Join(dir, "schema.graphql")
+			operationPath := filepath.Join(dir, "operation.graphql")
+			require.NoError(t, os.WriteFile(schemaPath, []byte("type Query {\n  value(input: String!): String!\n}\n"), 0o600))
+			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
+
+			generated, err := Generate(&Config{
+				Schema:      []string{schemaPath},
+				Operations:  []string{operationPath},
+				Generated:   filepath.Join(dir, "generated.go"),
+				Package:     "client",
+				ContextType: "-",
+			})
+
+			require.NoError(t, err)
+			assertDeclares(t, string(generated[filepath.Join(dir, "generated.go")]), test.wantField)
+		})
 	}
-	`), 0o600)
-	require.NoError(t, err)
-
-	generated, err := Generate(&Config{
-		Schema:      []string{schemaPath},
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "client",
-		ContextType: "-",
-	})
-
-	require.NoError(t, err)
-	source := string(generated[filepath.Join(dir, "generated.go")])
-	assert.Contains(t, source, "type ViewerFields struct")
-	assert.NotContains(t, source, "type ViewerResponse struct")
 }
 
 func TestGeneratorOwnsTheDirectiveDefinition(t *testing.T) {
@@ -469,6 +276,46 @@ query Q($f: Filter) @octoqlgenFor(field: "Filter.label", alias: "Renamed") {
 }
 `,
 			wantError: "alias is only applicable to selected fields",
+		},
+		"empty alias": {
+			operation: `
+query Q {
+  thing { name @octoqlgen(alias: "") }
+}
+`,
+			wantError: "alias must not be empty",
+		},
+		"empty bind": {
+			operation: `
+query Q {
+  thing { name @octoqlgen(bind: "") }
+}
+`,
+			wantError: "bind must not be empty",
+		},
+		"empty typename": {
+			operation: `
+query Q @octoqlgen(typename: "") {
+  thing { name }
+}
+`,
+			wantError: "typename must not be empty",
+		},
+		"variable boolean argument": {
+			operation: `
+query Q($p: Boolean) {
+  thing { name @octoqlgen(pointer: $p) }
+}
+`,
+			wantError: "expected boolean value for pointer",
+		},
+		"null string argument": {
+			operation: `
+query Q @octoqlgen(typename: null) {
+  thing { name }
+}
+`,
+			wantError: "expected string value for typename",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

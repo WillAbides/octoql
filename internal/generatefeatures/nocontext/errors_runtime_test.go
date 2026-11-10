@@ -91,6 +91,19 @@ func TestPathRejectsInvalidSegments(t *testing.T) {
 	}
 }
 
+type graphqlErrorsFacet interface {
+	error
+	GraphQLErrorCount() int
+	GraphQLError(int) error
+}
+
+type graphqlErrorFacet interface {
+	error
+	GraphQLMessage() string
+	GraphQLPath() []any
+	GraphQLType() string
+}
+
 func TestErrorsFormattingAndInspection(t *testing.T) {
 	graphqlErrors := Errors{
 		&Error{
@@ -115,4 +128,14 @@ func TestErrorsFormattingAndInspection(t *testing.T) {
 	typedError, ok := errors.AsType[*Error](wrapped)
 	require.True(t, ok)
 	assert.Equal(t, "owner is unavailable", typedError.Message)
+
+	var aggregate graphqlErrorsFacet
+	require.ErrorAs(t, wrapped, &aggregate)
+	assert.Equal(t, 3, aggregate.GraphQLErrorCount())
+
+	var firstError graphqlErrorFacet
+	require.ErrorAs(t, aggregate.GraphQLError(0), &firstError)
+	assert.Equal(t, "FORBIDDEN", firstError.GraphQLType())
+	assert.Equal(t, "owner is unavailable", firstError.GraphQLMessage())
+	assert.Equal(t, []any{"repository", "owner"}, firstError.GraphQLPath())
 }
