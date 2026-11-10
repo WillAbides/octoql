@@ -435,29 +435,6 @@ func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
 	assert.Contains(t, err.Error(), "requires a configured remote")
 }
 
-func TestWriteDirectiveFileRejectsCollisions(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	for name, schemaPath := range map[string]string{
-		"schema path": filepath.Join(directory, internal.DirectiveFilename),
-		"user file":   filepath.Join(directory, "schema.graphql"),
-	} {
-		t.Run(name, func(t *testing.T) {
-			path := schemaPath
-			if name == "user file" {
-				require.NoError(t, os.WriteFile(
-					filepath.Join(directory, internal.DirectiveFilename), []byte("user-owned"), 0o600))
-			}
-
-			err := writeDirectiveFile(atomicOutputWriter{}, path)
-
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "directive")
-		})
-	}
-}
-
 func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 	t.Parallel()
 
@@ -766,14 +743,6 @@ type stubOutputWriter struct {
 func (w *stubOutputWriter) writtenTo(path string) ([]byte, bool) {
 	data, ok := w.written[path]
 	return data, ok
-}
-
-func (w *stubOutputWriter) ReadFile(path string) ([]byte, error) {
-	data, ok := w.written[path]
-	if !ok {
-		return nil, os.ErrNotExist
-	}
-	return data, nil
 }
 
 type stubRemoteResolver struct {

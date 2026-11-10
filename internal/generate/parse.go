@@ -1,10 +1,10 @@
 package generate
 
 import (
-	"bytes"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -111,6 +111,9 @@ func expandFilenames(globs []string) ([]string, error) {
 		if err != nil {
 			return nil, errorf(nil, "can't expand file-glob %v: %v", glob, err)
 		}
+		matches = slices.DeleteFunc(matches, func(match string) bool {
+			return path.Base(match) == internal.DirectiveFilename
+		})
 		if len(matches) == 0 {
 			return nil, errorf(nil, "%v did not match any files", glob)
 		}
@@ -160,7 +163,6 @@ func getQueries(
 		}
 		excluded = append(excluded, inspected)
 	}
-	matchedNonCompanion := false
 	for _, filename := range filenames {
 		inspected, inspectErr := inspectPath("query", filename)
 		if inspectErr != nil {
@@ -179,18 +181,12 @@ func getQueries(
 			}
 		}
 		if isExcluded {
-			matchedNonCompanion = true
 			continue
 		}
 		text, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, errorf(nil, "unreadable query-spec file %v: %v", filename, err)
 		}
-		if filepath.Base(filename) == internal.DirectiveFilename &&
-			bytes.HasPrefix(text, []byte(internal.DirectiveFileHeader)) {
-			continue
-		}
-		matchedNonCompanion = true
 
 		switch filepath.Ext(filename) {
 		case ".graphql", ".graphqls", ".gql":
@@ -204,9 +200,6 @@ func getQueries(
 		default:
 			return nil, errorf(nil, "unknown file type: %v", filename)
 		}
-	}
-	if !matchedNonCompanion {
-		return nil, errorf(nil, "%v did not match any files", strings.Join(globs, ", "))
 	}
 
 	return mergedQueryDoc, nil

@@ -25,10 +25,9 @@ const (
 )
 
 type Request struct {
-	Source                    config.Source
-	Path                      string
-	SHA256                    string
-	SkipExistingDirectiveFile bool
+	Source config.Source
+	Path   string
+	SHA256 string
 }
 
 type Materializer struct {
@@ -72,11 +71,9 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 			if err != nil {
 				return nil, err
 			}
-			if !request.SkipExistingDirectiveFile {
-				err = publishDirectiveFile(deps.fileSystem, request.Path)
-				if err != nil {
-					return nil, err
-				}
+			err = publishDirectiveFile(deps.fileSystem, request.Path)
+			if err != nil {
+				return nil, err
 			}
 			return existing, nil
 		}
@@ -114,10 +111,6 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 		return data, nil
 	}
 
-	_, upToDate, err := checkDirectiveFile(deps.fileSystem, request.Path)
-	if err != nil {
-		return nil, err
-	}
 	err = publish(
 		deps.fileSystem,
 		request.Path,
@@ -127,42 +120,31 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	if !upToDate {
-		err = publishDirectiveFile(deps.fileSystem, request.Path)
-		if err != nil {
-			return nil, err
-		}
+	err = publishDirectiveFile(deps.fileSystem, request.Path)
+	if err != nil {
+		return nil, err
 	}
 	return data, nil
 }
 
 func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
-	path, upToDate, err := checkDirectiveFile(fileSystem, schemaPath)
-	if err != nil || upToDate {
-		return err
-	}
-	return replace(fileSystem, path, []byte(internal.DirectiveFileContents))
-}
-
-func checkDirectiveFile(fileSystem fileSystem, schemaPath string) (string, bool, error) {
-	if filepath.Base(schemaPath) == internal.DirectiveFilename {
-		return "", false, fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
-	}
 	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
+	wanted := []byte(internal.DirectiveFileContents)
+
 	existing, err := fileSystem.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return path, false, nil
+	if err == nil {
+		if bytes.Equal(existing, wanted) {
+			return nil
+		}
+		err = fileSystem.Remove(path)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("replacing directive file %q: %w", path, err)
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("reading directive file %q: %w", path, err)
 	}
-	if err != nil {
-		return "", false, fmt.Errorf("reading directive file %q: %w", path, err)
-	}
-	if bytes.Equal(existing, []byte(internal.DirectiveFileContents)) {
-		return path, true, nil
-	}
-	if !bytes.HasPrefix(existing, []byte(internal.DirectiveFileHeader)) {
-		return "", false, fmt.Errorf("refusing to replace non-generated directive file %q", path)
-	}
-	return path, false, nil
+
+	return publish(fileSystem, path, wanted, "")
 }
 
 type dependencies struct {
@@ -257,7 +239,6 @@ type fileSystem interface {
 	CreateTemp(string, string) (tempFile, error)
 	Link(string, string) error
 	Remove(string) error
-	Rename(string, string) error
 }
 
 type tempFile interface {
@@ -287,53 +268,6 @@ func (osFileSystem) Link(oldname, newname string) error {
 
 func (osFileSystem) Remove(name string) error {
 	return os.Remove(name)
-}
-
-func (osFileSystem) Rename(oldname, newname string) error {
-	return os.Rename(oldname, newname)
-}
-
-func replace(fileSystem fileSystem, destination string, data []byte) (err error) {
-	directory := filepath.Dir(destination)
-	err = fileSystem.MkdirAll(directory, 0o755)
-	if err != nil {
-		return fmt.Errorf("creating directive directory %q: %w", directory, err)
-	}
-
-	temp, err := fileSystem.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary directive file: %w", err)
-	}
-	isClosed := false
-	shouldRemove := true
-	defer func() {
-		if !isClosed {
-			err = errors.Join(err, temp.Close())
-		}
-		if shouldRemove {
-			err = errors.Join(err, fileSystem.Remove(temp.Name()))
-		}
-	}()
-
-	_, err = io.Copy(temp, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("writing temporary directive file: %w", err)
-	}
-	err = temp.Sync()
-	if err != nil {
-		return fmt.Errorf("syncing temporary directive file: %w", err)
-	}
-	err = temp.Close()
-	isClosed = true
-	if err != nil {
-		return fmt.Errorf("closing temporary directive file: %w", err)
-	}
-	err = fileSystem.Rename(temp.Name(), destination)
-	if err != nil {
-		return fmt.Errorf("publishing directive file %q: %w", destination, err)
-	}
-	shouldRemove = false
-	return nil
 }
 
 func publish(fileSystem fileSystem, destination string, data []byte, expectedSHA256 string) (err error) {

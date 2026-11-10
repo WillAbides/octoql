@@ -110,13 +110,7 @@ func (cmd *initCommand) Run() (err error) {
 	}
 	configDir := filepath.Dir(cmd.ConfigPath)
 	schemaPath := filepath.Join(configDir, model.Schema.Path)
-	companionExisted, err := checkDirectiveFile(atomicOutputWriter{}, schemaPath)
-	if err != nil {
-		return err
-	}
-	companionPath := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
 	schemaCreated := false
-	companionCreated := false
 	existingSchema, err := os.ReadFile(schemaPath)
 	if err == nil && !bytes.Equal(existingSchema, result.Data) {
 		return fmt.Errorf("refusing to overwrite existing schema %q", schemaPath)
@@ -136,15 +130,7 @@ func (cmd *initCommand) Run() (err error) {
 		if schemaCreated && !initializationComplete {
 			err = errors.Join(err, os.Remove(schemaPath))
 		}
-		if companionCreated && !initializationComplete {
-			err = errors.Join(err, os.Remove(companionPath))
-		}
 	}()
-	err = writeDirectiveFile(atomicOutputWriter{}, schemaPath)
-	if err != nil {
-		return err
-	}
-	companionCreated = !companionExisted
 	gitignorePath := filepath.Join(configDir, ".octoql", ".gitignore")
 	err = os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
 	if err != nil {
@@ -305,10 +291,6 @@ func (cmd *schemaUpdateCommand) Run() error {
 	pinsUnchanged := loaded.Schema.SHA256Value() == result.SHA256 &&
 		sourceRevision(source) == result.Revision
 	if schemaUnchanged && pinsUnchanged {
-		_, err = checkDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
-		if err != nil {
-			return err
-		}
 		updatedConfig := config.SetSchemaDirective(rawConfig, cmd.configSchemaURL)
 		_, err = config.Parse(updatedConfig)
 		if err != nil {
@@ -358,13 +340,13 @@ func (cmd *schemaUpdateCommand) Run() error {
 	if !bytes.Equal(finalConfig, rawConfig) || !sameFileSnapshot(finalSchema, originalSchema) {
 		return errors.New("config or schema changed while updating; no files were published")
 	}
-	_, err = checkDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
-	if err != nil {
-		return err
-	}
 	err = cmd.outputWriter.Write(loaded.SchemaPath(), result.Data)
 	if err != nil {
 		return fmt.Errorf("publishing updated schema: %w", err)
+	}
+	err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+	if err != nil {
+		return err
 	}
 	currentConfig, err := os.ReadFile(configPath)
 	if err != nil {
@@ -376,10 +358,6 @@ func (cmd *schemaUpdateCommand) Run() error {
 	err = cmd.outputWriter.Write(configPath, updatedConfig)
 	if err != nil {
 		return fmt.Errorf("config update failed: %w", err)
-	}
-	err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
-	if err != nil {
-		return err
 	}
 	_, err = cmd.loadConfig(userConfigPath)
 	if err != nil {
@@ -463,10 +441,6 @@ func (cmd *schemaFetchCommand) Run() error {
 		return err
 	}
 	if cmd.Output != "" {
-		_, err = checkDirectiveFile(cmd.outputWriter, cmd.Output)
-		if err != nil {
-			return err
-		}
 		err = cmd.outputWriter.Write(cmd.Output, data)
 		if err != nil {
 			return fmt.Errorf("writing schema output %q: %w", cmd.Output, err)
@@ -499,38 +473,15 @@ type materializer interface {
 
 type outputWriter interface {
 	Write(string, []byte) error
-	ReadFile(string) ([]byte, error)
 }
 
 func writeDirectiveFile(writer outputWriter, schemaPath string) error {
-	_, err := checkDirectiveFile(writer, schemaPath)
-	if err != nil {
-		return err
-	}
 	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
-	err = writer.Write(path, []byte(internal.DirectiveFileContents))
+	err := writer.Write(path, []byte(internal.DirectiveFileContents))
 	if err != nil {
 		return fmt.Errorf("writing directive file %q: %w", path, err)
 	}
 	return nil
-}
-
-func checkDirectiveFile(writer outputWriter, schemaPath string) (bool, error) {
-	if filepath.Base(schemaPath) == internal.DirectiveFilename {
-		return false, fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
-	}
-	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
-	existing, err := writer.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("reading directive file %q: %w", path, err)
-	}
-	if !bytes.HasPrefix(existing, []byte(internal.DirectiveFileHeader)) {
-		return false, fmt.Errorf("refusing to replace non-generated directive file %q", path)
-	}
-	return true, nil
 }
 
 type Dependencies struct {
@@ -672,10 +623,6 @@ func (d *Dependencies) setDefaults() {
 }
 
 type atomicOutputWriter struct{}
-
-func (atomicOutputWriter) ReadFile(path string) ([]byte, error) {
-	return os.ReadFile(path)
-}
 
 func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
 	directory := filepath.Dir(destination)
