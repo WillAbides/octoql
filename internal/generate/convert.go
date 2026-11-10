@@ -507,7 +507,7 @@ func (g *generator) convertArguments(
 			return nil, errorf(arg.Position, "variable name must not be a go keyword")
 		}
 
-		_, options, err := g.parsePrecedingComment(arg, nil, arg.Position, queryOptions)
+		options, err := g.directiveFor(arg, nil, arg.Position, queryOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -758,19 +758,9 @@ func (g *generator) convertDefinition(
 		provenancePos = options.pos
 	}
 
-	// For schema-definition types (InputObject, Enum, Scalar), take an early-
-	// out if the type has already been generated: these types are generated
-	// from the schema definition rather than from the selection, so a
-	// selection-plan comparison has nothing meaningful to compare.  InputObject
-	// also requires this path for recursive types: it pre-inserts an empty
-	// struct via addType so getType on a second call returns that placeholder,
-	// and the early-out is required to avoid overwriting it.
-	// Known limitation: an operation-level @octoqlgen(for:) directive can
-	// change an input type's generated fields; contradictory declarations
-	// across operations are not detected here.
-	// For selection-based types (Object, Interface, Union), skip the early-
-	// out so the candidate is built and reaches addType for structural
-	// comparison.
+	// Schema-definition types (InputObject, Enum, Scalar) are generated from
+	// the schema definition and global @octoqlgenFor declarations rather than
+	// per-operation selections, so reuse existing types immediately.
 	if def.Kind == ast.InputObject || def.Kind == ast.Enum || def.Kind == ast.Scalar {
 		existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
 		if existing != nil || err != nil {
@@ -828,8 +818,8 @@ func (g *generator) convertDefinition(
 		}
 
 		for i, field := range def.Fields {
-			_, fieldOptions, err := g.parsePrecedingComment(
-				field, def, field.Position, queryOptions)
+			fieldOptions, err := g.directiveFor(
+				field, def, field.Position, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -848,7 +838,7 @@ func (g *generator) convertDefinition(
 			// will be ignored?  We know field.Type is a scalar, enum, or input
 			// type.  But plumbing that is a bit tricky in practice.
 			fieldGoType, err := g.convertType(
-				namePrefix, field.Type, nil, fieldOptions, queryOptions)
+				namePrefix, field.Type, nil, fieldOptions, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -1185,39 +1175,38 @@ func (g *generator) convertSelectionSet(
 ) ([]*goStructField, error) {
 	fields := make([]*goStructField, 0, len(selectionSet))
 	for _, selection := range selectionSet {
-		_, selectionOptions, err := g.parsePrecedingComment(
-			selection, nil, selection.GetPosition(), queryOptions)
-		if err != nil {
-			return nil, err
-		}
-
-		switch selection := selection.(type) {
+		switch sel := selection.(type) {
 		case *ast.Field:
+			selectionOptions, err := g.directiveFor(sel, nil, sel.Position, queryOptions)
+			if err != nil {
+				return nil, err
+			}
 			field, err := g.convertField(
-				namePrefix, selection, selectionOptions, queryOptions)
+				namePrefix, sel, selectionOptions, queryOptions)
 			if err != nil {
 				return nil, err
 			}
 			fields = append(fields, field)
 		case *ast.FragmentSpread:
-			if hasConditionalDirective(selection.Directives) {
-				return nil, errorf(selection.Position,
+			if hasConditionalDirective(sel.Directives) {
+				return nil, errorf(sel.Position,
 					"@skip and @include are not supported on fragment spreads "+
 						"(...%s): octoqlgen cannot represent the absence of "+
 						"every field the fragment contributes, so it would "+
 						"otherwise silently generate value types for fields "+
 						"that can vanish",
-					selection.Name)
+					sel.Name)
 			}
-			maybeField, err := g.convertFragmentSpread(selection, containingTypedef)
+			maybeField, err := g.convertFragmentSpread(sel, containingTypedef)
 			if err != nil {
 				return nil, err
-			} else if maybeField != nil {
+			}
+			if maybeField != nil {
 				fields = append(fields, maybeField)
 			}
 		case *ast.InlineFragment:
-			if hasConditionalDirective(selection.Directives) {
-				return nil, errorf(selection.Position,
+			if hasConditionalDirective(sel.Directives) {
+				return nil, errorf(sel.Position,
 					"@skip and @include are not supported on inline fragments: "+
 						"octoqlgen cannot represent the absence of every field "+
 						"the fragment contributes, so it would otherwise "+
@@ -1226,13 +1215,13 @@ func (g *generator) convertSelectionSet(
 			// (Note this will return nil, nil if the fragment doesn't apply to
 			// this type.)
 			fragmentFields, err := g.convertInlineFragment(
-				namePrefix, selection, containingTypedef, queryOptions)
+				namePrefix, sel, containingTypedef, queryOptions)
 			if err != nil {
 				return nil, err
 			}
 			fields = append(fields, fragmentFields...)
 		default:
-			return nil, errorf(nil, "invalid selection type: %T", selection)
+			return nil, errorf(nil, "invalid selection type: %T", sel)
 		}
 	}
 
@@ -1428,10 +1417,11 @@ func (g *generator) convertFragmentSpread(
 func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goType, error) {
 	typ := g.schema.Types[fragment.TypeCondition]
 
-	comment, directive, err := g.parsePrecedingComment(fragment, nil, fragment.Position, nil)
+	directive, err := g.directiveFor(fragment, nil, fragment.Position, nil)
 	if err != nil {
 		return nil, err
 	}
+	comment := precedingComment(fragment.Position)
 
 	desc := descriptionInfo{
 		CommentOverride:    comment,

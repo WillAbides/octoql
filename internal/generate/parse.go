@@ -1,21 +1,17 @@
 package generate
 
 import (
-	"fmt"
-	goAst "go/ast"
-	goParser "go/parser"
-	goToken "go/token"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
-	"strings"
+	"slices"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 	"github.com/vektah/gqlparser/v2/validator"
 	_ "github.com/vektah/gqlparser/v2/validator/rules"
+	"github.com/willabides/octoql/internal"
 )
 
 func getSchema(globs StringList) (*ast.Schema, []string, error) {
@@ -26,7 +22,8 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 
 	sources := make([]*ast.Source, len(filenames))
 	for i, filename := range filenames {
-		text, err := os.ReadFile(filename)
+		var text []byte
+		text, err = os.ReadFile(filename)
 		if err != nil {
 			return nil, nil, errorf(nil, "unreadable schema file %v: %v", filename, err)
 		}
@@ -61,6 +58,11 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 			return nil, nil, errorf(nil, "invalid prelude (probably a gqlparser bug): %v", graphqlError)
 		}
 		document.Merge(preludeAST)
+	}
+
+	err = addOctoqlgenDirectiveDefinition(document)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	schema, graphqlError := validator.ValidateSchemaDocument(document)
@@ -103,6 +105,9 @@ func expandFilenames(globs []string) ([]string, error) {
 		if err != nil {
 			return nil, errorf(nil, "can't expand file-glob %v: %v", glob, err)
 		}
+		matches = slices.DeleteFunc(matches, func(match string) bool {
+			return path.Base(match) == internal.DirectiveFilename
+		})
 		if len(matches) == 0 {
 			return nil, errorf(nil, "%v did not match any files", glob)
 		}
@@ -186,16 +191,6 @@ func getQueries(
 
 			addQueryDoc(queryDoc)
 
-		case ".go":
-			queryDocs, err := getQueriesFromGo(string(text), basedir, filename)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, queryDoc := range queryDocs {
-				addQueryDoc(queryDoc)
-			}
-
 		default:
 			return nil, errorf(nil, "unknown file type: %v", filename)
 		}
@@ -212,57 +207,10 @@ func getQueriesFromString(text string, basedir, filename string) (*ast.QueryDocu
 	}
 
 	// Cf. gqlparser.LoadQuery
-	document, graphqlError := parser.ParseQuery(
-		&ast.Source{Name: filename, Input: text})
+	document, graphqlError := parser.ParseQuery(&ast.Source{Name: filename, Input: text})
 	if graphqlError != nil { // ParseQuery returns type *graphql.Error, yuck
 		return nil, errorf(nil, "invalid query-spec file %v: %v", filename, graphqlError)
 	}
 
 	return document, nil
-}
-
-func getQueriesFromGo(text string, basedir, filename string) ([]*ast.QueryDocument, error) {
-	fset := goToken.NewFileSet()
-	f, err := goParser.ParseFile(fset, filename, text, 0)
-	if err != nil {
-		return nil, errorf(nil, "invalid Go file %v: %v", filename, err)
-	}
-
-	var retval []*ast.QueryDocument
-	goAst.Inspect(f, func(node goAst.Node) bool {
-		if err != nil {
-			return false // don't bother to recurse if something already failed
-		}
-
-		basicLit, ok := node.(*goAst.BasicLit)
-		if !ok || basicLit.Kind != goToken.STRING {
-			return true // recurse
-		}
-
-		var value string
-		value, err = strconv.Unquote(basicLit.Value)
-		if err != nil {
-			return false
-		}
-
-		if !strings.HasPrefix(strings.TrimSpace(value), "# @octoqlgen") {
-			return true
-		}
-
-		// We put the filename as <real filename>:<line>, which errors.go knows
-		// how to parse back out (since it's what gqlparser will give to us in
-		// our errors).
-		pos := fset.Position(basicLit.Pos())
-		fakeFilename := fmt.Sprintf("%v:%v", pos.Filename, pos.Line)
-		var query *ast.QueryDocument
-		query, err = getQueriesFromString(value, basedir, fakeFilename)
-		if err != nil {
-			return false
-		}
-		retval = append(retval, query)
-
-		return true
-	})
-
-	return retval, err
 }

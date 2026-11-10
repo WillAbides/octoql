@@ -1,7 +1,6 @@
 query ConflictingTypeNameAndGlobalBind {
   user {
-    # @octoqlgen(typename: "OtherScalar")
-    name
+    name @octoqlgen(typename: "OtherScalar")
   }
 }
 

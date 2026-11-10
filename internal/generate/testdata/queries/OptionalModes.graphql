@@ -1,13 +1,14 @@
 # Copyright (c) 2026 octoql contributors
 # SPDX-License-Identifier: MIT
 
-# @octoqlgen(for: "InputWithDefaults.optionalLabel", omitempty: true)
-# @octoqlgen(for: "IssueFilter.assignee", pointer: true)
 query OptionalGitHubInputs(
   $filter: IssueFilter
   $defaults: InputWithDefaults!
   $optional: OmitemptyInput
-) {
+)
+  @octoqlgenFor(field: "InputWithDefaults.optionalLabel", omitempty: true)
+  @octoqlgenFor(field: "IssueFilter.assignee", pointer: true)
+{
   repository(owner: "octo", name: "fixture") {
     issues(filter: $filter) {
       nodes {
@@ -26,8 +27,7 @@ mutation UpdateIssueWithCollidingNames($data: String!, $req: Int, $resp: Int, $c
 }
 
 query OptionalPointerPrecedence(
-  # @octoqlgen(pointer: false)
-  $owner: String
+  $owner: String @octoqlgen(pointer: false)
 ) {
   repositoryByOptionalOwner(owner: $owner) {
     nameWithOwner

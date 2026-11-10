@@ -1,6 +1,5 @@
 query ConflictingTypeNameAndGlobalBind {
   user {
-    # @octoqlgen(bind: "[]byte", typename: "MyID")
-    name
+    name @octoqlgen(bind: "[]byte", typename: "MyID")
   }
 }

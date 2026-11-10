@@ -1,0 +1,232 @@
+query getRepository ($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    id
+    name
+    nameWithOwner
+    owner {
+      login
+    }
+  }
+}
+mutation addComment ($input: AddCommentInput!) {
+  addComment(input: $input) {
+    commentEdge {
+      node {
+        id
+        body
+      }
+    }
+  }
+}
+mutation addStar ($input: AddStarInput!) {
+  addStar(input: $input) {
+    starrable {
+      id
+      stargazerCount
+      viewerHasStarred
+    }
+  }
+}
+mutation removeStar ($input: RemoveStarInput!) {
+  removeStar(input: $input) {
+    starrable {
+      id
+      stargazerCount
+      viewerHasStarred
+    }
+  }
+}
+query failingQuery {
+  fail
+  viewer {
+    id
+  }
+}
+query queryWithVariables ($login: String!) {
+  user(login: $login) {
+    id
+    login
+    contributionCount
+  }
+}
+query queryWithOmitempty ($login: String) @octoqlgenDefaults(omitempty: true) {
+  user(login: $login) {
+    id
+    login
+    contributionCount
+  }
+}
+query queryWithCustomMarshal ($date: Date!) {
+  usersCreatedOn(date: $date) {
+    id
+    login
+    createdAt
+  }
+}
+query queryWithCustomMarshalSlice ($dates: [Date!]!) {
+  usersCreatedOnDates(dates: $dates) {
+    id
+    login
+    createdAt
+  }
+}
+query queryWithCustomMarshalOptional ($date: Date @octoqlgen(pointer: true), $login: String @octoqlgen(pointer: true)) {
+  userSearch(createdOn: $date, login: $login) {
+    id
+    login
+    createdAt
+  }
+}
+query queryWithInterfaceNoFragments ($id: ID!) {
+  actor(id: $id) {
+    id
+    login
+  }
+  viewer {
+    id
+    login
+  }
+}
+query queryWithInterfaceListField ($ids: [ID!]!) {
+  actors(ids: $ids) {
+    id
+    login
+  }
+}
+query queryWithInterfaceListPointerField ($ids: [ID!]!) {
+  actors(ids: $ids) @octoqlgen(pointer: true) {
+    __typename
+    id
+    login
+  }
+}
+query queryWithFragments ($ids: [ID!]!) {
+  actors(ids: $ids) {
+    __typename
+    id
+    ... on Actor {
+      id
+      login
+    }
+    ... on Organization {
+      id
+      plan {
+        name
+      }
+      topContributor {
+        id
+        ... on Actor {
+          login
+        }
+        ... on User {
+          contributionCount
+        }
+      }
+    }
+    ... on RepositoryOwner {
+      contributionCount
+    }
+    ... on User {
+      status {
+        emoji
+      }
+    }
+  }
+}
+query queryWithNamedFragments ($ids: [ID!]!) {
+  actors(ids: $ids) {
+    __typename
+    id
+    ... organizationFields
+    ... userFields
+  }
+}
+query queryWithFlatten ($ids: [ID!]!) @octoqlgen(flatten: true) {
+  ... queryFragment
+}
+query queryWithSearch ($query: String!, $searchType: SearchType!) {
+  search(query: $query, type: $searchType) {
+    __typename
+    ... on Node {
+      id
+    }
+    ... on Repository {
+      name
+      stargazerCount
+    }
+    ... on Issue {
+      title
+      issueState: state
+    }
+    ... on PullRequest {
+      title
+      pullRequestState: state
+    }
+    ... on Actor {
+      login
+    }
+  }
+}
+fragment organizationFields on Organization {
+  id
+  plan {
+    name
+  }
+  topContributor {
+    id
+    ... userFields
+    ... repositoryOwnerFields
+  }
+}
+fragment moreUserFields on User {
+  id
+  status {
+    emoji
+  }
+}
+fragment repositoryOwnerFields on RepositoryOwner {
+  ... moreUserFields
+  contributionCount
+}
+fragment userFields on User {
+  id
+  ... repositoryOwnerFields
+  ... moreUserFields
+}
+fragment actorFields on Actor @octoqlgen(flatten: true) {
+  ... innerActorFields
+}
+fragment innerActorFields on Actor {
+  id
+  login
+  ... on User {
+    repositories @octoqlgen(flatten: true) {
+      ... repositoriesFields
+    }
+  }
+}
+fragment repositoriesFields on Repository {
+  id
+  name
+}
+fragment flattenedUserFields on User @octoqlgen(flatten: true) {
+  ... flattenedRepositoryOwnerFields
+}
+fragment flattenedRepositoryOwnerFields on RepositoryOwner @octoqlgen(flatten: true) {
+  ... innerRepositoryOwnerFields
+}
+fragment innerRepositoryOwnerFields on RepositoryOwner {
+  contributionCount
+}
+fragment queryFragment on Query {
+  actors(ids: $ids) {
+    __typename
+    id
+    ... flattenedUserFields
+    ... on Organization {
+      topContributor @octoqlgen(flatten: true) {
+        ... actorFields
+      }
+    }
+  }
+}

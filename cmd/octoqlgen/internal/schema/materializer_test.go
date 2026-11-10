@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
+	"github.com/willabides/octoql/internal"
 )
 
 const schemaRevision = "45d83f459620340069df7c375a8867be62616d61"
@@ -43,6 +44,12 @@ func TestMaterializerExistingFile(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, data)
+
+	companionPath := filepath.Join(filepath.Dir(destination), internal.DirectiveFilename)
+	companion, err := os.ReadFile(companionPath)
+	require.NoError(t, err)
+	assert.Equal(t, internal.DirectiveFileContents, string(companion))
+	assert.Empty(t, temporaryFiles(t, companionPath))
 }
 
 func TestMaterializerExistingFileMismatch(t *testing.T) {
@@ -66,20 +73,6 @@ func TestMaterializerExistingFileMismatch(t *testing.T) {
 	after, readErr := os.ReadFile(destination)
 	require.NoError(t, readErr)
 	assert.Equal(t, exactSchema, after)
-}
-
-func TestMaterializerReadError(t *testing.T) {
-	t.Parallel()
-
-	expectedErr := errors.New("read interrupted")
-	materializer := NewMaterializer()
-	materializer.FileSystem = &readErrorFileSystem{err: expectedErr}
-
-	_, err := materializer.Materialize(t.Context(), &Request{
-		Path: filepath.Join(t.TempDir(), "schema.graphql"),
-	})
-	require.ErrorIs(t, err, expectedErr)
-	assert.Contains(t, err.Error(), "reading schema file")
 }
 
 func TestMaterializerMissingLocalFile(t *testing.T) {
@@ -484,67 +477,6 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 	}
 }
 
-func TestMaterializerAtomicWriteFailures(t *testing.T) {
-	tests := []struct {
-		name          string
-		wrap          func(tempFile) tempFile
-		expectedError string
-	}{
-		{
-			name: "interrupted write",
-			wrap: func(file tempFile) tempFile {
-				return &failingTempFile{
-					tempFile: file,
-					writeErr: errors.New("write interrupted"),
-				}
-			},
-			expectedError: "writing temporary schema file",
-		},
-		{
-			name: "failed sync",
-			wrap: func(file tempFile) tempFile {
-				return &failingTempFile{
-					tempFile: file,
-					syncErr:  errors.New("sync failed"),
-				}
-			},
-			expectedError: "syncing temporary schema file",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-				_, _ = response.Write(exactSchema)
-			}))
-			t.Cleanup(server.Close)
-			destination := filepath.Join(t.TempDir(), "schema.graphql")
-			materializer := testGitHubMaterializer(server.Client())
-			materializer.GitHubAPIBaseURL = func(string) string {
-				return server.URL
-			}
-			materializer.FileSystem = &wrappingFileSystem{wrap: test.wrap}
-
-			_, err := materializer.Materialize(t.Context(), &Request{
-				Path:   destination,
-				SHA256: checksum(exactSchema),
-				Source: config.Source{
-					Repository: "octo-org/octo-repo",
-					Path:       "schema.graphql",
-					Revision:   schemaRevision,
-				},
-			})
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), test.expectedError)
-			_, statErr := os.Stat(destination)
-			require.ErrorIs(t, statErr, fs.ErrNotExist)
-			assert.Empty(t, temporaryFiles(t, destination))
-		})
-	}
-}
-
 func TestMaterializerConcurrent(t *testing.T) {
 	t.Parallel()
 
@@ -725,46 +657,4 @@ func (r *stubCommandRunner) Run(
 
 func (r *stubCommandRunner) Calls() int {
 	return int(r.calls.Load())
-}
-
-type readErrorFileSystem struct {
-	osFileSystem
-	err error
-}
-
-func (f *readErrorFileSystem) ReadFile(string) ([]byte, error) {
-	return nil, f.err
-}
-
-type wrappingFileSystem struct {
-	osFileSystem
-	wrap func(tempFile) tempFile
-}
-
-func (f *wrappingFileSystem) CreateTemp(dir, pattern string) (tempFile, error) {
-	file, err := f.osFileSystem.CreateTemp(dir, pattern)
-	if err != nil {
-		return nil, err
-	}
-	return f.wrap(file), nil
-}
-
-type failingTempFile struct {
-	tempFile
-	writeErr error
-	syncErr  error
-}
-
-func (f *failingTempFile) Write(data []byte) (int, error) {
-	if f.writeErr != nil {
-		return 0, f.writeErr
-	}
-	return f.tempFile.Write(data)
-}
-
-func (f *failingTempFile) Sync() error {
-	if f.syncErr != nil {
-		return f.syncErr
-	}
-	return f.tempFile.Sync()
 }

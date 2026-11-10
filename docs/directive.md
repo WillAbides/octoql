@@ -1,95 +1,114 @@
-# The `@octoqlgen` directive
+# octoqlgen's directives
 
-The `@octoqlgen` quasi-directive configures octoqlgen for individual
-operations, fragments, fields, and arguments.
+octoqlgen is configured from your operations by three directives, one for each
+scope:
 
-Its syntax is just like a GraphQL directive, except that it goes in a comment
-on the line immediately preceding the element it applies to. This is because
-GraphQL expects directives in queries to be defined by the server rather than
-the client, so a real `@octoqlgen` directive would be rejected as nonexistent.
+| Directive | Scope | Goes on |
+| --- | --- | --- |
+| `@octoqlgen` | the node it is attached to | fields, variables, operations, fragments |
+| [`@octoqlgenDefaults`](#octoqlgendefaults) | the fields inside | operations, fragments |
+| [`@octoqlgenFor`](#octoqlgenfor) | a named type's field, everywhere | operations, fragments |
 
-`@octoqlgen` is the only supported spelling. There is no compatibility alias.
+They are real GraphQL directives attached directly to the element they configure.
+octoqlgen declares them in the loaded schema and strips them from every
+operation before sending it, so the server never sees them.
+
+Each directive declares only the options valid for its scope. These are the only
+supported spellings, and there are no compatibility aliases.
+
+## Editor support
+
+octoqlgen declares its directives internally during code generation, and writes
+`octoqlgen-directive.graphql` next to any schema it materializes so editors and
+GraphQL tooling can resolve them and show option descriptions on hover. Keeping
+the declarations in a separate file leaves the schema bytes untouched so
+`schema.sha256` continues to match the source.
+
+Tooling that reads every `.graphql` file in the project picks the file up
+automatically. Tooling that takes an explicit list, such as
+[graphql-config](https://the-guild.dev/graphql/config), needs it added:
+
+```yaml
+schema:
+  - schema.graphql
+  - octoqlgen-directive.graphql
+```
+
+Declare the directives in only one place per project, because GraphQL rejects
+duplicate directive definitions.
 
 ## Placement
 
-Directives may be applied to fields, arguments, or an entire operation or named
-fragment. A directive on the line preceding an operation or a named fragment
-applies to all relevant elements within it. Every other directive is directly
-attached to the outermost element beginning on the following line. That direct
-attachment does not apply to nested elements, including a field's arguments and
-selections and an operation's variable definitions. A directive preceding peer
-nodes of the same kind at the same nesting depth on one line is rejected; put
-those nodes on separate lines. In all cases other comments may appear between
-the directive and the element it applies to.
+`@octoqlgen` applies only to the element it is attached to, not to that
+element's arguments or selections. Use `@octoqlgenDefaults` to set defaults for
+fields inside an operation or fragment, and `@octoqlgenFor` to configure a
+named type's field.
+
 String option values must not be empty. Use `bind: "-"` to explicitly opt out
 of a configured binding.
 
 For example:
 
 ```graphql
-# @octoqlgen(n: "a")
-
-# @octoqlgen(n: "b")
-#
 # Comment describing the query
-#
-# @octoqlgen(n: "c")
-query MyQuery(arg1: String,
-  # @octoqlgen(n: "d")
-  arg2: String,
-  arg3: MyInput,
-  arg4: String,
-) {
-  # @octoqlgen(n: "e")
-  field1
+query MyQuery(
+  $arg1: String
+  $arg2: String @octoqlgen(n: "d")
+  $arg3: MyInput
+) @octoqlgenDefaults(n: "b") @octoqlgenDefaults(n: "c") {
+  field1 @octoqlgen(n: "e")
   field2
-  # @octoqlgen(n: "f")
-  field3(argument: "value") { field4 field5 }
+  field3(argument: "value") @octoqlgen(n: "f") {
+    field4
+    field5
+  }
 }
 ```
 
-Here directive `a` is ignored, `b` and `c` apply to all relevant nodes in the
-query, `d` applies to `arg2`, `e` applies to `field1`, and `f` applies to
-`field3` but not its argument, `field4`, or `field5`.
+Here `b` and `c` apply to all relevant nodes in the query, `d` applies to
+`$arg2`, `e` applies to `field1`, and `f` applies to `field3` but not to its
+argument, `field4`, or `field5`.
 
-Except as noted below, directives on nodes take precedence over directives on
-the entire operation, so `d`, `e`, and `f` take precedence over `b` and `c`.
-Multiple directives on the same node, such as `b` and `c`, must not conflict.
+An `@octoqlgen` on a node takes precedence over a default, so `d`, `e`, and `f`
+take precedence over `b` and `c`.
 
-Directly attached directives do *not* apply to their children, so `d` does not
-apply to the fields of `MyInput` and `f` does not apply to `field4`. Directives
-on operations and fragments do apply to children, so both `b` and `c` apply to
-the fields of `MyInput` and to `field4`.
+`@octoqlgen` does *not* apply to a node's children, so `d` does not apply to the
+fields of `MyInput` and `f` does not apply to `field4`. Defaults apply to the
+operation's variables and selected fields, so both `b` and `c` apply to `$arg1`,
+`$arg3`, `field2`, `field4`, and `field5`. Use `@octoqlgenFor` to configure the
+fields of `MyInput`.
 
-Multiple `@octoqlgen` directives are allowed in the same location as long as
-they do not have conflicting options. Directives are valid on queries,
-mutations, fields, fragment definitions, and variable definitions. octoql does
-not support subscriptions.
+Each directive is repeatable in the same location as long as the repeats do not
+have conflicting options. octoql does not support subscriptions.
 
-## `for`
+## `@octoqlgenDefaults`
 
-Treats the entire `@octoqlgen` directive as if it were applied to the named
-field of the named type, written as `"MyType.myField"`. It must be applied to
-an entire operation or fragment.
-
-This is especially useful for input-type options like `omitempty` and
-`pointer`, which are equally meaningful on input-type fields as on arguments,
-but have no natural syntax to put them on fields.
-
-For input types, unless the type has the `typename` option set, all operations
-and fragments in the same package that use the type should have matching
-directives. This avoids needing to give them more complex type names, and is
-not currently validated.
-
-Given the following query:
+Sets `omitempty`, `pointer`, or `struct` as a default for the fields inside an
+operation or fragment. A directive on a node takes precedence.
 
 ```graphql
-# @octoqlgen(for: "MyInput.myField", omitempty: true)
-# @octoqlgen(for: "MyInput.myOtherField", pointer: true)
-# @octoqlgen(for: "MyOutput.id", bind: "path/to/pkg.MyOutputID")
-query MyQuery(
-  $arg: MyInput
-) { ... }
+query MyQuery @octoqlgenDefaults(pointer: false) {
+  myField
+  myOtherField @octoqlgen(pointer: true)
+}
+```
+
+`@octoqlgen` describes the node it is attached to, so `omitempty`, `pointer`,
+and `struct` are rejected on `@octoqlgen` when attached to an operation or
+fragment. Use `@octoqlgenDefaults` instead.
+
+## `@octoqlgenFor`
+
+Applies options to `"MyType.myField"` wherever octoqlgen generates that field.
+It goes on an operation or fragment, and is how you configure input object
+fields defined in the schema.
+
+```graphql
+query MyQuery($arg: MyInput)
+  @octoqlgenFor(field: "MyInput.myField", omitempty: true)
+  @octoqlgenFor(field: "MyInput.myOtherField", pointer: true)
+  @octoqlgenFor(field: "MyOutput.id", bind: "path/to/pkg.MyOutputID")
+{ ... }
 ```
 
 octoqlgen generates:
@@ -105,17 +124,26 @@ type MyInput struct {
 and uses it for the argument to `MyQuery`. Similarly, if `MyOutput.id` is ever
 requested in the response, it uses the given type.
 
+A named type generates a single Go type, so `@octoqlgenFor` declarations for the
+same field must agree across operations. Operations that do not declare options
+for that field do not need to repeat the declaration. To generate distinct Go
+types for the same GraphQL type across operations, use [`typename`](#typename)
+or annotate the selected fields directly.
+
+`struct` and `flatten` depend on a specific selection's shape and cannot be set
+with `@octoqlgenFor`.
+
 ## `omitempty`
 
-Omits this argument, or input-type field when combined with `for`, if it has an
-empty value. Empty is defined the same as in `encoding/json`: false, 0, a nil
-pointer, a nil interface value, and any empty array, slice, map, or string.
+Omits this argument, or input-type field when combined with
+[`@octoqlgenFor`](#octoqlgenfor), if it has an empty value. Empty is defined the
+same as in `encoding/json`: false, 0, a nil pointer, a nil interface value, and
+any empty array, slice, map, or string.
 
 Given the following query:
 
 ```graphql
-# @octoqlgen(omitempty: true)
-query MyQuery($arg: String) { ... }
+query MyQuery($arg: String @octoqlgen(omitempty: true)) { ... }
 ```
 
 octoqlgen generates a variables field like:
@@ -195,8 +223,7 @@ With `flatten`:
 
 ```graphql
 query MyQuery {
-  # @octoqlgen(flatten: true)
-  myField {
+  myField @octoqlgen(flatten: true) {
     ...MyFragment
   }
 }
@@ -223,8 +250,7 @@ Given a query like:
 
 ```graphql
 query MyQuery {
-  # @octoqlgen(alias: "MyGreatName")
-  myField
+  myField @octoqlgen(alias: "MyGreatName")
 }
 ```
 
@@ -239,6 +265,11 @@ type MyQueryResponse struct {
 This is similar to the GraphQL alias syntax, such as `myGreatName: myField`, but
 it only affects the Go field name, not the GraphQL query. This is especially
 useful with GraphQL servers that limit the number of aliases a query may use.
+
+Only applicable to selected fields, either directly or through
+[`@octoqlgenFor`](#octoqlgenfor). Variable and input-object fields take their
+names from the GraphQL variable or field, so `alias` is rejected on both. Rename
+the variable to change the Go name of a variables field.
 
 ## `bind`
 
@@ -255,7 +286,7 @@ The type is the type of the whole field. If the GraphQL field has type
 `[DateTime]`, that would be:
 
 ```graphql
-# @octoqlgen(bind: "[]time.Time")
+myField @octoqlgen(bind: "[]time.Time")
 ```
 
 That is not required, though. Mapping to some type `DateList` also works, as
@@ -280,10 +311,8 @@ Gives the type of this field the given name in Go.
 Given the following query:
 
 ```graphql
-# @octoqlgen(typename: "MyResp")
-query MyQuery {
-  # @octoqlgen(typename: "User")
-  user {
+query MyQuery @octoqlgen(typename: "MyResp") {
+  user @octoqlgen(typename: "User") {
     id
   }
 }
@@ -308,8 +337,7 @@ for that basic type:
 ```graphql
 query MyQuery {
   user {
-    # @octoqlgen(typename: "NameType")
-    name
+    name @octoqlgen(typename: "NameType")
   }
 }
 ```

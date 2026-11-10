@@ -1,6 +1,5 @@
 query StructOptionOnObject {
-  # @octoqlgen(struct: true)
-  myObject {
+  myObject @octoqlgen(struct: true) {
     f
   }
 }

@@ -1,4 +1,3 @@
-# @octoqlgen(for: "", pointer: false)
-query EmptyForDirective {
+query EmptyForDirective @octoqlgenFor(field: "", pointer: false) {
   f
 }

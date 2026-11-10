@@ -5,7 +5,7 @@ references that are too detailed for it.
 
 - [Configuration reference](configuration.md) — every `octoqlgen.yaml` option.
   Generated from `octoqlgen.schema.yaml`; edit the schema, not this page.
-- [`@octoqlgen` directive reference](directive.md) — per-operation and per-field
+- [octoqlgen directive reference](directive.md) — per-operation and per-field
   options.
 - [CLI reference](cli.md) — `octoqlgen` commands and flags.
 

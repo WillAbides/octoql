@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
+	"github.com/willabides/octoql/internal"
 )
 
 const (
@@ -95,6 +96,9 @@ func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
 	assert.Empty(t, stdout.String())
 	assert.Equal(t, "schema.graphql", outputWriter.path)
 	assert.Equal(t, []byte("exact schema bytes\n"), outputWriter.data)
+	companion, ok := outputWriter.writtenTo(internal.DirectiveFilename)
+	require.True(t, ok)
+	assert.Contains(t, string(companion), "directive @octoqlgen(")
 	assert.Equal(t, "github/docs", materializer.request.Source.Repository)
 	assert.Equal(t, "src/graphql/data/ghec/schema.docs.graphql", materializer.request.Source.Path)
 	assert.Equal(t, cliRevision, materializer.request.Source.Revision)
@@ -490,7 +494,7 @@ func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
 }
 
-func TestSchemaUpdateCommandRefreshesDirectiveWhenSchemaIsUnchanged(t *testing.T) {
+func TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged(t *testing.T) {
 	t.Parallel()
 
 	directory := t.TempDir()
@@ -538,6 +542,12 @@ func TestSchemaUpdateCommandRefreshesDirectiveWhenSchemaIsUnchanged(t *testing.T
 	require.NoError(t, err)
 	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
 	assert.Equal(t, "schema is unchanged\n", stdout.String())
+	companion, err := os.ReadFile(filepath.Join(directory, internal.DirectiveFilename))
+	require.NoError(t, err)
+	assert.Equal(t, internal.DirectiveFileContents, string(companion))
+	schemaContent, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	assert.Equal(t, cliSchema, string(schemaContent), "the schema itself must be untouched")
 }
 
 func TestHelpSnapshots(t *testing.T) {
@@ -724,9 +734,15 @@ func (m *stubMaterializer) Materialize(
 }
 
 type stubOutputWriter struct {
-	err  error
-	path string
-	data []byte
+	err     error
+	path    string
+	data    []byte
+	written map[string][]byte
+}
+
+func (w *stubOutputWriter) writtenTo(path string) ([]byte, bool) {
+	data, ok := w.written[path]
+	return data, ok
 }
 
 type stubRemoteResolver struct {
@@ -741,7 +757,16 @@ func (r *stubRemoteResolver) Resolve(_ context.Context, source config.Source) (s
 }
 
 func (w *stubOutputWriter) Write(path string, data []byte) error {
-	w.path = path
-	w.data = append([]byte{}, data...)
-	return w.err
+	if w.err != nil {
+		return w.err
+	}
+	if w.written == nil {
+		w.written = map[string][]byte{}
+	}
+	w.written[path] = append([]byte{}, data...)
+	if filepath.Base(path) != internal.DirectiveFilename {
+		w.path = path
+		w.data = append([]byte{}, data...)
+	}
+	return nil
 }

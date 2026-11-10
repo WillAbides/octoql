@@ -1,6 +1,5 @@
 query UnknownDirectiveArgument {
-  # @octoqlgen(unknown: true)
-  t {
+  t @octoqlgen(unknown: true) {
     f
   }
 }

@@ -66,9 +66,9 @@ func structFieldsMatch(existing, candidate []*goStructField) error {
 // selectionsMatch recursively compares the two selection-sets, and returns an
 // error if they differ.
 //
-// It does not check arguments and directives, only field names, aliases,
-// order, and fragment-structure.  It does not recurse into named fragments, it
-// only checks that their names match.
+// It checks field names, aliases, order, and fragment-structure. It does not
+// check arguments or directives, and it does not recurse into named fragments,
+// it only checks that their names match.
 //
 // If both selection-sets are nil/empty, they compare equal.
 func selectionsMatch(
@@ -134,6 +134,29 @@ func selectionsMatch(
 		}
 	}
 	return nil
+}
+
+// directiveOptionsMatch reports whether two @octoqlgenFor declarations have the
+// same options.
+func directiveOptionsMatch(a, b *octoqlgenDirective) bool {
+	if a == nil {
+		a = &octoqlgenDirective{}
+	}
+	if b == nil {
+		b = &octoqlgenDirective{}
+	}
+	return boolOptionsMatch(a.Omitempty, b.Omitempty) &&
+		boolOptionsMatch(a.Pointer, b.Pointer) &&
+		a.Bind == b.Bind &&
+		a.TypeName == b.TypeName &&
+		a.Alias == b.Alias
+}
+
+func boolOptionsMatch(a, b *bool) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // validateBindingSelection checks that if you requested in your type-binding

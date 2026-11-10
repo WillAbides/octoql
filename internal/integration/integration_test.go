@@ -29,16 +29,6 @@ func TestTypedNilPremarshaledAbstractValueMarshalsAsNull(t *testing.T) {
 }
 
 func TestGetRepository(t *testing.T) {
-	_ = `# @octoqlgen
-	query getRepository($owner: String!, $name: String!) {
-		repository(owner: $owner, name: $name) {
-			id
-			name
-			nameWithOwner
-			owner { login }
-		}
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -61,11 +51,6 @@ func TestGetRepository(t *testing.T) {
 }
 
 func TestMutation(t *testing.T) {
-	_ = `# @octoqlgen
-	mutation addComment($input: AddCommentInput!) {
-		addComment(input: $input) { commentEdge { node { id body } } }
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -85,14 +70,6 @@ func TestMutation(t *testing.T) {
 }
 
 func TestStarMutations(t *testing.T) {
-	_ = `# @octoqlgen
-	mutation addStar($input: AddStarInput!) {
-		addStar(input: $input) { starrable { id stargazerCount viewerHasStarred } }
-	}
-	mutation removeStar($input: RemoveStarInput!) {
-		removeStar(input: $input) { starrable { id stargazerCount viewerHasStarred } }
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -120,9 +97,6 @@ func TestStarMutations(t *testing.T) {
 }
 
 func TestServerError(t *testing.T) {
-	_ = `# @octoqlgen
-	query failingQuery { fail viewer { id } }`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -133,10 +107,7 @@ func TestServerError(t *testing.T) {
 		assert.Error(t, err)
 		t.Logf("Full error: %+v", err)
 		var gqlErrors Errors
-		if !assert.True(t, errors.As(err, &gqlErrors), "error should contain Errors") {
-			t.Logf("Actual error type: %T", err)
-			t.Logf("Error message: %v", err)
-		} else {
+		if assert.True(t, errors.As(err, &gqlErrors), "error should contain Errors") {
 			assert.Len(t, gqlErrors, 1, "Expected one GraphQL error")
 			assert.Equal(t, "oh no", gqlErrors[0].Message)
 		}
@@ -149,9 +120,6 @@ func TestServerError(t *testing.T) {
 }
 
 func TestVariables(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithVariables($login: String!) { user(login: $login) { id login contributionCount } }`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -180,11 +148,6 @@ func TestVariables(t *testing.T) {
 }
 
 func TestOmitempty(t *testing.T) {
-	_ = `# @octoqlgen(omitempty: true)
-	query queryWithOmitempty($login: String) {
-		user(login: $login) { id login contributionCount }
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -214,11 +177,6 @@ func TestOmitempty(t *testing.T) {
 }
 
 func TestCustomMarshal(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithCustomMarshal($date: Date!) {
-		usersCreatedOn(date: $date) { id login createdAt }
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -249,11 +207,6 @@ func TestCustomMarshal(t *testing.T) {
 }
 
 func TestCustomMarshalSlice(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithCustomMarshalSlice($dates: [Date!]!) {
-		usersCreatedOnDates(dates: $dates) { id login createdAt }
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -284,16 +237,6 @@ func TestCustomMarshalSlice(t *testing.T) {
 }
 
 func TestCustomMarshalOptional(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithCustomMarshalOptional(
-		# @octoqlgen(pointer: true)
-		$date: Date,
-		# @octoqlgen(pointer: true)
-		$login: String,
-	) {
-		userSearch(createdOn: $date, login: $login) { id login createdAt }
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -332,12 +275,6 @@ func TestCustomMarshalOptional(t *testing.T) {
 }
 
 func TestInterfaceNoFragments(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithInterfaceNoFragments($id: ID!) {
-		actor(id: $id) { id login }
-		viewer { id login }
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -411,11 +348,6 @@ func TestInterfaceNoFragments(t *testing.T) {
 }
 
 func TestInterfaceListField(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithInterfaceListField($ids: [ID!]!) {
-		actors(ids: $ids) { id login }
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -461,14 +393,6 @@ func TestInterfaceListField(t *testing.T) {
 }
 
 func TestInterfaceListPointerField(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithInterfaceListPointerField($ids: [ID!]!) {
-		# @octoqlgen(pointer: true)
-		actors(ids: $ids) {
-			__typename id login
-		}
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -509,25 +433,6 @@ func TestInterfaceListPointerField(t *testing.T) {
 }
 
 func TestFragments(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithFragments($ids: [ID!]!) {
-		actors(ids: $ids) {
-			__typename id
-			... on Actor { id login }
-			... on Organization {
-				id
-				plan { name }
-				topContributor {
-					id
-					... on Actor { login }
-					... on User { contributionCount }
-				}
-			}
-			... on RepositoryOwner { contributionCount }
-			... on User { status { emoji } }
-		}
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -600,37 +505,6 @@ func TestFragments(t *testing.T) {
 }
 
 func TestNamedFragments(t *testing.T) {
-	_ = `# @octoqlgen
-	fragment organizationFields on Organization {
-		id
-		plan { name }
-		topContributor { id ...userFields ...repositoryOwnerFields }
-	}
-
-	fragment moreUserFields on User {
-		id
-		status { emoji }
-	}
-
-	fragment repositoryOwnerFields on RepositoryOwner {
-		...moreUserFields
-		contributionCount
-	}
-	
-	fragment userFields on User {
-		id
-		...repositoryOwnerFields
-		...moreUserFields
-	}
-
-	query queryWithNamedFragments($ids: [ID!]!) {
-		actors(ids: $ids) {
-			__typename id
-			...organizationFields
-			...userFields
-		}
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -724,62 +598,6 @@ func TestNamedFragments(t *testing.T) {
 }
 
 func TestFlatten(t *testing.T) {
-	_ = `# @octoqlgen
-	# @octoqlgen(flatten: true)
-	fragment actorFields on Actor {
-		...innerActorFields
-	}
-
-	fragment innerActorFields on Actor {
-		id
-		login
-		... on User {
-			# @octoqlgen(flatten: true)
-			repositories {
-				...repositoriesFields
-			}
-		}
-	}
-
-	fragment repositoriesFields on Repository {
-		id
-		name
-	}
-
-	# @octoqlgen(flatten: true)
-	fragment flattenedUserFields on User {
-		...flattenedRepositoryOwnerFields
-	}
-
-	# @octoqlgen(flatten: true)
-	fragment flattenedRepositoryOwnerFields on RepositoryOwner {
-		...innerRepositoryOwnerFields
-	}
-
-	fragment innerRepositoryOwnerFields on RepositoryOwner {
-		contributionCount
-	}
-
-	fragment queryFragment on Query {
-		actors(ids: $ids) {
-			__typename id
-			...flattenedUserFields
-			... on Organization {
-				# @octoqlgen(flatten: true)
-				topContributor {
-					...actorFields
-				}
-			}
-		}
-	}
-
-	# @octoqlgen(flatten: true)
-	query queryWithFlatten(
-		$ids: [ID!]!,
-	) {
-		...queryFragment
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -854,18 +672,6 @@ func requireFlattenedTypeShape(
 }
 
 func TestSearch(t *testing.T) {
-	_ = `# @octoqlgen
-	query queryWithSearch($query: String!, $searchType: SearchType!) {
-		search(query: $query, type: $searchType) {
-			__typename
-			... on Node { id }
-			... on Repository { name stargazerCount }
-			... on Issue { title issueState: state }
-			... on PullRequest { title pullRequestState: state }
-			... on Actor { login }
-		}
-	}`
-
 	ctx := context.Background()
 	server := gqlserver.RunServer()
 	defer server.Close()
@@ -931,7 +737,7 @@ func TestGeneratedCode(t *testing.T) {
 	omit := false
 	runGenerateTest(t, &generate.Config{
 		Schema:                          generate.StringList{"internal/integration/schema.graphql"},
-		Operations:                      generate.StringList{"internal/integration/*_test.go"},
+		Operations:                      generate.StringList{"internal/integration/operations.graphql"},
 		Generated:                       "internal/integration/generated.go",
 		OmitUnreferencedImplementations: &omit,
 		Bindings: map[string]*generate.TypeBinding{

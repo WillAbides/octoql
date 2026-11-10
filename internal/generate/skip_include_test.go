@@ -264,8 +264,7 @@ func TestSkipPointerFalseConflict(t *testing.T) {
 	_, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QConflict($hide: Boolean!) {
   user {
-    # @octoqlgen(pointer: false)
-    isSuspended @skip(if: $hide)
+    isSuspended @skip(if: $hide) @octoqlgen(pointer: false)
   }
 }
 `)
@@ -411,14 +410,13 @@ query Q($hide: Boolean!) {
 }
 
 // TestSkipRejectedInLocallyBoundComposite covers the same bypass for a local
-// (comment-directive) binding.
+// binding.
 func TestSkipRejectedInLocallyBoundComposite(t *testing.T) {
 	t.Parallel()
 
 	_, err := generateSkipIncludeSource(t, skipIncludeBoundSchema, `
 query Q($hide: Boolean!) {
-  # @octoqlgen(bind: "github.com/willabides/octoql/internal/testutil.Account")
-  user {
+  user @octoqlgen(bind: "github.com/willabides/octoql/internal/testutil.Account") {
     isSuspended @skip(if: $hide)
   }
 }
@@ -456,14 +454,10 @@ func TestSkipLeavesNilableBoundLeafUnwrapped(t *testing.T) {
 	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
 query Q($hide: Boolean!) {
   thing {
-    # @octoqlgen(bind: "[]string")
-    tags @skip(if: $hide)
-    # @octoqlgen(bind: "*string")
-    name @skip(if: $hide)
-    # @octoqlgen(bind: "map[string]string")
-    attrs @skip(if: $hide)
-    # @octoqlgen(bind: "interface{}")
-    raw @skip(if: $hide)
+    tags @skip(if: $hide) @octoqlgen(bind: "[]string")
+    name @skip(if: $hide) @octoqlgen(bind: "*string")
+    attrs @skip(if: $hide) @octoqlgen(bind: "map[string]string")
+    raw @skip(if: $hide) @octoqlgen(bind: "interface{}")
   }
 }
 `)
@@ -490,8 +484,7 @@ func TestSkipWrapsBoundArray(t *testing.T) {
 	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
 query QArr($hide: Boolean!) {
   thing {
-    # @octoqlgen(bind: "[4]string")
-    fixed @skip(if: $hide)
+    fixed @skip(if: $hide) @octoqlgen(bind: "[4]string")
   }
 }
 `)
@@ -514,8 +507,7 @@ func TestSkipNormalizesBoundAny(t *testing.T) {
 	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
 query QAny($hide: Boolean!) {
   thing {
-    # @octoqlgen(bind: "any")
-    raw @skip(if: $hide)
+    raw @skip(if: $hide) @octoqlgen(bind: "any")
   }
 }
 `)
