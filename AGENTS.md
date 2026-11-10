@@ -4,7 +4,7 @@
 
 - `octoql` is a standalone project derived from Khan/genqlient. Preserve
   attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`.
-- The module path is `github.com/willabides/octoql`, with Go version `1.26.0`.
+- The module path is `github.com/willabides/octoql`, with Go version `1.27.3`.
 - Generated clients are self-contained and do not import the root `octoql`
   package. `internal/generate/runtime.go.tmpl` is the canonical HTTP runtime; do
   not maintain a second handwritten implementation or create a public runtime
