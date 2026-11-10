@@ -57,6 +57,8 @@ type Role {
 // table: a schema-non-null field carrying @skip must generate as a pointer so
 // that an absent value is representable as nil rather than a silent false.
 func TestSkipIncludeForcesPointerNonNullField(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query Q($hide: Boolean!) {
   user {
@@ -74,6 +76,8 @@ query Q($hide: Boolean!) {
 
 // TestIncludeForcesPointer verifies @include behaves the same as @skip.
 func TestIncludeForcesPointer(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QInclude($show: Boolean!) {
   user {
@@ -88,6 +92,8 @@ query QInclude($show: Boolean!) {
 // TestSkipConstantArgumentForcesPointer verifies a constant argument
 // (@skip(if: true)) forces the pointer just like a variable argument.
 func TestSkipConstantArgumentForcesPointer(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QConst {
   user {
@@ -102,6 +108,8 @@ query QConst {
 // TestSkipForcesPointerNestedObject verifies a non-null nested object under
 // @skip becomes a pointer to the generated struct.
 func TestSkipForcesPointerNestedObject(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QNested($hide: Boolean!) {
   user {
@@ -122,6 +130,8 @@ query QNested($hide: Boolean!) {
 // correct result is a plain slice ([]Role) — never element pointers ([]*Role),
 // and no redundant outer pointer (*[]Role) that would only mask slice depth.
 func TestSkipForcesContainerPointerOnList(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QList($hide: Boolean!) {
   user {
@@ -195,6 +205,8 @@ func generateSkipIncludeAbstractSource(t *testing.T, operation string) (string, 
 // is already nil-able, so it stays a plain slice and the generated UnmarshalJSON
 // (which traverses slice depth) still compiles.
 func TestSkipForcesContainerPointerOnInterfaceList(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeAbstractSource(t, `
 query QAbstractList($hide: Boolean!) {
   nodes @skip(if: $hide) {
@@ -212,6 +224,8 @@ query QAbstractList($hide: Boolean!) {
 // for a non-null list of a custom-unmarshalled scalar under @skip. As above, the
 // slice stays a plain slice and the generated UnmarshalJSON compiles.
 func TestSkipForcesContainerPointerOnScalarList(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeAbstractSource(t, `
 query QScalarList($hide: Boolean!) {
   dates @skip(if: $hide)
@@ -229,6 +243,8 @@ query QScalarList($hide: Boolean!) {
 // counterpart to the list cases and confirms the scalar-pointer path is
 // unaffected by the slice handling.
 func TestSkipForcesPointerOnScalarField(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeAbstractSource(t, `
 query QScalarField($hide: Boolean!) {
   singleDate @skip(if: $hide)
@@ -243,6 +259,8 @@ query QScalarField($hide: Boolean!) {
 // false) on a conditionally-skipped field is unrepresentable and must be a hard
 // generation error naming the field.
 func TestSkipPointerFalseConflict(t *testing.T) {
+	t.Parallel()
+
 	_, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QConflict($hide: Boolean!) {
   user {
@@ -259,6 +277,8 @@ query QConflict($hide: Boolean!) {
 // TestBaselineNoDirectiveKeepsValueType proves we do not over-apply: a non-null
 // field with no @skip/@include stays a value type.
 func TestBaselineNoDirectiveKeepsValueType(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QBaseline {
   user {
@@ -276,6 +296,8 @@ query QBaseline {
 // spread is rejected rather than silently generating value types for fields
 // that can vanish.
 func TestSkipOnFragmentSpreadRejected(t *testing.T) {
+	t.Parallel()
+
 	_, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 fragment UserFields on User {
   login
@@ -293,6 +315,8 @@ query QFragSpread($hide: Boolean!) {
 
 // TestSkipOnInlineFragmentRejected covers trap 3 for inline fragments.
 func TestSkipOnInlineFragmentRejected(t *testing.T) {
+	t.Parallel()
+
 	_, err := generateSkipIncludeSource(t, skipIncludeSchema, `
 query QInline($hide: Boolean!) {
   user {
@@ -314,6 +338,8 @@ query QInline($hide: Boolean!) {
 // locks the current accepted-at-generation behavior so a future generation-time
 // rejection is a deliberate change.
 func TestConditionalTypenameOnAbstractGenerates(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeAbstractSource(t, `
 query QAbstractTypename($hide: Boolean!) {
   nodes {
@@ -371,6 +397,8 @@ type User {
 // cannot change the bound Go type, so it must reject the operation instead of
 // silently generating a value type that can decode absence to the zero value.
 func TestSkipRejectedInGloballyBoundComposite(t *testing.T) {
+	t.Parallel()
+
 	_, err := generateSkipIncludeBoundSource(t, skipIncludeBoundSchema, `
 query Q($hide: Boolean!) {
   user {
@@ -385,6 +413,8 @@ query Q($hide: Boolean!) {
 // TestSkipRejectedInLocallyBoundComposite covers the same bypass for a local
 // (comment-directive) binding.
 func TestSkipRejectedInLocallyBoundComposite(t *testing.T) {
+	t.Parallel()
+
 	_, err := generateSkipIncludeSource(t, skipIncludeBoundSchema, `
 query Q($hide: Boolean!) {
   # @octoqlgen(bind: "github.com/willabides/octoql/internal/testutil.Account")
@@ -421,6 +451,8 @@ type Thing {
 // would also mask slice depth. This fails against the pre-fix code, which wrapped
 // every goOpaqueType (e.g. Tags *[]string, Name **string).
 func TestSkipLeavesNilableBoundLeafUnwrapped(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
 query Q($hide: Boolean!) {
   thing {
@@ -453,6 +485,8 @@ query Q($hide: Boolean!) {
 // prefix regexp (which matches both [] and [N]), would wrongly skip the array and
 // reintroduce the zero-value hazard this change exists to close.
 func TestSkipWrapsBoundArray(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
 query QArr($hide: Boolean!) {
   thing {
@@ -475,6 +509,8 @@ query QArr($hide: Boolean!) {
 // the pre-fix code the field rendered as bare `any`; it now renders as
 // `interface{}`.
 func TestSkipNormalizesBoundAny(t *testing.T) {
+	t.Parallel()
+
 	source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
 query QAny($hide: Boolean!) {
   thing {

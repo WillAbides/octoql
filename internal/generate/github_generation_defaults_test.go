@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,6 +15,8 @@ import (
 const githubGenerationDefaultsDir = "testdata/github-generation-defaults"
 
 func TestGitHubScalarDefaults(t *testing.T) {
+	t.Parallel()
+
 	expected := map[string]string{
 		"Base64String":        "string",
 		"BigInt":              "string",
@@ -53,6 +54,8 @@ func TestGitHubScalarDefaults(t *testing.T) {
 }
 
 func TestGitHubScalarOverrides(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		binding    *TypeBinding
 		name       string
@@ -81,6 +84,7 @@ func TestGitHubScalarOverrides(t *testing.T) {
 		},
 	}
 
+	filesToBuild := make(map[string][]byte, len(tests))
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			source := generateScalarOperation(t, test.scalar, test.binding)
@@ -88,12 +92,15 @@ func TestGitHubScalarOverrides(t *testing.T) {
 			if test.wantImport != "" {
 				assert.Contains(t, source, test.wantImport)
 			}
-			require.NoError(t, buildGoFile("github_scalar_override", []byte(source)))
+			filesToBuild[test.name] = []byte(source)
 		})
 	}
+	require.NoError(t, buildGoFiles(filesToBuild))
 }
 
 func TestCustomPropertyValueUnmarshal(t *testing.T) {
+	t.Parallel()
+
 	source := generateScalarOperation(t, "CustomPropertyValue", nil)
 	testSource := []byte(`package scalar
 
@@ -128,6 +135,8 @@ func TestCustomPropertyValue(t *testing.T) {
 }
 
 func TestOmitUnreferencedImplementations(t *testing.T) {
+	t.Parallel()
+
 	defaultSource := generateGitHubAbstractSelections(t, nil)
 	omit := false
 	optOutSource := generateGitHubAbstractSelections(t, &omit)
@@ -201,6 +210,8 @@ func TestOmitUnreferencedImplementations(t *testing.T) {
 }
 
 func TestOmittedImplementationUnmarshal(t *testing.T) {
+	t.Parallel()
+
 	source := generateGitHubAbstractSelections(t, nil)
 	testSource := []byte(`package githubdefaults
 
@@ -366,6 +377,8 @@ func TestTypedNilAbstractValuesMarshalAsNull(t *testing.T) {
 }
 
 func TestCatchAllNameCollision(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	schema := `interface Node { id: ID! }
 type OctoqlOther implements Node { id: ID!, value: String! }
@@ -446,28 +459,14 @@ func runGeneratedPackageTests(t *testing.T, generatedSource, testSource []byte) 
 	t.Helper()
 
 	dir := t.TempDir()
-	moduleRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	require.NoError(t, err)
-	goMod := fmt.Sprintf(`module github.com/willabides/octoql-github-defaults-test
-
-go 1.26.0
-
-require github.com/willabides/octoql v0.0.0
-
-replace github.com/willabides/octoql => %s
-`, moduleRoot)
+	goMod := "module github.com/willabides/octoql-github-defaults-test\n\ngo 1.26.0\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600))
-	goSum, err := os.ReadFile(filepath.Join(moduleRoot, "go.sum"))
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), generatedSource, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated_test.go"), testSource, 0o600))
 
-	for _, args := range [][]string{{"mod", "tidy"}, {"test", "-mod=readonly", "./..."}} {
-		cmd := exec.Command("go", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOSUMDB=off")
-		output, commandErr := cmd.CombinedOutput()
-		require.NoErrorf(t, commandErr, "go %s:\n%s", strings.Join(args, " "), output)
-	}
+	cmd := exec.Command("go", "test", "-mod=readonly", "./...")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOSUMDB=off")
+	output, commandErr := cmd.CombinedOutput()
+	require.NoErrorf(t, commandErr, "go test -mod=readonly ./...:\n%s", output)
 }

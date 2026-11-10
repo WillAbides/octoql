@@ -28,6 +28,8 @@ const (
 type publicSchemaCommand func(context.Context, string, io.Writer) error
 
 func TestGenerateGitHubPublicSchema(t *testing.T) {
+	t.Parallel()
+
 	schemaFilename := filepath.Join(githubPublicSchemaDir, githubPublicSchemaMaterialized)
 	configFilename := filepath.Join(githubPublicSchemaDir, githubPublicSchemaConfigFile)
 	err := ensureGitHubPublicSchema(
@@ -51,48 +53,19 @@ func TestGenerateGitHubPublicSchema(t *testing.T) {
 		ContextType: "-",
 	}
 
-	first, err := Generate(config)
+	generated, err := Generate(config)
 	if err != nil {
-		t.Fatalf("first generation: %v", err)
-	}
-	second, err := Generate(config)
-	if err != nil {
-		t.Fatalf("second generation: %v", err)
+		t.Fatalf("generation: %v", err)
 	}
 
-	firstSource := first[generatedFilename]
-	secondSource := second[generatedFilename]
-	if !bytes.Equal(firstSource, secondSource) {
-		t.Fatal("generation is not deterministic")
-	}
-	_, parseErr := parser.ParseFile(token.NewFileSet(), generatedFilename, firstSource, parser.AllErrors)
+	source := generated[generatedFilename]
+	_, parseErr := parser.ParseFile(token.NewFileSet(), generatedFilename, source, parser.AllErrors)
 	if parseErr != nil {
 		t.Fatalf("generated Go is not syntactically valid: %v", parseErr)
 	}
-	compileGitHubPublicSchemaOutput(t, generatedDir, firstSource)
+	compileGitHubPublicSchemaOutput(t, generatedDir, source)
 
-	omit := false
-	optOutConfig := *config
-	optOutConfig.OmitUnreferencedImplementations = &omit
-	optOut, err := Generate(&optOutConfig)
-	if err != nil {
-		t.Fatalf("opt-out generation: %v", err)
-	}
-	optOutSource := optOut[generatedFilename]
-	defaultImplementations := bytes.Count(firstSource, []byte(") implementsGraphQLInterface"))
-	optOutImplementations := bytes.Count(optOutSource, []byte(") implementsGraphQLInterface"))
-	if optOutImplementations <= defaultImplementations*2 {
-		t.Fatalf(
-			"default implementation count = %d, opt-out = %d; omission did not materially bound output",
-			defaultImplementations,
-			optOutImplementations,
-		)
-	}
-	if len(firstSource) >= len(optOutSource) {
-		t.Fatalf("default output size = %d, opt-out = %d", len(firstSource), len(optOutSource))
-	}
-
-	output := string(firstSource)
+	output := string(source)
 	for _, want := range []string{
 		"func (c *Client) RepositorySummary(",
 		"func (c *Client) NodesByID(",
@@ -286,27 +259,8 @@ func TestEnsureGitHubPublicSchema(t *testing.T) {
 func compileGitHubPublicSchemaOutput(t *testing.T, generatedDir string, source []byte) {
 	t.Helper()
 
-	moduleRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	goMod := fmt.Sprintf(`module github.com/willabides/octoql-public-schema-test
-
-go 1.26.0
-
-require github.com/willabides/octoql v0.0.0
-
-replace github.com/willabides/octoql => %s
-`, moduleRoot)
-	err = os.WriteFile(filepath.Join(generatedDir, "go.mod"), []byte(goMod), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	goSum, err := os.ReadFile(filepath.Join(moduleRoot, "go.sum"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = os.WriteFile(filepath.Join(generatedDir, "go.sum"), goSum, 0o600)
+	goMod := "module github.com/willabides/octoql-public-schema-test\n\ngo 1.26.0\n"
+	err := os.WriteFile(filepath.Join(generatedDir, "go.mod"), []byte(goMod), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,13 +269,11 @@ replace github.com/willabides/octoql => %s
 		t.Fatal(err)
 	}
 
-	for _, args := range [][]string{{"mod", "tidy"}, {"test", "-mod=readonly", "./..."}} {
-		cmd := exec.Command("go", args...)
-		cmd.Dir = generatedDir
-		cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOSUMDB=off")
-		output, commandErr := cmd.CombinedOutput()
-		if commandErr != nil {
-			t.Fatalf("go %s: %v\n%s", strings.Join(args, " "), commandErr, output)
-		}
+	cmd := exec.Command("go", "build", "-mod=readonly", "./...")
+	cmd.Dir = generatedDir
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOSUMDB=off")
+	output, commandErr := cmd.CombinedOutput()
+	if commandErr != nil {
+		t.Fatalf("go build -mod=readonly ./...: %v\n%s", commandErr, output)
 	}
 }

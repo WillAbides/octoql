@@ -6,9 +6,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -215,7 +215,7 @@ func packagePathFromModule(directory string) (string, error) {
 		moduleFile := filepath.Join(currentDirectory, "go.mod")
 		content, err := os.ReadFile(moduleFile)
 		if err == nil {
-			moduleName := modulePath(content)
+			moduleName := modfile.ModulePath(content)
 			if moduleName == "" {
 				return "", fmt.Errorf("go.mod in %q has no module path", currentDirectory)
 			}
@@ -239,24 +239,6 @@ func packagePathFromModule(directory string) (string, error) {
 		}
 		currentDirectory = parent
 	}
-}
-
-func modulePath(goMod []byte) string {
-	for line := range strings.SplitSeq(string(goMod), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 || fields[0] != "module" {
-			continue
-		}
-		if !strings.HasPrefix(fields[1], `"`) {
-			return fields[1]
-		}
-		unquoted, err := strconv.Unquote(fields[1])
-		if err == nil {
-			return unquoted
-		}
-		return ""
-	}
-	return ""
 }
 
 // ValidateAndFillDefaults ensures that the configuration is valid, and fills
