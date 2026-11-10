@@ -2351,12 +2351,12 @@ func TestGenerateErrors(t *testing.T) {
 		// Schema is either <base>.schema.graphql, or <dir>/schema.graphql if
 		// that doesn't exist.
 		schemaFilename := baseFilename + ".schema.graphql"
-		if _, err := os.Stat(filepath.Join(errorsDir, schemaFilename)); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				schemaFilename = "schema.graphql"
-			} else {
-				t.Fatal(err)
-			}
+		_, err = os.Stat(filepath.Join(errorsDir, schemaFilename))
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			schemaFilename = "schema.graphql"
+		case err != nil:
+			t.Fatal(err)
 		}
 
 		t.Run(testFilename, func(t *testing.T) {

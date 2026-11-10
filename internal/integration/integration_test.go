@@ -107,10 +107,7 @@ func TestServerError(t *testing.T) {
 		assert.Error(t, err)
 		t.Logf("Full error: %+v", err)
 		var gqlErrors Errors
-		if !assert.True(t, errors.As(err, &gqlErrors), "error should contain Errors") {
-			t.Logf("Actual error type: %T", err)
-			t.Logf("Error message: %v", err)
-		} else {
+		if assert.True(t, errors.As(err, &gqlErrors), "error should contain Errors") {
 			assert.Len(t, gqlErrors, 1, "Expected one GraphQL error")
 			assert.Equal(t, "oh no", gqlErrors[0].Message)
 		}

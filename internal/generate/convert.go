@@ -1200,7 +1200,8 @@ func (g *generator) convertSelectionSet(
 			maybeField, err := g.convertFragmentSpread(sel, containingTypedef)
 			if err != nil {
 				return nil, err
-			} else if maybeField != nil {
+			}
+			if maybeField != nil {
 				fields = append(fields, maybeField)
 			}
 		case *ast.InlineFragment:

@@ -33,11 +33,10 @@ type octoqlgenError struct {
 }
 
 func (e *octoqlgenError) Error() string {
-	if e.pos != nil {
-		return e.pos.String() + ": " + e.msg
-	} else {
+	if e.pos == nil {
 		return e.msg
 	}
+	return e.pos.String() + ": " + e.msg
 }
 
 func (e *octoqlgenError) Unwrap() error {
