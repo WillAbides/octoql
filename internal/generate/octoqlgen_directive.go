@@ -332,9 +332,9 @@ func (d *octoqlgenDirective) mergeOperationDirective(
 }
 
 const (
-	octoqlgenDirectiveName = internal.Directive
-	octoqlgenDefaultsName  = internal.DefaultsDirective
-	octoqlgenForName       = internal.ForDirective
+	octoqlgenDirectiveName = "octoqlgen"
+	octoqlgenDefaultsName  = "octoqlgenDefaults"
+	octoqlgenForName       = "octoqlgenFor"
 )
 
 // addOctoqlgenDirectiveDefinition replaces any existing octoqlgen directive

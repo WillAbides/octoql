@@ -21,8 +21,7 @@ func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
 	sources := make([]*ast.Source, 0, 2)
 	for _, filename := range []string{schemaFilename, directiveFilename} {
 		text, err := os.ReadFile(filename)
-		require.NoError(t, err, "%s should exist so editors can resolve @%s",
-			filename, internal.Directive)
+		require.NoError(t, err)
 		sources = append(sources, &ast.Source{Name: filename, Input: string(text)})
 	}
 
