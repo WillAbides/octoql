@@ -15,7 +15,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/internal/directive"
+	"github.com/willabides/octoql/internal"
 	"github.com/willabides/octoql/internal/generate"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
@@ -114,7 +114,7 @@ func (cmd *initCommand) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	companionPath := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
+	companionPath := filepath.Join(filepath.Dir(schemaPath), internal.FileName)
 	schemaCreated := false
 	companionCreated := false
 	existingSchema, err := os.ReadFile(schemaPath)
@@ -507,8 +507,8 @@ func writeDirectiveFile(writer outputWriter, schemaPath string) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
-	err = writer.Write(path, []byte(directive.FileContents))
+	path := filepath.Join(filepath.Dir(schemaPath), internal.FileName)
+	err = writer.Write(path, []byte(internal.FileContents))
 	if err != nil {
 		return fmt.Errorf("writing directive file %q: %w", path, err)
 	}
@@ -516,10 +516,10 @@ func writeDirectiveFile(writer outputWriter, schemaPath string) error {
 }
 
 func checkDirectiveFile(writer outputWriter, schemaPath string) (bool, error) {
-	if filepath.Base(schemaPath) == directive.FileName {
+	if filepath.Base(schemaPath) == internal.FileName {
 		return false, fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
 	}
-	path := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
+	path := filepath.Join(filepath.Dir(schemaPath), internal.FileName)
 	existing, err := writer.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -527,7 +527,7 @@ func checkDirectiveFile(writer outputWriter, schemaPath string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("reading directive file %q: %w", path, err)
 	}
-	if !bytes.HasPrefix(existing, []byte(directive.FileHeader)) {
+	if !bytes.HasPrefix(existing, []byte(internal.FileHeader)) {
 		return false, fmt.Errorf("refusing to replace non-generated directive file %q", path)
 	}
 	return true, nil

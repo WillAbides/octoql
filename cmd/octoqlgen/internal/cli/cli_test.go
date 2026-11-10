@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/internal/directive"
+	"github.com/willabides/octoql/internal"
 )
 
 const (
@@ -96,7 +96,7 @@ func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
 	assert.Empty(t, stdout.String())
 	assert.Equal(t, "schema.graphql", outputWriter.path)
 	assert.Equal(t, []byte("exact schema bytes\n"), outputWriter.data)
-	companion, ok := outputWriter.writtenTo(directive.FileName)
+	companion, ok := outputWriter.writtenTo(internal.FileName)
 	require.True(t, ok)
 	assert.Contains(t, string(companion), "directive @octoqlgen(")
 	assert.Equal(t, "github/docs", materializer.request.Source.Repository)
@@ -440,14 +440,14 @@ func TestWriteDirectiveFileRejectsCollisions(t *testing.T) {
 
 	directory := t.TempDir()
 	for name, schemaPath := range map[string]string{
-		"schema path": filepath.Join(directory, directive.FileName),
+		"schema path": filepath.Join(directory, internal.FileName),
 		"user file":   filepath.Join(directory, "schema.graphql"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := schemaPath
 			if name == "user file" {
 				require.NoError(t, os.WriteFile(
-					filepath.Join(directory, directive.FileName), []byte("user-owned"), 0o600))
+					filepath.Join(directory, internal.FileName), []byte("user-owned"), 0o600))
 			}
 
 			err := writeDirectiveFile(atomicOutputWriter{}, path)
@@ -565,9 +565,9 @@ func TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged(t *testing.T) 
 	require.NoError(t, err)
 	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
 	assert.Equal(t, "schema is unchanged\n", stdout.String())
-	companion, err := os.ReadFile(filepath.Join(directory, directive.FileName))
+	companion, err := os.ReadFile(filepath.Join(directory, internal.FileName))
 	require.NoError(t, err)
-	assert.Equal(t, directive.FileContents, string(companion))
+	assert.Equal(t, internal.FileContents, string(companion))
 	schemaContent, err := os.ReadFile(schemaPath)
 	require.NoError(t, err)
 	assert.Equal(t, cliSchema, string(schemaContent), "the schema itself must be untouched")
@@ -795,7 +795,7 @@ func (w *stubOutputWriter) Write(path string, data []byte) error {
 		w.written = map[string][]byte{}
 	}
 	w.written[path] = append([]byte{}, data...)
-	if filepath.Base(path) != directive.FileName {
+	if filepath.Base(path) != internal.FileName {
 		w.path = path
 		w.data = append([]byte{}, data...)
 	}

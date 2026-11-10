@@ -16,7 +16,7 @@ import (
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
-	"github.com/willabides/octoql/internal/directive"
+	"github.com/willabides/octoql/internal"
 )
 
 const (
@@ -141,14 +141,14 @@ func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
 	if err != nil || upToDate {
 		return err
 	}
-	return replace(fileSystem, path, []byte(directive.FileContents))
+	return replace(fileSystem, path, []byte(internal.FileContents))
 }
 
 func checkDirectiveFile(fileSystem fileSystem, schemaPath string) (string, bool, error) {
-	if filepath.Base(schemaPath) == directive.FileName {
+	if filepath.Base(schemaPath) == internal.FileName {
 		return "", false, fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
 	}
-	path := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
+	path := filepath.Join(filepath.Dir(schemaPath), internal.FileName)
 	existing, err := fileSystem.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return path, false, nil
@@ -156,10 +156,10 @@ func checkDirectiveFile(fileSystem fileSystem, schemaPath string) (string, bool,
 	if err != nil {
 		return "", false, fmt.Errorf("reading directive file %q: %w", path, err)
 	}
-	if bytes.Equal(existing, []byte(directive.FileContents)) {
+	if bytes.Equal(existing, []byte(internal.FileContents)) {
 		return path, true, nil
 	}
-	if !bytes.HasPrefix(existing, []byte(directive.FileHeader)) {
+	if !bytes.HasPrefix(existing, []byte(internal.FileHeader)) {
 		return "", false, fmt.Errorf("refusing to replace non-generated directive file %q", path)
 	}
 	return path, false, nil

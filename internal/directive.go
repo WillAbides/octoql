@@ -1,18 +1,18 @@
 // Package directive holds the GraphQL SDL definitions for octoqlgen's directives.
-package directive
+package internal
 
-// Name is the directive for options on the node it is attached to.
-const Name = "octoqlgen"
+// Directive is the directive for options on the node it is attached to.
+const Directive = "octoqlgen"
 
-// DefaultsName is the directive for default options on fields inside an
+// DefaultsDirective is the directive for default options on fields inside an
 // operation or fragment.
-const DefaultsName = "octoqlgenDefaults"
+const DefaultsDirective = "octoqlgenDefaults"
 
-// ForName is the directive for options on a named type's field.
-const ForName = "octoqlgenFor"
+// ForDirective is the directive for options on a named type's field.
+const ForDirective = "octoqlgenFor"
 
 // SDL declares octoqlgen's directives.
-const SDL = `directive @` + Name + `(
+const SDL = `directive @` + Directive + `(
   """Omit this variable, or input-type field, when its value is empty."""
   omitempty: Boolean
 
@@ -38,7 +38,7 @@ const SDL = `directive @` + Name + `(
   alias: String
 ) repeatable on QUERY | MUTATION | FIELD | FRAGMENT_DEFINITION | VARIABLE_DEFINITION
 
-directive @` + DefaultsName + `(
+directive @` + DefaultsDirective + `(
   """Default omitempty for the variables and input-type fields inside."""
   omitempty: Boolean
 
@@ -49,7 +49,7 @@ directive @` + DefaultsName + `(
   struct: Boolean
 ) repeatable on QUERY | MUTATION | FRAGMENT_DEFINITION
 
-directive @` + ForName + `(
+directive @` + ForDirective + `(
   """The field these options apply to, written as "MyType.myField"."""
   field: String!
 
@@ -99,6 +99,6 @@ const FileContents = FileHeader + `#
 #
 # Declare them in exactly one place per project. GraphQL does not allow a
 # directive to be declared twice, so tooling that reads several schema files at
-# once reports an error if more than one of them declares @` + Name + `.
+# once reports an error if more than one of them declares @` + Directive + `.
 
 ` + SDL

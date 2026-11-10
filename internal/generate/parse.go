@@ -13,8 +13,7 @@ import (
 	"github.com/vektah/gqlparser/v2/parser"
 	"github.com/vektah/gqlparser/v2/validator"
 	_ "github.com/vektah/gqlparser/v2/validator/rules"
-
-	"github.com/willabides/octoql/internal/directive"
+	"github.com/willabides/octoql/internal"
 )
 
 func getSchema(globs StringList) (*ast.Schema, []string, error) {
@@ -187,8 +186,8 @@ func getQueries(
 		if err != nil {
 			return nil, errorf(nil, "unreadable query-spec file %v: %v", filename, err)
 		}
-		if filepath.Base(filename) == directive.FileName &&
-			bytes.HasPrefix(text, []byte(directive.FileHeader)) {
+		if filepath.Base(filename) == internal.FileName &&
+			bytes.HasPrefix(text, []byte(internal.FileHeader)) {
 			continue
 		}
 		matchedNonCompanion = true

@@ -11,19 +11,18 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 	"github.com/vektah/gqlparser/v2/validator"
-
-	"github.com/willabides/octoql/internal/directive"
+	"github.com/willabides/octoql/internal"
 )
 
 func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
 	schemaFilename := filepath.Join(dataDir, "schema.graphql")
-	directiveFilename := filepath.Join(dataDir, directive.FileName)
+	directiveFilename := filepath.Join(dataDir, internal.FileName)
 
 	sources := make([]*ast.Source, 0, 2)
 	for _, filename := range []string{schemaFilename, directiveFilename} {
 		text, err := os.ReadFile(filename)
 		require.NoError(t, err, "%s should exist so editors can resolve @%s",
-			filename, directive.Name)
+			filename, internal.Directive)
 		sources = append(sources, &ast.Source{Name: filename, Input: string(text)})
 	}
 
@@ -60,17 +59,17 @@ func TestDirectiveFilesAreCurrent(t *testing.T) {
 	repositoryRoot := filepath.Join("..", "..")
 
 	for _, path := range []string{
-		"cmd/octoqlgen/internal/schema/githubapi/" + directive.FileName,
-		"example/" + directive.FileName,
-		"internal/generate/testdata/queries/" + directive.FileName,
-		"internal/generatefeatures/githubdefaults/" + directive.FileName,
-		"internal/generatefeatures/nocontext/" + directive.FileName,
-		"internal/handlertest/" + directive.FileName,
-		"internal/integration/" + directive.FileName,
+		"cmd/octoqlgen/internal/schema/githubapi/" + internal.FileName,
+		"example/" + internal.FileName,
+		"internal/generate/testdata/queries/" + internal.FileName,
+		"internal/generatefeatures/githubdefaults/" + internal.FileName,
+		"internal/generatefeatures/nocontext/" + internal.FileName,
+		"internal/handlertest/" + internal.FileName,
+		"internal/integration/" + internal.FileName,
 	} {
 		data, err := os.ReadFile(filepath.Join(repositoryRoot, path))
 		require.NoError(t, err)
-		assert.Equal(t, directive.FileContents, string(data),
+		assert.Equal(t, internal.FileContents, string(data),
 			"%s is out of date, copy directive.FileContents over it", path)
 	}
 }

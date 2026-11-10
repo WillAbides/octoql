@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/willabides/octoql/internal"
 
 	"github.com/vektah/gqlparser/v2/ast"
-	"github.com/willabides/octoql/internal/directive"
 )
 
 var (
@@ -183,8 +183,8 @@ func TestOperationGlobSkipsTheCompanionDirectiveFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(schemaDir, "schema.graphqls"),
 		[]byte("type Query { field: String }\n"), 0o600))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(schemaDir, directive.FileName),
-		[]byte(directive.FileContents), 0o600))
+		filepath.Join(schemaDir, internal.FileName),
+		[]byte(internal.FileContents), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "op.graphql"),
 		[]byte("query Q { field }\n"), 0o600))
 
@@ -197,8 +197,8 @@ func TestOperationGlobSkipsTheCompanionDirectiveFile(t *testing.T) {
 
 func TestOperationGlobMatchingOnlyTheCompanionIsAnError(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, directive.FileName),
-		[]byte(directive.FileContents), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, internal.FileName),
+		[]byte(internal.FileContents), 0o600))
 
 	_, err := getQueries(dir, []string{dir + "/*.graphql"}, nil)
 

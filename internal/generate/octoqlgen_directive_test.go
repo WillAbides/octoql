@@ -11,8 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
-
-	"github.com/willabides/octoql/internal/directive"
+	"github.com/willabides/octoql/internal"
 )
 
 func assertDeclares(t *testing.T, source, declaration string) {
@@ -511,7 +510,7 @@ type User {
 `
 	for name, declaration := range map[string]string{
 		"no declaration":      "",
-		"current declaration": "\n" + directive.SDL,
+		"current declaration": "\n" + internal.SDL,
 		"stale declaration":   "\ndirective @octoqlgen(alias: String) on FIELD\n",
 	} {
 		t.Run(name, func(t *testing.T) {

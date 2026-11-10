@@ -5,8 +5,7 @@ import (
 
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
-
-	"github.com/willabides/octoql/internal/directive"
+	"github.com/willabides/octoql/internal"
 )
 
 // Represents the @octoqlgen directive, described in detail in
@@ -333,9 +332,9 @@ func (d *octoqlgenDirective) mergeOperationDirective(
 }
 
 const (
-	octoqlgenDirectiveName = directive.Name
-	octoqlgenDefaultsName  = directive.DefaultsName
-	octoqlgenForName       = directive.ForName
+	octoqlgenDirectiveName = internal.Directive
+	octoqlgenDefaultsName  = internal.DefaultsDirective
+	octoqlgenForName       = internal.ForDirective
 )
 
 // addOctoqlgenDirectiveDefinition replaces any existing octoqlgen directive
@@ -356,8 +355,8 @@ func addOctoqlgenDirectiveDefinition(document *ast.SchemaDocument) error {
 	document.Directives = kept
 
 	parsed, graphqlError := parser.ParseSchema(&ast.Source{
-		Name:  directive.FileName,
-		Input: directive.SDL,
+		Name:  internal.FileName,
+		Input: internal.SDL,
 	})
 	if graphqlError != nil {
 		return errorf(nil, "invalid @%s declaration (octoqlgen bug): %v",
