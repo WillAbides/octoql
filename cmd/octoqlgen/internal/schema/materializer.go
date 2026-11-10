@@ -114,7 +114,7 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 		return data, nil
 	}
 
-	_, err = checkDirectiveFile(deps.fileSystem, request.Path)
+	_, upToDate, err := checkDirectiveFile(deps.fileSystem, request.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -127,57 +127,42 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	err = publishDirectiveFile(deps.fileSystem, request.Path)
-	if err != nil {
-		return nil, err
+	if !upToDate {
+		err = publishDirectiveFile(deps.fileSystem, request.Path)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return data, nil
 }
 
 func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
-	path, err := checkDirectiveFile(fileSystem, schemaPath)
-	if err != nil {
+	path, upToDate, err := checkDirectiveFile(fileSystem, schemaPath)
+	if err != nil || upToDate {
 		return err
 	}
-	wanted := []byte(directive.FileContents)
-
-	existing, err := fileSystem.ReadFile(path)
-	if err == nil {
-		if bytes.Equal(existing, wanted) {
-			return nil
-		}
-	}
-
-	return replace(fileSystem, path, wanted)
+	return replace(fileSystem, path, []byte(directive.FileContents))
 }
 
-func checkDirectiveFile(fileSystem fileSystem, schemaPath string) (string, error) {
-	path, err := companionPath(schemaPath)
-	if err != nil {
-		return "", err
+func checkDirectiveFile(fileSystem fileSystem, schemaPath string) (string, bool, error) {
+	if filepath.Base(schemaPath) == directive.FileName {
+		return "", false, fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
 	}
+	path := filepath.Join(filepath.Dir(schemaPath), directive.FileName)
 	existing, err := fileSystem.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return path, nil
+		return path, false, nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("reading directive file %q: %w", path, err)
+		return "", false, fmt.Errorf("reading directive file %q: %w", path, err)
 	}
-	if !isGeneratedDirectiveFile(existing) {
-		return "", fmt.Errorf("refusing to replace non-generated directive file %q", path)
+	if bytes.Equal(existing, []byte(directive.FileContents)) {
+		return path, true, nil
 	}
-	return path, nil
-}
-
-func companionPath(schemaPath string) (string, error) {
-	if filepath.Base(schemaPath) == directive.FileName {
-		return "", fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
+	if !bytes.HasPrefix(existing, []byte(directive.FileHeader)) {
+		return "", false, fmt.Errorf("refusing to replace non-generated directive file %q", path)
 	}
-	return filepath.Join(filepath.Dir(schemaPath), directive.FileName), nil
-}
-
-func isGeneratedDirectiveFile(data []byte) bool {
-	return bytes.HasPrefix(data, []byte(directive.FileHeader))
+	return path, false, nil
 }
 
 type dependencies struct {

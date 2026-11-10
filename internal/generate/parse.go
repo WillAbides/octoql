@@ -112,22 +112,6 @@ func expandFilenames(globs []string) ([]string, error) {
 		if err != nil {
 			return nil, errorf(nil, "can't expand file-glob %v: %v", glob, err)
 		}
-		// Skip generated companion directive files matched by broad operation globs.
-		filtered := matches[:0]
-		for _, match := range matches {
-			filename := path.Join(base, match)
-			if path.Base(match) == directive.FileName {
-				data, readErr := os.ReadFile(filename)
-				if readErr != nil {
-					return nil, errorf(nil, "unreadable query-spec file %v: %v", filename, readErr)
-				}
-				if bytes.HasPrefix(data, []byte(directive.FileHeader)) {
-					continue
-				}
-			}
-			filtered = append(filtered, match)
-		}
-		matches = filtered
 		if len(matches) == 0 {
 			return nil, errorf(nil, "%v did not match any files", glob)
 		}
@@ -177,6 +161,7 @@ func getQueries(
 		}
 		excluded = append(excluded, inspected)
 	}
+	matchedNonCompanion := false
 	for _, filename := range filenames {
 		inspected, inspectErr := inspectPath("query", filename)
 		if inspectErr != nil {
@@ -195,12 +180,18 @@ func getQueries(
 			}
 		}
 		if isExcluded {
+			matchedNonCompanion = true
 			continue
 		}
 		text, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, errorf(nil, "unreadable query-spec file %v: %v", filename, err)
 		}
+		if filepath.Base(filename) == directive.FileName &&
+			bytes.HasPrefix(text, []byte(directive.FileHeader)) {
+			continue
+		}
+		matchedNonCompanion = true
 
 		switch filepath.Ext(filename) {
 		case ".graphql", ".graphqls", ".gql":
@@ -214,6 +205,9 @@ func getQueries(
 		default:
 			return nil, errorf(nil, "unknown file type: %v", filename)
 		}
+	}
+	if !matchedNonCompanion {
+		return nil, errorf(nil, "%v did not match any files", strings.Join(globs, ", "))
 	}
 
 	return mergedQueryDoc, nil

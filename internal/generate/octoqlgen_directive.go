@@ -151,6 +151,10 @@ func (d *octoqlgenDirective) validateFor(key fieldKey, schema *ast.Schema) error
 }
 
 func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) error {
+	if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
+		return errorf(d.pos, "typename and bind may not be used together")
+	}
+
 	switch node := node.(type) {
 	case *ast.OperationDefinition:
 		if d.Bind != "" {
@@ -160,9 +164,6 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 			return errorf(d.pos,
 				"alias is only applicable to selected fields, not operations")
 		}
-
-		// Anything else is valid on the entire operation; it will just apply
-		// to whatever it is relevant to.
 		return nil
 	case *ast.FragmentDefinition:
 		if d.Bind != "" {
@@ -178,15 +179,11 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 				"typename is not applicable to fragment-definitions; "+
 					"the generated type is named after the fragment")
 		}
-
-		// Like operations, anything else will just apply to the entire
-		// fragment.
 		return nil
 	case *ast.VariableDefinition:
 		if d.GetOmitempty() && node.Type.NonNull && node.DefaultValue == nil {
 			return errorf(d.pos, "omitempty may only be used on optional arguments")
 		}
-
 		if d.Struct != nil {
 			return errorf(d.pos, "struct is only applicable to fields, not variable-definitions")
 		}
@@ -198,11 +195,6 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 				"alias is only applicable to selected fields, not variable-definitions; "+
 					"rename the variable instead")
 		}
-
-		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
-			return errorf(d.pos, "typename and bind may not be used together")
-		}
-
 		return nil
 	case *ast.Field:
 		if d.Omitempty != nil {
@@ -224,15 +216,9 @@ func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) erro
 				return err
 			}
 		}
-
-		if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
-			return errorf(d.pos, "typename and bind may not be used together")
-		}
-
 		return nil
-	default:
-		return errorf(d.pos, "invalid @octoqlgen directive location: %T", node)
 	}
+	return nil
 }
 
 func validateStructOption(
@@ -494,7 +480,7 @@ func (g *generator) collectDirectivesForNode(node any, directives *ast.Directive
 		if err != nil {
 			return err
 		}
-		err = g.recordForDeclaration(key, fieldDirective, fieldDirective.pos)
+		err = g.recordForDeclaration(key, fieldDirective)
 		if err != nil {
 			return err
 		}
@@ -537,20 +523,16 @@ func checkNodeOptions(node any, graphQLDirective *ast.Directive, pos *ast.Positi
 func (g *generator) recordForDeclaration(
 	key fieldKey,
 	declared *octoqlgenDirective,
-	pos *ast.Position,
 ) error {
 	existing, ok := g.forDeclarations[key]
 	if !ok {
-		g.forDeclarations[key] = forDeclaration{directive: declared, pos: pos}
+		g.forDeclarations[key] = declared
 		return nil
 	}
-	if existing.pos == pos {
+	if directiveOptionsMatch(existing, declared) {
 		return nil
 	}
-	if directiveOptionsMatch(existing.directive, declared) {
-		return nil
-	}
-	return errorf(pos,
+	return errorf(declared.pos,
 		"conflicting @%s declarations for %s: %s asks for something different; "+
 			"a named type generates one Go type, so every @%s for it must agree",
 		octoqlgenForName, key, posString(existing.pos), octoqlgenForName)
@@ -566,12 +548,7 @@ func (g *generator) forDeclarationFor(node any, parentIfInputField *ast.Definiti
 	default:
 		return nil
 	}
-	return g.forDeclarations[key].directive
-}
-
-type forDeclaration struct {
-	directive *octoqlgenDirective
-	pos       *ast.Position
+	return g.forDeclarations[key]
 }
 
 // directiveFor returns the options for node merged with any @octoqlgenFor

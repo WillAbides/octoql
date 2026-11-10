@@ -50,7 +50,7 @@ type generator struct {
 	fragments map[string]*ast.FragmentDefinition
 
 	directives       map[any]*octoqlgenDirective
-	forDeclarations  map[fieldKey]forDeclaration
+	forDeclarations  map[fieldKey]*octoqlgenDirective
 	convertingInputs map[string]bool
 
 	forbiddenImportPath string
@@ -164,7 +164,6 @@ func (p *generationPlan) newRenderer(
 		usedAliases:         map[string]bool{},
 		templateCache:       map[string]*template.Template{},
 		fragments:           map[string]*ast.FragmentDefinition{},
-		convertingInputs:    map[string]bool{},
 		forbiddenImportPath: forbiddenImportPath,
 	}
 	if includePlanImports {
@@ -207,7 +206,7 @@ func newGenerator(
 		schema:           schema,
 		fragments:        make(map[string]*ast.FragmentDefinition, len(fragments)),
 		directives:       map[any]*octoqlgenDirective{},
-		forDeclarations:  map[fieldKey]forDeclaration{},
+		forDeclarations:  map[fieldKey]*octoqlgenDirective{},
 		convertingInputs: map[string]bool{},
 	}
 
