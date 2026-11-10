@@ -68,6 +68,19 @@ func TestSchemaRejectsCommentDirective(t *testing.T) {
 	assert.Contains(t, err.Error(), "schema.graphql:1")
 }
 
+func TestSchemaPartialBuiltinsLoadsDirectives(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "schema.graphql")
+	err := os.WriteFile(filename, []byte(
+		"scalar String\ntype Query { field: String }\n"), 0o600)
+	require.NoError(t, err)
+
+	schema, _, err := getSchema([]string{filename})
+
+	require.NoError(t, err)
+	assert.NotNil(t, schema.Directives["octoqlgen"])
+}
+
 // Do not rewrite the comment-syntax directives below.
 func TestParseDistinguishesDirectivesFromProse(t *testing.T) {
 	for comment, wantRejected := range map[string]bool{

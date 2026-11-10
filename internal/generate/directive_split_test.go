@@ -17,9 +17,18 @@ type Query {
   b(filter: Filter): Thing
 }
 
+interface Node {
+  id: ID!
+}
+
+type Item implements Node {
+  id: ID!
+}
+
 type Thing {
   name: String
   size: Int
+  node: Node
 }
 
 input Filter {
@@ -113,12 +122,13 @@ func TestDefaultsStructAppliesInsideFragment(t *testing.T) {
 	source, err := generateSplit(t, `
 query Q { a { ...ThingFields } }
 fragment ThingFields on Thing @octoqlgenDefaults(struct: true) {
-  name
+  node { id }
 }
 `)
 
 	require.NoError(t, err)
-	assert.Contains(t, source, "type ThingFields struct")
+	assert.Contains(t, source, "type ThingFieldsNode struct")
+	assert.NotContains(t, source, "type ThingFieldsNode interface")
 }
 
 func TestSharedInputTypeDoesNotDependOnOperationOrder(t *testing.T) {

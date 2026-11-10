@@ -66,6 +66,23 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 		document.Merge(preludeAST)
 	}
 
+	// Ensure Boolean is defined before injecting directives that reference it.
+	hasBoolean := false
+	for _, def := range document.Definitions {
+		if def.Name == "Boolean" {
+			hasBoolean = true
+			break
+		}
+	}
+	if !hasBoolean {
+		document.Definitions = append(document.Definitions, &ast.Definition{
+			Kind:     ast.Scalar,
+			Name:     "Boolean",
+			BuiltIn:  true,
+			Position: &ast.Position{Src: validator.Prelude},
+		})
+	}
+
 	err = addOctoqlgenDirectiveDefinition(document)
 	if err != nil {
 		return nil, nil, err
