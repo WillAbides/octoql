@@ -37,6 +37,9 @@ func setBool(optionName string, dst **bool, v *ast.Value, pos *ast.Position) err
 	if *dst != nil {
 		return errorf(pos, "conflicting values for %v", optionName)
 	}
+	if v.Kind != ast.BooleanValue {
+		return errorf(pos, "expected boolean value for %s", optionName)
+	}
 	b := v.Raw == "true"
 	*dst = &b
 	return nil
@@ -45,6 +48,9 @@ func setBool(optionName string, dst **bool, v *ast.Value, pos *ast.Position) err
 func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) error {
 	if *dst != "" {
 		return errorf(pos, "conflicting values for %v", optionName)
+	}
+	if v.Kind != ast.StringValue && v.Kind != ast.BlockValue {
+		return errorf(pos, "expected string value for %s", optionName)
 	}
 	if v.Raw == "" {
 		return errorf(pos, "%s must not be empty", optionName)

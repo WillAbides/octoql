@@ -110,7 +110,9 @@ func (cmd *initCommand) Run() (err error) {
 	}
 	configDir := filepath.Dir(cmd.ConfigPath)
 	schemaPath := filepath.Join(configDir, model.Schema.Path)
+	companionPath := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
 	schemaCreated := false
+	companionCreated := false
 	existingSchema, err := os.ReadFile(schemaPath)
 	if err == nil && !bytes.Equal(existingSchema, result.Data) {
 		return fmt.Errorf("refusing to overwrite existing schema %q", schemaPath)
@@ -130,7 +132,16 @@ func (cmd *initCommand) Run() (err error) {
 		if schemaCreated && !initializationComplete {
 			err = errors.Join(err, os.Remove(schemaPath))
 		}
+		if companionCreated && !initializationComplete {
+			err = errors.Join(err, os.Remove(companionPath))
+		}
 	}()
+	_, companionStatErr := os.Lstat(companionPath)
+	err = writeDirectiveFile(atomicOutputWriter{}, schemaPath)
+	if err != nil {
+		return err
+	}
+	companionCreated = errors.Is(companionStatErr, os.ErrNotExist)
 	gitignorePath := filepath.Join(configDir, ".octoql", ".gitignore")
 	err = os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
 	if err != nil {
@@ -291,6 +302,9 @@ func (cmd *schemaUpdateCommand) Run() error {
 	pinsUnchanged := loaded.Schema.SHA256Value() == result.SHA256 &&
 		sourceRevision(source) == result.Revision
 	if schemaUnchanged && pinsUnchanged {
+		if strings.EqualFold(filepath.Base(loaded.SchemaPath()), internal.DirectiveFilename) {
+			return fmt.Errorf("schema file %q conflicts with the directive companion filename", loaded.SchemaPath())
+		}
 		updatedConfig := config.SetSchemaDirective(rawConfig, cmd.configSchemaURL)
 		_, err = config.Parse(updatedConfig)
 		if err != nil {
@@ -339,6 +353,9 @@ func (cmd *schemaUpdateCommand) Run() error {
 	}
 	if !bytes.Equal(finalConfig, rawConfig) || !sameFileSnapshot(finalSchema, originalSchema) {
 		return errors.New("config or schema changed while updating; no files were published")
+	}
+	if strings.EqualFold(filepath.Base(loaded.SchemaPath()), internal.DirectiveFilename) {
+		return fmt.Errorf("schema file %q conflicts with the directive companion filename", loaded.SchemaPath())
 	}
 	err = cmd.outputWriter.Write(loaded.SchemaPath(), result.Data)
 	if err != nil {
@@ -441,6 +458,9 @@ func (cmd *schemaFetchCommand) Run() error {
 		return err
 	}
 	if cmd.Output != "" {
+		if strings.EqualFold(filepath.Base(cmd.Output), internal.DirectiveFilename) {
+			return fmt.Errorf("schema file %q conflicts with the directive companion filename", cmd.Output)
+		}
 		err = cmd.outputWriter.Write(cmd.Output, data)
 		if err != nil {
 			return fmt.Errorf("writing schema output %q: %w", cmd.Output, err)
@@ -476,6 +496,9 @@ type outputWriter interface {
 }
 
 func writeDirectiveFile(writer outputWriter, schemaPath string) error {
+	if strings.EqualFold(filepath.Base(schemaPath), internal.DirectiveFilename) {
+		return fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
+	}
 	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
 	err := writer.Write(path, []byte(internal.DirectiveFileContents))
 	if err != nil {

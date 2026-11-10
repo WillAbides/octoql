@@ -96,6 +96,39 @@ func TestOctoqlgenDirectiveAddRejectsEmptyStringOptions(t *testing.T) {
 	}
 }
 
+func TestOctoqlgenDirectiveRejectsNonLiteralArguments(t *testing.T) {
+	for name, test := range map[string]struct {
+		directive string
+		wantError string
+	}{
+		"variable boolean": {
+			directive: `(pointer: $p)`,
+			wantError: "expected boolean value for pointer",
+		},
+		"null boolean": {
+			directive: `(pointer: null)`,
+			wantError: "expected boolean value for pointer",
+		},
+		"variable string": {
+			directive: `(typename: $name)`,
+			wantError: "expected string value for typename",
+		},
+		"null string": {
+			directive: `(typename: null)`,
+			wantError: "expected string value for typename",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			directive := newOctoqlgenDirective(nil)
+
+			err := directive.applyArguments(
+				testDirective(t, octoqlgenDirectiveName, test.directive), nil)
+
+			assert.EqualError(t, err, test.wantError)
+		})
+	}
+}
+
 func TestOctoqlgenDirectiveAddAllowsBindOptOut(t *testing.T) {
 	directive := newOctoqlgenDirective(nil)
 

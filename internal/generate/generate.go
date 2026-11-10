@@ -52,6 +52,7 @@ type generator struct {
 	directives       map[any]*octoqlgenDirective
 	forDeclarations  map[fieldKey]*octoqlgenDirective
 	convertingInputs map[string]bool
+	convertedInputs  map[convertedInputKey]bool
 
 	forbiddenImportPath string
 }
@@ -208,6 +209,7 @@ func newGenerator(
 		directives:       map[any]*octoqlgenDirective{},
 		forDeclarations:  map[fieldKey]*octoqlgenDirective{},
 		convertingInputs: map[string]bool{},
+		convertedInputs:  map[convertedInputKey]bool{},
 	}
 
 	for _, fragment := range fragments {
