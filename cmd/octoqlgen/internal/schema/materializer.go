@@ -141,14 +141,14 @@ func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
 	if err != nil || upToDate {
 		return err
 	}
-	return replace(fileSystem, path, []byte(internal.FileContents))
+	return replace(fileSystem, path, []byte(internal.DirectiveFileContents))
 }
 
 func checkDirectiveFile(fileSystem fileSystem, schemaPath string) (string, bool, error) {
-	if filepath.Base(schemaPath) == internal.FileName {
+	if filepath.Base(schemaPath) == internal.DirectiveFilename {
 		return "", false, fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
 	}
-	path := filepath.Join(filepath.Dir(schemaPath), internal.FileName)
+	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
 	existing, err := fileSystem.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return path, false, nil
@@ -156,10 +156,10 @@ func checkDirectiveFile(fileSystem fileSystem, schemaPath string) (string, bool,
 	if err != nil {
 		return "", false, fmt.Errorf("reading directive file %q: %w", path, err)
 	}
-	if bytes.Equal(existing, []byte(internal.FileContents)) {
+	if bytes.Equal(existing, []byte(internal.DirectiveFileContents)) {
 		return path, true, nil
 	}
-	if !bytes.HasPrefix(existing, []byte(internal.FileHeader)) {
+	if !bytes.HasPrefix(existing, []byte(internal.DirectiveFileHeader)) {
 		return "", false, fmt.Errorf("refusing to replace non-generated directive file %q", path)
 	}
 	return path, false, nil

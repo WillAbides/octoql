@@ -355,8 +355,8 @@ func addOctoqlgenDirectiveDefinition(document *ast.SchemaDocument) error {
 	document.Directives = kept
 
 	parsed, graphqlError := parser.ParseSchema(&ast.Source{
-		Name:  internal.FileName,
-		Input: internal.SDL,
+		Name:  internal.DirectiveFilename,
+		Input: internal.DirectiveFileContents,
 	})
 	if graphqlError != nil {
 		return errorf(nil, "invalid @%s declaration (octoqlgen bug): %v",

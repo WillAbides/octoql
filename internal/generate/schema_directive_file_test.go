@@ -16,7 +16,7 @@ import (
 
 func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
 	schemaFilename := filepath.Join(dataDir, "schema.graphql")
-	directiveFilename := filepath.Join(dataDir, internal.FileName)
+	directiveFilename := filepath.Join(dataDir, internal.DirectiveFilename)
 
 	sources := make([]*ast.Source, 0, 2)
 	for _, filename := range []string{schemaFilename, directiveFilename} {
@@ -59,17 +59,17 @@ func TestDirectiveFilesAreCurrent(t *testing.T) {
 	repositoryRoot := filepath.Join("..", "..")
 
 	for _, path := range []string{
-		"cmd/octoqlgen/internal/schema/githubapi/" + internal.FileName,
-		"example/" + internal.FileName,
-		"internal/generate/testdata/queries/" + internal.FileName,
-		"internal/generatefeatures/githubdefaults/" + internal.FileName,
-		"internal/generatefeatures/nocontext/" + internal.FileName,
-		"internal/handlertest/" + internal.FileName,
-		"internal/integration/" + internal.FileName,
+		"cmd/octoqlgen/internal/schema/githubapi/" + internal.DirectiveFilename,
+		"example/" + internal.DirectiveFilename,
+		"internal/generate/testdata/queries/" + internal.DirectiveFilename,
+		"internal/generatefeatures/githubdefaults/" + internal.DirectiveFilename,
+		"internal/generatefeatures/nocontext/" + internal.DirectiveFilename,
+		"internal/handlertest/" + internal.DirectiveFilename,
+		"internal/integration/" + internal.DirectiveFilename,
 	} {
 		data, err := os.ReadFile(filepath.Join(repositoryRoot, path))
 		require.NoError(t, err)
-		assert.Equal(t, internal.FileContents, string(data),
+		assert.Equal(t, internal.DirectiveFileContents, string(data),
 			"%s is out of date, copy directive.FileContents over it", path)
 	}
 }

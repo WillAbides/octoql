@@ -186,8 +186,8 @@ func getQueries(
 		if err != nil {
 			return nil, errorf(nil, "unreadable query-spec file %v: %v", filename, err)
 		}
-		if filepath.Base(filename) == internal.FileName &&
-			bytes.HasPrefix(text, []byte(internal.FileHeader)) {
+		if filepath.Base(filename) == internal.DirectiveFilename &&
+			bytes.HasPrefix(text, []byte(internal.DirectiveFileHeader)) {
 			continue
 		}
 		matchedNonCompanion = true

@@ -74,10 +74,10 @@ func TestMaterializerWritesDirectiveFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, written, "the schema itself must be untouched")
 
-	companionPath := filepath.Join(filepath.Dir(destination), internal.FileName)
+	companionPath := filepath.Join(filepath.Dir(destination), internal.DirectiveFilename)
 	companion, err := os.ReadFile(companionPath)
 	require.NoError(t, err)
-	assert.Equal(t, internal.FileContents, string(companion))
+	assert.Equal(t, internal.DirectiveFileContents, string(companion))
 	assert.Empty(t, temporaryFiles(t, companionPath))
 }
 
@@ -94,7 +94,7 @@ func TestMaterializerRestoresDirectiveFile(t *testing.T) {
 			directoryPath := t.TempDir()
 			destination := filepath.Join(directoryPath, "schema.graphql")
 			require.NoError(t, os.WriteFile(destination, exactSchema, 0o600))
-			companionPath := filepath.Join(directoryPath, internal.FileName)
+			companionPath := filepath.Join(directoryPath, internal.DirectiveFilename)
 			if existing != nil {
 				require.NoError(t, os.WriteFile(companionPath, []byte(*existing), 0o600))
 			}
@@ -109,7 +109,7 @@ func TestMaterializerRestoresDirectiveFile(t *testing.T) {
 			assert.Equal(t, exactSchema, data)
 			companion, err := os.ReadFile(companionPath)
 			require.NoError(t, err)
-			assert.Equal(t, internal.FileContents, string(companion))
+			assert.Equal(t, internal.DirectiveFileContents, string(companion))
 		})
 	}
 }
@@ -119,11 +119,11 @@ func TestMaterializerRejectsDirectiveCompanionCollisions(t *testing.T) {
 
 	for name, setup := range map[string]func(*testing.T, string) string{
 		"schema path": func(_ *testing.T, directory string) string {
-			return filepath.Join(directory, internal.FileName)
+			return filepath.Join(directory, internal.DirectiveFilename)
 		},
 		"non-generated companion": func(t *testing.T, directory string) string {
 			schemaPath := filepath.Join(directory, "schema.graphql")
-			companionPath := filepath.Join(directory, internal.FileName)
+			companionPath := filepath.Join(directory, internal.DirectiveFilename)
 			require.NoError(t, os.WriteFile(companionPath, []byte("user-owned"), 0o600))
 			return schemaPath
 		},
@@ -154,7 +154,7 @@ func TestMaterializerSkipsCompanionForGeneration(t *testing.T) {
 
 	directory := t.TempDir()
 	schemaPath := filepath.Join(directory, "schema.graphql")
-	companionPath := filepath.Join(directory, internal.FileName)
+	companionPath := filepath.Join(directory, internal.DirectiveFilename)
 	require.NoError(t, os.WriteFile(schemaPath, exactSchema, 0o600))
 	require.NoError(t, os.WriteFile(companionPath, []byte("user-owned"), 0o600))
 

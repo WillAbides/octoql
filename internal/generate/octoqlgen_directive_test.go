@@ -510,7 +510,7 @@ type User {
 `
 	for name, declaration := range map[string]string{
 		"no declaration":      "",
-		"current declaration": "\n" + internal.SDL,
+		"current declaration": "\n" + internal.DirectiveFileContents,
 		"stale declaration":   "\ndirective @octoqlgen(alias: String) on FIELD\n",
 	} {
 		t.Run(name, func(t *testing.T) {
