@@ -2401,8 +2401,6 @@ func TestGenerateErrors(t *testing.T) {
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndLocalBind.graphql:3: typename and bind may not be used together"))
 			case "ConflictingTypeNames.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.graphql:5: conflicting definition for the Go type T: it is generated from both the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:2) and the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:5), which select different fields (expected 2 fields, got 1); give one of them a distinct name with an @octoqlgen(typename:) directive so they produce separate Go types"))
-			case "DefaultInputsNoOmitPointer.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointer.graphql:3: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "DefaultInputsNoOmitPointerForDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "EmptyForDirective.graphql":
@@ -2435,8 +2433,6 @@ func TestGenerateErrors(t *testing.T) {
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("no queries found, looked in: testdata/errors/NoQuery.graphql (configure this in octoqlgen.yaml)"))
 			case "NoQueryType.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoQueryType.graphql:1: query-spec does not match schema: Schema does not support operation type "query"`))
-			case "OmitemptyDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyDirective.graphql:3: omitempty may only be used on optional arguments: OmitemptyInput.field"))
 			case "OmitemptyForDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyForDirective.graphql:3: omitempty may only be used on optional arguments: OmitemptyInput.field"))
 			case "OperationOmitemptyRequiredVariable.graphql":

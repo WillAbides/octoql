@@ -44,10 +44,10 @@ directive @octoqlgen(
 ) repeatable on QUERY | MUTATION | FIELD | FRAGMENT_DEFINITION | VARIABLE_DEFINITION
 
 directive @octoqlgenDefaults(
-    """Default omitempty for the variables and input-type fields inside."""
+    """Default omitempty for the variables inside."""
     omitempty: Boolean
 
-    """Default pointer for the fields inside."""
+    """Default pointer for the variables and selected fields inside."""
     pointer: Boolean
 
     """Default struct for the interface-typed fields inside."""

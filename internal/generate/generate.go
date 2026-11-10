@@ -49,9 +49,8 @@ type generator struct {
 	// set consistently, even post-validation.
 	fragments map[string]*ast.FragmentDefinition
 
-	directives       map[any]*octoqlgenDirective
-	forDeclarations  map[fieldKey]*octoqlgenDirective
-	convertingInputs map[string]bool
+	directives      map[any]*octoqlgenDirective
+	forDeclarations map[fieldKey]*octoqlgenDirective
 
 	forbiddenImportPath string
 }
@@ -197,17 +196,16 @@ func newGenerator(
 	fragments ast.FragmentDefinitionList,
 ) *generator {
 	g := generator{
-		Config:           config,
-		typeMap:          map[string]goType{},
-		typePositions:    map[string]*ast.Position{},
-		imports:          map[string]string{},
-		usedAliases:      map[string]bool{},
-		templateCache:    map[string]*template.Template{},
-		schema:           schema,
-		fragments:        make(map[string]*ast.FragmentDefinition, len(fragments)),
-		directives:       map[any]*octoqlgenDirective{},
-		forDeclarations:  map[fieldKey]*octoqlgenDirective{},
-		convertingInputs: map[string]bool{},
+		Config:          config,
+		typeMap:         map[string]goType{},
+		typePositions:   map[string]*ast.Position{},
+		imports:         map[string]string{},
+		usedAliases:     map[string]bool{},
+		templateCache:   map[string]*template.Template{},
+		schema:          schema,
+		fragments:       make(map[string]*ast.FragmentDefinition, len(fragments)),
+		directives:      map[any]*octoqlgenDirective{},
+		forDeclarations: map[fieldKey]*octoqlgenDirective{},
 	}
 
 	for _, fragment := range fragments {

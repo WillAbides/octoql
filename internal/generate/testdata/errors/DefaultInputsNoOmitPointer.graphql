@@ -1,6 +1,0 @@
-# very similar to DefaultInputsNoOmitPointerForDirective.graphql - same expected behaviour, but takes a different code path(?)
-query DefaultInputs(
-  $input: InputWithDefaults!
-) @octoqlgenDefaults(pointer: true) {
-  default(input: $input)
-}

@@ -22,7 +22,8 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 
 	sources := make([]*ast.Source, len(filenames))
 	for i, filename := range filenames {
-		text, err := os.ReadFile(filename)
+		var text []byte
+		text, err = os.ReadFile(filename)
 		if err != nil {
 			return nil, nil, errorf(nil, "unreadable schema file %v: %v", filename, err)
 		}

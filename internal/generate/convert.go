@@ -758,11 +758,10 @@ func (g *generator) convertDefinition(
 		provenancePos = options.pos
 	}
 
-	// Enums and scalars are generated solely from the schema definition, so
-	// reuse existing types immediately. Object, Interface, Union, and
-	// InputObject types build candidates so their emitted fields can be
-	// compared.
-	if def.Kind == ast.Enum || def.Kind == ast.Scalar {
+	// Schema-definition types (InputObject, Enum, Scalar) are generated from
+	// the schema definition and global @octoqlgenFor declarations rather than
+	// per-operation selections, so reuse existing types immediately.
+	if def.Kind == ast.InputObject || def.Kind == ast.Enum || def.Kind == ast.Scalar {
 		existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
 		if existing != nil || err != nil {
 			return existing, err
@@ -811,27 +810,16 @@ func (g *generator) convertDefinition(
 			descriptionInfo: desc,
 			IsInput:         true,
 		}
-		existing, lookupErr := g.getType(
-			name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
-		if lookupErr != nil {
-			return nil, lookupErr
-		}
-		if g.convertingInputs[name] {
-			return existing, nil
-		}
-		g.convertingInputs[name] = true
-		defer delete(g.convertingInputs, name)
-
-		if existing == nil {
-			_, addErr := g.addType(goType, goType.GoName, provenancePos)
-			if addErr != nil {
-				return nil, addErr
-			}
+		// To handle recursive types, we need to add the type to the type-map
+		// *before* converting its fields.
+		_, err := g.addType(goType, goType.GoName, provenancePos)
+		if err != nil {
+			return nil, err
 		}
 
 		for i, field := range def.Fields {
 			fieldOptions, err := g.directiveFor(
-				field, def, field.Position, queryOptions)
+				field, def, field.Position, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -850,7 +838,7 @@ func (g *generator) convertDefinition(
 			// will be ignored?  We know field.Type is a scalar, enum, or input
 			// type.  But plumbing that is a bit tricky in practice.
 			fieldGoType, err := g.convertType(
-				namePrefix, field.Type, nil, fieldOptions, queryOptions)
+				namePrefix, field.Type, nil, fieldOptions, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -882,20 +870,6 @@ func (g *generator) convertDefinition(
 				Omitempty:   fieldOptions.GetOmitempty(),
 				Position:    field.Position,
 			}
-		}
-
-		if existing != nil {
-			matchErr := generatedTypeFieldsMatch(existing, goType)
-			if matchErr != nil {
-				return nil, errorf(provenancePos,
-					"conflicting definitions for the input type %s: this operation "+
-						"would generate it differently than the one at %s (%v); "+
-						"an input type is generated once, so declare the difference "+
-						"with @%s instead of @%s",
-					name, posString(g.typePositions[name]), matchErr,
-					octoqlgenForName, octoqlgenDefaultsName)
-			}
-			return existing, nil
 		}
 		return goType, nil
 

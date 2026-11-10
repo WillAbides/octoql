@@ -28,11 +28,11 @@
   files only. Do not restore extraction from Go string literals.
 - A named type generates one Go type, so `@octoqlgenFor` declarations for the
   same field must agree across operations. Silence is not disagreement.
-- `internal/directive` owns the `@octoqlgen` declarations. octoqlgen writes them
-  to a companion `octoqlgen-directive.graphql` beside each schema so editors can
-  resolve them, and never into the schema itself. The schema keeps the exact
-  bytes its source served so `schema.sha256` describes it, and GraphQL rejects
-  duplicate directive declarations. The generator always uses its own
+- `internal/directive.go` owns the `@octoqlgen` declarations. octoqlgen writes
+  them to a companion `octoqlgen-directive.graphql` beside each schema so
+  editors can resolve them, and never into the schema itself. The schema keeps
+  the exact bytes its source served so `schema.sha256` describes it, and GraphQL
+  rejects duplicate directive declarations. The generator always uses its own
   declarations and discards any it finds in a loaded schema.
 - octoql does not support GraphQL subscriptions. Preserve per-error
   `Error.Extensions`, but ignore top-level response extensions. Do not restore

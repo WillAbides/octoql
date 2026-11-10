@@ -327,6 +327,9 @@ func (d *octoqlgenDirective) mergeOperationDirective(
 	if forField == nil {
 		forField = newOctoqlgenDirective(nil)
 	}
+	if operationDirective == nil {
+		operationDirective = newOctoqlgenDirective(nil)
+	}
 
 	// Local directive wins over @octoqlgenFor, which wins over @octoqlgenDefaults.
 	fillDefaultBool(&d.Omitempty, forField.Omitempty, operationDirective.Omitempty)
@@ -569,12 +572,13 @@ func (g *generator) directiveFor(
 		directive = newOctoqlgenDirective(pos)
 	}
 
-	if queryOptions == nil {
+	forField := g.forDeclarationFor(node, parentIfInputField)
+	if queryOptions == nil && forField == nil {
 		return directive, nil
 	}
 
 	merged := *directive
-	merged.mergeOperationDirective(g.forDeclarationFor(node, parentIfInputField), queryOptions)
+	merged.mergeOperationDirective(forField, queryOptions)
 
 	// TODO(benkraft): Really we should do all the validation after
 	// merging, probably?  But this is the only check that can fail only

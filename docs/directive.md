@@ -73,8 +73,10 @@ An `@octoqlgen` on a node takes precedence over a default, so `d`, `e`, and `f`
 take precedence over `b` and `c`.
 
 `@octoqlgen` does *not* apply to a node's children, so `d` does not apply to the
-fields of `MyInput` and `f` does not apply to `field4`. Defaults do apply to
-children, so both `b` and `c` apply to the fields of `MyInput` and to `field4`.
+fields of `MyInput` and `f` does not apply to `field4`. Defaults apply to the
+operation's variables and selected fields, so both `b` and `c` apply to `$arg1`,
+`$arg3`, `field2`, `field4`, and `field5`. Use `@octoqlgenFor` to configure the
+fields of `MyInput`.
 
 Each directive is repeatable in the same location as long as the repeats do not
 have conflicting options. octoql does not support subscriptions.
