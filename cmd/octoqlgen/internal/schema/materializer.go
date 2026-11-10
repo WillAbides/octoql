@@ -11,7 +11,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/vektah/gqlparser/v2"
@@ -111,9 +110,6 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	if request.Path == "" {
 		return data, nil
 	}
-	if strings.EqualFold(filepath.Base(request.Path), internal.DirectiveFilename) {
-		return nil, fmt.Errorf("schema file %q conflicts with the directive companion filename", request.Path)
-	}
 
 	err = publish(
 		deps.fileSystem,
@@ -132,9 +128,6 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 }
 
 func publishDirectiveFile(fileSystem fileSystem, schemaPath string) error {
-	if strings.EqualFold(filepath.Base(schemaPath), internal.DirectiveFilename) {
-		return fmt.Errorf("schema file %q conflicts with the directive companion filename", schemaPath)
-	}
 	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
 	wanted := []byte(internal.DirectiveFileContents)
 

@@ -114,25 +114,6 @@ func TestMaterializerRestoresDirectiveFile(t *testing.T) {
 	}
 }
 
-func TestMaterializerRejectsSchemaCompanionCollision(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	schemaPath := filepath.Join(directory, internal.DirectiveFilename)
-	require.NoError(t, os.WriteFile(schemaPath, exactSchema, 0o600))
-
-	_, err := NewMaterializer().Materialize(t.Context(), &Request{
-		Path:   schemaPath,
-		SHA256: checksum(exactSchema),
-	})
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "conflicts with the directive companion filename")
-	schema, readErr := os.ReadFile(schemaPath)
-	require.NoError(t, readErr)
-	assert.Equal(t, exactSchema, schema)
-}
-
 func ptrTo[T any](value T) *T {
 	return &value
 }

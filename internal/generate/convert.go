@@ -91,23 +91,6 @@ func describeGraphQLSource(graphQLName, fragmentName string) string {
 	return fmt.Sprintf("the selection of GraphQL type %s", graphQLName)
 }
 
-type convertedInputKey struct {
-	name      string
-	omitempty *bool
-	pointer   *bool
-}
-
-func makeConvertedInputKey(name string, queryOptions *octoqlgenDirective) convertedInputKey {
-	if queryOptions == nil {
-		return convertedInputKey{name: name}
-	}
-	return convertedInputKey{
-		name:      name,
-		omitempty: queryOptions.Omitempty,
-		pointer:   queryOptions.Pointer,
-	}
-}
-
 func posString(pos *ast.Position) string {
 	if pos == nil || pos.Src == nil {
 		return "an unknown location"
@@ -833,8 +816,7 @@ func (g *generator) convertDefinition(
 		if lookupErr != nil {
 			return nil, lookupErr
 		}
-		inputKey := makeConvertedInputKey(name, queryOptions)
-		if g.convertingInputs[name] || (existing != nil && g.convertedInputs[inputKey]) {
+		if g.convertingInputs[name] {
 			return existing, nil
 		}
 		g.convertingInputs[name] = true
@@ -913,10 +895,8 @@ func (g *generator) convertDefinition(
 					name, posString(g.typePositions[name]), matchErr,
 					octoqlgenForName, octoqlgenDefaultsName)
 			}
-			g.convertedInputs[inputKey] = true
 			return existing, nil
 		}
-		g.convertedInputs[inputKey] = true
 		return goType, nil
 
 	case ast.Interface, ast.Union:
