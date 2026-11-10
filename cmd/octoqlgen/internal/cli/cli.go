@@ -612,10 +612,9 @@ func (d *Dependencies) setDefaults() {
 	if d.RemoteResolver == nil {
 		resolver, ok := d.Materializer.(remoteResolver)
 		if !ok {
-			d.RemoteResolver = schema.NewMaterializer()
-		} else {
-			d.RemoteResolver = resolver
+			resolver = schema.NewMaterializer()
 		}
+		d.RemoteResolver = resolver
 	}
 	if d.OutputWriter == nil {
 		d.OutputWriter = atomicOutputWriter{}

@@ -556,20 +556,18 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, g *generator) error {
 			fmt.Fprintf(w, "\t%s\n", member.field.GoType.Reference())
 		case interfaceGetterMember:
 			sharedField := member.field
-			description := ""
+			description := fmt.Sprintf(
+				`%s returns the interface-field %q from its implementation.`,
+				member.methodName, sharedField.GraphQLName)
+			if sharedField.Description != "" {
+				description = fmt.Sprintf(
+					"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
+					description, sharedField.Description)
+			}
 			if sharedField.GraphQLName == "__typename" {
 				description = fmt.Sprintf(
 					"%s returns the receiver's concrete GraphQL type-name "+
 						"(see interface doc for possible values).", member.methodName)
-			} else {
-				description = fmt.Sprintf(
-					`%s returns the interface-field %q from its implementation.`,
-					member.methodName, sharedField.GraphQLName)
-				if sharedField.Description != "" {
-					description = fmt.Sprintf(
-						"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
-						description, sharedField.Description)
-				}
 			}
 
 			writeDescription(w, description)

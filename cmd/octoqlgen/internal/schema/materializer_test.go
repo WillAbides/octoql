@@ -461,13 +461,17 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 					Path:       "schema.graphql",
 				},
 			})
-			if test.expectedError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), test.expectedError)
-			} else {
+			expectErr := func() {
 				require.NoError(t, err)
 				assert.Equal(t, exactSchema, data)
 			}
+			if test.expectedError != "" {
+				expectErr = func() {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), test.expectedError)
+				}
+			}
+			expectErr()
 			assert.Equal(t, int32(1), calls.Load())
 			assert.Equal(t, test.expectedAuth, authorization)
 			if test.expectedAuth != "" {

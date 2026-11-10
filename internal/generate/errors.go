@@ -21,9 +21,8 @@ type errorPos struct {
 func (p *errorPos) String() string {
 	if p.line != 0 {
 		return fmt.Sprintf("%v:%v", p.filename, p.line)
-	} else {
-		return p.filename
 	}
+	return p.filename
 }
 
 type octoqlgenError struct {
@@ -76,15 +75,16 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 	}
 
 	var errPos *errorPos
-	if pos != nil {
+	switch {
+	case pos != nil:
 		errPos = &errorPos{
 			filename: pos.Src.Name,
 			line:     pos.Line,
 			col:      pos.Column,
 		}
-	} else if isOctoqlgen {
+	case isOctoqlgen:
 		errPos = wrappedOctoqlgen.pos
-	} else if isGraphQL {
+	case isGraphQL:
 		filename, _ := wrappedGraphQL.Extensions["file"].(string)
 		if filename != "" {
 			var loc gqlerror.Location
@@ -101,9 +101,10 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 
 	if wrapped != nil {
 		errText := wrapped.Error()
-		if isOctoqlgen {
+		switch {
+		case isOctoqlgen:
 			errText = wrappedOctoqlgen.msg
-		} else if isGraphQL {
+		case isGraphQL:
 			errText = wrappedGraphQL.Message
 		}
 		args[wrapIndex] = errText
@@ -133,17 +134,18 @@ func goSourceError(
 	var scanErr *scanner.Error
 	var badLines map[int]bool
 
-	if errors.As(err, &scanErrs) {
+	switch {
+	case errors.As(err, &scanErrs):
 		errTexts = make([]string, len(scanErrs))
 		badLines = make(map[int]bool, len(scanErrs))
 		for i, scanErr := range scanErrs {
 			errTexts[i] = err.Error()
 			badLines[scanErr.Pos.Line] = true
 		}
-	} else if errors.As(err, &scanErr) {
+	case errors.As(err, &scanErr):
 		errTexts = []string{scanErr.Error()}
 		badLines = map[int]bool{scanErr.Pos.Line: true}
-	} else {
+	default:
 		errTexts = []string{err.Error()}
 	}
 

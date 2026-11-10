@@ -128,11 +128,11 @@ func TestNonnegativeHeaderUnixRepresentability(t *testing.T) {
 			header := http.Header{"X-RateLimit-Reset": {test.value}}
 			got, valid := _octoqlNonnegativeHeaderUnix(header, "X-RateLimit-Reset")
 			assert.Equal(t, test.want, valid)
+			wantTime := time.Time{}
 			if test.want {
-				assert.Equal(t, time.Unix(int64(maximum), 0).UTC(), got)
-			} else {
-				assert.Equal(t, time.Time{}, got)
+				wantTime = time.Unix(int64(maximum), 0).UTC()
 			}
+			assert.Equal(t, wantTime, got)
 		})
 	}
 }
