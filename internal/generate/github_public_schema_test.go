@@ -135,7 +135,8 @@ func ensureGitHubPublicSchema(
 			detail,
 		)
 	}
-	if _, err := os.Stat(schemaFilename); err != nil {
+	_, err = os.Stat(schemaFilename)
+	if err != nil {
 		return fmt.Errorf("octoqlgen completed without materializing %q: %w", schemaFilename, err)
 	}
 	return nil

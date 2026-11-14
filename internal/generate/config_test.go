@@ -12,12 +12,12 @@ import (
 func TestValidateOutputPathsFilesystemAliases(t *testing.T) {
 	tempDir := t.TempDir()
 	realDir := filepath.Join(tempDir, "real")
-	err := os.Mkdir(realDir, 0o755)
-	require.NoError(t, err)
+	setupErr := os.Mkdir(realDir, 0o755)
+	require.NoError(t, setupErr)
 	aliasDir := filepath.Join(tempDir, "alias")
-	err = os.Symlink(realDir, aliasDir)
-	if err != nil {
-		t.Skipf("symlinks are unavailable: %v", err)
+	setupErr = os.Symlink(realDir, aliasDir)
+	if setupErr != nil {
+		t.Skipf("symlinks are unavailable: %v", setupErr)
 	}
 
 	t.Run("symlinked parent", func(t *testing.T) {
@@ -110,15 +110,15 @@ func TestValidateOutputPathsProtectsInputs(t *testing.T) {
 	configPath := filepath.Join(directory, "octoqlgen.yaml")
 	schemaPath := filepath.Join(directory, "schema.graphql")
 	operationPath := filepath.Join(directory, "graphql", "viewer.graphql")
-	err := os.Mkdir(filepath.Dir(operationPath), 0o755)
-	require.NoError(t, err)
+	setupErr := os.Mkdir(filepath.Dir(operationPath), 0o755)
+	require.NoError(t, setupErr)
 	for path, content := range map[string]string{
 		configPath:    "schema: {}\n",
 		schemaPath:    "type Query { viewer: String! }\n",
 		operationPath: "query Viewer { viewer }\n",
 	} {
-		err = os.WriteFile(path, []byte(content), 0o600)
-		require.NoError(t, err)
+		setupErr = os.WriteFile(path, []byte(content), 0o600)
+		require.NoError(t, setupErr)
 	}
 
 	tests := []struct {
@@ -194,15 +194,15 @@ func TestConfigValidateAndFillDefaults(t *testing.T) {
 		t.Parallel()
 
 		moduleDir := t.TempDir()
-		err := os.WriteFile(
+		writeErr := os.WriteFile(
 			filepath.Join(moduleDir, "go.mod"),
 			[]byte("module example.com/app // application module\n\ngo 1.26.0\n"),
 			0o600,
 		)
-		require.NoError(t, err)
+		require.NoError(t, writeErr)
 
-		pkgPath, err := packagePathFromModule(filepath.Join(moduleDir, "client"))
-		require.NoError(t, err)
+		pkgPath, moduleErr := packagePathFromModule(filepath.Join(moduleDir, "client"))
+		require.NoError(t, moduleErr)
 		assert.Equal(t, "example.com/app/client", pkgPath)
 	})
 }

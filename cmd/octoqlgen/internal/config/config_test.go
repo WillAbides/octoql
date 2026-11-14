@@ -205,7 +205,7 @@ func TestDocumentationYAMLBlocksParse(t *testing.T) {
 
 	for i, block := range blocks {
 		loaded := &Config{}
-		err := yaml.UnmarshalStrict([]byte(block), loaded)
+		err = yaml.UnmarshalStrict([]byte(block), loaded)
 		assert.NoError(t, err, "yaml block %d:\n%s", i+1, block)
 	}
 }

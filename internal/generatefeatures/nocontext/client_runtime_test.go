@@ -258,7 +258,7 @@ func TestClientSetBearerTokenValidation(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := client.SetBearerToken(test.token)
+			err = client.SetBearerToken(test.token)
 			assert.EqualError(t, err, "octoql: invalid bearer token")
 		})
 	}

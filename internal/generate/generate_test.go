@@ -132,20 +132,20 @@ func generatedStringConstant(t *testing.T, source []byte, name string) string {
 	file, err := parser.ParseFile(token.NewFileSet(), "generated.go", source, 0)
 	require.NoError(t, err)
 	for _, declaration := range file.Decls {
-		genericDeclaration, ok := declaration.(*ast.GenDecl)
-		if !ok || genericDeclaration.Tok != token.CONST {
+		genericDeclaration, isGenDecl := declaration.(*ast.GenDecl)
+		if !isGenDecl || genericDeclaration.Tok != token.CONST {
 			continue
 		}
 		for _, specification := range genericDeclaration.Specs {
-			valueSpecification, ok := specification.(*ast.ValueSpec)
-			if !ok || len(valueSpecification.Names) != 1 || valueSpecification.Names[0].Name != name {
+			valueSpecification, isValueSpec := specification.(*ast.ValueSpec)
+			if !isValueSpec || len(valueSpecification.Names) != 1 || valueSpecification.Names[0].Name != name {
 				continue
 			}
 			require.Len(t, valueSpecification.Values, 1)
-			literal, ok := valueSpecification.Values[0].(*ast.BasicLit)
-			require.True(t, ok)
-			value, err := strconv.Unquote(literal.Value)
-			require.NoError(t, err)
+			literal, isBasicLit := valueSpecification.Values[0].(*ast.BasicLit)
+			require.True(t, isBasicLit)
+			value, unquoteErr := strconv.Unquote(literal.Value)
+			require.NoError(t, unquoteErr)
 			return value
 		}
 	}
@@ -717,10 +717,10 @@ func TestGenerateLocalTestHandlerBindings(t *testing.T) {
 	t.Parallel()
 
 	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	require.NoError(t, err)
-	rootDir, err := os.MkdirTemp(tempRoot, "test-handler-binding-")
-	require.NoError(t, err)
+	setupErr := os.MkdirAll(tempRoot, 0o755)
+	require.NoError(t, setupErr)
+	rootDir, setupErr := os.MkdirTemp(tempRoot, "test-handler-binding-")
+	require.NoError(t, setupErr)
 	t.Cleanup(func() {
 		require.NoError(t, os.RemoveAll(rootDir))
 	})
@@ -924,14 +924,14 @@ query Beta { second }
 		firstDirectory := filepath.Join(tempDir, "first", "shared")
 		secondDirectory := filepath.Join(tempDir, "second", "shared")
 		for _, directory := range []string{firstDirectory, secondDirectory} {
-			err := os.MkdirAll(directory, 0o755)
-			require.NoError(t, err)
-			err = os.WriteFile(
+			mkdirErr := os.MkdirAll(directory, 0o755)
+			require.NoError(t, mkdirErr)
+			writeErr := os.WriteFile(
 				filepath.Join(directory, "value.go"),
 				[]byte("package shared\n\ntype Value string\n"),
 				0o600,
 			)
-			require.NoError(t, err)
+			require.NoError(t, writeErr)
 		}
 		firstAbsolute, err := filepath.Abs(firstDirectory)
 		require.NoError(t, err)
@@ -1375,25 +1375,25 @@ func TestTestHandlerConfigurationErrors(t *testing.T) {
 	t.Parallel()
 
 	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	if err != nil {
-		t.Fatal(err)
+	setupErr := os.MkdirAll(tempRoot, 0o755)
+	if setupErr != nil {
+		t.Fatal(setupErr)
 	}
-	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-config-")
-	if err != nil {
-		t.Fatal(err)
+	tempDir, setupErr := os.MkdirTemp(tempRoot, "test-handler-config-")
+	if setupErr != nil {
+		t.Fatal(setupErr)
 	}
 	t.Cleanup(func() {
-		err = os.RemoveAll(tempDir)
-		if err != nil {
-			t.Errorf("removing temporary generation directory: %v", err)
+		removeErr := os.RemoveAll(tempDir)
+		if removeErr != nil {
+			t.Errorf("removing temporary generation directory: %v", removeErr)
 		}
 	})
-	absoluteClientOutput, err := filepath.Abs(
+	absoluteClientOutput, setupErr := filepath.Abs(
 		filepath.Join(tempDir, "client", "generated.go"),
 	)
-	if err != nil {
-		t.Fatal(err)
+	if setupErr != nil {
+		t.Fatal(setupErr)
 	}
 
 	tests := []struct {
@@ -1540,9 +1540,9 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 	t.Parallel()
 
 	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	if err != nil {
-		t.Fatal(err)
+	setupErr := os.MkdirAll(tempRoot, 0o755)
+	if setupErr != nil {
+		t.Fatal(setupErr)
 	}
 
 	tests := []struct {
@@ -1633,9 +1633,9 @@ type Query {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
-				err = os.RemoveAll(tempDir)
-				if err != nil {
-					t.Errorf("removing temporary generation directory: %v", err)
+				removeErr := os.RemoveAll(tempDir)
+				if removeErr != nil {
+					t.Errorf("removing temporary generation directory: %v", removeErr)
 				}
 			})
 
@@ -1675,18 +1675,18 @@ func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) 
 	t.Parallel()
 
 	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	if err != nil {
-		t.Fatal(err)
+	setupErr := os.MkdirAll(tempRoot, 0o755)
+	if setupErr != nil {
+		t.Fatal(setupErr)
 	}
-	rootDir, err := os.MkdirTemp(tempRoot, "test-handler-import-alias-")
-	if err != nil {
-		t.Fatal(err)
+	rootDir, setupErr := os.MkdirTemp(tempRoot, "test-handler-import-alias-")
+	if setupErr != nil {
+		t.Fatal(setupErr)
 	}
 	t.Cleanup(func() {
-		err = os.RemoveAll(rootDir)
-		if err != nil {
-			t.Errorf("removing temporary generation directory: %v", err)
+		removeErr := os.RemoveAll(rootDir)
+		if removeErr != nil {
+			t.Errorf("removing temporary generation directory: %v", removeErr)
 		}
 	})
 	compiledOutputs := make(map[string][]byte)
@@ -1966,9 +1966,9 @@ func TestGenerateWithConfig(t *testing.T) {
 func TestGenerateErrors(t *testing.T) {
 	t.Parallel()
 
-	files, err := os.ReadDir(errorsDir)
-	if err != nil {
-		t.Fatal(err)
+	files, readErr := os.ReadDir(errorsDir)
+	if readErr != nil {
+		t.Fatal(readErr)
 	}
 
 	for _, file := range files {
@@ -1985,12 +1985,12 @@ func TestGenerateErrors(t *testing.T) {
 		// Schema is either <base>.schema.graphql, or <dir>/schema.graphql if
 		// that doesn't exist.
 		schemaFilename := baseFilename + ".schema.graphql"
-		_, err = os.Stat(filepath.Join(errorsDir, schemaFilename))
+		_, statErr := os.Stat(filepath.Join(errorsDir, schemaFilename))
 		switch {
-		case errors.Is(err, os.ErrNotExist):
+		case errors.Is(statErr, os.ErrNotExist):
 			schemaFilename = "schema.graphql"
-		case err != nil:
-			t.Fatal(err)
+		case statErr != nil:
+			t.Fatal(statErr)
 		}
 
 		t.Run(testFilename, func(t *testing.T) {

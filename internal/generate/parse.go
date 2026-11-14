@@ -142,7 +142,8 @@ func getQueries(
 
 		switch filepath.Ext(filename) {
 		case ".graphql", ".graphqls", ".gql":
-			queryDoc, err := getQueriesFromString(string(text), basedir, filename)
+			var queryDoc *ast.QueryDocument
+			queryDoc, err = getQueriesFromString(string(text), basedir, filename)
 			if err != nil {
 				return nil, err
 			}

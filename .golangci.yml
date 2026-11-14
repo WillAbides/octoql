@@ -48,6 +48,9 @@ linters:
       enable-all: true
       disable:
         - fieldalignment
+      settings:
+        shadow:
+          strict: true
   exclusions:
     generated: lax
     presets:
