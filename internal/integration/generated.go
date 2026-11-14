@@ -398,7 +398,7 @@ func _octoqlRateLimitFromHeader(header http.Header) *RateLimit {
 }
 
 func _octoqlNonnegativeHeaderInt(header http.Header, name string) (int, bool) {
-	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), strconv.IntSize)
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), strconv.IntSize-1)
 	if !valid {
 		return 0, false
 	}
@@ -473,15 +473,19 @@ func _octoqlHeaderValue(header http.Header, name string) string {
 func _octoqlClassifyRateLimit(
 	httpResponse *http.Response,
 	rateLimit *RateLimit,
+	retryAfterNow time.Time,
 	err error,
 ) error {
 	if err == nil || httpResponse == nil || !_octoqlIsRateLimitStatus(httpResponse.StatusCode) {
 		return err
 	}
 
+	if retryAfterNow.IsZero() {
+		retryAfterNow = _octoqlRateLimitNow()
+	}
 	retryAfter, retryAt, retryAfterValid := _octoqlRetryAfterFromHeader(
 		httpResponse.Header,
-		_octoqlRateLimitNow(),
+		retryAfterNow,
 	)
 	if retryAfterValid {
 		return &RateLimitError{
@@ -752,6 +756,12 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 		return false, fmt.Errorf("send graphql request: %w", sendErr)
 	}
 
+	var retryAfterNow time.Time
+	if _octoqlIsRateLimitStatus(httpResponse.StatusCode) &&
+		strings.TrimSpace(_octoqlHeaderValue(httpResponse.Header, "Retry-After")) != "" {
+		retryAfterNow = _octoqlRateLimitNow()
+	}
+
 	observation := c.responseObservation.Add(1)
 	rateLimit := _octoqlRateLimitFromHeader(httpResponse.Header)
 	c._octoqlObserveRateLimit(observation, rateLimit)
@@ -765,7 +775,7 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, retryAfterNow, responseError)
 	}
 
 	if httpResponse.Body == nil {
@@ -775,7 +785,7 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, retryAfterNow, responseError)
 	}
 
 	body, readErr, closeErr := _octoqlReadAndClose(
@@ -793,7 +803,7 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 			bodyTruncated: responseTooLarge,
 			err:           cause,
 		})
-		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, retryAfterNow, responseError)
 	}
 
 	data, graphqlErrors, decodeErr := _octoqlDecodeResponse(body)
@@ -835,7 +845,7 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 		retainBody: retainBody,
 		err:        cause,
 	})
-	return hasUsableData, _octoqlClassifyRateLimit(httpResponse, rateLimit, responseError)
+	return hasUsableData, _octoqlClassifyRateLimit(httpResponse, rateLimit, retryAfterNow, responseError)
 }
 
 func (c *Client) _octoqlObserveRateLimit(observation uint64, rateLimit *RateLimit) {

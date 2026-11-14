@@ -42,6 +42,39 @@ func TestRateLimitFromHeader(t *testing.T) {
 				Resource:  "graphql",
 			},
 		},
+		"maximum int headers": {
+			header: http.Header{
+				"X-RateLimit-Limit":     {strconv.Itoa(math.MaxInt)},
+				"X-RateLimit-Remaining": {strconv.Itoa(math.MaxInt)},
+				"X-RateLimit-Used":      {strconv.Itoa(math.MaxInt)},
+			},
+			want: &RateLimit{
+				Limit:     math.MaxInt,
+				Remaining: math.MaxInt,
+				Used:      math.MaxInt,
+			},
+		},
+		"max int plus one limit": {
+			header: http.Header{
+				"X-RateLimit-Limit":     {strconv.FormatUint(uint64(math.MaxInt)+1, 10)},
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {"5000"},
+			},
+		},
+		"max int plus one remaining": {
+			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
+				"X-RateLimit-Remaining": {strconv.FormatUint(uint64(math.MaxInt)+1, 10)},
+				"X-RateLimit-Used":      {"5000"},
+			},
+		},
+		"max int plus one used": {
+			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {strconv.FormatUint(uint64(math.MaxInt)+1, 10)},
+			},
+		},
 		"incomplete numeric headers": {
 			header: http.Header{
 				"X-RateLimit-Limit":     {"5000"},
@@ -448,6 +481,69 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 			}
 		})
 	}
+}
+
+type delayedReader struct {
+	reader  io.Reader
+	onRead  func()
+	started bool
+}
+
+func (r *delayedReader) Read(buffer []byte) (int, error) {
+	if !r.started {
+		r.started = true
+		r.onRead()
+	}
+	return r.reader.Read(buffer)
+}
+
+func TestDoAnchorsRetryAfterToResponseArrival(t *testing.T) {
+	arrival := time.Date(2026, time.July, 18, 19, 0, 0, 0, time.UTC)
+	currentNow := arrival
+	clockReads := 0
+	previousNow := _octoqlRateLimitNow
+	_octoqlRateLimitNow = func() time.Time {
+		clockReads++
+		return currentNow
+	}
+	t.Cleanup(func() {
+		_octoqlRateLimitNow = previousNow
+	})
+
+	successClient := rateLimitClient(
+		http.StatusOK,
+		http.Header{},
+		`{"data":{"value":"ok"}}`,
+	)
+	_, err := doRateLimitOperation[struct {
+		Value string `json:"value"`
+	}](t, successClient)
+	require.NoError(t, err)
+	assert.Zero(t, clockReads)
+
+	slowFailureClient := NewClient(
+		"https://api.github.com/graphql",
+		&http.Client{Transport: rateLimitRoundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header: http.Header{
+					"Retry-After": {"30"},
+				},
+				Body: io.NopCloser(&delayedReader{
+					reader: strings.NewReader(`{"errors":[{"message":"slow down"}]}`),
+					onRead: func() {
+						currentNow = currentNow.Add(5 * time.Second)
+					},
+				}),
+			}, nil
+		})},
+	)
+
+	_, err = doRateLimitOperation[struct{}](t, slowFailureClient)
+	rateLimitError, ok := errors.AsType[*RateLimitError](err)
+	require.True(t, ok)
+	assert.Equal(t, 30*time.Second, rateLimitError.RetryAfter)
+	assert.Equal(t, arrival.Add(30*time.Second), rateLimitError.RetryAt())
 }
 
 func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
