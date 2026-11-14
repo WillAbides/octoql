@@ -12,6 +12,8 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 )
 
+//go:generate go run github.com/99designs/gqlgen
+
 var repositories = []*Repository{
 	{
 		ID: "10", Name: "octo-repo", NameWithOwner: "octocat/octo-repo",
@@ -282,5 +284,3 @@ func (r *resolver) Mutation() MutationResolver {
 }
 
 func (r *resolver) Query() QueryResolver { return &queryResolver{} }
-
-//go:generate go run github.com/99designs/gqlgen@v0.17.94

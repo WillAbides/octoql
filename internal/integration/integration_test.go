@@ -17,6 +17,8 @@ import (
 	gqlserver "github.com/willabides/octoql/internal/integration/server"
 )
 
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml
+
 func TestGetRepository(t *testing.T) {
 	ctx := context.Background()
 	server := gqlserver.RunServer()
@@ -572,5 +574,3 @@ func requirePtrValue[T any](t *testing.T, value *T) T {
 	require.NotNil(t, value)
 	return *value
 }
-
-//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml

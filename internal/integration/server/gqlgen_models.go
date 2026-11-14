@@ -64,8 +64,7 @@ type Bot struct {
 func (Bot) IsNode()            {}
 func (this Bot) GetID() string { return this.ID }
 
-func (Bot) IsActor() {}
-
+func (Bot) IsActor()              {}
 func (this Bot) GetLogin() string { return this.Login }
 
 func (Bot) IsSearchResultItem() {}
@@ -111,12 +110,10 @@ type Organization struct {
 func (Organization) IsNode()            {}
 func (this Organization) GetID() string { return this.ID }
 
-func (Organization) IsActor() {}
-
+func (Organization) IsActor()              {}
 func (this Organization) GetLogin() string { return this.Login }
 
-func (Organization) IsRepositoryOwner() {}
-
+func (Organization) IsRepositoryOwner()              {}
 func (this Organization) GetContributionCount() *int { return this.ContributionCount }
 func (this Organization) GetRepositories() []*Repository {
 	if this.Repositories == nil {
@@ -171,8 +168,7 @@ type Repository struct {
 func (Repository) IsNode()            {}
 func (this Repository) GetID() string { return this.ID }
 
-func (Repository) IsStarrable() {}
-
+func (Repository) IsStarrable()                   {}
 func (this Repository) GetStargazerCount() int    { return this.StargazerCount }
 func (this Repository) GetViewerHasStarred() bool { return this.ViewerHasStarred }
 
@@ -192,12 +188,10 @@ type User struct {
 func (User) IsNode()            {}
 func (this User) GetID() string { return this.ID }
 
-func (User) IsActor() {}
-
+func (User) IsActor()              {}
 func (this User) GetLogin() string { return this.Login }
 
-func (User) IsRepositoryOwner() {}
-
+func (User) IsRepositoryOwner()              {}
 func (this User) GetContributionCount() *int { return this.ContributionCount }
 func (this User) GetRepositories() []*Repository {
 	if this.Repositories == nil {
@@ -254,7 +248,7 @@ func (e *IssueState) UnmarshalGQL(v any) error {
 }
 
 func (e IssueState) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *IssueState) UnmarshalJSON(b []byte) error {
@@ -309,7 +303,7 @@ func (e *PlanName) UnmarshalGQL(v any) error {
 }
 
 func (e PlanName) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *PlanName) UnmarshalJSON(b []byte) error {
@@ -366,7 +360,7 @@ func (e *PullRequestState) UnmarshalGQL(v any) error {
 }
 
 func (e PullRequestState) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *PullRequestState) UnmarshalJSON(b []byte) error {
@@ -423,7 +417,7 @@ func (e *SearchType) UnmarshalGQL(v any) error {
 }
 
 func (e SearchType) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *SearchType) UnmarshalJSON(b []byte) error {
