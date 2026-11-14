@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"cmp"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -246,9 +247,7 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if c.normalized {
 		return nil
 	}
-	if c.Warnings == nil {
-		c.Warnings = io.Discard
-	}
+	c.Warnings = cmp.Or(c.Warnings, io.Discard)
 	c.baseDir = baseDir
 	if c.Schema != "" {
 		c.Schema = pathJoin(baseDir, c.Schema)
@@ -259,10 +258,7 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if c.ConfigFile != "" {
 		c.ConfigFile = pathJoin(baseDir, c.ConfigFile)
 	}
-	if c.Generated == "" {
-		c.Generated = "generated.go"
-	}
-	c.Generated = pathJoin(baseDir, c.Generated)
+	c.Generated = pathJoin(baseDir, cmp.Or(c.Generated, "generated.go"))
 	if c.TestHandlerGenerated != "" {
 		c.TestHandlerGenerated = pathJoin(baseDir, c.TestHandlerGenerated)
 	}
@@ -273,15 +269,9 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if err != nil {
 		return err
 	}
-	if c.ContextType == "" {
-		c.ContextType = "context.Context"
-	}
-	if c.OmitUnreferencedImplementations == nil {
-		c.OmitUnreferencedImplementations = new(true)
-	}
-	if c.TestHandlerTypes == "" {
-		c.TestHandlerTypes = TestHandlerTypesClient
-	}
+	c.ContextType = cmp.Or(c.ContextType, "context.Context")
+	c.OmitUnreferencedImplementations = cmp.Or(c.OmitUnreferencedImplementations, new(true))
+	c.TestHandlerTypes = cmp.Or(c.TestHandlerTypes, TestHandlerTypesClient)
 	err = c.TestHandlerTypes.validate()
 	if err != nil {
 		return err

@@ -6,8 +6,17 @@ operations:
   - operation.graphql
 generated: generated.go
 context_type: "-"
+package_bindings:
+  - package: github.com/willabides/octoql/internal/testutil
 bindings:
+  Account:
+    type: github.com/willabides/octoql/internal/testutil.Account
+    expect_exact_fields: "{ id login }"
+  CustomPropertyValue:
+    type: string
   Date:
     type: time.Time
     marshaler: github.com/willabides/octoql/internal/testutil.MarshalDate
     unmarshaler: github.com/willabides/octoql/internal/testutil.UnmarshalDate
+  DateTime:
+    type: string

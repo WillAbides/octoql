@@ -230,37 +230,6 @@ query QB @octoqlgenFor(field: "Thing.name", pointer: true) { b @octoqlgen(typena
 	}
 }
 
-func TestForAllowsAgreeingDeclarations(t *testing.T) {
-	declaring := `query QA($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { a(filter: $f) { name } }`
-	silent := `query QB($f: Filter) { b(filter: $f) { name } }`
-
-	for name, operation := range map[string]string{
-		"identical declarations": `
-query QA($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { a(filter: $f) { name } }
-query QB($f: Filter) @octoqlgenFor(field: "Filter.label", pointer: false) { b(filter: $f) { name } }
-`,
-		"split agreeing declarations": `
-query QA($f: Filter)
-  @octoqlgenFor(field: "Filter.label", pointer: false)
-  @octoqlgenFor(field: "Filter.label", bind: "-")
-{ a(filter: $f) { name } }
-query QB($f: Filter)
-  @octoqlgenFor(field: "Filter.label", pointer: false)
-  @octoqlgenFor(field: "Filter.label", bind: "-")
-{ b(filter: $f) { name } }
-`,
-		"declaration first": declaring + "\n" + silent,
-		"silence first":     silent + "\n" + declaring,
-	} {
-		t.Run(name, func(t *testing.T) {
-			source, err := generateSplit(t, operation)
-
-			require.NoError(t, err)
-			assertDeclares(t, source, "Label string")
-		})
-	}
-}
-
 func TestDefaultsSeparatesScopeFromNodeOptions(t *testing.T) {
 	t.Run("defaults do not mutate shared input object fields", func(t *testing.T) {
 		source, err := generateSplit(t, `

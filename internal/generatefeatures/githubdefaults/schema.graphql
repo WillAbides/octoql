@@ -50,6 +50,22 @@ type Organization implements Node & Actor {
   url: URI!
 }
 
+type OctoqlOther implements Node {
+  id: ID!
+  url: URI!
+  value: String!
+}
+
+type NamingUser implements Node & Actor {
+  id: ID!
+  login: String!
+  url: URI!
+}
+
+type QueryNamingUser {
+  id: ID!
+}
+
 type Review {
   fullDatabaseId: BigInt!
   createdAt: DateTime!
@@ -79,4 +95,8 @@ type Query {
     response: String!
     hasData: String!
   ): String!
+  namingUser: NamingUser!
+  queryNamingUser: NamingUser!
+  namingActor: Actor!
+  queryTypedNamingUser: QueryNamingUser!
 }

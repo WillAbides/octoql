@@ -48,6 +48,9 @@ query runtimeAbstracts($id: ID!) {
     ... on Repository {
       nameWithOwner
     }
+    ... on OctoqlOther {
+      value
+    }
   }
   nestedNodes {
     id
@@ -57,5 +60,20 @@ query runtimeAbstracts($id: ID!) {
     ... on Actor {
       login
     }
+  }
+}
+
+query namingShapes {
+  namingUser {
+    id
+  }
+  queryNamingUser {
+    id
+  }
+  namingActor {
+    login
+  }
+  queryTypedNamingUser {
+    id
   }
 }

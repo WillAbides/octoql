@@ -1079,8 +1079,11 @@ type getRepositoryVariables struct {
 
 // wireSemanticsResponse is returned by wireSemantics on success.
 type wireSemanticsResponse struct {
-	Date  *time.Time       `json:"-"`
-	Dates [][][]*time.Time `json:"-"`
+	Date         *time.Time        `json:"-"`
+	Dates        [][][]*time.Time  `json:"-"`
+	Account      *testutil.Account `json:"account"`
+	RawCreatedAt *string           `json:"rawCreatedAt"`
+	RawProperty  *string           `json:"rawProperty"`
 }
 
 // GetDate returns wireSemanticsResponse.Date, and is useful for accessing the field via an interface.
@@ -1088,6 +1091,15 @@ func (v *wireSemanticsResponse) GetDate() *time.Time { return v.Date }
 
 // GetDates returns wireSemanticsResponse.Dates, and is useful for accessing the field via an interface.
 func (v *wireSemanticsResponse) GetDates() [][][]*time.Time { return v.Dates }
+
+// GetAccount returns wireSemanticsResponse.Account, and is useful for accessing the field via an interface.
+func (v *wireSemanticsResponse) GetAccount() *testutil.Account { return v.Account }
+
+// GetRawCreatedAt returns wireSemanticsResponse.RawCreatedAt, and is useful for accessing the field via an interface.
+func (v *wireSemanticsResponse) GetRawCreatedAt() *string { return v.RawCreatedAt }
+
+// GetRawProperty returns wireSemanticsResponse.RawProperty, and is useful for accessing the field via an interface.
+func (v *wireSemanticsResponse) GetRawProperty() *string { return v.RawProperty }
 
 func (v *wireSemanticsResponse) UnmarshalJSON(b []byte) error {
 
@@ -1182,6 +1194,12 @@ type _octoqlPremarshalwireSemanticsResponse struct {
 	Date json.RawMessage `json:"date"`
 
 	Dates [][][]json.RawMessage `json:"dates"`
+
+	Account *testutil.Account `json:"account"`
+
+	RawCreatedAt *string `json:"rawCreatedAt"`
+
+	RawProperty *string `json:"rawProperty"`
 }
 
 func (v *wireSemanticsResponse) MarshalJSON() ([]byte, error) {
@@ -1247,6 +1265,9 @@ func (v *wireSemanticsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalwireS
 			}
 		}
 	}
+	retval.Account = v.Account
+	retval.RawCreatedAt = v.RawCreatedAt
+	retval.RawProperty = v.RawProperty
 	return &retval, nil
 }
 
@@ -1311,7 +1332,7 @@ func (c *Client) getRepository(
 }
 
 // The query executed by wireSemantics.
-const wireSemantics_Operation = "\nquery wireSemantics {\n\tdate\n\tdates\n}\n"
+const wireSemantics_Operation = "\nquery wireSemantics {\n\tdate\n\tdates\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n\trawCreatedAt\n\trawProperty\n}\n"
 
 // wireSemanticsPartialDataError contains partial data returned by wireSemantics.
 type wireSemanticsPartialDataError struct {

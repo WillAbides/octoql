@@ -86,6 +86,39 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	require.True(t, ok)
 	_, wrongOperation := errors.AsType[*githubapi.GetNodePartialDataError](err)
 	assert.False(t, wrongOperation)
+
+	fifoVars := githubapitest.EchoPropertyVariables{Value: json.RawMessage(`"fifo"`)}
+	stubVars := githubapitest.EchoPropertyVariables{Value: json.RawMessage(`"stub"`)}
+	fallbackVars := githubapitest.EchoPropertyVariables{Value: json.RawMessage(`"fallback"`)}
+	handler.DefaultEchoProperty().Handle(func(
+		vars githubapitest.EchoPropertyVariables,
+		writer http.ResponseWriter,
+	) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, writeErr := writer.Write([]byte(`{"data":{"echoProperty":` + string(vars.Value) + `}}`))
+		assert.NoError(t, writeErr)
+	})
+	handler.ExpectEchoProperty(fifoVars).Respond(githubapitest.EchoPropertyResponse{
+		EchoProperty: json.RawMessage(`"first"`),
+	})
+	handler.ExpectEchoProperty(fifoVars).Respond(githubapitest.EchoPropertyResponse{
+		EchoProperty: json.RawMessage(`"second"`),
+	})
+	handler.ExpectEchoProperty(stubVars, githubapitest.MinTimes(0)).Respond(githubapitest.EchoPropertyResponse{})
+
+	firstResp, err := client.EchoProperty(t.Context(), fifoVars)
+	require.NoError(t, err)
+	assert.JSONEq(t, `"first"`, string(firstResp.EchoProperty))
+	secondResp, err := client.EchoProperty(t.Context(), fifoVars)
+	require.NoError(t, err)
+	assert.JSONEq(t, `"second"`, string(secondResp.EchoProperty))
+	fallbackResp, err := client.EchoProperty(t.Context(), fallbackVars)
+	require.NoError(t, err)
+	assert.JSONEq(t, `"fallback"`, string(fallbackResp.EchoProperty))
+
+	resetVars := githubapitest.GetNodeVariables{Id: "reset"}
+	handler.ExpectGetNode(resetVars, githubapitest.Times(2)).Respond(githubapitest.GetNodeResponse{})
+	handler.ResetGetNode(resetVars)
 }
 
 func TestGeneratedHandlerRateLimits(t *testing.T) {

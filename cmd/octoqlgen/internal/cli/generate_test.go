@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,14 +28,28 @@ func TestRunGenerate(t *testing.T) {
 		require.NoError(t, os.MkdirAll(operationDir, 0o755))
 		require.NoError(t, os.WriteFile(
 			filepath.Join(operationDir, "viewer.graphql"),
-			[]byte("query Viewer($filter: FilterInput) {\n  viewer(filter: $filter)\n  state\n}\n"),
+			[]byte("query Viewer($filter: FilterInput) {\n"+
+				"  viewer(filter: $filter)\n"+
+				"  state\n"+
+				"  echo(value: \"contains ` backtick\")\n"+
+				"  ip_address_list { snake_case_field }\n"+
+				"  uri\n"+
+				"}\n"),
 			0o600,
 		))
 
 		remoteSchema := "enum IssueState { OPEN }\n" +
 			"scalar CustomID\n" +
+			"scalar URI\n" +
+			"type snake_case_type { snake_case_field: String! }\n" +
 			"input FilterInput { label: String }\n" +
-			"type Query { viewer(filter: FilterInput): CustomID! state: IssueState! }\n"
+			"type Query {\n" +
+			"  viewer(filter: FilterInput): CustomID!\n" +
+			"  state: IssueState!\n" +
+			"  echo(value: String!): String!\n" +
+			"  ip_address_list: snake_case_type!\n" +
+			"  uri: URI!\n" +
+			"}\n"
 		remoteSHA256 := sha256Hex(remoteSchema)
 
 		configPath := filepath.Join(directory, config.DefaultFilename)
@@ -55,6 +70,8 @@ func TestRunGenerate(t *testing.T) {
 				"bindings:\n"+
 				"  CustomID:\n"+
 				"    type: string\n"+
+				"  URI:\n"+
+				"    type: net/url.URL\n"+
 				"casing:\n"+
 				"  default: auto_camel_case\n"+
 				"  enums:\n"+
@@ -81,6 +98,11 @@ func TestRunGenerate(t *testing.T) {
 		assert.Contains(t, string(clientSource), "func (c *Client) Viewer(")
 		assert.Contains(t, string(clientSource), "context.Background()")
 		assert.Contains(t, string(clientSource), "IssueState_OPEN")
+		assert.Contains(t, string(clientSource), "type ViewerIpAddressListSnakeCaseType struct")
+		assert.Contains(t, string(clientSource), `"net/url"`)
+		assert.Contains(t, string(clientSource), "url.URL")
+		assert.Contains(t, string(clientSource), `const Viewer_Operation = "\nquery Viewer`)
+		assert.NotContains(t, string(clientSource), "const Viewer_Operation = `")
 
 		handlerSource, err := os.ReadFile(filepath.Join(directory, "githubapitest", "generated.go"))
 		require.NoError(t, err)
@@ -90,6 +112,7 @@ func TestRunGenerate(t *testing.T) {
 		manifest, err := os.ReadFile(filepath.Join(directory, "githubapi", "operations.json"))
 		require.NoError(t, err)
 		assert.Contains(t, string(manifest), `"operationName": "Viewer"`)
+		assert.Contains(t, string(manifest), "contains ` backtick")
 		assert.Contains(t, string(manifest), filepath.Join("graphql", "viewer.graphql"))
 		assert.NotContains(t, string(manifest), directory)
 
@@ -193,7 +216,8 @@ func TestRunGenerate(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(rootDir, "viewer.graphql"), []byte("query Viewer { viewer }\n"), 0o600))
 		configPath := filepath.Join(subDir, config.DefaultFilename)
 		require.NoError(t, os.WriteFile(configPath, []byte(
-			"schema:\n  path: ../schema.graphql\noperations:\n  - ../viewer.graphql\ngenerated: generated.go\n",
+			"schema:\n  path: ../schema.graphql\noperations:\n  - ../viewer.graphql\ngenerated: generated.go\n"+
+				"context_type: github.com/willabides/octoql/internal/testutil.MyContext\n",
 		), 0o600))
 
 		err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
@@ -203,5 +227,279 @@ func TestRunGenerate(t *testing.T) {
 		generated, err := os.ReadFile(filepath.Join(subDir, "generated.go"))
 		require.NoError(t, err)
 		assert.Contains(t, string(generated), "package subpackage")
+		assert.Contains(t, string(generated), `"github.com/willabides/octoql/internal/testutil"`)
+		assert.Contains(t, string(generated), "ctx testutil.MyContext")
 	})
+}
+
+func TestRunGeneratePackageAndGlobDiscovery(t *testing.T) {
+	t.Parallel()
+
+	t.Run("discovers module packages and emits mismatch warning", func(t *testing.T) {
+		t.Parallel()
+
+		for _, test := range []struct {
+			name        string
+			moduleDecl  string
+			subDir      string
+			packageYAML string
+			existingGo  string
+			wantPackage string
+			wantWarning string
+		}{
+			{
+				name:        "versioned module with comment",
+				moduleDecl:  "module example.com/app/v2 // app comment",
+				wantPackage: "app",
+			},
+			{
+				name:        "explicit package for non-identifier module",
+				moduleDecl:  "module example.com/foo-bar",
+				packageYAML: "package: foobar\n",
+				wantPackage: "foobar",
+			},
+			{
+				name:        "subdirectory fallback for non-identifier module",
+				moduleDecl:  "module example.com/foo-bar",
+				subDir:      "client",
+				wantPackage: "client",
+			},
+			{
+				name:        "explicit package overrides sibling go file with warning",
+				moduleDecl:  "module example.com/client",
+				packageYAML: "package: override\n",
+				existingGo:  "package client\n",
+				wantPackage: "override",
+				wantWarning: "package setting in octoqlgen.yaml 'override' looks wrong",
+			},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
+
+				dir := filepath.Join(t.TempDir(), test.subDir)
+				require.NoError(t, os.MkdirAll(dir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(test.moduleDecl+"\n\ngo 1.27.3\n"), 0o600))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(cliSchema), 0o600))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "op.graphql"), []byte("query Q { viewer }\n"), 0o600))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), []byte("not a package clause\n"), 0o600))
+				if test.existingGo != "" {
+					require.NoError(t, os.WriteFile(filepath.Join(dir, "existing.go"), []byte(test.existingGo), 0o600))
+				}
+				configPath := filepath.Join(dir, config.DefaultFilename)
+				require.NoError(t, os.WriteFile(configPath, []byte(
+					"schema:\n  path: schema.graphql\noperations:\n  - op.graphql\ngenerated: generated.go\n"+
+						test.packageYAML+"test_handler:\n  generated: githubapitest/generated.go\n",
+				), 0o600))
+
+				var stderr bytes.Buffer
+				err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
+					Context: t.Context(),
+					Stderr:  &stderr,
+				})
+				require.NoError(t, err)
+				generated, err := os.ReadFile(filepath.Join(dir, "generated.go"))
+				require.NoError(t, err)
+				assert.Contains(t, string(generated), "package "+test.wantPackage)
+				if test.wantWarning == "" {
+					assert.Empty(t, stderr.String())
+					return
+				}
+				assert.Contains(t, stderr.String(), test.wantWarning)
+			})
+		}
+	})
+
+	t.Run("deduplicates operation globs and excludes schema and directive files", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.27.3\n"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(cliSchema), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, internal.DirectiveFilename), []byte(internal.DirectiveFileContents), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "a.graphql"), []byte("query A { viewer }\n"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "z.graphql"), []byte("query Z { viewer }\n"), 0o600))
+		configPath := filepath.Join(dir, config.DefaultFilename)
+		require.NoError(t, os.WriteFile(configPath, []byte(
+			"schema:\n  path: schema.graphql\noperations:\n  - z.graphql\n  - \"**/*.graphql\"\n  - a.graphql\ngenerated: generated.go\n",
+		), 0o600))
+
+		err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{Context: t.Context()})
+		require.NoError(t, err)
+		generated, err := os.ReadFile(filepath.Join(dir, "generated.go"))
+		require.NoError(t, err)
+		assert.Contains(t, string(generated), "func (c *Client) A(")
+		assert.Contains(t, string(generated), "func (c *Client) Z(")
+
+		for name, onlyCase := range map[string]struct {
+			schemaFile string
+			opContent  string
+			wantErr    string
+		}{
+			"schema is only match": {
+				schemaFile: "schema.graphql",
+				wantErr:    "no queries found",
+			},
+			"companion directive is only match": {
+				schemaFile: "schema.graphqls",
+				wantErr:    "did not match any files",
+			},
+			"malformed operation file": {
+				schemaFile: "schema.graphql",
+				opContent:  "type Mutation { viewer: String }\n",
+				wantErr:    "invalid query-spec file",
+			},
+		} {
+			caseDir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(caseDir, "go.mod"), []byte("module example.com/app\n\ngo 1.27.3\n"), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(caseDir, onlyCase.schemaFile), []byte(cliSchema), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(caseDir, internal.DirectiveFilename), []byte(internal.DirectiveFileContents), 0o600))
+			if onlyCase.opContent != "" {
+				require.NoError(t, os.WriteFile(filepath.Join(caseDir, "bad.graphql"), []byte(onlyCase.opContent), 0o600))
+			}
+			caseConfig := filepath.Join(caseDir, config.DefaultFilename)
+			require.NoError(t, os.WriteFile(caseConfig, []byte(
+				"schema:\n  path: "+onlyCase.schemaFile+"\noperations:\n  - \"**/*.graphql\"\ngenerated: generated.go\n",
+			), 0o600))
+			err = Run([]string{"generate", "--config", caseConfig}, "v1.2.3", &Dependencies{Context: t.Context()})
+			require.ErrorContainsf(t, err, onlyCase.wantErr, "case %s", name)
+		}
+	})
+}
+
+func TestRunGenerateConfigErrors(t *testing.T) {
+	t.Parallel()
+
+	const baseYAML = "schema:\n  path: schema.graphql\noperations:\n  - op.graphql\ngenerated: client/generated.go\n"
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name:    "yaml alias collision",
+			yaml:    "schema:\n  path: schema.graphql\noperations: []\ngenerated: &out client/generated.go\ntest_handler:\n  generated: *out\n",
+			wantErr: "generated and test_handler.generated output paths must be different",
+		},
+		{
+			name:    "duplicate yaml key",
+			yaml:    "schema:\n  path: a.graphql\n  path: b.graphql\noperations: []\ngenerated: g.go\n",
+			wantErr: `mapping key "path" already defined`,
+		},
+		{
+			name:    "unknown root field",
+			yaml:    baseYAML + "unknown: true\n",
+			wantErr: "field unknown not found in type config.Config",
+		},
+		{
+			name:    "removed legacy option",
+			yaml:    baseYAML + "use_extensions: true\n",
+			wantErr: "field use_extensions not found in type config.Config",
+		},
+		{
+			name:    "unknown binding field",
+			yaml:    baseYAML + "bindings:\n  DateTime:\n    unknown: true\n",
+			wantErr: "field unknown not found in type config.Binding",
+		},
+		{
+			name:    "unknown casing field",
+			yaml:    baseYAML + "casing:\n  unknown: raw\n",
+			wantErr: "field unknown not found in type config.Casing",
+		},
+		{
+			name:    "invalid test handler strategy",
+			yaml:    baseYAML + "test_handler:\n  generated: h/generated.go\n  types: invalid\n",
+			wantErr: `test_handler.types must be one of "client" or "local"`,
+		},
+		{
+			name:    "multiple yaml documents",
+			yaml:    baseYAML + "---\n{}\n",
+			wantErr: "expected single document, found multiple",
+		},
+		{
+			name:    "missing schema",
+			yaml:    "operations: []\ngenerated: g.go\n",
+			wantErr: "schema is required",
+		},
+		{
+			name:    "missing schema path",
+			yaml:    "schema: {}\noperations: []\ngenerated: g.go\n",
+			wantErr: "schema.path is required",
+		},
+		{
+			name:    "missing operations",
+			yaml:    "schema:\n  path: s.graphql\ngenerated: g.go\n",
+			wantErr: "operations is required",
+		},
+		{
+			name:    "missing generated",
+			yaml:    "schema:\n  path: s.graphql\noperations: []\n",
+			wantErr: "generated is required",
+		},
+		{
+			name:    "missing test handler generated",
+			yaml:    baseYAML + "test_handler: {}\n",
+			wantErr: "test_handler.generated is required",
+		},
+		{
+			name:    "missing package binding package",
+			yaml:    baseYAML + "package_bindings:\n  - {}\n",
+			wantErr: "package_bindings[0].package is required",
+		},
+		{
+			name:    "missing source repository",
+			yaml:    "schema:\n  path: s.graphql\n  source:\n    path: s.graphql\n    revision: " + cliRevision + "\noperations: []\ngenerated: g.go\n",
+			wantErr: "schema.source.repository is required",
+		},
+		{
+			name:    "missing source revision",
+			yaml:    "schema:\n  path: s.graphql\n  source:\n    repository: o/r\n    path: s.graphql\noperations: []\ngenerated: g.go\n",
+			wantErr: "schema.source.revision is required",
+		},
+		{
+			name:    "missing source path",
+			yaml:    "schema:\n  path: s.graphql\n  source:\n    repository: o/r\n    revision: " + cliRevision + "\noperations: []\ngenerated: g.go\n",
+			wantErr: "schema.source.path is required",
+		},
+		{
+			name:    "invalid go package identifier",
+			yaml:    baseYAML + "package: invalid-package\n",
+			wantErr: "invalid package in octoqlgen.yaml",
+		},
+		{
+			name:    "invalid casing algorithm",
+			yaml:    baseYAML + "casing:\n  default: invalid\n",
+			wantErr: "unknown casing algorithm",
+		},
+		{
+			name:    "test handler in client package",
+			yaml:    baseYAML + "package: client\ntest_handler:\n  generated: client/handler.go\n",
+			wantErr: "separate package",
+		},
+		{
+			name:    "test handler in invalid package directory",
+			yaml:    baseYAML + "package: client\ntest_handler:\n  generated: bad-package-name/handler.go\n",
+			wantErr: "unable to identify test handler package",
+		},
+		{
+			name:    "client types with main package",
+			yaml:    baseYAML + "package: main\ntest_handler:\n  generated: githubapitest/generated.go\n",
+			wantErr: "cannot import a generated client in package main",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.27.3\n"), 0o600))
+			configPath := filepath.Join(dir, config.DefaultFilename)
+			require.NoError(t, os.WriteFile(configPath, []byte(test.yaml), 0o600))
+
+			err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
+				Context: t.Context(),
+			})
+			require.ErrorContains(t, err, test.wantErr)
+		})
+	}
 }

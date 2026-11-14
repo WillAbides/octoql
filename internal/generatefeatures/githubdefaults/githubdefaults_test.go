@@ -125,11 +125,20 @@ func TestOmittedImplementationUnmarshal(t *testing.T) {
 			},
 		},
 		{
+			name: "concrete OctoqlOther implementation",
+			body: `{"node":{"__typename":"OctoqlOther","id":"O1","url":"https://example.test/o","value":"real"},"nestedNodes":[]}`,
+			check: func(t *testing.T, response runtimeAbstractsResponse) {
+				concrete, ok := response.Node.(*runtimeAbstractsNodeOctoqlOther)
+				require.True(t, ok)
+				assert.Equal(t, "real", concrete.Value)
+			},
+		},
+		{
 			name: "omitted implementation shared fields",
 			body: `{"node":{"__typename":"Issue","id":"I1","url":"https://example.test/i"},"nestedNodes":[]}`,
 			check: func(t *testing.T, response runtimeAbstractsResponse) {
 				require.NotNil(t, response.Node)
-				other, ok := response.Node.(*runtimeAbstractsNodeOctoqlOther)
+				other, ok := response.Node.(*runtimeAbstractsNode2OctoqlOther)
 				require.True(t, ok)
 				assert.Equal(t, "Issue", other.GetTypename())
 				assert.Equal(t, "I1", other.GetId())
@@ -141,7 +150,7 @@ func TestOmittedImplementationUnmarshal(t *testing.T) {
 			body: `{"node":{"__typename":"FutureNode","id":"F1","url":"https://example.test/f"},"nestedNodes":[]}`,
 			check: func(t *testing.T, response runtimeAbstractsResponse) {
 				require.NotNil(t, response.Node)
-				other, ok := response.Node.(*runtimeAbstractsNodeOctoqlOther)
+				other, ok := response.Node.(*runtimeAbstractsNode2OctoqlOther)
 				require.True(t, ok)
 				assert.Equal(t, "FutureNode", other.GetTypename())
 			},
@@ -194,15 +203,25 @@ func TestOmittedImplementationUnmarshal(t *testing.T) {
 		assert.NotNil(t, response.NestedNodes)
 	})
 
-	t.Run("typed nil abstract values marshal as null", func(t *testing.T) {
+	t.Run("typed nil abstract values marshal as null and naming shapes stay distinct", func(t *testing.T) {
 		for _, node := range []runtimeAbstractsNode{
 			(*runtimeAbstractsNodeRepository)(nil),
 			(*runtimeAbstractsNodeOctoqlOther)(nil),
+			(*runtimeAbstractsNode2OctoqlOther)(nil),
 		} {
 			current := node
 			data, err := _octoqlMarshalruntimeAbstractsNode(&current)
 			require.NoError(t, err)
 			assert.Equal(t, "null", string(data))
 		}
+
+		shapes := namingShapesResponse{
+			NamingUser:           namingShapesNamingUser{Id: "U1"},
+			QueryNamingUser:      namingShapesQueryNamingUser{Id: "U2"},
+			QueryTypedNamingUser: namingShapesQueryTypedNamingUserQueryNamingUser{Id: "U3"},
+		}
+		assert.Equal(t, "U1", shapes.NamingUser.Id)
+		assert.Equal(t, "U2", shapes.QueryNamingUser.Id)
+		assert.Equal(t, "U3", shapes.QueryTypedNamingUser.Id)
 	})
 }

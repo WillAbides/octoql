@@ -339,9 +339,9 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 
 func TestSpecialSliceWireSemantics(t *testing.T) {
 	for name, wire := range map[string]string{
-		"null outer slices":            `{"date":null,"dates":null}`,
-		"empty outer slices":           `{"date":"2026-07-20","dates":[]}`,
-		"null and empty nested slices": `{"date":null,"dates":[null,[],[null,[],[null,"2026-07-20"]]]}`,
+		"null outer slices":            `{"date":null,"dates":null,"account":null,"rawCreatedAt":null,"rawProperty":null}`,
+		"empty outer slices":           `{"date":"2026-07-20","dates":[],"account":{"id":"A1","login":"octocat"},"rawCreatedAt":"2026-07-20T00:00:00Z","rawProperty":"raw"}`,
+		"null and empty nested slices": `{"date":null,"dates":[null,[],[null,[],[null,"2026-07-20"]]],"account":null,"rawCreatedAt":null,"rawProperty":null}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			var response wireSemanticsResponse
@@ -353,18 +353,18 @@ func TestSpecialSliceWireSemantics(t *testing.T) {
 		})
 	}
 
-	const populated = `{"date":"2026-07-20","dates":[[["2026-07-20"]]]}`
+	const populated = `{"date":"2026-07-20","dates":[[["2026-07-20"]]],"account":{"id":"A1","login":"octocat"},"rawCreatedAt":"2026-07-20T00:00:00Z","rawProperty":"raw"}`
 	for name, test := range map[string]struct {
 		update string
 		want   string
 	}{
 		"present null clears special values": {
-			update: `{"date":null,"dates":null}`,
-			want:   `{"date":null,"dates":null}`,
+			update: `{"date":null,"dates":null,"account":null,"rawCreatedAt":null,"rawProperty":null}`,
+			want:   `{"date":null,"dates":null,"account":null,"rawCreatedAt":null,"rawProperty":null}`,
 		},
 		"present arrays replace slices": {
 			update: `{"dates":[]}`,
-			want:   `{"date":"2026-07-20","dates":[]}`,
+			want:   `{"date":"2026-07-20","dates":[],"account":{"id":"A1","login":"octocat"},"rawCreatedAt":"2026-07-20T00:00:00Z","rawProperty":"raw"}`,
 		},
 		"omitted fields retain slices": {
 			update: `{}`,

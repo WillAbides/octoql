@@ -126,7 +126,8 @@ query queryWithFragments ($ids: [ID!]!) {
     }
   }
 }
-query queryWithNamedFragments ($ids: [ID!]!) {
+query queryWithNamedFragments ($ids: [ID!]!)
+  @octoqlgenFor(field: "Organization.name", pointer: false) {
   actors(ids: $ids) {
     __typename
     id

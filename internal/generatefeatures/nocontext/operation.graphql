@@ -7,4 +7,10 @@ query getRepository($owner: String!, $name: String!) {
 query wireSemantics {
   date
   dates
+  account {
+    id
+    login
+  }
+  rawCreatedAt
+  rawProperty
 }
