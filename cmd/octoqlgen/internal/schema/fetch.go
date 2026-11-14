@@ -134,20 +134,20 @@ func (c *httpClient) Do(request *http.Request) (*http.Response, error) {
 func (m *Materializer) fetch(
 	ctx context.Context,
 	source config.Source,
-	dependencies *dependencies,
+	deps *dependencies,
 ) ([]byte, error) {
 	token, err := discoverToken(
 		ctx,
 		"github.com",
-		dependencies.lookupEnvironment,
-		dependencies.commandRunner,
+		deps.lookupEnvironment,
+		deps.commandRunner,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	requestURL, err := githubContentsURL(
-		dependencies.githubAPIBaseURL("github.com"),
+		deps.githubAPIBaseURL("github.com"),
 		source,
 	)
 	if err != nil {
@@ -155,12 +155,12 @@ func (m *Materializer) fetch(
 	}
 	return fetchURL(
 		ctx,
-		dependencies.httpClient,
+		deps.httpClient,
 		fetchRequest{
 			url:              requestURL,
 			token:            token,
 			isGitHub:         true,
-			maxResponseBytes: dependencies.maxResponseBytes,
+			maxResponseBytes: deps.maxResponseBytes,
 		},
 	)
 }

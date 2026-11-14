@@ -451,7 +451,7 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 			client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
 				calls.Add(1)
 				authorization = request.Header.Get("Authorization")
-				return response(test.status, exactSchema), nil
+				return newHTTPResponse(test.status, exactSchema), nil
 			})
 			materializer := testGitHubMaterializer(client)
 			materializer.LookupEnvironment = environmentLookup(test.environment)
@@ -637,7 +637,7 @@ func (f httpClientFunc) Do(request *http.Request) (*http.Response, error) {
 	return f(request)
 }
 
-func response(status int, body []byte) *http.Response {
+func newHTTPResponse(status int, body []byte) *http.Response {
 	return &http.Response{
 		StatusCode:    status,
 		Body:          io.NopCloser(strings.NewReader(string(body))),

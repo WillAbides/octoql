@@ -33,7 +33,7 @@ const (
 func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 	t.Parallel()
 
-	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
+	stub := &stubMaterializer{data: []byte("exact schema bytes\n")}
 	var stdout bytes.Buffer
 	command := schemaFetchCommand{
 		Config:  "custom.yaml",
@@ -52,7 +52,7 @@ func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 				},
 			}, nil
 		},
-		materializer: materializer,
+		materializer: stub,
 		outputWriter: &stubOutputWriter{},
 		stdout:       &stdout,
 	}
@@ -60,15 +60,15 @@ func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 	err := command.Run()
 	require.NoError(t, err)
 	assert.Equal(t, "exact schema bytes\n", stdout.String())
-	assert.Equal(t, ".octoql/schema.graphql", materializer.request.Path)
-	assert.Equal(t, cliSHA256, materializer.request.SHA256)
+	assert.Equal(t, ".octoql/schema.graphql", stub.request.Path)
+	assert.Equal(t, cliSHA256, stub.request.SHA256)
 }
 
 func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
 	t.Parallel()
 
-	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
-	outputWriter := &stubOutputWriter{}
+	stub := &stubMaterializer{data: []byte("exact schema bytes\n")}
+	writer := &stubOutputWriter{}
 	var stdout bytes.Buffer
 	command := schemaFetchCommand{
 		Output:  "schema.graphql",
@@ -86,29 +86,29 @@ func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
 				},
 			}, nil
 		},
-		materializer: materializer,
-		outputWriter: outputWriter,
+		materializer: stub,
+		outputWriter: writer,
 		stdout:       &stdout,
 	}
 
 	err := command.Run()
 	require.NoError(t, err)
 	assert.Empty(t, stdout.String())
-	assert.Equal(t, "schema.graphql", outputWriter.path)
-	assert.Equal(t, []byte("exact schema bytes\n"), outputWriter.data)
-	companion, ok := outputWriter.writtenTo(internal.DirectiveFilename)
+	assert.Equal(t, "schema.graphql", writer.path)
+	assert.Equal(t, []byte("exact schema bytes\n"), writer.data)
+	companion, ok := writer.writtenTo(internal.DirectiveFilename)
 	require.True(t, ok)
 	assert.Contains(t, string(companion), "directive @octoqlgen(")
-	assert.Equal(t, "github/docs", materializer.request.Source.Repository)
-	assert.Equal(t, "src/graphql/data/ghec/schema.docs.graphql", materializer.request.Source.Path)
-	assert.Equal(t, cliRevision, materializer.request.Source.Revision)
+	assert.Equal(t, "github/docs", stub.request.Source.Repository)
+	assert.Equal(t, "src/graphql/data/ghec/schema.docs.graphql", stub.request.Source.Path)
+	assert.Equal(t, cliRevision, stub.request.Source.Revision)
 }
 
 func TestSchemaCommandFetchFailureDoesNotWriteOutput(t *testing.T) {
 	t.Parallel()
 
 	expectedErr := errors.New("fetch failed")
-	outputWriter := &stubOutputWriter{}
+	writer := &stubOutputWriter{}
 	command := schemaFetchCommand{
 		Output:  "schema.graphql",
 		context: t.Context(),
@@ -116,20 +116,20 @@ func TestSchemaCommandFetchFailureDoesNotWriteOutput(t *testing.T) {
 			return &config.Config{Schema: config.Schema{Path: "configured.graphql"}}, nil
 		},
 		materializer: &stubMaterializer{err: expectedErr},
-		outputWriter: outputWriter,
+		outputWriter: writer,
 		stdout:       bytes.NewBuffer(nil),
 	}
 
 	err := command.Run()
 	require.ErrorIs(t, err, expectedErr)
-	assert.Empty(t, outputWriter.path)
+	assert.Empty(t, writer.path)
 }
 
 func TestRunSchemaDefaultsToFetch(t *testing.T) {
 	t.Parallel()
 
 	var stdout bytes.Buffer
-	materializer := &stubMaterializer{data: []byte("schema")}
+	stub := &stubMaterializer{data: []byte("schema")}
 	err := Run(
 		[]string{"schema"},
 		"test",
@@ -139,13 +139,13 @@ func TestRunSchemaDefaultsToFetch(t *testing.T) {
 				assert.Empty(t, filename)
 				return &config.Config{Schema: config.Schema{Path: "schema.graphql"}}, nil
 			},
-			Materializer: materializer,
+			Materializer: stub,
 			Stdout:       &stdout,
 		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "schema", stdout.String())
-	assert.Equal(t, "schema.graphql", materializer.request.Path)
+	assert.Equal(t, "schema.graphql", stub.request.Path)
 }
 
 func TestAtomicOutputWriter(t *testing.T) {

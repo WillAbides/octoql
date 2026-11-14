@@ -107,7 +107,7 @@ func TestGenerateCommandRun(t *testing.T) {
 		ExportOperations: &exportOperations,
 	}
 
-	materializer := &stubMaterializer{data: []byte("type Query { viewer: String }\n")}
+	stub := &stubMaterializer{data: []byte("type Query { viewer: String }\n")}
 	writer := &recordingOutputWriter{outputs: map[string][]byte{}, writes: map[string]int{}}
 	didMaterialize := false
 	generateCalls := 0
@@ -118,10 +118,10 @@ func TestGenerateCommandRun(t *testing.T) {
 			assert.Equal(t, "custom-octoqlgen.yaml", filename)
 			return loaded, nil
 		},
-		materializer: materializer,
+		materializer: stub,
 		generate: func(generatorConfig *generate.Config) (map[string][]byte, error) {
 			generateCalls++
-			didMaterialize = materializer.request.Path != ""
+			didMaterialize = stub.request.Path != ""
 			assert.Equal(t, schemaPath, generatorConfig.Schema)
 			return map[string][]byte{
 				generatedPath: []byte("generated"),
@@ -159,12 +159,12 @@ func TestGenerateCommandRefusesConfigOutput(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	materializer := &stubMaterializer{}
+	stub := &stubMaterializer{}
 	command := generateCommand{
 		Config:       configPath,
 		context:      t.Context(),
 		loadConfig:   config.Load,
-		materializer: materializer,
+		materializer: stub,
 		generate: func(*generate.Config) (map[string][]byte, error) {
 			return nil, errors.New("generation should not run")
 		},
@@ -176,7 +176,7 @@ func TestGenerateCommandRefusesConfigOutput(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "generated output path")
 	assert.Contains(t, err.Error(), "config")
-	assert.Empty(t, materializer.request.Path)
+	assert.Empty(t, stub.request.Path)
 }
 
 func TestGenerateCommandRefusesSchemaOutputBeforeMaterialization(t *testing.T) {
@@ -201,12 +201,12 @@ func TestGenerateCommandRefusesSchemaOutputBeforeMaterialization(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	materializer := &stubMaterializer{}
+	stub := &stubMaterializer{}
 	command := generateCommand{
 		Config:       configPath,
 		context:      t.Context(),
 		loadConfig:   config.Load,
-		materializer: materializer,
+		materializer: stub,
 		generate: func(*generate.Config) (map[string][]byte, error) {
 			return nil, errors.New("generation should not run")
 		},
@@ -218,7 +218,7 @@ func TestGenerateCommandRefusesSchemaOutputBeforeMaterialization(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "generated output path")
 	assert.Contains(t, err.Error(), "schema input path")
-	assert.Empty(t, materializer.request.Path)
+	assert.Empty(t, stub.request.Path)
 }
 
 func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
@@ -271,7 +271,7 @@ func TestGenerateCommandMaterializesConfiguredSources(t *testing.T) {
 
 	directory := t.TempDir()
 	packageName := "client"
-	materializer := &stubMaterializer{}
+	stub := &stubMaterializer{}
 	command := generateCommand{
 		context: t.Context(),
 		loadConfig: func(string) (*config.Config, error) {
@@ -286,7 +286,7 @@ func TestGenerateCommandMaterializesConfiguredSources(t *testing.T) {
 				Package:    &packageName,
 			}, nil
 		},
-		materializer: materializer,
+		materializer: stub,
 		generate: func(*generate.Config) (map[string][]byte, error) {
 			return map[string][]byte{}, nil
 		},
@@ -295,8 +295,8 @@ func TestGenerateCommandMaterializesConfiguredSources(t *testing.T) {
 
 	err := command.Run()
 	require.NoError(t, err)
-	assert.Equal(t, cliSHA256, materializer.request.SHA256)
-	assert.Equal(t, source, materializer.request.Source)
+	assert.Equal(t, cliSHA256, stub.request.SHA256)
+	assert.Equal(t, source, stub.request.Source)
 }
 
 func TestGenerateSubdirectoryConfig(t *testing.T) {
@@ -317,12 +317,12 @@ func TestGenerateSubdirectoryConfig(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	materializer := &stubMaterializer{}
+	stub := &stubMaterializer{}
 	command := generateCommand{
 		Config:       configPath,
 		context:      t.Context(),
 		loadConfig:   config.Load,
-		materializer: materializer,
+		materializer: stub,
 		generate: func(generatorConfig *generate.Config) (map[string][]byte, error) {
 			assert.Equal(t, "subpackage", generatorConfig.Package)
 			assert.Equal(
@@ -342,7 +342,7 @@ func TestGenerateSubdirectoryConfig(t *testing.T) {
 
 	err = command.Run()
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(filepath.Dir(configPath), "..", "schema.graphql"), materializer.request.Path)
+	assert.Equal(t, filepath.Join(filepath.Dir(configPath), "..", "schema.graphql"), stub.request.Path)
 }
 
 func TestGenerateCommandMissingLocalSchema(t *testing.T) {

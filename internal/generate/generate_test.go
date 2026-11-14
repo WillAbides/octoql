@@ -60,9 +60,9 @@ func addTestScalarBindings(bindings map[string]*TypeBinding) map[string]*TypeBin
 
 // buildGoFile returns an error if the given Go code is not valid.
 //
-// namePrefix is used for the temp-file, and is just for debugging.
-func buildGoFile(namePrefix string, content []byte) error {
-	return buildGoFiles(map[string][]byte{namePrefix: content})
+// name is used for the temp-file, and is just for debugging.
+func buildGoFile(name string, content []byte) error {
+	return buildGoFiles(map[string][]byte{name: content})
 }
 
 func buildGoFiles(files map[string][]byte) error {
@@ -580,7 +580,7 @@ type Query {
 	var exported exportedOperations
 	require.NoError(t, json.Unmarshal(generated[config.ExportOperations], &exported))
 	require.Len(t, exported.Operations, 2)
-	exportedByName := make(map[string]*operation, len(exported.Operations))
+	exportedByName := make(map[string]*plannedOperation, len(exported.Operations))
 	for _, exportedOperation := range exported.Operations {
 		exportedByName[exportedOperation.Name] = exportedOperation
 	}
@@ -656,9 +656,9 @@ func testGenerateWithTestHandlerUsesOnePlan(
 	planCount := 0
 	outputs, err := generateWith(
 		config,
-		func(config *Config) (*generationPlan, error) {
+		func(cfg *Config) (*generationPlan, error) {
 			planCount++
-			return buildGenerationPlan(config)
+			return buildGenerationPlan(cfg)
 		},
 		renderClient,
 		renderTestHandler,

@@ -16,15 +16,15 @@ import (
 // generationPlan.
 type planState struct {
 	config        *Config
-	operations    []*operation
+	operations    []*plannedOperation
 	typeMap       map[string]goType
 	typePositions map[string]*ast.Position
 	schema        *ast.Schema
 	directives    *directiveSet
 }
 
-// JSON tags in operation are for ExportOperations (see Config for details).
-type operation struct {
+// JSON tags in plannedOperation are for ExportOperations (see Config for details).
+type plannedOperation struct {
 	Type           ast.Operation `json:"-"`
 	Name           string        `json:"operationName"`
 	Doc            string        `json:"-"`
@@ -35,19 +35,19 @@ type operation struct {
 }
 
 type operationTemplateData struct {
-	*operation
+	*plannedOperation
 	ContextType string
 }
 
 type exportedOperations struct {
-	Operations []*operation `json:"operations"`
+	Operations []*plannedOperation `json:"operations"`
 }
 
 // generationPlan is the destination-neutral, read-only plan shared by client,
 // exported-operations, and test-handler renderers.
 type generationPlan struct {
 	config     Config
-	operations []*operation
+	operations []*plannedOperation
 	typeMap    map[string]goType
 }
 
@@ -195,7 +195,7 @@ func (g *planState) addOperation(op *ast.OperationDefinition) error {
 		docComment = "// " + strings.ReplaceAll(commentLines, "\n", "\n// ")
 	}
 
-	g.operations = append(g.operations, &operation{
+	g.operations = append(g.operations, &plannedOperation{
 		Type:           op.Operation,
 		Name:           op.Name,
 		Doc:            docComment,
@@ -234,7 +234,7 @@ var clientRuntimeMethods = map[string]bool{
 	"SetResponseSizeLimit": true,
 }
 
-func validateClientNames(typeMap map[string]goType, operations []*operation) error {
+func validateClientNames(typeMap map[string]goType, operations []*plannedOperation) error {
 	const reservedRuntimePrefix = "_octoql"
 
 	operationNames := make(map[string]bool, len(operations))
@@ -489,8 +489,8 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 
 	for _, op := range plan.operations {
 		err = r.render("operation.go.tmpl", &bodyBuf, operationTemplateData{
-			operation:   op,
-			ContextType: plan.config.ContextType,
+			plannedOperation: op,
+			ContextType:      plan.config.ContextType,
 		})
 		if err != nil {
 			return nil, err

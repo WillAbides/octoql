@@ -323,15 +323,15 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	assert.JSONEq(t, `"handled"`, string(dynamicResponse.EchoProperty))
 	assert.JSONEq(t, string(dynamicVariables.Value), string((<-receivedVariables).Value))
 
-	repositoryVariables := githubapitest.GetNodeVariables{Id: "repository"}
+	repoVariables := githubapitest.GetNodeVariables{Id: "repository"}
 	repositoryNode := &githubapitest.GetNodeNodeRepository{
 		Id:            "R1",
 		NameWithOwner: "octo-org/octo-repo",
 	}
-	handler.ExpectGetNode(repositoryVariables).Respond(githubapitest.GetNodeResponse{
+	handler.ExpectGetNode(repoVariables).Respond(githubapitest.GetNodeResponse{
 		Node: repositoryNode,
 	})
-	repositoryResponse, err := client.GetNode(t.Context(), repositoryVariables)
+	repositoryResponse, err := client.GetNode(t.Context(), repoVariables)
 	require.NoError(t, err)
 	require.NotNil(t, repositoryResponse.Node)
 	repository, ok := repositoryResponse.Node.(*githubapitest.GetNodeNodeRepository)

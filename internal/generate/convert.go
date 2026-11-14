@@ -412,12 +412,12 @@ var githubScalarTypes = map[string]string{
 }
 
 func defaultScalarType(graphQLName string) (string, bool) {
-	goType, ok := builtinTypes[graphQLName]
+	scalarType, ok := builtinTypes[graphQLName]
 	if ok {
-		return goType, true
+		return scalarType, true
 	}
-	goType, ok = githubScalarTypes[graphQLName]
-	return goType, ok
+	scalarType, ok = githubScalarTypes[graphQLName]
+	return scalarType, ok
 }
 
 type inputFieldSpec struct {
@@ -823,7 +823,7 @@ func (g *planState) convertInputDefinition(
 
 	enforceRules := !g.config.StructReferences
 	for i, field := range def.Fields {
-		fieldOptions, dirErr := g.directives.forInputField(def, field)
+		opts, dirErr := g.directives.forInputField(def, field)
 		if dirErr != nil {
 			return nil, false, dirErr
 		}
@@ -838,7 +838,7 @@ func (g *planState) convertInputDefinition(
 			errPos:             pos,
 			enforcePointerRule: enforceRules,
 			enforceOmitRule:    enforceRules,
-			options:            fieldOptions,
+			options:            opts,
 		})
 		if fieldErr != nil {
 			return nil, false, fieldErr
@@ -1405,7 +1405,7 @@ func (g *planState) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 func (g *planState) convertField(
 	prefix namePrefix,
 	field *ast.Field,
-	fieldOptions *fieldOptions,
+	opts *fieldOptions,
 	defaults defaultOptions,
 ) (*goStructField, error) {
 	if field.Definition == nil {
@@ -1413,8 +1413,8 @@ func (g *planState) convertField(
 	}
 
 	goName := field.Alias
-	if fieldOptions.Alias != "" {
-		goName = fieldOptions.Alias
+	if opts.Alias != "" {
+		goName = opts.Alias
 	}
 	casing := g.config.GetDefaultCasingAlgorithm()
 	goName = ApplyCasing(goName, casing, true)
@@ -1424,7 +1424,7 @@ func (g *planState) convertField(
 		prefix:       prefix,
 		typ:          field.Definition.Type,
 		selectionSet: field.SelectionSet,
-		options:      fieldOptions,
+		options:      opts,
 		defaults:     defaults,
 	})
 	if err != nil {
@@ -1432,7 +1432,7 @@ func (g *planState) convertField(
 	}
 
 	if hasConditionalDirective(field.Directives) {
-		if fieldOptions.PointerIsFalse() {
+		if opts.PointerIsFalse() {
 			return nil, errorf(field.Position,
 				"field %s carries @skip or @include and so may be absent from "+
 					"the response; it cannot be combined with "+

@@ -129,12 +129,12 @@ func goSourceError(
 ) error {
 	var errTexts []string
 	var scanErrs scanner.ErrorList
-	var scanErr *scanner.Error
+	var singleScanErr *scanner.Error
 
 	switch {
 	case errors.As(err, &scanErrs):
-	case errors.As(err, &scanErr):
-		scanErrs = scanner.ErrorList{scanErr}
+	case errors.As(err, &singleScanErr):
+		scanErrs = scanner.ErrorList{singleScanErr}
 	default:
 		errTexts = []string{err.Error()}
 	}
