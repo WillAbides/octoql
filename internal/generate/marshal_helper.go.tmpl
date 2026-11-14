@@ -44,7 +44,7 @@ func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
             {{.GoName}}: vv,
         }
         {{end -}}
-        return json.Marshal(result)
+        return {{ref "encoding/json.Marshal"}}(result)
     {{end -}}
     {{if .OtherImplementation -}}
     case *{{.OtherImplementation.GoName}}:
@@ -56,9 +56,9 @@ func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
         if err != nil {
             return nil, err
         }
-        return json.Marshal(premarshaled)
+        return {{ref "encoding/json.Marshal"}}(premarshaled)
         {{else -}}
-        return json.Marshal(vv)
+        return {{ref "encoding/json.Marshal"}}(vv)
         {{end -}}
     {{end -}}
     case nil:

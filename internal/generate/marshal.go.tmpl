@@ -33,7 +33,7 @@ type _octoqlPremarshal{{.GoName}} struct{
     {{if .NeedsMarshaling -}}
     {{.GoName}} {{repeat .GoType.SliceDepth "[]"}}{{ref "encoding/json.RawMessage"}} `json:"{{.JSONName}}{{if .Omitempty -}},omitempty{{end}}"`
     {{else}}
-    {{.GoName}} {{.GoType.Reference}} `json:"{{.JSONName}}{{if .Omitempty -}},omitempty{{end}}"`
+    {{.GoName}} {{typeRef .GoType}} `json:"{{.JSONName}}{{if .Omitempty -}},omitempty{{end}}"`
     {{end}}
     {{end}}
 }
@@ -43,7 +43,7 @@ func (v *{{.GoName}}) MarshalJSON() ([]byte, error) {
     if err != nil {
         return nil, err
     }
-    return json.Marshal(premarshaled)
+    return {{ref "encoding/json.Marshal"}}(premarshaled)
 }
 
 func (v *{{.GoName}}) _octoqlPremarshalJSON() (*_octoqlPremarshal{{.GoName}}, error) {
@@ -77,7 +77,7 @@ func (v *{{.GoName}}) _octoqlPremarshalJSON() (*_octoqlPremarshal{{.GoName}}, er
                  and if not we need to take the address. */ -}}
             {{if not $field.GoType.IsPointer}}&{{end}}src)
         if err != nil {
-            return nil, fmt.Errorf(
+            return nil, {{ref "fmt.Errorf"}}(
                 "unable to marshal {{$.GoName}}.{{$field.Selector}}: %w", err)
         }
         {{if $field.GoType.IsPointer -}}

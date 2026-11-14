@@ -72,7 +72,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
          into *all* of the fields.  See goStructType.FlattenedFields in
          types.go for more discussion of embedding and visibility. */ -}}
     err = {{unmarshaler $field}}(
-        b, &v.{{$field.GoType.Unwrap.Reference}})
+        b, &v.{{typeRef $field.GoType.Unwrap}})
     if err != nil {
         return err
     }
@@ -141,7 +141,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
         {{range $i := intRange $field.GoType.SliceDepth -}}
         if src != nil {
         *dst = make(
-            {{repeat (sub $field.GoType.SliceDepth $i) "[]"}}{{if $field.GoType.IsPointer}}*{{end}}{{$field.GoType.Unwrap.Reference}},
+            {{repeat (sub $field.GoType.SliceDepth $i) "[]"}}{{if $field.GoType.IsPointer}}*{{end}}{{typeRef $field.GoType.Unwrap}},
             len(src))
         for i, src := range src {
             dst := &(*dst)[i]
@@ -156,7 +156,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
             {{/* In this case, the parent for loop did `make([]*MyType, ...)`
                  and we have a pointer into that list.  But we actually still
                  need to initialize the *elements* of the list. */ -}}
-            *dst = new({{$field.GoType.Unwrap.Reference}})
+            *dst = new({{typeRef $field.GoType.Unwrap}})
             {{end -}}
             err = {{unmarshaler $field}}(
                 src, {{if $field.GoType.IsPointer}}*{{end}}dst)

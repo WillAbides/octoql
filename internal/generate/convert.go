@@ -1,32 +1,18 @@
 package generate
 
-// This file implements the core type-generation logic of octoqlgen, whereby we
-// traverse an operation-definition (and the schema against which it will be
-// executed), and convert that into Go types.  It returns data structures
-// representing the types to be generated; these are defined, and converted
-// into code, in types.go.
-//
-// The entrypoints are convertOperation, which builds the response-type for a
-// query, and convertArguments, which builds the argument-types.
+// This file converts validated GraphQL operations, fragments, and input types
+// into destination-neutral Go type definitions in planState.typeMap.
 
 import (
 	"fmt"
 	"regexp"
 	"slices"
 	"sort"
-	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// getType returns the existing type in g.typeMap with the given name, if any,
-// and an error if such type is incompatible with this one.
-//
-// This is useful as an early-out and a safety-check when generating types; if
-// the type has already been generated we can skip generating it again.  (This
-// is necessary to handle recursive input types, and an optimization in other
-// cases.)
-func (g *generator) getType(
+func (g *planState) getType(
 	goName, graphQLName, newSource string,
 	selectionSet ast.SelectionSet,
 	pos *ast.Position,
@@ -49,8 +35,7 @@ func (g *generator) getType(
 			typ.GraphQLTypeName(), graphQLName)
 	}
 
-	expectedSelectionSet := typ.SelectionSet()
-	err := selectionsMatch(pos, selectionSet, expectedSelectionSet)
+	err := selectionsMatch(pos, selectionSet, typ.SelectionSet())
 	if err != nil {
 		oldSource := describeTypeSource(typ)
 		oldPos := g.typePositions[goName]
@@ -65,8 +50,6 @@ func (g *generator) getType(
 	return typ, nil
 }
 
-// describeTypeSource returns a human-readable description of the GraphQL
-// construct that produced a generated type, for use in conflict errors.
 func describeTypeSource(typ goType) string {
 	graphQLName := typ.GraphQLTypeName()
 	fragmentName := ""
@@ -82,8 +65,6 @@ func describeTypeSource(typ goType) string {
 	return describeGraphQLSource(graphQLName, fragmentName)
 }
 
-// describeGraphQLSource describes a construct by its GraphQL type name and,
-// optionally, the fragment that selected it.
 func describeGraphQLSource(graphQLName, fragmentName string) string {
 	if fragmentName != "" {
 		return fmt.Sprintf("the fragment %s on GraphQL type %s", fragmentName, graphQLName)
@@ -98,21 +79,7 @@ func posString(pos *ast.Position) string {
 	return fmt.Sprintf("%s:%d", pos.Src.Name, pos.Line)
 }
 
-// addType inserts the type into g.typeMap, checking for conflicts.
-//
-// The conflict-checking is as described in getType.  Note we have to do it
-// here again, even if the caller has already called getType, because the
-// caller in between may have generated new types, which potentially creates
-// new conflicts.
-//
-// After the AST-level selection check in getType passes, addType additionally
-// compares the generated field plan (Go field names, type references, JSON
-// names, omitempty) via generatedTypeFieldsMatch, so that selection-based
-// types that produce different Go output are caught even when their AST
-// selections are identical.
-//
-// Returns an already-existing type if found, and otherwise the given type.
-func (g *generator) addType(typ goType, goName string, pos *ast.Position) (goType, error) {
+func (g *planState) addType(typ goType, goName string, pos *ast.Position) (goType, error) {
 	newSource := describeTypeSource(typ)
 	otherTyp, err := g.getType(goName, typ.GraphQLTypeName(), newSource, typ.SelectionSet(), pos)
 	if err != nil {
@@ -136,24 +103,22 @@ func (g *generator) addType(typ goType, goName string, pos *ast.Position) (goTyp
 	return typ, nil
 }
 
-// checkGeneratedIdentifiers verifies that every Go identifier octoqlgen emits
-// into a generated struct or interface is unique: declared fields, Get<Field>
-// getters, and the synthesized MarshalJSON/UnmarshalJSON methods.
-func (g *generator) checkGeneratedIdentifiers() error {
-	names := make([]string, 0, len(g.typeMap))
-	for name := range g.typeMap {
+func checkGeneratedIdentifiers(typeMap map[string]goType, pkgPath string) error {
+	scope := newImportScope(pkgPath, "")
+	names := make([]string, 0, len(typeMap))
+	for name := range typeMap {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		switch t := g.typeMap[name].(type) {
+		switch t := typeMap[name].(type) {
 		case *goStructType:
-			err := g.checkStructIdentifiers(t)
+			err := checkStructIdentifiers(t)
 			if err != nil {
 				return err
 			}
 		case *goInterfaceType:
-			err := g.checkInterfaceIdentifiers(t)
+			err := checkInterfaceIdentifiers(t, scope)
 			if err != nil {
 				return err
 			}
@@ -162,20 +127,11 @@ func (g *generator) checkGeneratedIdentifiers() error {
 	return nil
 }
 
-// checkStructIdentifiers reports an error if two identifiers octoqlgen would
-// emit for the given struct -- its declared fields, its getters, or its
-// (un)marshal methods -- share the same Go name.  The identifiers are checked
-// after casing normalization, since that is what turns names like foo_bar and
-// fooBar into the same Go identifier.
-func (g *generator) checkStructIdentifiers(t *goStructType) error {
+func checkStructIdentifiers(t *goStructType) error {
 	type identifierSource struct {
 		description string
 		pos         *ast.Position
 	}
-	// The remedy depends on where the fields come from.  Output selections can
-	// be renamed with a GraphQL field alias, but input-object fields and
-	// operation variables cannot be aliased, so for those we point at the
-	// achievable fixes instead of suggesting an impossible alias.
 	remedy := "disambiguate the conflicting selection with a field alias"
 	if t.IsInput {
 		remedy = "rename the variable or input field, or change the casing configuration"
@@ -187,8 +143,6 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 		}
 		existing, ok := used[name]
 		if ok {
-			// Prefer the position of whichever source has one, so the error
-			// points at the user's GraphQL rather than at nothing.
 			errPos := pos
 			if errPos == nil {
 				errPos = existing.pos
@@ -197,16 +151,16 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 				"generated type %s would emit the Go identifier %s for both %s and %s; %s",
 				t.GoName, name, existing.description, description, remedy)
 		}
-		used[name] = identifierSource{description: description, pos: pos}
+		used[name] = identifierSource{
+			description: description,
+			pos:         pos,
+		}
 		return nil
 	}
 
-	// Declared struct fields.  Embedded fields (from named-fragment spreads)
-	// are promoted under their type's Go name, so that is the identifier they
-	// occupy.
 	for _, field := range t.Fields {
 		if field.IsEmbedded() {
-			embeddedName := field.GoType.Unwrap().Reference()
+			embeddedName := field.GoType.Unwrap().QualifiedRef()
 			err := register(embeddedName,
 				fmt.Sprintf("embedded fragment %s", embeddedName), field.Position)
 			if err != nil {
@@ -222,8 +176,6 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 		}
 	}
 
-	// The MarshalJSON/UnmarshalJSON methods, emitted only when the struct needs
-	// custom (un)marshaling.
 	if t.NeedsMarshaling() {
 		for _, method := range []string{"MarshalJSON", "UnmarshalJSON"} {
 			err := register(method, method+" method", nil)
@@ -252,36 +204,15 @@ func (g *generator) checkStructIdentifiers(t *goStructType) error {
 	return nil
 }
 
-// interfaceMethod describes one method in a generated interface's method set,
-// including methods promoted from embedded interface fragments.  It is derived
-// from goInterfaceType.members, so the method set that is checked matches the
-// one WriteDefinition emits.
 type interfaceMethod struct {
-	name string
-	// signature is the method signature as it will be emitted, preserving the
-	// binding's original type spelling so diagnostics show what the user wrote.
-	signature string
-	// canonSignature is signature with Go's predeclared type aliases folded to
-	// their canonical spellings.  Compare this, not signature, when deciding
-	// whether two same-named methods legally collapse: Go's rule is identical
-	// types, not identical source text.
+	name           string
+	signature      string
 	canonSignature string
-	// owner is the Go name of the interface that explicitly declares this
-	// method.  For methods promoted from an embedded interface, owner is that
-	// embedded interface, not the interface it was promoted into.
-	owner       string
-	description string
-	pos         *ast.Position
+	owner          string
+	description    string
+	pos            *ast.Position
 }
 
-// predeclaredTypeAliases folds Go's predeclared type aliases (byte, rune, any)
-// to their canonical spelling.  Each pattern matches the alias as a whole
-// identifier, so it also rewrites them inside pointer, slice, array, and map
-// spellings (e.g. []byte) while leaving names like bytes untouched.
-//
-// A word boundary also matches after a dot, so a qualified pkg.byte would fold
-// to pkg.uint8.  That is harmless: byte, rune, and any are lowercase, so such a
-// type is unexported and can never be named through a cross-package selector.
 var predeclaredTypeAliases = []struct {
 	alias *regexp.Regexp
 	canon string
@@ -291,10 +222,6 @@ var predeclaredTypeAliases = []struct {
 	{regexp.MustCompile(`\bany\b`), "interface{}"},
 }
 
-// canonicalizeTypeRef rewrites Go's predeclared type aliases to their canonical
-// spellings so type references Go considers identical compare equal.  Residual:
-// identical types spelled through a user-defined or imported alias are not
-// folded and will still be reported as conflicting.
 func canonicalizeTypeRef(ref string) string {
 	for _, a := range predeclaredTypeAliases {
 		ref = a.alias.ReplaceAllString(ref, a.canon)
@@ -302,20 +229,23 @@ func canonicalizeTypeRef(ref string) string {
 	return ref
 }
 
-// interfaceMethodSet returns the full method set of the Go interface t would
-// emit, expanding embedded interfaces into the methods Go promotes from them.
-// It builds from the same members list WriteDefinition emits, so the checked
-// method set cannot drift from the emitted one.  visited guards against
-// re-expanding an interface already in progress; GraphQL forbids fragment
-// cycles, so the embedding graph is acyclic and this is only defensive.
-func interfaceMethodSet(t *goInterfaceType, visited map[string]bool) []interfaceMethod {
+func interfaceMethodSet(
+	t *goInterfaceType,
+	scope *importScope,
+	visited map[string]bool,
+) ([]interfaceMethod, error) {
 	if visited[t.GoName] {
-		return nil
+		return nil, nil
 	}
 	visited[t.GoName] = true
 
+	members, err := t.members(scope)
+	if err != nil {
+		return nil, err
+	}
+
 	var methods []interfaceMethod
-	for _, member := range t.members() {
+	for _, member := range members {
 		switch member.kind {
 		case interfaceMarkerMember:
 			methods = append(methods, interfaceMethod{
@@ -336,32 +266,27 @@ func interfaceMethodSet(t *goInterfaceType, visited map[string]bool) []interface
 				pos: member.field.Position,
 			})
 		case interfaceEmbeddedMember:
-			// An embedded interface contributes its method set, not its name,
-			// so expand it.  A non-interface cannot be embedded, so there is
-			// nothing to promote.
 			embedded, ok := member.field.GoType.Unwrap().(*goInterfaceType)
 			if !ok {
 				continue
 			}
-			methods = append(methods, interfaceMethodSet(embedded, visited)...)
+			promoted, promotedErr := interfaceMethodSet(embedded, scope, visited)
+			if promotedErr != nil {
+				return nil, promotedErr
+			}
+			methods = append(methods, promoted...)
 		}
 	}
-	return methods
+	return methods, nil
 }
 
-// checkInterfaceIdentifiers reports an error if the Go interface t would emit a
-// method set that fails to compile: two same-named methods with different
-// signatures, one or both promoted from an embedded interface.  It validates
-// the method set -- expanding embedded interfaces into the methods they promote
-// -- rather than the syntactic elements, which would mistake an embedded
-// interface for a method and miss genuine promoted-method conflicts.
-//
-// checkStructIdentifiers does not cover this: an interface with no concrete
-// implementations (reachable when omit_unreferenced_implementations is false)
-// has no struct in the type map to inspect.
-func (g *generator) checkInterfaceIdentifiers(t *goInterfaceType) error {
-	seen := make(map[string]interfaceMethod)
-	for _, method := range interfaceMethodSet(t, map[string]bool{}) {
+func checkInterfaceIdentifiers(t *goInterfaceType, scope *importScope) error {
+	methods, err := interfaceMethodSet(t, scope, map[string]bool{})
+	if err != nil {
+		return err
+	}
+	seen := make(map[string]interfaceMethod, len(methods))
+	for _, method := range methods {
 		existing, ok := seen[method.name]
 		if !ok {
 			seen[method.name] = method
@@ -369,9 +294,6 @@ func (g *generator) checkInterfaceIdentifiers(t *goInterfaceType) error {
 		}
 		sameOwner := existing.owner == method.owner
 		if !sameOwner && existing.canonSignature == method.canonSignature {
-			// Identical methods promoted from distinct embedded interfaces are
-			// legal and collapse into one.  Comparing canonSignature (not
-			// signature) makes byte and uint8 collapse as Go collapses them.
 			continue
 		}
 		errPos := method.pos
@@ -389,9 +311,7 @@ func (g *generator) checkInterfaceIdentifiers(t *goInterfaceType) error {
 	return nil
 }
 
-// baseTypeForOperation returns the definition of the GraphQL type to which the
-// root of the operation corresponds, e.g. the "Query" or "Mutation" type.
-func (g *generator) baseTypeForOperation(operation ast.Operation) (*ast.Definition, error) {
+func (g *planState) baseTypeForOperation(operation ast.Operation) (*ast.Definition, error) {
 	switch operation {
 	case ast.Query:
 		return g.schema.Query, nil
@@ -402,17 +322,18 @@ func (g *generator) baseTypeForOperation(operation ast.Operation) (*ast.Definiti
 	}
 }
 
-// convertOperation builds the response-type into which the given operation's
-// result will be unmarshaled.
-func (g *generator) convertOperation(
+func (g *planState) convertOperation(
 	operation *ast.OperationDefinition,
-	queryOptions *octoqlgenDirective,
+	opOptions operationOptions,
 ) (goType, error) {
 	name := operation.Name + "Response"
-	namePrefix := newPrefixList(operation.Name)
-	if queryOptions.TypeName != "" {
-		name = queryOptions.TypeName
-		namePrefix = newPrefixList(queryOptions.TypeName)
+	prefix := newNamePrefix(operation.Name)
+	if opOptions.TypeName != "" {
+		if goKeywords[opOptions.TypeName] {
+			return nil, errorf(opOptions.pos, "typename option must not be a go keyword")
+		}
+		name = opOptions.TypeName
+		prefix = newNamePrefix(opOptions.TypeName)
 	}
 
 	baseType, err := g.baseTypeForOperation(operation.Operation)
@@ -420,18 +341,17 @@ func (g *generator) convertOperation(
 		return nil, errorf(operation.Position, "%v", err)
 	}
 
-	// Instead of calling out to convertType/convertDefinition, we do our own
-	// thing, because we want to do a few things differently, and because we
-	// know we have an object type, so we can include only that case.
 	fields, err := g.convertSelectionSet(
-		namePrefix, operation.SelectionSet, baseType, queryOptions)
+		prefix,
+		operation.SelectionSet,
+		baseType,
+		opOptions.Defaults,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	// It's uncommon to spread a fragment across the whole operation, but doing
-	// so allows multiple operations to return the same generated type.
-	if queryOptions.GetFlatten() {
+	if opOptions.Flatten {
 		fieldIndex, flattenErr := validateFlattenOption(
 			baseType, operation.SelectionSet, operation.Position)
 		if flattenErr != nil {
@@ -440,23 +360,21 @@ func (g *generator) convertOperation(
 		return fields[fieldIndex].GoType, nil
 	}
 
-	goType := &goStructType{
+	goTyp := &goStructType{
 		GoName: name,
 		descriptionInfo: descriptionInfo{
 			CommentOverride: fmt.Sprintf(
 				"%v is returned by %v on success.", name, operation.Name),
 			GraphQLName: baseType.Name,
-			// omit the GraphQL description for baseType; it's uninteresting.
 		},
 		Fields:    fields,
 		Selection: operation.SelectionSet,
 	}
 
-	return g.addType(goType, goType.GoName, operation.Position)
+	return g.addType(goTyp, goTyp.GoName, operation.Position)
 }
 
 var builtinTypes = map[string]string{
-	// GraphQL guarantees int32 is enough, but using int seems more idiomatic
 	"Int":     "int",
 	"Float":   "float64",
 	"String":  "string",
@@ -489,13 +407,59 @@ func defaultScalarType(graphQLName string) (string, bool) {
 	return goType, ok
 }
 
-// convertArguments builds the type of the GraphQL arguments to the given
-// operation.
-//
-// This type is used as the generated operation's variables container.
-func (g *generator) convertArguments(
+type inputFieldSpec struct {
+	ownerName          string
+	fieldName          string
+	kindLabel          string
+	astType            *ast.Type
+	hasDefault         bool
+	description        string
+	fieldPos           *ast.Position
+	errPos             *ast.Position
+	enforcePointerRule bool
+	enforceOmitRule    bool
+	options            *fieldOptions
+}
+
+func (g *planState) convertInputField(spec *inputFieldSpec) (*goStructField, error) {
+	if spec.enforceOmitRule && spec.astType.NonNull && !spec.hasDefault && spec.options.GetOmitempty() {
+		return nil, errorf(spec.errPos,
+			"omitempty may only be used on optional arguments: %s.%s",
+			spec.ownerName, spec.fieldName)
+	}
+
+	goTyp, structRefOmitempty, err := g.convertInputType(spec.astType, spec.options)
+	if err != nil {
+		return nil, err
+	}
+
+	omitempty := structRefOmitempty
+	if spec.options.Omitempty != nil {
+		omitempty = *spec.options.Omitempty
+	}
+
+	_, isPointer := goTyp.(*goPointerType)
+	if spec.enforcePointerRule && spec.astType.NonNull && isPointer && !omitempty {
+		return nil, errorf(spec.errPos,
+			"pointer on non-null %s can only be used together with omitempty: %s.%s",
+			spec.kindLabel, spec.ownerName, spec.fieldName)
+	}
+
+	goName := ApplyCasing(spec.fieldName, g.config.GetDefaultCasingAlgorithm(), true)
+	return &goStructField{
+		GoName:      goName,
+		GoType:      goTyp,
+		JSONName:    spec.fieldName,
+		GraphQLName: spec.fieldName,
+		Description: spec.description,
+		Omitempty:   omitempty,
+		Position:    spec.fieldPos,
+	}, nil
+}
+
+func (g *planState) convertArguments(
 	operation *ast.OperationDefinition,
-	queryOptions *octoqlgenDirective,
+	opOptions operationOptions,
 ) (*goStructType, error) {
 	if len(operation.VariableDefinitions) == 0 {
 		return nil, nil
@@ -506,137 +470,132 @@ func (g *generator) convertArguments(
 		if goKeywords[arg.Variable] {
 			return nil, errorf(arg.Position, "variable name must not be a go keyword")
 		}
-
-		options, err := g.directiveFor(arg, nil, arg.Position, queryOptions)
+		options := g.directives.forVariable(arg, opOptions.Defaults)
+		field, err := g.convertInputField(&inputFieldSpec{
+			ownerName:          operation.Name,
+			fieldName:          arg.Variable,
+			kindLabel:          "argument",
+			astType:            arg.Type,
+			hasDefault:         arg.DefaultValue != nil,
+			fieldPos:           arg.Position,
+			errPos:             arg.Position,
+			enforcePointerRule: true,
+			enforceOmitRule:    true,
+			options:            options,
+		})
 		if err != nil {
 			return nil, err
 		}
-		if arg.Type.NonNull && arg.DefaultValue == nil && options.GetOmitempty() {
-			return nil, errorf(arg.Position,
-				"omitempty may only be used on optional arguments: %s.%s",
-				operation.Name, arg.Variable)
-		}
-
-		goName := arg.Variable
-		goName = ApplyCasing(goName, g.Config.GetDefaultCasingAlgorithm(), true)
-		// Some of the arguments don't apply here, namely the name-prefix (see
-		// names.go) and the selection-set (we use all the input type's fields,
-		// and so on recursively).  See also the `case ast.InputObject` in
-		// convertDefinition, below.
-		goTyp, err := g.convertType(nil, arg.Type, nil, options, queryOptions)
-		if err != nil {
-			return nil, err
-		}
-		_, isPointer := goTyp.(*goPointerType)
-		if arg.Type.NonNull && isPointer && !options.GetOmitempty() {
-			return nil, errorf(arg.Position,
-				"pointer on non-null argument can only be used together with omitempty: %s.%s",
-				operation.Name, arg.Variable)
-		}
-
-		fields[i] = &goStructField{
-			GoName:      goName,
-			GoType:      goTyp,
-			JSONName:    arg.Variable,
-			GraphQLName: arg.Variable,
-			Omitempty:   options.GetOmitempty(),
-			Position:    arg.Position,
-		}
+		fields[i] = field
 	}
 	goTyp := &goStructType{
-		GoName:    name,
-		Fields:    fields,
-		Selection: nil,
-		IsInput:   true,
+		GoName:  name,
+		Fields:  fields,
+		IsInput: true,
 		descriptionInfo: descriptionInfo{
 			CommentOverride: fmt.Sprintf(
 				"%s contains the variables accepted by %s.", name, operation.Name),
-			// fake name, used by addType
 			GraphQLName: name,
 		},
 	}
-	goTypAgain, err := g.addType(goTyp, goTyp.GoName, operation.Position)
+	added, err := g.addType(goTyp, goTyp.GoName, operation.Position)
 	if err != nil {
 		return nil, err
 	}
-	goTyp, ok := goTypAgain.(*goStructType)
+	result, ok := added.(*goStructType)
 	if !ok {
-		return nil, errorf(
-			operation.Position, "internal error: input type was %T", goTypAgain)
+		return nil, errorf(operation.Position, "internal error: input type was %T", added)
 	}
-	return goTyp, nil
+	return result, nil
 }
 
-// convertType decides the Go type we will generate corresponding to a
-// particular GraphQL type.  In this context, "type" represents the type of a
-// field, and may be a list or a reference to a named type, with or without the
-// "non-null" annotation.
-func (g *generator) convertType(
-	namePrefix *prefixList,
+func (g *planState) convertLocalBinding(
 	typ *ast.Type,
 	selectionSet ast.SelectionSet,
-	options, queryOptions *octoqlgenDirective,
+	options *fieldOptions,
 ) (goType, error) {
-	// We check for local bindings here, so that you can bind, say, a
-	// `[String!]` to a struct instead of a slice.  Global bindings can only
-	// bind GraphQL named types, at least for now.
-	localBinding := options.Bind
-	if localBinding != "" && localBinding != "-" {
-		if err := rejectConditionalDirectivesInBoundSelection(typ.Name(), selectionSet); err != nil {
-			return nil, err
-		}
-		goRef, err := g.ref(localBinding)
-		if err != nil {
-			return nil, err
-		}
-		// TODO(benkraft): Add syntax to specify a custom (un)marshaler, if
-		// it proves useful.
-		goTyp := &goOpaqueType{
-			GoRef:          goRef,
-			QualifiedGoRef: localBinding,
-			GraphQLName:    typ.Name(),
-		}
-		return applyPointerSelection(goTyp, typ, options), nil
-	}
-
-	if typ.Elem != nil {
-		// Type is a list.
-		elem, err := g.convertType(
-			namePrefix, typ.Elem, selectionSet, options, queryOptions)
-		if err != nil {
-			return nil, err
-		}
-		return &goSliceType{elem}, nil
-	}
-
-	// If this is a builtin type or custom scalar, just refer to it.
-	def := g.schema.Types[typ.Name()]
-	goTyp, err := g.convertDefinition(
-		namePrefix, def, typ.Position, selectionSet, options, queryOptions)
+	err := rejectConditionalDirectivesInBoundSelection(typ.Name(), selectionSet)
 	if err != nil {
 		return nil, err
 	}
+	parsedRef, err := parseRef(options.Bind)
+	if err != nil {
+		return nil, err
+	}
+	goTyp := &goOpaqueType{
+		Ref:         parsedRef,
+		GraphQLName: typ.Name(),
+	}
+	return applyPointerSelection(goTyp, typ, options), nil
+}
 
-	if g.getStructReference(def) {
-		if options.Pointer == nil || *options.Pointer {
-			goTyp = &goPointerType{goTyp}
+func (g *planState) convertInputType(
+	typ *ast.Type,
+	options *fieldOptions,
+) (goType, bool, error) {
+	if options.Bind != "" && options.Bind != "-" {
+		bound, err := g.convertLocalBinding(typ, nil, options)
+		return bound, false, err
+	}
+	if typ.Elem != nil {
+		elem, defaultOmitempty, err := g.convertInputType(typ.Elem, options)
+		if err != nil {
+			return nil, false, err
 		}
-		if options.Omitempty == nil || *options.Omitempty {
-			oe := true
-			options.Omitempty = &oe
+		return &goSliceType{Elem: elem}, defaultOmitempty, nil
+	}
+
+	def := g.schema.Types[typ.Name()]
+	goTyp, isBound, err := g.convertInputDefinition(def, typ.Position, options)
+	if err != nil {
+		return nil, false, err
+	}
+	if !isBound && g.getStructReference(def) {
+		if !options.PointerIsFalse() {
+			goTyp = &goPointerType{Elem: goTyp}
+		}
+		return goTyp, true, nil
+	}
+	return applyPointerSelection(goTyp, typ, options), false, nil
+}
+
+func (g *planState) convertSelectionType(
+	prefix namePrefix,
+	typ *ast.Type,
+	selectionSet ast.SelectionSet,
+	options *fieldOptions,
+	defaults defaultOptions,
+) (goType, error) {
+	if options.Bind != "" && options.Bind != "-" {
+		return g.convertLocalBinding(typ, selectionSet, options)
+	}
+	if typ.Elem != nil {
+		elem, err := g.convertSelectionType(prefix, typ.Elem, selectionSet, options, defaults)
+		if err != nil {
+			return nil, err
+		}
+		return &goSliceType{Elem: elem}, nil
+	}
+
+	def := g.schema.Types[typ.Name()]
+	goTyp, isBound, err := g.convertOutputDefinition(
+		prefix, def, typ.Position, selectionSet, options, defaults)
+	if err != nil {
+		return nil, err
+	}
+	if !isBound && g.getStructReference(def) {
+		if !options.PointerIsFalse() {
+			goTyp = &goPointerType{Elem: goTyp}
 		}
 		return goTyp, nil
 	}
-	// Lists recurse before this point, so pointer selection applies to nullable
-	// elements rather than slice containers. Whole-field local bindings apply it
-	// before list recursion.
 	return applyPointerSelection(goTyp, typ, options), nil
 }
 
 func applyPointerSelection(
 	goTyp goType,
 	typ *ast.Type,
-	options *octoqlgenDirective,
+	options *fieldOptions,
 ) goType {
 	_, isInterface := goTyp.(*goInterfaceType)
 	if isInterface {
@@ -648,296 +607,97 @@ func applyPointerSelection(
 	if !options.GetPointer() && typ.NonNull {
 		return goTyp
 	}
-	return &goPointerType{goTyp}
+	return &goPointerType{Elem: goTyp}
 }
 
-// getStructReference decides if a field should be of pointer type and have the omitempty flag set.
-func (g *generator) getStructReference(
-	def *ast.Definition,
-) bool {
-	return g.Config.StructReferences &&
+func (g *planState) getStructReference(def *ast.Definition) bool {
+	return g.config.StructReferences &&
 		(def.Kind == ast.Object || def.Kind == ast.InputObject)
 }
 
-// convertDefinition decides the Go type we will generate corresponding to a
-// particular GraphQL named type.
-//
-// In this context, "definition" (and "named type") refer to an
-// *ast.Definition, which represents the definition of a type in the GraphQL
-// schema, which may be referenced by a field-type (see convertType).
-func (g *generator) convertDefinition(
-	namePrefix *prefixList,
+func (g *planState) resolveConfiguredBinding(
 	def *ast.Definition,
 	pos *ast.Position,
 	selectionSet ast.SelectionSet,
-	options, queryOptions *octoqlgenDirective,
-) (goType, error) {
-	// Check if we should use an existing type.  (This is usually true for
-	// GraphQL scalars, but we allow you to bind non-scalar types too, if you
-	// want, subject to the caveats described in Config.Bindings.)  Local
-	// bindings are checked in the caller (convertType) and never get here,
-	// unless the binding is "-" which means "ignore the global binding".
-	globalBinding, ok := g.Config.Bindings[def.Name]
+	options *fieldOptions,
+) (*goOpaqueType, error) {
+	globalBinding, ok := g.config.Bindings[def.Name]
 	if ok && options.Bind != "-" {
 		if options.TypeName != "" {
-			// The option position (in the query) is more useful here.
 			return nil, errorf(options.pos,
 				"typename option conflicts with global binding for %s; "+
 					"use `bind: \"-\"` to override it", def.Name)
 		}
 		if def.Kind == ast.Object || def.Kind == ast.Interface || def.Kind == ast.Union {
-			if err := rejectConditionalDirectivesInBoundSelection(def.Name, selectionSet); err != nil {
+			err := rejectConditionalDirectivesInBoundSelection(def.Name, selectionSet)
+			if err != nil {
 				return nil, err
 			}
-			err := g.validateBindingSelection(
-				def.Name, globalBinding, pos, selectionSet)
+			err = validateBindingSelection(def.Name, globalBinding, pos, selectionSet)
 			if err != nil {
 				return nil, err
 			}
 		}
-		goRef, err := g.ref(globalBinding.Type)
-		return &goOpaqueType{
-			GoRef:          goRef,
-			QualifiedGoRef: globalBinding.Type,
-			GraphQLName:    def.Name,
-			Marshaler:      globalBinding.Marshaler,
-			Unmarshaler:    globalBinding.Unmarshaler,
-		}, err
-	}
-	goBuiltinName, ok := defaultScalarType(def.Name)
-	if ok && options.TypeName == "" {
-		goRef, err := g.ref(goBuiltinName)
+		parsedType, err := parseRef(globalBinding.Type)
 		if err != nil {
 			return nil, err
 		}
+		var marshalerRef goRef
+		if globalBinding.Marshaler != "" {
+			marshalerRef, err = parseRef(globalBinding.Marshaler)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var unmarshalerRef goRef
+		if globalBinding.Unmarshaler != "" {
+			unmarshalerRef, err = parseRef(globalBinding.Unmarshaler)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return &goOpaqueType{
-			GoRef:          goRef,
-			QualifiedGoRef: goBuiltinName,
-			GraphQLName:    def.Name,
+			Ref:         parsedType,
+			GraphQLName: def.Name,
+			Marshaler:   marshalerRef,
+			Unmarshaler: unmarshalerRef,
 		}, nil
 	}
 
-	// Determine the name to use for this type.
-	var name string
-	switch {
-	case options.TypeName != "":
-		if goKeywords[options.TypeName] {
-			return nil, errorf(pos, "typename option must not be a go keyword")
+	goBuiltinName, ok := defaultScalarType(def.Name)
+	if ok && options.TypeName == "" {
+		parsedBuiltin, err := parseRef(goBuiltinName)
+		if err != nil {
+			return nil, err
 		}
-		// If the user specified a name, use it!
-		name = options.TypeName
-		if namePrefix != nil && namePrefix.head == name && namePrefix.tail == nil {
-			// Special case: if this name is also the only component of the
-			// name-prefix, append the type-name anyway.  This happens when you
-			// assign a type name to an interface type, and we are generating
-			// one of its implementations.
-			name = makeLongTypeName(namePrefix, def.Name, g.Config.GetDefaultCasingAlgorithm())
-		}
-		// (But the prefix is shared.)
-		namePrefix = newPrefixList(options.TypeName)
-	case def.Kind == ast.InputObject || def.Kind == ast.Enum:
-		// If we're an input-object or enum, there is only one type we will
-		// ever possibly generate for this type, so we don't need any of the
-		// qualifiers.  This is especially helpful because the caller is very
-		// likely to need to reference these types in their code.
-		name = ApplyCasing(def.Name, g.Config.GetDefaultCasingAlgorithm(), true)
-		// (namePrefix is ignored in this case.)
-	default:
-		// Construct a name using the usual algorithm (see names.go).
-		name = makeTypeName(namePrefix, def.Name, g.Config.GetDefaultCasingAlgorithm())
+		return &goOpaqueType{
+			Ref:         parsedBuiltin,
+			GraphQLName: def.Name,
+		}, nil
 	}
+	return nil, nil
+}
 
-	// Register and compare types against a position in the operation (the
-	// field, variable, or @octoqlgen directive that selected this type), not
-	// against pos, which is the schema location of the type's definition.  A
-	// conflict is between two selections in the user's operations, so pointing
-	// the error there -- and at two distinct locations -- is what makes it
-	// actionable.  options.pos is the selecting node's position (the field or
-	// variable, or the directive comment when one is present).
-	provenancePos := pos
+func provenancePosition(pos *ast.Position, options *fieldOptions) *ast.Position {
 	if options != nil && options.pos != nil {
-		provenancePos = options.pos
+		return options.pos
+	}
+	return pos
+}
+
+func (g *planState) convertScalarOrEnumDefinition(
+	name string,
+	def *ast.Definition,
+	pos, provenancePos *ast.Position,
+) (goType, error) {
+	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), nil, provenancePos)
+	if existing != nil || err != nil {
+		return existing, err
 	}
 
-	// Schema-definition types (InputObject, Enum, Scalar) are generated from
-	// the schema definition and global @octoqlgenFor declarations rather than
-	// per-operation selections, so reuse existing types immediately.
-	if def.Kind == ast.InputObject || def.Kind == ast.Enum || def.Kind == ast.Scalar {
-		existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), selectionSet, provenancePos)
-		if existing != nil || err != nil {
-			return existing, err
-		}
-	}
-
-	desc := descriptionInfo{
-		// TODO(benkraft): Copy any comment above this selection-set?
-		GraphQLDescription: def.Description,
-		GraphQLName:        def.Name,
-	}
-
-	// The struct option basically means "treat this as if it were an object".
-	// (It only applies if valid; this is important if you said the whole
-	// query should have `struct: true`.)
-	kind := def.Kind
-	if options.GetStruct() && validateStructOption(def, selectionSet, pos) == nil {
-		kind = ast.Object
-	}
-	switch kind {
-	case ast.Object:
-		fields, err := g.convertSelectionSet(
-			namePrefix, selectionSet, def, queryOptions)
-		if err != nil {
-			return nil, err
-		}
-		if options.GetFlatten() {
-			fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
-			if flattenErr != nil {
-				return nil, flattenErr
-			}
-			return fields[fieldIndex].GoType, nil
-		}
-		goType := &goStructType{
-			GoName:          name,
-			Fields:          fields,
-			Selection:       selectionSet,
-			descriptionInfo: desc,
-		}
-		return g.addType(goType, goType.GoName, provenancePos)
-
-	case ast.InputObject:
-		goType := &goStructType{
-			GoName:          name,
-			Fields:          make([]*goStructField, len(def.Fields)),
-			descriptionInfo: desc,
-			IsInput:         true,
-		}
-		// To handle recursive types, we need to add the type to the type-map
-		// *before* converting its fields.
-		_, err := g.addType(goType, goType.GoName, provenancePos)
-		if err != nil {
-			return nil, err
-		}
-
-		for i, field := range def.Fields {
-			fieldOptions, err := g.directiveFor(
-				field, def, field.Position, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			goName := field.Name
-			goName = ApplyCasing(goName, g.Config.GetDefaultCasingAlgorithm(), true)
-			// Several of the arguments don't really make sense here:
-			// (note field.Type is necessarily a scalar, input, or enum)
-			//  - namePrefix is ignored for input types and enums (see
-			//    names.go) and for scalars (they use client-specified
-			//    names)
-			//  - selectionSet is ignored for input types, because we
-			//    just use all fields of the type; and it's nonexistent
-			//    for scalars and enums, our only other possible types
-			// TODO(benkraft): Can we refactor to avoid passing the values that
-			// will be ignored?  We know field.Type is a scalar, enum, or input
-			// type.  But plumbing that is a bit tricky in practice.
-			fieldGoType, err := g.convertType(
-				namePrefix, field.Type, nil, fieldOptions, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			if !g.Config.StructReferences {
-				// Only do this validation when StructReferences are not used, as that can generate types that would not
-				// pass these validations. See https://github.com/Khan/genqlient/issues/342
-
-				// Try to protect against generating a field type that could send `null` to a non-nullable graphQL
-				// type. This does not protect against lists/slices, as Go zero-slices are already serialized as `null`
-				// (which can therefore currently send invalid graphQL value - e.g. `null` for [String!]!).
-				// And does not protect against custom MarshalJSON.
-				_, isPointer := fieldGoType.(*goPointerType)
-				if field.Type.NonNull && isPointer && !fieldOptions.GetOmitempty() {
-					return nil, errorf(pos, "pointer on non-null input field can only be used together with omitempty: %s.%s", name, field.Name)
-				}
-
-				if fieldOptions.GetOmitempty() && field.Type.NonNull && field.DefaultValue == nil {
-					return nil, errorf(pos, "omitempty may only be used on optional arguments: %s.%s", name, field.Name)
-				}
-			}
-
-			goType.Fields[i] = &goStructField{
-				GoName:      goName,
-				GoType:      fieldGoType,
-				JSONName:    field.Name,
-				GraphQLName: field.Name,
-				Description: field.Description,
-				Omitempty:   fieldOptions.GetOmitempty(),
-				Position:    field.Position,
-			}
-		}
-		return goType, nil
-
-	case ast.Interface, ast.Union:
-		sharedFields, err := g.convertSelectionSet(
-			namePrefix, selectionSet, def, queryOptions)
-		if err != nil {
-			return nil, err
-		}
-		// Flattening an abstract selection is valid only when its single
-		// fragment spread applies to the whole abstract type.
-		if options.GetFlatten() {
-			fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
-			if flattenErr != nil {
-				return nil, flattenErr
-			}
-			return sharedFields[fieldIndex].GoType, nil
-		}
-		implementationTypes := g.schema.GetPossibleTypes(def)
-		// Make sure we generate stable output by sorting the types by name when we get them
-		sort.Slice(implementationTypes, func(i, j int) bool { return implementationTypes[i].Name < implementationTypes[j].Name })
-		implementationTypes = g.filterReferencedImplementations(implementationTypes, selectionSet)
-		goType := &goInterfaceType{
-			GoName:          name,
-			SharedFields:    sharedFields,
-			Selection:       selectionSet,
-			descriptionInfo: desc,
-		}
-
-		for _, implDef := range implementationTypes {
-			// TODO(benkraft): In principle we should skip generating a Go
-			// field for __typename each of these impl-defs if you didn't
-			// request it (and it was automatically added by
-			// preprocessQueryDocument).  But in practice it doesn't really
-			// hurt, and would be extra work to avoid, so we just leave it.
-			implTyp, convertErr := g.convertDefinition(
-				namePrefix, implDef, pos, selectionSet, options, queryOptions)
-			if convertErr != nil {
-				return nil, convertErr
-			}
-
-			implStructTyp, ok := implTyp.(*goStructType)
-			if !ok { // (should never happen on a valid schema)
-				return nil, errorf(
-					pos, "interface %s had non-object implementation %s",
-					def.Name, implDef.Name)
-			}
-			goType.Implementations = append(goType.Implementations, implStructTyp)
-		}
-		// Register the interface type before attaching the catch-all.  If an
-		// existing compatible type is returned, its catch-all was already
-		// attached on the first registration; return it to avoid a duplicate.
-		result, addErr := g.addType(goType, goType.GoName, provenancePos)
-		if addErr != nil {
-			return nil, addErr
-		}
-		if result != goType {
-			return result, nil
-		}
-		err = g.attachCatchAllImplementation(goType, def.Name, pos)
-		if err != nil {
-			return nil, err
-		}
-		return goType, nil
-
+	switch def.Kind {
 	case ast.Enum:
-		goType := &goEnumType{
+		goTyp := &goEnumType{
 			GoName:      name,
 			GraphQLName: def.Name,
 			Description: def.Description,
@@ -946,8 +706,9 @@ func (g *generator) convertDefinition(
 
 		goNames := make(map[string]*goEnumValue, len(def.EnumValues))
 		for i, val := range def.EnumValues {
-			goName := g.Config.Casing.enumValueName(name, def, val)
-			if conflict := goNames[goName]; conflict != nil {
+			goName := g.config.Casing.enumValueName(name, def, val)
+			conflict := goNames[goName]
+			if conflict != nil {
 				return nil, errorf(val.Position,
 					"enum values %s and %s have conflicting Go name %s; "+
 						"add 'all_enums: raw' or 'enums: %v: raw' "+
@@ -955,41 +716,278 @@ func (g *generator) convertDefinition(
 					val.Name, conflict.GraphQLName, goName, def.Name)
 			}
 
-			goType.Values[i] = goEnumValue{
+			goTyp.Values[i] = goEnumValue{
 				GoName:      goName,
 				GraphQLName: val.Name,
 				Description: val.Description,
 			}
-			goNames[goName] = &goType.Values[i]
+			goNames[goName] = &goTyp.Values[i]
 		}
-		return g.addType(goType, goType.GoName, provenancePos)
+		return g.addType(goTyp, goTyp.GoName, provenancePos)
 
 	case ast.Scalar:
 		if builtinTypes[def.Name] != "" {
-			// In this case, the user asked for a custom Go type-name
-			// for a built-in type, e.g. `type MyString string`.
-			goType := &goTypenameForBuiltinType{
+			goTyp := &goTypenameForBuiltinType{
 				GoTypeName:    name,
 				GoBuiltinName: builtinTypes[def.Name],
 				GraphQLName:   def.Name,
 			}
-			return g.addType(goType, goType.GoTypeName, provenancePos)
+			return g.addType(goTyp, goTyp.GoTypeName, provenancePos)
 		}
-
-		// (If you had an entry in bindings, we would have returned it above.)
 		return nil, errorf(
 			pos, "unknown scalar %v: please add it to \"bindings\" in octoqlgen.yaml"+
 				"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", def.Name)
+
 	default:
 		return nil, errorf(pos, "unexpected kind: %v", def.Kind)
 	}
 }
 
-func (g *generator) filterReferencedImplementations(
+func (g *planState) convertInputDefinition(
+	def *ast.Definition,
+	pos *ast.Position,
+	options *fieldOptions,
+) (goType, bool, error) {
+	bound, err := g.resolveConfiguredBinding(def, pos, nil, options)
+	if bound != nil || err != nil {
+		return bound, bound != nil, err
+	}
+
+	name := ApplyCasing(def.Name, g.config.GetDefaultCasingAlgorithm(), true)
+	if options.TypeName != "" {
+		if goKeywords[options.TypeName] {
+			return nil, false, errorf(pos, "typename option must not be a go keyword")
+		}
+		name = options.TypeName
+	}
+
+	provPos := provenancePosition(pos, options)
+	if def.Kind != ast.InputObject {
+		typ, scalarErr := g.convertScalarOrEnumDefinition(name, def, pos, provPos)
+		return typ, false, scalarErr
+	}
+
+	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), nil, provPos)
+	if existing != nil || err != nil {
+		return existing, false, err
+	}
+
+	goTyp := &goStructType{
+		GoName: name,
+		Fields: make([]*goStructField, len(def.Fields)),
+		descriptionInfo: descriptionInfo{
+			GraphQLDescription: def.Description,
+			GraphQLName:        def.Name,
+		},
+		IsInput: true,
+	}
+	_, err = g.addType(goTyp, goTyp.GoName, provPos)
+	if err != nil {
+		return nil, false, err
+	}
+
+	enforceRules := !g.config.StructReferences
+	for i, field := range def.Fields {
+		fieldOptions, dirErr := g.directives.forInputField(def, field)
+		if dirErr != nil {
+			return nil, false, dirErr
+		}
+		convertedField, fieldErr := g.convertInputField(&inputFieldSpec{
+			ownerName:          name,
+			fieldName:          field.Name,
+			kindLabel:          "input field",
+			astType:            field.Type,
+			hasDefault:         field.DefaultValue != nil,
+			description:        field.Description,
+			fieldPos:           field.Position,
+			errPos:             pos,
+			enforcePointerRule: enforceRules,
+			enforceOmitRule:    enforceRules,
+			options:            fieldOptions,
+		})
+		if fieldErr != nil {
+			return nil, false, fieldErr
+		}
+		goTyp.Fields[i] = convertedField
+	}
+	return goTyp, false, nil
+}
+
+type abstractSelectionSpec struct {
+	goName        string
+	prefix        namePrefix
+	def           *ast.Definition
+	selectionSet  ast.SelectionSet
+	sharedFields  []*goStructField
+	defaults      defaultOptions
+	desc          descriptionInfo
+	provenancePos *ast.Position
+	pos           *ast.Position
+	implGoName    func(*ast.Definition) string
+}
+
+func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goType, error) {
+	implementationTypes := g.schema.GetPossibleTypes(spec.def)
+	sort.Slice(implementationTypes, func(i, j int) bool {
+		return implementationTypes[i].Name < implementationTypes[j].Name
+	})
+	implementationTypes = g.filterReferencedImplementations(implementationTypes, spec.selectionSet)
+
+	goTyp := &goInterfaceType{
+		GoName:          spec.goName,
+		SharedFields:    spec.sharedFields,
+		Selection:       spec.selectionSet,
+		descriptionInfo: spec.desc,
+	}
+
+	result, addErr := g.addType(goTyp, goTyp.GoName, spec.provenancePos)
+	if addErr != nil {
+		return nil, addErr
+	}
+
+	for _, implDef := range implementationTypes {
+		implFields, convertErr := g.convertSelectionSet(
+			spec.prefix, spec.selectionSet, implDef, spec.defaults)
+		if convertErr != nil {
+			return nil, convertErr
+		}
+
+		implDesc := spec.desc
+		implDesc.GraphQLName = implDef.Name
+		if spec.desc.FragmentName == "" {
+			implDesc.GraphQLDescription = implDef.Description
+		}
+
+		implTyp := &goStructType{
+			GoName:          spec.implGoName(implDef),
+			Fields:          implFields,
+			Selection:       spec.selectionSet,
+			descriptionInfo: implDesc,
+		}
+		addedImpl, implErr := g.addType(implTyp, implTyp.GoName, spec.provenancePos)
+		if implErr != nil {
+			return nil, implErr
+		}
+		implStruct, ok := addedImpl.(*goStructType)
+		if !ok {
+			return nil, errorf(spec.pos, "interface %s had non-object implementation %s",
+				spec.def.Name, implDef.Name)
+		}
+		goTyp.Implementations = append(goTyp.Implementations, implStruct)
+	}
+
+	if result != goTyp {
+		return result, nil
+	}
+
+	err := g.attachCatchAllImplementation(goTyp, spec.def.Name, spec.pos)
+	if err != nil {
+		return nil, err
+	}
+	return goTyp, nil
+}
+
+func (g *planState) convertOutputDefinition(
+	prefix namePrefix,
+	def *ast.Definition,
+	pos *ast.Position,
+	selectionSet ast.SelectionSet,
+	options *fieldOptions,
+	defaults defaultOptions,
+) (goType, bool, error) {
+	bound, err := g.resolveConfiguredBinding(def, pos, selectionSet, options)
+	if bound != nil || err != nil {
+		return bound, bound != nil, err
+	}
+
+	casing := g.config.GetDefaultCasingAlgorithm()
+	var name string
+	switch {
+	case options.TypeName != "":
+		if goKeywords[options.TypeName] {
+			return nil, false, errorf(pos, "typename option must not be a go keyword")
+		}
+		name = options.TypeName
+		if prefix.isSingle(name) {
+			name = makeLongTypeName(prefix, def.Name, casing)
+		}
+		prefix = newNamePrefix(options.TypeName)
+	case def.Kind == ast.Enum:
+		name = ApplyCasing(def.Name, casing, true)
+	default:
+		name = makeTypeName(prefix, def.Name, casing)
+	}
+
+	provPos := provenancePosition(pos, options)
+	if def.Kind == ast.Enum || def.Kind == ast.Scalar {
+		typ, scalarErr := g.convertScalarOrEnumDefinition(name, def, pos, provPos)
+		return typ, false, scalarErr
+	}
+
+	desc := descriptionInfo{
+		GraphQLDescription: def.Description,
+		GraphQLName:        def.Name,
+	}
+
+	kind := def.Kind
+	if options.GetStruct() && validateStructOption(def, selectionSet, pos) == nil {
+		kind = ast.Object
+	}
+
+	fields, err := g.convertSelectionSet(prefix, selectionSet, def, defaults)
+	if err != nil {
+		return nil, false, err
+	}
+	if options.GetFlatten() {
+		fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
+		if flattenErr != nil {
+			return nil, false, flattenErr
+		}
+		return fields[fieldIndex].GoType, false, nil
+	}
+
+	switch kind {
+	case ast.Object:
+		goTyp := &goStructType{
+			GoName:          name,
+			Fields:          fields,
+			Selection:       selectionSet,
+			descriptionInfo: desc,
+		}
+		added, addErr := g.addType(goTyp, goTyp.GoName, provPos)
+		return added, false, addErr
+
+	case ast.Interface, ast.Union:
+		explicitTypeName := options.TypeName
+		typ, absErr := g.buildAbstractSelectionType(&abstractSelectionSpec{
+			goName:        name,
+			prefix:        prefix,
+			def:           def,
+			selectionSet:  selectionSet,
+			sharedFields:  fields,
+			defaults:      defaults,
+			desc:          desc,
+			provenancePos: provPos,
+			pos:           pos,
+			implGoName: func(implDef *ast.Definition) string {
+				if explicitTypeName != "" && prefix.isSingle(explicitTypeName) {
+					return makeLongTypeName(prefix, implDef.Name, casing)
+				}
+				return makeTypeName(prefix, implDef.Name, casing)
+			},
+		})
+		return typ, false, absErr
+
+	default:
+		return nil, false, errorf(pos, "unexpected kind: %v", def.Kind)
+	}
+}
+
+func (g *planState) filterReferencedImplementations(
 	implementations []*ast.Definition,
 	selectionSet ast.SelectionSet,
 ) []*ast.Definition {
-	if !g.Config.omitUnreferencedImplementations() {
+	if !g.config.omitUnreferencedImplementations() {
 		return implementations
 	}
 
@@ -1081,7 +1079,7 @@ func selectionSetHasDirectFields(selectionSet ast.SelectionSet) bool {
 	return false
 }
 
-func (g *generator) possibleObjectTypes(definition *ast.Definition) map[string]bool {
+func (g *planState) possibleObjectTypes(definition *ast.Definition) map[string]bool {
 	if definition == nil {
 		return map[string]bool{}
 	}
@@ -1100,12 +1098,12 @@ func (g *generator) possibleObjectTypes(definition *ast.Definition) map[string]b
 	return result
 }
 
-func (g *generator) attachCatchAllImplementation(
+func (g *planState) attachCatchAllImplementation(
 	abstractType *goInterfaceType,
 	graphQLName string,
 	pos *ast.Position,
 ) error {
-	if !g.Config.omitUnreferencedImplementations() {
+	if !g.config.omitUnreferencedImplementations() {
 		return nil
 	}
 
@@ -1149,7 +1147,7 @@ func (g *generator) attachCatchAllImplementation(
 	return nil
 }
 
-func (g *generator) catchAllName(abstractTypeName string) string {
+func (g *planState) catchAllName(abstractTypeName string) string {
 	name := abstractTypeName + "OctoqlOther"
 	for suffix := 2; g.typeMap[name] != nil; suffix++ {
 		name = fmt.Sprintf("%s%dOctoqlOther", abstractTypeName, suffix)
@@ -1157,33 +1155,21 @@ func (g *generator) catchAllName(abstractTypeName string) string {
 	return name
 }
 
-// convertSelectionSet converts a GraphQL selection-set into a list of
-// corresponding Go struct-fields (and their Go types)
-//
-// A selection-set is a list of fields within braces like `{ myField }`, as
-// appears at the toplevel of a query, in a field's sub-selections, or within
-// an inline or named fragment.
-//
-// containingTypedef is the type-def whose fields we are selecting, and may be
-// an object type or an interface type.  In the case of interfaces, we'll call
-// convertSelectionSet once for the interface, and once for each
-// implementation.
-func (g *generator) convertSelectionSet(
-	namePrefix *prefixList,
+func (g *planState) convertSelectionSet(
+	prefix namePrefix,
 	selectionSet ast.SelectionSet,
 	containingTypedef *ast.Definition,
-	queryOptions *octoqlgenDirective,
+	defaults defaultOptions,
 ) ([]*goStructField, error) {
 	fields := make([]*goStructField, 0, len(selectionSet))
 	for _, selection := range selectionSet {
 		switch sel := selection.(type) {
 		case *ast.Field:
-			selectionOptions, err := g.directiveFor(sel, nil, sel.Position, queryOptions)
+			selectionOptions, err := g.directives.forField(sel, defaults)
 			if err != nil {
 				return nil, err
 			}
-			field, err := g.convertField(
-				namePrefix, sel, selectionOptions, queryOptions)
+			field, err := g.convertField(prefix, sel, selectionOptions, defaults)
 			if err != nil {
 				return nil, err
 			}
@@ -1213,10 +1199,8 @@ func (g *generator) convertSelectionSet(
 						"the fragment contributes, so it would otherwise "+
 						"silently generate value types for fields that can vanish")
 			}
-			// (Note this will return nil, nil if the fragment doesn't apply to
-			// this type.)
 			fragmentFields, err := g.convertInlineFragment(
-				namePrefix, sel, containingTypedef, queryOptions)
+				prefix, sel, containingTypedef, defaults)
 			if err != nil {
 				return nil, err
 			}
@@ -1226,23 +1210,12 @@ func (g *generator) convertSelectionSet(
 		}
 	}
 
-	// We need to deduplicate, if you asked for
-	//	{ id, id, id, ... on SubType { id } }
-	// (which, yes, is legal) we'll treat that as just { id }.
 	uniqFields := make([]*goStructField, 0, len(selectionSet))
 	fragmentNames := make(map[string]bool, len(selectionSet))
 	fieldNames := make(map[string]bool, len(selectionSet))
 	for _, field := range fields {
-		// If you embed a field twice via a named fragment, we keep both, even
-		// if there are complicated overlaps, since they are separate types to
-		// us.  (See also the special handling for IsEmbedded in
-		// unmarshal.go.tmpl.)
-		//
-		// But if you spread the same named fragment twice, e.g.
-		//	{ ...MyFragment, ... on SubType { ...MyFragment } }
-		// we'll still deduplicate that.
 		if field.JSONName == "" {
-			name := field.GoType.Reference()
+			name := field.GoType.QualifiedRef()
 			if fragmentNames[name] {
 				continue
 			}
@@ -1251,26 +1224,11 @@ func (g *generator) convertSelectionSet(
 			continue
 		}
 
-		// GraphQL (and, effectively, JSON) requires that all fields with the
-		// same alias (JSON-name) must be the same (i.e. refer to the same
-		// field), so that's how we deduplicate.
 		if fieldNames[field.JSONName] {
-			// GraphQL (and, effectively, JSON) forbids you from having two
-			// fields with the same alias (JSON-name) that refer to different
-			// GraphQL fields.  But it does allow you to have the same field
-			// with different selections (subject to some additional rules).
-			// We say: that's too complicated! and allow duplicate fields
-			// only if they're "leaf" types (enum or scalar).
 			switch field.GoType.Unwrap().(type) {
 			case *goOpaqueType, *goEnumType:
-				// Leaf field; we can just deduplicate.
-				// Note GraphQL already guarantees that the conflicting field
-				// has scalar/enum type iff this field does:
-				// https://spec.graphql.org/draft/#SameResponseShape()
 				continue
 			case *goStructType, *goInterfaceType:
-				// TODO(benkraft): Keep track of the position of each
-				// selection, so we can put this error on the right line.
 				return nil, errorf(nil,
 					"octoqlgen doesn't allow duplicate fields with different selections "+
 						"(see https://github.com/Khan/genqlient/issues/64); "+
@@ -1285,84 +1243,33 @@ func (g *generator) convertSelectionSet(
 	return uniqFields, nil
 }
 
-// fragmentMatches returns true if the given fragment is "active" when applied
-// to the given type.
-//
-// "Active" here means "the fragment's fields will be returned on all objects
-// of the given type", which is true when the given type is or implements
-// the fragment's type.  This is distinct from the rules for when a fragment
-// spread is legal, which is true when the fragment would be active for *any*
-// of the concrete types the spread-context could have (see the [GraphQL spec]).
-//
-// containingTypedef is as described in convertInlineFragment, below.
-// fragmentTypedef is the definition of the fragment's type-condition, i.e. the
-// definition of MyType in a fragment `on MyType`.
-//
-// [GraphQL spec]: https://spec.graphql.org/draft/#sec-Fragment-Spreads
 func fragmentMatches(containingTypedef, fragmentTypedef *ast.Definition) bool {
 	if containingTypedef.Name == fragmentTypedef.Name {
 		return true
 	}
-	for _, iface := range containingTypedef.Interfaces {
-		// Note we don't need to recurse into the interfaces here, because in
-		// GraphQL types must list all the interfaces they implement, including
-		// all types those interfaces implement ([spec]).  Actually, at present
-		// gqlparser doesn't even support interfaces implementing other
-		// interfaces, but our code would handle that too.
-		//
-		// [spec]: https://spec.graphql.org/draft/#sec-Interfaces.Interfaces-Implementing-Interfaces
-		if iface == fragmentTypedef.Name {
-			return true
-		}
+	if slices.Contains(containingTypedef.Interfaces, fragmentTypedef.Name) {
+		return true
 	}
-
-	// Handle the special case where the fragment is on a union, then the
-	// fragment can match any of the types in the union.
 	if fragmentTypedef.Kind == ast.Union {
-		for _, typeName := range fragmentTypedef.Types {
-			if typeName == containingTypedef.Name {
-				return true
-			}
-		}
+		return slices.Contains(fragmentTypedef.Types, containingTypedef.Name)
 	}
-
 	return false
 }
 
-// convertInlineFragment converts a single GraphQL inline fragment
-// (`... on MyType { myField }`) into Go struct-fields.
-//
-// containingTypedef is the type-def corresponding to the type into which we
-// are spreading; it may be either an interface type (when spreading into one)
-// or an object type (when writing the implementations of such an interface, or
-// when using an inline fragment in an object type which is rare).  If the
-// given fragment does not apply to that type, this function returns nil, nil.
-//
-// In general, we treat such fragments' fields as if they were fields of the
-// parent selection-set, except they are only included in types the fragment
-// matches.
-func (g *generator) convertInlineFragment(
-	namePrefix *prefixList,
+func (g *planState) convertInlineFragment(
+	prefix namePrefix,
 	fragment *ast.InlineFragment,
 	containingTypedef *ast.Definition,
-	queryOptions *octoqlgenDirective,
+	defaults defaultOptions,
 ) ([]*goStructField, error) {
-	// You might think fragmentTypedef is just fragment.ObjectDefinition, but
-	// actually that's the type into which the fragment is spread.
 	fragmentTypedef := g.schema.Types[fragment.TypeCondition]
 	if !fragmentMatches(containingTypedef, fragmentTypedef) {
 		return nil, nil
 	}
-	return g.convertSelectionSet(namePrefix, fragment.SelectionSet,
-		containingTypedef, queryOptions)
+	return g.convertSelectionSet(prefix, fragment.SelectionSet, containingTypedef, defaults)
 }
 
-// convertFragmentSpread converts a single GraphQL fragment-spread
-// (`...MyFragment`) into a Go struct-field.  If the fragment does not apply to
-// this type, returns nil.
-//
-// containingTypedef is as described in convertInlineFragment, above.
-func (g *generator) convertFragmentSpread(
+func (g *planState) convertFragmentSpread(
 	fragmentSpread *ast.FragmentSpread,
 	containingTypedef *ast.Definition,
 ) (*goStructField, error) {
@@ -1370,33 +1277,13 @@ func (g *generator) convertFragmentSpread(
 		return nil, nil
 	}
 
-	// Always convert the fragment via convertNamedFragment rather than taking
-	// an early-out via getType.  The type stored under this fragment's name
-	// may have been registered by an @octoqlgen(typename:) directive on an
-	// unrelated field with different directives; convertNamedFragment routes
-	// through addType, which validates both selection identity and structural
-	// Go output equivalence, so any mismatch is caught rather than silently
-	// reusing the wrong type.
-	fragment := fragmentSpread.Definition
-	typ, err := g.convertNamedFragment(fragment)
+	typ, err := g.convertNamedFragment(fragmentSpread.Definition)
 	if err != nil {
 		return nil, err
 	}
 
 	iface, ok := typ.(*goInterfaceType)
 	if ok && containingTypedef.Kind == ast.Object {
-		// If the containing type is concrete, and the fragment spread is
-		// abstract, refer directly to the appropriate implementation, to save
-		// the caller having to do type-assertions that will always succeed.
-		//
-		// That is, if you do
-		//	fragment F on I { ... }
-		//  query Q { a { ...F } }
-		// for the fragment we generate
-		//  type F interface { ... }
-		//  type FA struct { ... }
-		//  // (other implementations)
-		// when you spread F into a context of type A, we embed FA, not F.
 		for _, impl := range iface.Implementations {
 			if impl.GraphQLName == containingTypedef.Name {
 				typ = impl
@@ -1408,20 +1295,16 @@ func (g *generator) convertFragmentSpread(
 		}
 	}
 
-	// TODO(benkraft): Set directive here if we ever allow @octoqlgen
-	// directives on fragment-spreads.
-	return &goStructField{GoName: "" /* i.e. embedded */, GoType: typ, Position: fragmentSpread.Position}, nil
+	return &goStructField{
+		GoName:   "",
+		GoType:   typ,
+		Position: fragmentSpread.Position,
+	}, nil
 }
 
-// convertNamedFragment converts a single GraphQL named fragment-definition
-// (`fragment MyFragment on MyType { ... }`) into a Go struct.
-func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goType, error) {
+func (g *planState) convertNamedFragment(fragment *ast.FragmentDefinition) (goType, error) {
 	typ := g.schema.Types[fragment.TypeCondition]
-
-	directive, err := g.directiveFor(fragment, nil, fragment.Position, nil)
-	if err != nil {
-		return nil, err
-	}
+	fragOptions := g.directives.forFragment(fragment)
 	comment := precedingComment(fragment.Position)
 
 	desc := descriptionInfo{
@@ -1431,139 +1314,75 @@ func (g *generator) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 		FragmentName:       fragment.Name,
 	}
 
-	// The rest basically follows how we convert a definition, except that
-	// things like type-names are a bit different.
-
-	fields, err := g.convertSelectionSet(
-		newPrefixList(fragment.Name), fragment.SelectionSet, typ, directive)
+	prefix := newNamePrefix(fragment.Name)
+	fields, err := g.convertSelectionSet(prefix, fragment.SelectionSet, typ, fragOptions.Defaults)
 	if err != nil {
 		return nil, err
 	}
-	if directive.GetFlatten() {
-		fieldIndex, flattenErr := validateFlattenOption(
-			typ, fragment.SelectionSet, fragment.Position)
+	if fragOptions.Flatten {
+		fieldIndex, flattenErr := validateFlattenOption(typ, fragment.SelectionSet, fragment.Position)
 		if flattenErr != nil {
 			return nil, flattenErr
 		}
 		return fields[fieldIndex].GoType, nil
 	}
+
 	switch typ.Kind {
 	case ast.Object:
-		goType := &goStructType{
+		goTyp := &goStructType{
 			GoName:          fragment.Name,
 			Fields:          fields,
 			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
-		// Route through addType (rather than writing g.typeMap directly) so a
-		// fragment whose Go name collides with an already-generated type is
-		// rejected instead of silently overwriting it.
-		return g.addType(goType, goType.GoName, fragment.Position)
+		return g.addType(goTyp, goTyp.GoName, fragment.Position)
+
 	case ast.Interface, ast.Union:
-		implementationTypes := g.schema.GetPossibleTypes(typ)
-		// Make sure we generate stable output by sorting the types by name when we get them
-		sort.Slice(implementationTypes, func(i, j int) bool { return implementationTypes[i].Name < implementationTypes[j].Name })
-		implementationTypes = g.filterReferencedImplementations(implementationTypes, fragment.SelectionSet)
-		goType := &goInterfaceType{
-			GoName:          fragment.Name,
-			SharedFields:    fields,
-			Selection:       fragment.SelectionSet,
-			descriptionInfo: desc,
-		}
-		// Register the interface first; addType validates shared-field
-		// equivalence against any already-registered type of the same name.
-		result, addErr := g.addType(goType, goType.GoName, fragment.Position)
-		if addErr != nil {
-			return nil, addErr
-		}
-		// Build and validate implementation candidates regardless of whether
-		// the interface was newly registered or already existed.  On the reuse
-		// path (result != goType) the per-implementation addType calls catch
-		// field-plan differences that are invisible to shared-field comparison
-		// alone — e.g. a directive inside an inline fragment that changes a
-		// field's Go type.  goType.Implementations is populated here for the
-		// first-registration path and discarded on the reuse path.
-		for _, implDef := range implementationTypes {
-			implFields, convertErr := g.convertSelectionSet(
-				newPrefixList(fragment.Name), fragment.SelectionSet, implDef, directive)
-			if convertErr != nil {
-				return nil, convertErr
-			}
+		return g.buildAbstractSelectionType(&abstractSelectionSpec{
+			goName:        fragment.Name,
+			prefix:        prefix,
+			def:           typ,
+			selectionSet:  fragment.SelectionSet,
+			sharedFields:  fields,
+			defaults:      fragOptions.Defaults,
+			desc:          desc,
+			provenancePos: fragment.Position,
+			pos:           fragment.Position,
+			implGoName: func(implDef *ast.Definition) string {
+				return fragment.Name + upperFirst(implDef.Name)
+			},
+		})
 
-			implDesc := desc
-			implDesc.GraphQLName = implDef.Name
-
-			implTyp := &goStructType{
-				GoName:          fragment.Name + upperFirst(implDef.Name),
-				Fields:          implFields,
-				Selection:       fragment.SelectionSet,
-				descriptionInfo: implDesc,
-			}
-			goType.Implementations = append(goType.Implementations, implTyp)
-			// As above, route the fragment's per-implementation type through
-			// addType so a name collision with a directly-selected type fails
-			// generation instead of silently dropping the other type's fields.
-			_, err = g.addType(implTyp, implTyp.GoName, fragment.Position)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		// On the reuse path, the catch-all was already attached during the
-		// first registration; return the existing type to avoid a duplicate.
-		if result != goType {
-			return result, nil
-		}
-
-		err = g.attachCatchAllImplementation(goType, typ.Name, fragment.Position)
-		if err != nil {
-			return nil, err
-		}
-		return goType, nil
 	default:
 		return nil, errorf(fragment.Position, "invalid type for fragment: %v is a %v",
 			fragment.TypeCondition, typ.Kind)
 	}
 }
 
-// convertField converts a single GraphQL operation-field into a Go
-// struct-field (and its type).
-//
-// Note that input-type fields are handled separately (inline in
-// convertDefinition), because they come from the type-definition, not the
-// operation.
-func (g *generator) convertField(
-	namePrefix *prefixList,
+func (g *planState) convertField(
+	prefix namePrefix,
 	field *ast.Field,
-	fieldOptions, queryOptions *octoqlgenDirective,
+	fieldOptions *fieldOptions,
+	defaults defaultOptions,
 ) (*goStructField, error) {
 	if field.Definition == nil {
-		// Unclear why gqlparser hasn't already rejected this,
-		// but empirically it might not.
-		return nil, errorf(
-			field.Position, "undefined field %v", field.Alias)
+		return nil, errorf(field.Position, "undefined field %v", field.Alias)
 	}
 
 	goName := field.Alias
 	if fieldOptions.Alias != "" {
 		goName = fieldOptions.Alias
 	}
+	casing := g.config.GetDefaultCasingAlgorithm()
+	goName = ApplyCasing(goName, casing, true)
+	prefix = nextPrefix(prefix, field, casing)
 
-	goName = ApplyCasing(goName, g.Config.GetDefaultCasingAlgorithm(), true)
-
-	namePrefix = nextPrefix(namePrefix, field, g.Config.GetDefaultCasingAlgorithm())
-
-	fieldGoType, err := g.convertType(
-		namePrefix, field.Definition.Type, field.SelectionSet,
-		fieldOptions, queryOptions)
+	fieldGoType, err := g.convertSelectionType(
+		prefix, field.Definition.Type, field.SelectionSet, fieldOptions, defaults)
 	if err != nil {
 		return nil, err
 	}
 
-	// A field carrying @skip(if:) or @include(if:) is legitimately absent from
-	// a spec-correct response when its condition says so, regardless of the
-	// field's schema nullability. Force a pointer so that absence is
-	// representable as nil rather than silently decoding to the Go zero value.
 	if hasConditionalDirective(field.Directives) {
 		if fieldOptions.PointerIsFalse() {
 			return nil, errorf(field.Position,
@@ -1586,88 +1405,23 @@ func (g *generator) convertField(
 	}, nil
 }
 
-// hasConditionalDirective reports whether the selection carries a @skip or
-// @include directive. Such a selection may be absent from a spec-correct
-// response, independent of schema nullability.
 func hasConditionalDirective(directives ast.DirectiveList) bool {
 	return directives.ForName("skip") != nil ||
 		directives.ForName("include") != nil
 }
 
-// forceConditionalPointer makes goTyp able to represent an absent value as nil,
-// for a field carrying @skip/@include. Types that can already hold nil are
-// returned unchanged: pointers and interfaces obviously, but also slices — a nil
-// slice already distinguishes an absent list from a present one, and wrapping a
-// slice in an outer pointer would only mask its depth from the special
-// marshal/unmarshal generation (which keys off the field's top-level slice
-// depth), producing uncompilable code for lists of abstract or custom-marshalled
-// elements. A bound Go type (goOpaqueType, from a local `bind:` or a global
-// binding) is likewise left alone when its reference is already nil-able —
-// a pointer, slice, map, or interface — since wrapping would churn the user's
-// public API for no representational gain. Everything else (scalars, enums,
-// structs, and non-nil-able bound types such as fixed-size arrays) is wrapped in
-// a pointer.
 func forceConditionalPointer(goTyp goType) goType {
 	switch t := goTyp.(type) {
 	case *goPointerType, *goInterfaceType, *goSliceType:
 		return goTyp
 	case *goOpaqueType:
-		if goRefIsNilable(t.GoRef) {
+		if t.Ref.isNilable() {
 			return goTyp
 		}
 	}
-	return &goPointerType{goTyp}
+	return &goPointerType{Elem: goTyp}
 }
 
-// goRefIsNilable reports whether a Go type reference (as written in a `bind:`
-// expression or a global binding, after resolution through (*generator).ref)
-// denotes a type that can already hold nil. Only the leading token of the
-// reference determines the nil-ability of the outermost type: pointers, slices,
-// maps, and the `interface{}` literal are nil-able, while a fixed-size array
-// [N]T is not — an array cannot represent absence, so a conditional field bound
-// to one must still be wrapped in a pointer. The `[]` case must be tested before
-// the bare `[` case so slices are not misread as arrays.
-//
-// Only the `interface{}` type literal counts as a nil-able interface, never the
-// bare predeclared `any` identifier: `any` can be shadowed by a local
-// declaration in the generated package, so trusting it could leave a
-// non-nil-able field unwrapped. (*generator).ref normalizes bound `any` to
-// `interface{}` at the source, so a well-formed reference never reaches here as
-// bare `any`; treating it conservatively here is defense in depth in the safe
-// direction — an unnecessary pointer, never a missing one.
-func goRefIsNilable(goRef string) bool {
-	goRef = strings.TrimSpace(goRef)
-	switch {
-	case goRef == "interface{}":
-		return true
-	case strings.HasPrefix(goRef, "*"):
-		return true
-	case strings.HasPrefix(goRef, "[]"):
-		return true
-	case strings.HasPrefix(goRef, "map["):
-		return true
-	case strings.HasPrefix(goRef, "["):
-		// A fixed-size array [N]T cannot represent absence.
-		return false
-	default:
-		return false
-	}
-}
-
-// rejectConditionalDirectivesInBoundSelection returns an error if any selection
-// nested within selectionSet (recursively, including through named fragments)
-// carries @skip or @include.
-//
-// It guards binding sites. A composite type bound to a user-supplied Go type
-// (local `bind:` or a global binding) is emitted as an opaque reference and its
-// selection set is never converted into generated types, so convertField never
-// runs on the nested fields and the forced-pointer protection for conditional
-// fields cannot apply. Because octoqlgen cannot alter the bound Go type, a nested
-// conditional field would silently decode an absent value to the Go zero value;
-// we reject the operation instead. The bound field's own directive is handled by
-// its convertField call, so only nested selections need this scan.
-//
-// bindingName identifies the bound GraphQL type in the error message.
 func rejectConditionalDirectivesInBoundSelection(
 	bindingName string,
 	selectionSet ast.SelectionSet,

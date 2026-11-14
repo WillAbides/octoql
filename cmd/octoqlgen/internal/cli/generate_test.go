@@ -67,8 +67,8 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 
 	actual := generateConfig(source)
 
-	assert.Equal(t, generate.StringList{"schema.graphql"}, actual.Schema)
-	assert.Equal(t, generate.StringList{"graphql/**/*.graphql"}, actual.Operations)
+	assert.Equal(t, "schema.graphql", actual.Schema)
+	assert.Equal(t, []string{"graphql/**/*.graphql"}, actual.Operations)
 	assert.Equal(t, "githubapi/generated.go", actual.Generated)
 	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
 	assert.Equal(t, generate.TestHandlerTypesLocal, actual.TestHandlerTypes)
@@ -122,7 +122,7 @@ func TestGenerateCommandRun(t *testing.T) {
 		generate: func(generatorConfig *generate.Config) (map[string][]byte, error) {
 			generateCalls++
 			didMaterialize = materializer.request.Path != ""
-			assert.Equal(t, generate.StringList{schemaPath}, generatorConfig.Schema)
+			assert.Equal(t, schemaPath, generatorConfig.Schema)
 			return map[string][]byte{
 				generatedPath: []byte("generated"),
 				exportPath:    []byte("operations"),
@@ -332,7 +332,7 @@ func TestGenerateSubdirectoryConfig(t *testing.T) {
 			)
 			assert.Equal(
 				t,
-				generate.StringList{filepath.Join(filepath.Dir(configPath), "..", "schema.graphql")},
+				filepath.Join(filepath.Dir(configPath), "..", "schema.graphql"),
 				generatorConfig.Schema,
 			)
 			return map[string][]byte{}, nil

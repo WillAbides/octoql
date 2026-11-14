@@ -38,7 +38,7 @@ func generatedTypeFieldsMatch(existing, candidate goType) error {
 }
 
 // structFieldsMatch compares two lists of struct fields by their generated Go
-// output: GoName, GoType.Reference(), JSONName, and Omitempty.
+// output: GoName, GoType.QualifiedRef(), JSONName, and Omitempty.
 func structFieldsMatch(existing, candidate []*goStructField) error {
 	if len(existing) != len(candidate) {
 		return fmt.Errorf("field count changed: %d fields vs %d fields",
@@ -49,9 +49,9 @@ func structFieldsMatch(existing, candidate []*goStructField) error {
 		switch {
 		case ex.GoName != can.GoName:
 			return fmt.Errorf("field %d Go name: %q vs %q", i, ex.GoName, can.GoName)
-		case ex.GoType.Reference() != can.GoType.Reference():
+		case ex.GoType.QualifiedRef() != can.GoType.QualifiedRef():
 			return fmt.Errorf("field %d (%s) Go type: %s vs %s",
-				i, ex.GoName, ex.GoType.Reference(), can.GoType.Reference())
+				i, ex.GoName, ex.GoType.QualifiedRef(), can.GoType.QualifiedRef())
 		case ex.JSONName != can.JSONName:
 			return fmt.Errorf("field %d (%s) JSON name: %q vs %q",
 				i, ex.GoName, ex.JSONName, can.JSONName)
@@ -136,32 +136,9 @@ func selectionsMatch(
 	return nil
 }
 
-// directiveOptionsMatch reports whether two @octoqlgenFor declarations have the
-// same options.
-func directiveOptionsMatch(a, b *octoqlgenDirective) bool {
-	if a == nil {
-		a = &octoqlgenDirective{}
-	}
-	if b == nil {
-		b = &octoqlgenDirective{}
-	}
-	return boolOptionsMatch(a.Omitempty, b.Omitempty) &&
-		boolOptionsMatch(a.Pointer, b.Pointer) &&
-		a.Bind == b.Bind &&
-		a.TypeName == b.TypeName &&
-		a.Alias == b.Alias
-}
-
-func boolOptionsMatch(a, b *bool) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-	return *a == *b
-}
-
 // validateBindingSelection checks that if you requested in your type-binding
 // that this type must always request certain fields, then in fact it does.
-func (g *generator) validateBindingSelection(
+func validateBindingSelection(
 	typeName string,
 	binding *TypeBinding,
 	pos *ast.Position,

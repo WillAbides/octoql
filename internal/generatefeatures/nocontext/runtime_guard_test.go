@@ -9,19 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type marshalJSONEmbed struct {
-	Value string `json:"value"`
-}
-
-func (marshalJSONEmbed) MarshalJSON() ([]byte, error) {
-	return json.Marshal("promoted")
-}
-
-type guardedMarshalJSON struct {
-	_octoqlNoMarshalJSON //nolint:unused // Embedding prevents MarshalJSON promotion.
-	marshalJSONEmbed
-}
-
 type unmarshalJSONEmbed struct {
 	Value  string `json:"value"`
 	Called bool   `json:"-"`
@@ -35,19 +22,6 @@ func (e *unmarshalJSONEmbed) UnmarshalJSON([]byte) error {
 type guardedUnmarshalJSON struct {
 	_octoqlNoUnmarshalJSON //nolint:unused // Embedding prevents UnmarshalJSON promotion.
 	unmarshalJSONEmbed
-}
-
-func TestNoMarshalJSONPreventsMethodPromotion(t *testing.T) {
-	marshalerType := reflect.TypeFor[json.Marshaler]()
-	assert.True(t, reflect.TypeFor[marshalJSONEmbed]().Implements(marshalerType))
-	assert.False(t, reflect.TypeFor[guardedMarshalJSON]().Implements(marshalerType))
-
-	value := guardedMarshalJSON{
-		marshalJSONEmbed: marshalJSONEmbed{Value: "ordinary"},
-	}
-	got, err := json.Marshal(value)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"value":"ordinary"}`, string(got))
 }
 
 func TestNoUnmarshalJSONPreventsMethodPromotion(t *testing.T) {

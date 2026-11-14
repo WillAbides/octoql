@@ -606,8 +606,8 @@ func probeGenerated(
 		omitUnreferencedImplementations = &omit
 	}
 	config := &Config{
-		Schema:                          StringList{"schema.graphql"},
-		Operations:                      StringList{"operations.graphql"},
+		Schema:                          "schema.graphql",
+		Operations:                      []string{"operations.graphql"},
 		Generated:                       "generated.go",
 		Package:                         "probe",
 		ContextType:                     "-",

@@ -8,9 +8,40 @@ import (
 	"github.com/willabides/octoql/internal"
 )
 
-// Represents the @octoqlgen directive, described in detail in
-// docs/directive.md.
-type octoqlgenDirective struct {
+const (
+	octoqlgenDirectiveName = "octoqlgen"
+	octoqlgenDefaultsName  = "octoqlgenDefaults"
+	octoqlgenForName       = "octoqlgenFor"
+)
+
+// defaultOptions holds field and variable defaults from @octoqlgenDefaults on
+// an operation or fragment definition.
+type defaultOptions struct {
+	Omitempty *bool
+	Pointer   *bool
+	Struct    *bool
+}
+
+// operationOptions holds @octoqlgen and @octoqlgenDefaults options for an
+// operation definition.
+type operationOptions struct {
+	pos      *ast.Position
+	TypeName string
+	Flatten  bool
+	Defaults defaultOptions
+}
+
+// fragmentOptions holds @octoqlgen and @octoqlgenDefaults options for a named
+// fragment definition.
+type fragmentOptions struct {
+	pos      *ast.Position
+	Flatten  bool
+	Defaults defaultOptions
+}
+
+// fieldOptions holds @octoqlgen or @octoqlgenFor options for a variable,
+// selected field, or input-object field.
+type fieldOptions struct {
 	pos       *ast.Position
 	Omitempty *bool
 	Pointer   *bool
@@ -21,17 +52,390 @@ type octoqlgenDirective struct {
 	Alias     string
 }
 
-func newOctoqlgenDirective(pos *ast.Position) *octoqlgenDirective {
-	return &octoqlgenDirective{
+func newFieldOptions(pos *ast.Position) *fieldOptions {
+	return &fieldOptions{
 		pos: pos,
 	}
 }
 
-func (d *octoqlgenDirective) GetOmitempty() bool   { return d.Omitempty != nil && *d.Omitempty }
-func (d *octoqlgenDirective) GetPointer() bool     { return d.Pointer != nil && *d.Pointer }
-func (d *octoqlgenDirective) PointerIsFalse() bool { return d.Pointer != nil && !*d.Pointer }
-func (d *octoqlgenDirective) GetStruct() bool      { return d.Struct != nil && *d.Struct }
-func (d *octoqlgenDirective) GetFlatten() bool     { return d.Flatten != nil && *d.Flatten }
+func (d *fieldOptions) GetOmitempty() bool   { return d.Omitempty != nil && *d.Omitempty }
+func (d *fieldOptions) GetPointer() bool     { return d.Pointer != nil && *d.Pointer }
+func (d *fieldOptions) PointerIsFalse() bool { return d.Pointer != nil && !*d.Pointer }
+func (d *fieldOptions) GetStruct() bool      { return d.Struct != nil && *d.Struct }
+func (d *fieldOptions) GetFlatten() bool     { return d.Flatten != nil && *d.Flatten }
+
+type fieldKey struct {
+	typeName  string
+	fieldName string
+}
+
+func (k fieldKey) String() string { return k.typeName + "." + k.fieldName }
+
+// directiveSet holds parsed, validated, and scope-separated octoqlgen
+// directives stripped from a validated QueryDocument.
+type directiveSet struct {
+	operations map[*ast.OperationDefinition]operationOptions
+	fragments  map[*ast.FragmentDefinition]fragmentOptions
+	variables  map[*ast.VariableDefinition]*fieldOptions
+	fields     map[*ast.Field]*fieldOptions
+	forFields  map[fieldKey]*fieldOptions
+}
+
+func collectDirectives(doc *ast.QueryDocument, schema *ast.Schema) (*directiveSet, error) {
+	set := &directiveSet{
+		operations: make(map[*ast.OperationDefinition]operationOptions, len(doc.Operations)),
+		fragments:  make(map[*ast.FragmentDefinition]fragmentOptions, len(doc.Fragments)),
+		variables:  map[*ast.VariableDefinition]*fieldOptions{},
+		fields:     map[*ast.Field]*fieldOptions{},
+		forFields:  map[fieldKey]*fieldOptions{},
+	}
+
+	for _, op := range doc.Operations {
+		err := set.collectOperation(op, schema)
+		if err != nil {
+			return nil, err
+		}
+		for _, variable := range op.VariableDefinitions {
+			err = set.collectVariable(variable)
+			if err != nil {
+				return nil, err
+			}
+		}
+		err = set.collectSelectionSet(op.SelectionSet, schema)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, fragment := range doc.Fragments {
+		err := set.collectFragment(fragment, schema)
+		if err != nil {
+			return nil, err
+		}
+		err = set.collectSelectionSet(fragment.SelectionSet, schema)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return set, nil
+}
+
+func (s *directiveSet) forOperation(op *ast.OperationDefinition) operationOptions {
+	opts, ok := s.operations[op]
+	if ok {
+		return opts
+	}
+	return operationOptions{
+		pos: op.Position,
+	}
+}
+
+func (s *directiveSet) forFragment(frag *ast.FragmentDefinition) fragmentOptions {
+	opts, ok := s.fragments[frag]
+	if ok {
+		return opts
+	}
+	return fragmentOptions{
+		pos: frag.Position,
+	}
+}
+
+func (s *directiveSet) forVariable(
+	variable *ast.VariableDefinition,
+	defaults defaultOptions,
+) *fieldOptions {
+	base := s.variables[variable]
+	merged := newFieldOptions(variable.Position)
+	if base != nil {
+		*merged = *base
+	}
+	fillDefaultBool(&merged.Omitempty, defaults.Omitempty)
+	fillDefaultBool(&merged.Pointer, defaults.Pointer)
+	return merged
+}
+
+func (s *directiveSet) forField(
+	field *ast.Field,
+	defaults defaultOptions,
+) (*fieldOptions, error) {
+	base := s.fields[field]
+	merged := newFieldOptions(field.Position)
+	if base != nil {
+		*merged = *base
+	}
+	forField := s.forFields[fieldKey{
+		typeName:  field.ObjectDefinition.Name,
+		fieldName: field.Name,
+	}]
+	if forField != nil {
+		fillDefaultBool(&merged.Pointer, forField.Pointer)
+		fillDefaultString(&merged.Bind, forField.Bind)
+		fillDefaultString(&merged.TypeName, forField.TypeName)
+		fillDefaultString(&merged.Alias, forField.Alias)
+	}
+	fillDefaultBool(&merged.Pointer, defaults.Pointer)
+	fillDefaultBool(&merged.Struct, defaults.Struct)
+
+	if merged.TypeName != "" && merged.Bind != "" && merged.Bind != "-" {
+		return nil, errorf(merged.pos, "typename and bind may not be used together")
+	}
+	return merged, nil
+}
+
+func (s *directiveSet) forInputField(
+	def *ast.Definition,
+	field *ast.FieldDefinition,
+) (*fieldOptions, error) {
+	merged := newFieldOptions(field.Position)
+	forField := s.forFields[fieldKey{
+		typeName:  def.Name,
+		fieldName: field.Name,
+	}]
+	if forField != nil {
+		merged.pos = forField.pos
+		fillDefaultBool(&merged.Omitempty, forField.Omitempty)
+		fillDefaultBool(&merged.Pointer, forField.Pointer)
+		fillDefaultString(&merged.Bind, forField.Bind)
+		fillDefaultString(&merged.TypeName, forField.TypeName)
+	}
+	if merged.TypeName != "" && merged.Bind != "" && merged.Bind != "-" {
+		return nil, errorf(merged.pos, "typename and bind may not be used together")
+	}
+	return merged, nil
+}
+
+func stripOctoqlgenDirectives(directives *ast.DirectiveList) []*ast.Directive {
+	var ours []*ast.Directive
+	var others ast.DirectiveList
+	for _, dir := range *directives {
+		switch dir.Name {
+		case octoqlgenDirectiveName, octoqlgenDefaultsName, octoqlgenForName:
+			ours = append(ours, dir)
+		default:
+			others = append(others, dir)
+		}
+	}
+	if len(ours) > 0 {
+		*directives = others
+	}
+	return ours
+}
+
+func (s *directiveSet) collectOperation(op *ast.OperationDefinition, schema *ast.Schema) error {
+	ours := stripOctoqlgenDirectives(&op.Directives)
+	if len(ours) == 0 {
+		return nil
+	}
+
+	rawNode := newFieldOptions(ours[0].Position)
+	var defaults defaultOptions
+	forDirectives := map[fieldKey]*fieldOptions{}
+
+	for _, dir := range ours {
+		pos := dir.Position
+		switch dir.Name {
+		case octoqlgenForName:
+			err := addFor(forDirectives, dir, pos)
+			if err != nil {
+				return err
+			}
+		case octoqlgenDefaultsName:
+			err := applyDefaultsArguments(&defaults, dir, pos)
+			if err != nil {
+				return err
+			}
+		default:
+			err := rejectDefaultArgsOnDefinition(dir, pos)
+			if err != nil {
+				return err
+			}
+			err = rawNode.applyArguments(dir, pos)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if rawNode.Bind != "" {
+		return errorf(rawNode.pos, "bind may not be applied to the entire operation")
+	}
+	if rawNode.Alias != "" {
+		return errorf(rawNode.pos, "alias is only applicable to selected fields, not operations")
+	}
+
+	err := s.recordForDirectives(forDirectives, schema)
+	if err != nil {
+		return err
+	}
+
+	s.operations[op] = operationOptions{
+		pos:      rawNode.pos,
+		TypeName: rawNode.TypeName,
+		Flatten:  rawNode.GetFlatten(),
+		Defaults: defaults,
+	}
+	return nil
+}
+
+func (s *directiveSet) collectFragment(frag *ast.FragmentDefinition, schema *ast.Schema) error {
+	ours := stripOctoqlgenDirectives(&frag.Directives)
+	if len(ours) == 0 {
+		return nil
+	}
+
+	rawNode := newFieldOptions(ours[0].Position)
+	var defaults defaultOptions
+	forDirectives := map[fieldKey]*fieldOptions{}
+
+	for _, dir := range ours {
+		pos := dir.Position
+		switch dir.Name {
+		case octoqlgenForName:
+			err := addFor(forDirectives, dir, pos)
+			if err != nil {
+				return err
+			}
+		case octoqlgenDefaultsName:
+			err := applyDefaultsArguments(&defaults, dir, pos)
+			if err != nil {
+				return err
+			}
+		default:
+			err := rejectDefaultArgsOnDefinition(dir, pos)
+			if err != nil {
+				return err
+			}
+			err = rawNode.applyArguments(dir, pos)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if rawNode.Bind != "" {
+		return errorf(rawNode.pos, "bind is not implemented for named fragments")
+	}
+	if rawNode.Alias != "" {
+		return errorf(rawNode.pos, "alias is only applicable to selected fields, not fragment-definitions")
+	}
+	if rawNode.TypeName != "" {
+		return errorf(rawNode.pos,
+			"typename is not applicable to fragment-definitions; "+
+				"the generated type is named after the fragment")
+	}
+
+	err := s.recordForDirectives(forDirectives, schema)
+	if err != nil {
+		return err
+	}
+
+	s.fragments[frag] = fragmentOptions{
+		pos:      rawNode.pos,
+		Flatten:  rawNode.GetFlatten(),
+		Defaults: defaults,
+	}
+	return nil
+}
+
+func (s *directiveSet) collectVariable(variable *ast.VariableDefinition) error {
+	ours := stripOctoqlgenDirectives(&variable.Directives)
+	if len(ours) == 0 {
+		return nil
+	}
+
+	opts := newFieldOptions(ours[0].Position)
+	for _, dir := range ours {
+		err := opts.applyArguments(dir, dir.Position)
+		if err != nil {
+			return err
+		}
+	}
+
+	if opts.TypeName != "" && opts.Bind != "" && opts.Bind != "-" {
+		return errorf(opts.pos, "typename and bind may not be used together")
+	}
+	if opts.GetOmitempty() && variable.Type.NonNull && variable.DefaultValue == nil {
+		return errorf(opts.pos, "omitempty may only be used on optional arguments")
+	}
+	if opts.Struct != nil {
+		return errorf(opts.pos, "struct is only applicable to fields, not variable-definitions")
+	}
+	if opts.Flatten != nil {
+		return errorf(opts.pos, "flatten is only applicable to fields, not variable-definitions")
+	}
+	if opts.Alias != "" {
+		return errorf(opts.pos,
+			"alias is only applicable to selected fields, not variable-definitions; "+
+				"rename the variable instead")
+	}
+
+	s.variables[variable] = opts
+	return nil
+}
+
+func (s *directiveSet) collectSelectionSet(selectionSet ast.SelectionSet, schema *ast.Schema) error {
+	for _, selection := range selectionSet {
+		switch selection := selection.(type) {
+		case *ast.Field:
+			err := s.collectField(selection, schema)
+			if err != nil {
+				return err
+			}
+			err = s.collectSelectionSet(selection.SelectionSet, schema)
+			if err != nil {
+				return err
+			}
+		case *ast.InlineFragment:
+			err := s.collectSelectionSet(selection.SelectionSet, schema)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *directiveSet) collectField(field *ast.Field, schema *ast.Schema) error {
+	ours := stripOctoqlgenDirectives(&field.Directives)
+	if len(ours) == 0 {
+		return nil
+	}
+
+	opts := newFieldOptions(ours[0].Position)
+	for _, dir := range ours {
+		err := opts.applyArguments(dir, dir.Position)
+		if err != nil {
+			return err
+		}
+	}
+
+	if opts.TypeName != "" && opts.Bind != "" && opts.Bind != "-" {
+		return errorf(opts.pos, "typename and bind may not be used together")
+	}
+	if opts.Omitempty != nil {
+		return errorf(opts.pos,
+			"omitempty is only applicable to variables and input-type fields, "+
+				"not to selected fields")
+	}
+
+	typ := schema.Types[field.Definition.Type.Name()]
+	if opts.Struct != nil {
+		err := validateStructOption(typ, field.SelectionSet, opts.pos)
+		if err != nil {
+			return err
+		}
+	}
+	if opts.Flatten != nil {
+		_, err := validateFlattenOption(typ, field.SelectionSet, opts.pos)
+		if err != nil {
+			return err
+		}
+	}
+
+	s.fields[field] = opts
+	return nil
+}
 
 func setBool(optionName string, dst **bool, v *ast.Value, pos *ast.Position) error {
 	if *dst != nil {
@@ -59,8 +463,7 @@ func setString(optionName string, dst *string, v *ast.Value, pos *ast.Position) 
 	return nil
 }
 
-// applyArguments applies the option arguments of one directive to this struct.
-func (d *octoqlgenDirective) applyArguments(graphQLDirective *ast.Directive, pos *ast.Position) error {
+func (d *fieldOptions) applyArguments(graphQLDirective *ast.Directive, pos *ast.Position) error {
 	var err error
 	for _, arg := range graphQLDirective.Arguments {
 		switch arg.Name {
@@ -86,8 +489,46 @@ func (d *octoqlgenDirective) applyArguments(graphQLDirective *ast.Directive, pos
 	return nil
 }
 
+func applyDefaultsArguments(defaults *defaultOptions, graphQLDirective *ast.Directive, pos *ast.Position) error {
+	var err error
+	for _, arg := range graphQLDirective.Arguments {
+		switch arg.Name {
+		case "omitempty":
+			err = setBool("omitempty", &defaults.Omitempty, arg.Value, pos)
+		case "pointer":
+			err = setBool("pointer", &defaults.Pointer, arg.Value, pos)
+		case "struct":
+			err = setBool("struct", &defaults.Struct, arg.Value, pos)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var operationDefaultOptions = map[string]bool{
+	"omitempty": true,
+	"pointer":   true,
+	"struct":    true,
+}
+
+func rejectDefaultArgsOnDefinition(graphQLDirective *ast.Directive, pos *ast.Position) error {
+	for _, arg := range graphQLDirective.Arguments {
+		if !operationDefaultOptions[arg.Name] {
+			continue
+		}
+		return errorf(pos,
+			"@%s(%s:) applies to the node it is attached to, and does not describe "+
+				"an operation or fragment; use @%s(%s:) to set it as a default for "+
+				"the fields inside",
+			octoqlgenDirectiveName, arg.Name, octoqlgenDefaultsName, arg.Name)
+	}
+	return nil
+}
+
 func addFor(
-	forDirectives map[fieldKey]*octoqlgenDirective,
+	forDirectives map[fieldKey]*fieldOptions,
 	graphQLDirective *ast.Directive,
 	pos *ast.Position,
 ) error {
@@ -102,25 +543,20 @@ func addFor(
 	if len(parts) != 2 {
 		return errorf(pos, `field must be of the form "MyType.myField"`)
 	}
-	key := fieldKey{typeName: parts[0], fieldName: parts[1]}
+	key := fieldKey{
+		typeName:  parts[0],
+		fieldName: parts[1],
+	}
 
 	fieldDir := forDirectives[key]
 	if fieldDir == nil {
-		fieldDir = newOctoqlgenDirective(pos)
+		fieldDir = newFieldOptions(pos)
 		forDirectives[key] = fieldDir
 	}
-
 	return fieldDir.applyArguments(graphQLDirective, pos)
 }
 
-type fieldKey struct {
-	typeName  string
-	fieldName string
-}
-
-func (k fieldKey) String() string { return k.typeName + "." + k.fieldName }
-
-func (d *octoqlgenDirective) validateFor(key fieldKey, schema *ast.Schema) error {
+func (d *fieldOptions) validateFor(key fieldKey, schema *ast.Schema) error {
 	typ, ok := schema.Types[key.typeName]
 	if !ok {
 		return errorf(d.pos, `@%s got invalid type-name "%s"`, octoqlgenForName, key.typeName)
@@ -148,82 +584,50 @@ func (d *octoqlgenDirective) validateFor(key fieldKey, schema *ast.Schema) error
 			"alias is only applicable to selected fields, and %s is an input-type field",
 			key)
 	}
-
 	if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
 		return errorf(d.pos, "typename and bind may not be used together")
 	}
 	return nil
 }
 
-func (d *octoqlgenDirective) validate(node interface{}, schema *ast.Schema) error {
-	if d.TypeName != "" && d.Bind != "" && d.Bind != "-" {
-		return errorf(d.pos, "typename and bind may not be used together")
-	}
-
-	switch node := node.(type) {
-	case *ast.OperationDefinition:
-		if d.Bind != "" {
-			return errorf(d.pos, "bind may not be applied to the entire operation")
+func (s *directiveSet) recordForDirectives(
+	forDirectives map[fieldKey]*fieldOptions,
+	schema *ast.Schema,
+) error {
+	for key, fieldDirective := range forDirectives {
+		err := fieldDirective.validateFor(key, schema)
+		if err != nil {
+			return err
 		}
-		if d.Alias != "" {
-			return errorf(d.pos,
-				"alias is only applicable to selected fields, not operations")
+		existing, ok := s.forFields[key]
+		if !ok {
+			s.forFields[key] = fieldDirective
+			continue
 		}
-		return nil
-	case *ast.FragmentDefinition:
-		if d.Bind != "" {
-			// TODO(benkraft): Implement this if people find it useful.
-			return errorf(d.pos, "bind is not implemented for named fragments")
+		if forFieldOptionsMatch(existing, fieldDirective) {
+			continue
 		}
-		if d.Alias != "" {
-			return errorf(d.pos,
-				"alias is only applicable to selected fields, not fragment-definitions")
-		}
-		if d.TypeName != "" {
-			return errorf(d.pos,
-				"typename is not applicable to fragment-definitions; "+
-					"the generated type is named after the fragment")
-		}
-		return nil
-	case *ast.VariableDefinition:
-		if d.GetOmitempty() && node.Type.NonNull && node.DefaultValue == nil {
-			return errorf(d.pos, "omitempty may only be used on optional arguments")
-		}
-		if d.Struct != nil {
-			return errorf(d.pos, "struct is only applicable to fields, not variable-definitions")
-		}
-		if d.Flatten != nil {
-			return errorf(d.pos, "flatten is only applicable to fields, not variable-definitions")
-		}
-		if d.Alias != "" {
-			return errorf(d.pos,
-				"alias is only applicable to selected fields, not variable-definitions; "+
-					"rename the variable instead")
-		}
-		return nil
-	case *ast.Field:
-		if d.Omitempty != nil {
-			return errorf(d.pos,
-				"omitempty is only applicable to variables and input-type fields, "+
-					"not to selected fields")
-		}
-
-		typ := schema.Types[node.Definition.Type.Name()]
-		if d.Struct != nil {
-			err := validateStructOption(typ, node.SelectionSet, d.pos)
-			if err != nil {
-				return err
-			}
-		}
-		if d.Flatten != nil {
-			_, err := validateFlattenOption(typ, node.SelectionSet, d.pos)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		return errorf(fieldDirective.pos,
+			"conflicting @%s declarations for %s: %s asks for something different; "+
+				"a named type generates one Go type, so every @%s for it must agree",
+			octoqlgenForName, key, posString(existing.pos), octoqlgenForName)
 	}
 	return nil
+}
+
+func forFieldOptionsMatch(a, b *fieldOptions) bool {
+	return boolOptionsMatch(a.Omitempty, b.Omitempty) &&
+		boolOptionsMatch(a.Pointer, b.Pointer) &&
+		a.Bind == b.Bind &&
+		a.TypeName == b.TypeName &&
+		a.Alias == b.Alias
+}
+
+func boolOptionsMatch(a, b *bool) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 func validateStructOption(
@@ -235,19 +639,10 @@ func validateStructOption(
 		return errorf(pos, "struct is only applicable to interface-typed fields")
 	}
 
-	// Make sure that all the requested fields apply to the interface itself
-	// (not just certain implementations).
 	for _, selection := range selectionSet {
 		switch selection.(type) {
 		case *ast.Field:
-			// fields are fine.
 		case *ast.InlineFragment, *ast.FragmentSpread:
-			// Fragments aren't allowed. In principle we could allow them under
-			// the condition that the fragment applies to the whole interface
-			// (not just one implementation; and so on recursively), and for
-			// fragment spreads additionally that the fragment has the same
-			// option applied to it, but it seems more trouble than it's worth
-			// right now.
 			return errorf(pos, "struct is not allowed for types with fragments")
 		}
 	}
@@ -267,7 +662,6 @@ func validateFlattenOption(
 	for i, selection := range selectionSet {
 		switch selection := selection.(type) {
 		case *ast.Field:
-			// Ignore __typename when octoqlgen added it for abstract decoding.
 			if selection.Name == "__typename" && selection.Position == nil {
 				continue
 			}
@@ -295,7 +689,6 @@ func fillDefaultBool(target **bool, defaults ...*bool) {
 	if *target != nil {
 		return
 	}
-
 	for _, val := range defaults {
 		if val != nil {
 			*target = val
@@ -308,7 +701,6 @@ func fillDefaultString(target *string, defaults ...string) {
 	if *target != "" {
 		return
 	}
-
 	for _, val := range defaults {
 		if val != "" {
 			*target = val
@@ -316,35 +708,6 @@ func fillDefaultString(target *string, defaults ...string) {
 		}
 	}
 }
-
-// mergeOperationDirective updates the receiver in place with the @octoqlgenFor
-// declaration for that node and the @octoqlgenDefaults of the containing
-// operation or fragment.
-func (d *octoqlgenDirective) mergeOperationDirective(
-	forField *octoqlgenDirective,
-	operationDirective *octoqlgenDirective,
-) {
-	if forField == nil {
-		forField = newOctoqlgenDirective(nil)
-	}
-	if operationDirective == nil {
-		operationDirective = newOctoqlgenDirective(nil)
-	}
-
-	// Local directive wins over @octoqlgenFor, which wins over @octoqlgenDefaults.
-	fillDefaultBool(&d.Omitempty, forField.Omitempty, operationDirective.Omitempty)
-	fillDefaultBool(&d.Pointer, forField.Pointer, operationDirective.Pointer)
-	fillDefaultBool(&d.Struct, operationDirective.Struct)
-	fillDefaultString(&d.Bind, forField.Bind)
-	fillDefaultString(&d.TypeName, forField.TypeName)
-	fillDefaultString(&d.Alias, forField.Alias)
-}
-
-const (
-	octoqlgenDirectiveName = "octoqlgen"
-	octoqlgenDefaultsName  = "octoqlgenDefaults"
-	octoqlgenForName       = "octoqlgenFor"
-)
 
 // addOctoqlgenDirectiveDefinition replaces any existing octoqlgen directive
 // definitions in the parsed schema document with the built-in SDL.
@@ -374,222 +737,6 @@ func addOctoqlgenDirectiveDefinition(document *ast.SchemaDocument) error {
 
 	document.Directives = append(document.Directives, parsed.Directives...)
 	return nil
-}
-
-// collectDirectives strips octoqlgen directives from the validated AST and
-// records them in g.directives before operations are formatted or converted.
-func (g *generator) collectDirectives(doc *ast.QueryDocument) error {
-	for _, op := range doc.Operations {
-		err := g.collectDirectivesForNode(op, &op.Directives)
-		if err != nil {
-			return err
-		}
-		for _, variable := range op.VariableDefinitions {
-			err = g.collectDirectivesForNode(variable, &variable.Directives)
-			if err != nil {
-				return err
-			}
-		}
-		err = g.collectDirectivesInSelectionSet(op.SelectionSet)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, fragment := range doc.Fragments {
-		err := g.collectDirectivesForNode(fragment, &fragment.Directives)
-		if err != nil {
-			return err
-		}
-		err = g.collectDirectivesInSelectionSet(fragment.SelectionSet)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (g *generator) collectDirectivesInSelectionSet(selectionSet ast.SelectionSet) error {
-	for _, selection := range selectionSet {
-		switch selection := selection.(type) {
-		case *ast.Field:
-			err := g.collectDirectivesForNode(selection, &selection.Directives)
-			if err != nil {
-				return err
-			}
-			err = g.collectDirectivesInSelectionSet(selection.SelectionSet)
-			if err != nil {
-				return err
-			}
-		case *ast.InlineFragment:
-			err := g.collectDirectivesInSelectionSet(selection.SelectionSet)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// collectDirectivesForNode parses octoqlgen's directives on one node, records
-// the result, and removes them from the list so they are never formatted into a
-// query body.  Other directives, such as @skip and @include, are left alone.
-func (g *generator) collectDirectivesForNode(node any, directives *ast.DirectiveList) error {
-	var ours []*ast.Directive
-	var others ast.DirectiveList
-	for _, graphQLDirective := range *directives {
-		switch graphQLDirective.Name {
-		case octoqlgenDirectiveName, octoqlgenDefaultsName, octoqlgenForName:
-			ours = append(ours, graphQLDirective)
-		default:
-			others = append(others, graphQLDirective)
-		}
-	}
-	if len(ours) == 0 {
-		return nil
-	}
-	*directives = others
-
-	directive := newOctoqlgenDirective(ours[0].Position)
-	forDirectives := make(map[fieldKey]*octoqlgenDirective)
-	for _, graphQLDirective := range ours {
-		pos := graphQLDirective.Position
-		switch graphQLDirective.Name {
-		case octoqlgenForName:
-			err := addFor(forDirectives, graphQLDirective, pos)
-			if err != nil {
-				return err
-			}
-		case octoqlgenDefaultsName:
-			err := directive.applyArguments(graphQLDirective, pos)
-			if err != nil {
-				return err
-			}
-		default:
-			err := checkNodeOptions(node, graphQLDirective, pos)
-			if err != nil {
-				return err
-			}
-			err = directive.applyArguments(graphQLDirective, pos)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	err := directive.validate(node, g.schema)
-	if err != nil {
-		return err
-	}
-
-	for key, fieldDirective := range forDirectives {
-		err = fieldDirective.validateFor(key, g.schema)
-		if err != nil {
-			return err
-		}
-		err = g.recordForDeclaration(key, fieldDirective)
-		if err != nil {
-			return err
-		}
-	}
-
-	g.directives[node] = directive
-	return nil
-}
-
-var operationDefaultOptions = map[string]bool{
-	"omitempty": true,
-	"pointer":   true,
-	"struct":    true,
-}
-
-// checkNodeOptions rejects field-default options placed on @octoqlgen at an
-// operation or fragment definition.
-func checkNodeOptions(node any, graphQLDirective *ast.Directive, pos *ast.Position) error {
-	switch node.(type) {
-	case *ast.OperationDefinition, *ast.FragmentDefinition:
-	default:
-		return nil
-	}
-
-	for _, arg := range graphQLDirective.Arguments {
-		if !operationDefaultOptions[arg.Name] {
-			continue
-		}
-		return errorf(pos,
-			"@%s(%s:) applies to the node it is attached to, and does not describe "+
-				"an operation or fragment; use @%s(%s:) to set it as a default for "+
-				"the fields inside",
-			octoqlgenDirectiveName, arg.Name, octoqlgenDefaultsName, arg.Name)
-	}
-	return nil
-}
-
-// recordForDeclaration records an @octoqlgenFor declaration and rejects
-// conflicting declarations for the same type and field.
-func (g *generator) recordForDeclaration(
-	key fieldKey,
-	declared *octoqlgenDirective,
-) error {
-	existing, ok := g.forDeclarations[key]
-	if !ok {
-		g.forDeclarations[key] = declared
-		return nil
-	}
-	if directiveOptionsMatch(existing, declared) {
-		return nil
-	}
-	return errorf(declared.pos,
-		"conflicting @%s declarations for %s: %s asks for something different; "+
-			"a named type generates one Go type, so every @%s for it must agree",
-		octoqlgenForName, key, posString(existing.pos), octoqlgenForName)
-}
-
-func (g *generator) forDeclarationFor(node any, parentIfInputField *ast.Definition) *octoqlgenDirective {
-	var key fieldKey
-	switch field := node.(type) {
-	case *ast.Field: // query field
-		key = fieldKey{typeName: field.ObjectDefinition.Name, fieldName: field.Name}
-	case *ast.FieldDefinition: // input-type field
-		key = fieldKey{typeName: parentIfInputField.Name, fieldName: field.Name}
-	default:
-		return nil
-	}
-	return g.forDeclarations[key]
-}
-
-// directiveFor returns the options for node merged with any @octoqlgenFor
-// declaration and the containing operation or fragment options.
-func (g *generator) directiveFor(
-	node any,
-	parentIfInputField *ast.Definition,
-	pos *ast.Position,
-	queryOptions *octoqlgenDirective,
-) (*octoqlgenDirective, error) {
-	directive := g.directives[node]
-	if directive == nil {
-		directive = newOctoqlgenDirective(pos)
-	}
-
-	forField := g.forDeclarationFor(node, parentIfInputField)
-	if queryOptions == nil && forField == nil {
-		return directive, nil
-	}
-
-	merged := *directive
-	merged.mergeOperationDirective(forField, queryOptions)
-
-	// TODO(benkraft): Really we should do all the validation after
-	// merging, probably?  But this is the only check that can fail only
-	// after merging, and it's a bit tricky because the "does not apply"
-	// checks may need to happen before merging so we know where the
-	// directive "is".
-	if merged.TypeName != "" && merged.Bind != "" && merged.Bind != "-" {
-		return nil, errorf(merged.pos, "typename and bind may not be used together")
-	}
-
-	return &merged, nil
 }
 
 // precedingComment returns the comment lines immediately preceding pos for use

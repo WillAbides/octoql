@@ -114,8 +114,8 @@ func generateConfig(source *config.Config) *generate.Config {
 	}
 
 	return &generate.Config{
-		Schema:                          generate.StringList{source.SchemaPath()},
-		Operations:                      generate.StringList(source.OperationPaths()),
+		Schema:                          source.SchemaPath(),
+		Operations:                      source.OperationPaths(),
 		Generated:                       source.GeneratedPath(),
 		TestHandlerGenerated:            source.TestHandlerGeneratedPath(),
 		TestHandlerTypes:                generate.TestHandlerTypeStrategy(source.TestHandlerTypesValue()),

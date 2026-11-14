@@ -22,7 +22,7 @@ func generateSkipIncludeSource(
 	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "skipinclude",

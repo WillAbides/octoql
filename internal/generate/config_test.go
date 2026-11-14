@@ -137,7 +137,7 @@ func TestValidateOutputPathsProtectsInputs(t *testing.T) {
 		{
 			name: "operation manifest collides with schema",
 			config: Config{
-				Schema:           StringList{schemaPath},
+				Schema:           schemaPath,
 				Generated:        filepath.Join(directory, "generated.go"),
 				ExportOperations: schemaPath,
 			},
@@ -146,7 +146,7 @@ func TestValidateOutputPathsProtectsInputs(t *testing.T) {
 		{
 			name: "test handler collides with expanded operation",
 			config: Config{
-				Operations:           StringList{filepath.Join(directory, "graphql", "*.graphql")},
+				Operations:           []string{filepath.Join(directory, "graphql", "*.graphql")},
 				Generated:            filepath.Join(directory, "generated.go"),
 				TestHandlerGenerated: operationPath,
 			},
@@ -160,7 +160,7 @@ func TestValidateOutputPathsProtectsInputs(t *testing.T) {
 
 			err := test.config.validateOutputPaths()
 			if err == nil {
-				err = test.config.validateInputPaths()
+				_, err = test.config.resolveOperationFiles()
 			}
 
 			require.Error(t, err)
@@ -174,15 +174,15 @@ func TestConfigValidateAndFillDefaults(t *testing.T) {
 
 	baseDir := filepath.Join("testdata", "queries", "subpackage")
 	config := &Config{
-		Schema:     StringList{"schema.graphql"},
-		Operations: StringList{"operations.graphql"},
+		Schema:     "schema.graphql",
+		Operations: []string{"operations.graphql"},
 	}
 
 	err := config.ValidateAndFillDefaults(baseDir)
 	require.NoError(t, err)
 
-	assert.Equal(t, StringList{filepath.Join(baseDir, "schema.graphql")}, config.Schema)
-	assert.Equal(t, StringList{filepath.Join(baseDir, "operations.graphql")}, config.Operations)
+	assert.Equal(t, filepath.Join(baseDir, "schema.graphql"), config.Schema)
+	assert.Equal(t, []string{filepath.Join(baseDir, "operations.graphql")}, config.Operations)
 	assert.Equal(t, filepath.Join(baseDir, "generated.go"), config.Generated)
 	assert.Equal(t, "subpackage", config.Package)
 	assert.Equal(t, "context.Context", config.ContextType)
@@ -205,6 +205,33 @@ func TestConfigValidateAndFillDefaults(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "example.com/app/client", pkgPath)
 	})
+}
+
+func TestResolveOperationFiles(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	schemaPath := filepath.Join(directory, "schema.graphql")
+	for _, name := range []string{"schema.graphql", "z.graphql", "b.graphql", "a.graphql"} {
+		err := os.WriteFile(filepath.Join(directory, name), nil, 0o600)
+		require.NoError(t, err)
+	}
+	config := Config{
+		Schema: schemaPath,
+		Operations: []string{
+			filepath.Join(directory, "z.graphql"),
+			filepath.Join(directory, "*.graphql"),
+			filepath.Join(directory, "a.graphql"),
+		},
+	}
+
+	filenames, err := config.resolveOperationFiles()
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		filepath.Join(directory, "a.graphql"),
+		filepath.Join(directory, "b.graphql"),
+		filepath.Join(directory, "z.graphql"),
+	}, filenames)
 }
 
 func TestConfigValidationErrors(t *testing.T) {

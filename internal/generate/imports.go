@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"go/types"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -48,110 +49,222 @@ func allocateIdentifier(base string, used map[string]bool) string {
 	return identifier
 }
 
-func (g *generator) addImportFor(pkgPath string) (alias string) {
-	pkgName := makeIdentifier(pkgPath[strings.LastIndex(pkgPath, "/")+1:])
-	alias = allocateIdentifier(pkgName, g.usedAliases)
+var sliceOrMapPrefixRegexp = regexp.MustCompile(`^(\*|\[\d*\]|map\[string\])*`)
 
-	g.imports[pkgPath] = alias
-	return alias
+// goRef is a parsed, destination-neutral Go type or package-qualified symbol
+// reference. It resolves against a target package's importScope at render time.
+type goRef struct {
+	prefix    string
+	pkgPath   string
+	localName string
 }
 
-var _sliceOrMapPrefixRegexp = regexp.MustCompile(`^(\*|\[\d*\]|map\[string\])*`)
+func (r goRef) isZero() bool {
+	return r.localName == ""
+}
 
-// ref takes a Go fully-qualified name, ensures that any necessary symbols are
-// imported, and returns an appropriate reference.
-//
-// Ideally, we want to allow a reference to basically an arbitrary symbol.
-// But that's very hard, because it might be quite complicated, like
-//
-//	struct{ F []map[mypkg.K]otherpkg.V }
-//
-// Now in practice, using an unnamed struct is not a great idea, but we do
-// want to allow as much as we can that encoding/json knows how to work
-// with, since you would reasonably expect us to accept, say,
-// map[string][]interface{}.  So we allow:
-//   - any named type (mypkg.T)
-//   - any predeclared basic type (string, int, etc.)
-//   - interface{}
-//   - for any allowed type T, *T, []T, [N]T, and map[string]T
-//
-// which effectively excludes:
-//   - unnamed struct types
-//   - map[K]V where K is a named type wrapping string
-//   - any nonstandard spelling of those (interface {/* hi */},
-//     map[  string      ]T)
-//
-// (This is documented in docs/configuration.md)
-func (g *generator) ref(fullyQualifiedName string) (qualifiedName string, err error) {
-	errorMsg := `invalid type-name "%v" (%v); expected a builtin, ` +
-		`path/to/package.Name, interface{}, or a slice, map, or pointer of those`
-
-	if strings.Contains(fullyQualifiedName, " ") {
-		return "", errorf(nil, errorMsg, fullyQualifiedName, "contains spaces")
+func (r goRef) qualified() string {
+	if r.pkgPath == "" {
+		return r.prefix + r.localName
 	}
+	return r.prefix + r.pkgPath + "." + r.localName
+}
 
-	prefix := _sliceOrMapPrefixRegexp.FindString(fullyQualifiedName)
-	nameToImport := fullyQualifiedName[len(prefix):]
-
-	i := strings.LastIndex(nameToImport, ".")
-	if i == -1 {
-		if nameToImport == "any" {
-			// `any` is a predeclared identifier, not a keyword, so a local
-			// declaration in the generated package (e.g. `type any bool`) can
-			// shadow it and change what the reference means. Normalize it to the
-			// `interface{}` type literal, which cannot be shadowed, so the
-			// reference is unambiguous for every downstream consumer of this
-			// string. A user who genuinely wants a shadowing type of their own
-			// should qualify it (path/to/pkg.any).
-			return prefix + "interface{}", nil
-		}
-		if nameToImport != "interface{}" && types.Universe.Lookup(nameToImport) == nil {
-			return "", errorf(nil, errorMsg, fullyQualifiedName,
-				fmt.Sprintf(`unknown type-name "%v"`, nameToImport))
-		}
-		return fullyQualifiedName, nil
+// isNilable reports whether a Go type reference denotes a type whose outermost
+// value can hold nil (pointers, slices, maps, and interface{}), excluding
+// fixed-size arrays [N]T. parseRef normalizes bare `any` to `interface{}`.
+func (r goRef) isNilable() bool {
+	if r.prefix == "" {
+		return r.localName == "interface{}"
 	}
+	return strings.HasPrefix(r.prefix, "*") ||
+		strings.HasPrefix(r.prefix, "[]") ||
+		strings.HasPrefix(r.prefix, "map[")
+}
 
-	pkgPath := nameToImport[:i]
-	localName := nameToImport[i+1:]
-	if pkgPath == g.forbiddenImportPath {
+func (r goRef) render(scope *importScope) (string, error) {
+	if r.pkgPath == "" {
+		return r.prefix + r.localName, nil
+	}
+	if r.pkgPath == scope.forbiddenPkgPath {
 		return "", errorf(
 			nil,
 			"test_handler.types local cannot use %q because it is owned by the generated client package %q",
-			fullyQualifiedName,
-			pkgPath,
+			r.qualified(),
+			r.pkgPath,
 		)
 	}
-	if pkgPath == g.Config.pkgPath {
-		return prefix + localName, nil
+	if r.pkgPath == scope.pkgPath {
+		return r.prefix + r.localName, nil
 	}
-	alias, ok := g.imports[pkgPath]
-	if !ok {
-		if g.importsLocked {
-			return "", errorf(nil,
-				`octoqlgen internal error: imports locked but package "%v" has not been imported`, pkgPath)
-		}
-		alias = g.addImportFor(pkgPath)
-	}
-	return prefix + alias + "." + localName, nil
+	alias := scope.importPackage(r.pkgPath)
+	return r.prefix + alias + "." + r.localName, nil
 }
 
-// Returns the import-clause to use in the generated code.
-func (g *generator) Imports() string {
-	g.importsLocked = true
-	if len(g.imports) == 0 {
+// parseRef parses and validates a Go type or symbol expression:
+//   - any package-qualified symbol (path/to/package.Name)
+//   - any predeclared basic type (string, int, etc.)
+//   - interface{} (bare `any` is normalized to `interface{}` so local
+//     declarations cannot shadow it)
+//   - for any allowed type T: *T, []T, [N]T, and map[string]T
+func parseRef(fullyQualifiedName string) (goRef, error) {
+	const errorMsg = `invalid type-name "%v" (%v); expected a builtin, ` +
+		`path/to/package.Name, interface{}, or a slice, map, or pointer of those`
+
+	if strings.Contains(fullyQualifiedName, " ") {
+		return goRef{}, errorf(nil, errorMsg, fullyQualifiedName, "contains spaces")
+	}
+
+	prefix := sliceOrMapPrefixRegexp.FindString(fullyQualifiedName)
+	nameToImport := fullyQualifiedName[len(prefix):]
+
+	dot := strings.LastIndex(nameToImport, ".")
+	if dot == -1 {
+		if nameToImport == "any" {
+			return goRef{
+				prefix:    prefix,
+				localName: "interface{}",
+			}, nil
+		}
+		if nameToImport != "interface{}" && types.Universe.Lookup(nameToImport) == nil {
+			return goRef{}, errorf(
+				nil,
+				errorMsg,
+				fullyQualifiedName,
+				fmt.Sprintf(`unknown type-name "%v"`, nameToImport),
+			)
+		}
+		return goRef{
+			prefix:    prefix,
+			localName: nameToImport,
+		}, nil
+	}
+
+	return goRef{
+		prefix:    prefix,
+		pkgPath:   nameToImport[:dot],
+		localName: nameToImport[dot+1:],
+	}, nil
+}
+
+// importScope tracks imports and alias collisions for one generated Go file.
+type importScope struct {
+	pkgPath          string
+	forbiddenPkgPath string
+	imports          map[string]string
+	usedAliases      map[string]bool
+}
+
+func newImportScope(pkgPath, forbiddenPkgPath string) *importScope {
+	return &importScope{
+		pkgPath:          pkgPath,
+		forbiddenPkgPath: forbiddenPkgPath,
+		imports:          map[string]string{},
+		usedAliases:      map[string]bool{},
+	}
+}
+
+func (s *importScope) importPackage(pkgPath string) string {
+	alias, ok := s.imports[pkgPath]
+	if ok {
+		return alias
+	}
+	pkgName := makeIdentifier(pkgPath[strings.LastIndex(pkgPath, "/")+1:])
+	alias = allocateIdentifier(pkgName, s.usedAliases)
+	s.imports[pkgPath] = alias
+	return alias
+}
+
+func (s *importScope) ref(fullyQualifiedName string) (string, error) {
+	parsed, err := parseRef(fullyQualifiedName)
+	if err != nil {
+		return "", err
+	}
+	return parsed.render(s)
+}
+
+func (s *importScope) declaration() string {
+	if len(s.imports) == 0 {
 		return ""
 	}
 
+	paths := make([]string, 0, len(s.imports))
+	for pkgPath := range s.imports {
+		paths = append(paths, pkgPath)
+	}
+	sort.Strings(paths)
+
 	var builder strings.Builder
 	builder.WriteString("import (\n")
-	for path, alias := range g.imports {
-		if path == alias || strings.HasSuffix(path, "/"+alias) {
-			builder.WriteString("\t" + strconv.Quote(path) + "\n")
+	for _, pkgPath := range paths {
+		alias := s.imports[pkgPath]
+		if pkgPath == alias || strings.HasSuffix(pkgPath, "/"+alias) {
+			builder.WriteString("\t" + strconv.Quote(pkgPath) + "\n")
 			continue
 		}
-		builder.WriteString("\t" + alias + " " + strconv.Quote(path) + "\n")
+		builder.WriteString("\t" + alias + " " + strconv.Quote(pkgPath) + "\n")
 	}
 	builder.WriteString(")\n\n")
 	return builder.String()
+}
+
+// registerBoundTypeImports pre-registers external type bindings in sorted
+// typeMap order so user-bound packages claim their natural package aliases
+// before generated runtime or helper stdlib imports.
+func registerBoundTypeImports(typeMap map[string]goType, scope *importScope) error {
+	seen := make(map[goType]bool, len(typeMap))
+	var visit func(goType) error
+	visit = func(typ goType) error {
+		if seen[typ] {
+			return nil
+		}
+		seen[typ] = true
+
+		switch current := typ.(type) {
+		case *goOpaqueType:
+			_, err := current.Ref.render(scope)
+			return err
+		case *goSliceType:
+			return visit(current.Elem)
+		case *goPointerType:
+			return visit(current.Elem)
+		case *goStructType:
+			for _, field := range current.Fields {
+				err := visit(field.GoType)
+				if err != nil {
+					return err
+				}
+			}
+		case *goInterfaceType:
+			for _, field := range current.SharedFields {
+				err := visit(field.GoType)
+				if err != nil {
+					return err
+				}
+			}
+			for _, impl := range current.Implementations {
+				err := visit(impl)
+				if err != nil {
+					return err
+				}
+			}
+			if current.OtherImplementation != nil {
+				return visit(current.OtherImplementation)
+			}
+		}
+		return nil
+	}
+
+	names := make([]string, 0, len(typeMap))
+	for name := range typeMap {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		err := visit(typeMap[name])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

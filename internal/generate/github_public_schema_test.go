@@ -46,7 +46,7 @@ func TestGenerateGitHubPublicSchema(t *testing.T) {
 	generatedDir := t.TempDir()
 	generatedFilename := filepath.Join(generatedDir, "generated.go")
 	config := &Config{
-		Schema:      []string{schemaFilename},
+		Schema:      schemaFilename,
 		Operations:  []string{filepath.Join(githubPublicSchemaDir, "operations.graphql")},
 		Generated:   generatedFilename,
 		Package:     "githubschema",

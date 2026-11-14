@@ -69,7 +69,7 @@ query AllScalars {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "operation.graphql"), []byte(operation), 0o600))
 
 	defaultsConfig := &Config{
-		Schema:      []string{filepath.Join(dir, "schema.graphql")},
+		Schema:      filepath.Join(dir, "schema.graphql"),
 		Operations:  []string{filepath.Join(dir, "operation.graphql")},
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "scalar",
@@ -239,7 +239,7 @@ type Query { node: Node }
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "operation.graphql"), []byte(operation), 0o600))
 	config := &Config{
-		Schema:      []string{filepath.Join(dir, "schema.graphql")},
+		Schema:      filepath.Join(dir, "schema.graphql"),
 		Operations:  []string{filepath.Join(dir, "operation.graphql")},
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "collision",
@@ -255,7 +255,7 @@ type Query { node: Node }
 
 func generateGitHubAbstractSelections(t *testing.T, omit *bool) string {
 	config := &Config{
-		Schema:                          []string{filepath.Join(dataDir, "schema.graphql")},
+		Schema:                          filepath.Join(dataDir, "schema.graphql"),
 		Operations:                      []string{filepath.Join(githubGenerationDefaultsDir, "operations.graphql")},
 		Generated:                       "generated.go",
 		Package:                         "githubdefaults",
@@ -281,7 +281,7 @@ func generateScalarOperation(t *testing.T, scalar string, binding *TypeBinding) 
 		bindings[scalar] = binding
 	}
 	config := &Config{
-		Schema:      []string{filepath.Join(dir, "schema.graphql")},
+		Schema:      filepath.Join(dir, "schema.graphql"),
 		Operations:  []string{filepath.Join(dir, "operation.graphql")},
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "scalar",

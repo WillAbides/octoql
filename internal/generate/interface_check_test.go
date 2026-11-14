@@ -9,11 +9,15 @@ import (
 
 // newInterfaceGetterField builds a shared field that members() renders as a
 // Get<goName> getter returning the given Go type reference.
-func newInterfaceGetterField(goName, graphQLName, goRef string) *goStructField {
+func newInterfaceGetterField(goName, graphQLName, rawRef string) *goStructField {
+	parsed, err := parseRef(rawRef)
+	if err != nil {
+		panic(err)
+	}
 	return &goStructField{
 		GoName:      goName,
 		GraphQLName: graphQLName,
-		GoType:      &goOpaqueType{GoRef: goRef},
+		GoType:      &goOpaqueType{Ref: parsed},
 	}
 }
 
@@ -59,7 +63,7 @@ func TestCheckInterfaceIdentifiersAliasSignatures(t *testing.T) {
 				},
 			}
 
-			err := (&generator{}).checkInterfaceIdentifiers(parent)
+			err := checkInterfaceIdentifiers(parent, newImportScope("", ""))
 			if test.wantConflict {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "two methods named GetFoo that do not agree")

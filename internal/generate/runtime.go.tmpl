@@ -10,18 +10,6 @@ func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
 	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
-// _octoqlNoMarshalJSON is for generated code only.
-//
-// Embedding _octoqlNoMarshalJSON alongside a type with a MarshalJSON method prevents
-// that sibling method from being promoted.
-type _octoqlNoMarshalJSON struct{}
-
-// MarshalJSON should never be called. It exists only to prevent a sibling
-// MarshalJSON method from being promoted.
-func (_octoqlNoMarshalJSON) MarshalJSON() ([]byte, error) {
-	panic("_octoqlNoMarshalJSON.MarshalJSON should never be called!")
-}
-
 const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string

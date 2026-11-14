@@ -56,7 +56,7 @@ func generateSplit(t *testing.T, operation string) (string, error) {
 	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
 
 	generated, err := Generate(&Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   generatedPath,
 		Package:     "client",
@@ -94,7 +94,7 @@ query Viewer($skipName: Boolean!) @octoqlgen(typename: "ViewerResp") {
 	require.NoError(t, err)
 
 	generated, err := Generate(&Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "client",
@@ -154,7 +154,7 @@ query Value($input: String! @octoqlgen(omitempty: false)) @octoqlgenDefaults(omi
 			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
 
 			generated, err := Generate(&Config{
-				Schema:      []string{schemaPath},
+				Schema:      schemaPath,
 				Operations:  []string{operationPath},
 				Generated:   filepath.Join(dir, "generated.go"),
 				Package:     "client",
@@ -197,7 +197,7 @@ query Viewer @octoqlgen(typename: "Resp") {
 `), 0o600))
 
 			generated, err := Generate(&Config{
-				Schema:      []string{schemaPath},
+				Schema:      schemaPath,
 				Operations:  []string{operationPath},
 				Generated:   filepath.Join(dir, "generated.go"),
 				Package:     "client",
@@ -326,7 +326,7 @@ query Q @octoqlgen(typename: null) {
 			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
 
 			_, err := Generate(&Config{
-				Schema:      []string{schemaPath},
+				Schema:      schemaPath,
 				Operations:  []string{operationPath},
 				Generated:   filepath.Join(dir, "generated.go"),
 				Package:     "client",

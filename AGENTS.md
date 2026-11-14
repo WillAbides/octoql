@@ -8,8 +8,8 @@
 - Generated clients are self-contained and do not import the root `octoql`
   package. `internal/generate/runtime.go.tmpl` is the canonical HTTP runtime; do
   not maintain a second handwritten implementation or create a public runtime
-  package. Generated private JSON guards prevent method promotion while
-  preserving `encoding/json` semantics.
+  package. A generated private JSON guard prevents UnmarshalJSON method promotion
+  while preserving `encoding/json` semantics.
   Generator implementation belongs in `internal/generate`; users invoke
   `cmd/octoqlgen`. Do not recreate a public `generate` package.
 - The root `README.md` is the primary user guide. Keep `docs/` for specialized

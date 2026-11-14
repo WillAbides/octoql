@@ -203,7 +203,7 @@ func TestGenerate(t *testing.T) {
 
 		t.Run(test.name, func(t *testing.T) {
 			generated, err := Generate(&Config{
-				Schema:           []string{filepath.Join(dataDir, "schema.graphql")},
+				Schema:           filepath.Join(dataDir, "schema.graphql"),
 				Operations:       operationFilenames,
 				Package:          "test",
 				Generated:        goFilename,
@@ -295,7 +295,7 @@ func TestGenerateExcludesSchemaFromOperationGlobs(t *testing.T) {
 			}
 
 			config := &Config{
-				Schema:      []string{schemaPath},
+				Schema:      schemaPath,
 				Operations:  []string{filepath.Join(dir, "**", "*.graphql")},
 				Generated:   filepath.Join(dir, "generated.go"),
 				Package:     "client",
@@ -337,7 +337,7 @@ func TestGenerateExcludesSchemaAliasesFromOperationGlobs(t *testing.T) {
 	))
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{filepath.Join(dir, "*.graphql")},
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "client",
@@ -390,7 +390,7 @@ query Value(
 	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "collision",
@@ -433,18 +433,33 @@ func TestGenerateRuntimeImportAliasCollision(t *testing.T) {
 	require.NoError(t, os.WriteFile(schemaPath, []byte(`
 scalar JSON
 
+interface Node {
+  id: ID!
+}
+
+type Item implements Node {
+  id: ID!
+}
+
 type Query {
   value(input: JSON!): JSON!
+  node: Node
 }
 `), 0o600))
 	require.NoError(t, os.WriteFile(operationPath, []byte(`
 query Value($input: JSON!) {
   value(input: $input)
+  node {
+    id
+    ... on Item {
+      id
+    }
+  }
 }
 `), 0o600))
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(dir, "generated.go"),
 		Package:     "collision",
@@ -471,6 +486,7 @@ func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 
 	tests := []struct {
 		name      string
+		schema    string
 		operation string
 		wantError string
 	}{
@@ -478,6 +494,22 @@ func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 			name:      "runtime method collision",
 			operation: "query RateLimit {\n  value\n}\n",
 			wantError: `generated Client method "RateLimit" conflicts with operation "RateLimit"`,
+		},
+		{
+			name:      "allow redirects method collision",
+			operation: "query AllowRedirects {\n  value\n}\n",
+			wantError: `generated Client method "AllowRedirects" conflicts with operation "AllowRedirects"`,
+		},
+		{
+			name:      "set allow redirects method collision",
+			operation: "query SetAllowRedirects {\n  value\n}\n",
+			wantError: `generated Client method "SetAllowRedirects" conflicts with operation "SetAllowRedirects"`,
+		},
+		{
+			name:      "partial data error enum values variable collision",
+			schema:    "enum PartialDataError {\n  VALUE\n}\ntype Query {\n  value: PartialDataError!\n}\n",
+			operation: "query All {\n  value\n}\n",
+			wantError: `generated partial data error "AllPartialDataError" conflicts with a generated enum values variable`,
 		},
 		{
 			name:      "private runtime declaration collision",
@@ -498,11 +530,15 @@ func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 			dir := t.TempDir()
 			schemaPath := filepath.Join(dir, "schema.graphql")
 			operationPath := filepath.Join(dir, "operation.graphql")
-			require.NoError(t, os.WriteFile(schemaPath, []byte("type Query {\n  value: String!\n}\n"), 0o600))
+			schema := test.schema
+			if schema == "" {
+				schema = "type Query {\n  value: String!\n}\n"
+			}
+			require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
 			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
 
 			_, err := Generate(&Config{
-				Schema:      []string{schemaPath},
+				Schema:      schemaPath,
 				Operations:  []string{operationPath},
 				Generated:   filepath.Join(dir, "generated.go"),
 				Package:     "collision",
@@ -531,7 +567,7 @@ type Query {
 	require.NoError(t, os.WriteFile(operationPath, []byte(operationText), 0o600))
 
 	config := &Config{
-		Schema:           []string{schemaPath},
+		Schema:           schemaPath,
 		Operations:       []string{operationPath},
 		Generated:        filepath.Join(dir, "generated.go"),
 		ExportOperations: filepath.Join(dir, "operations.json"),
@@ -604,7 +640,7 @@ func testGenerateWithTestHandlerUsesOnePlan(
 	strategy TestHandlerTypeStrategy,
 ) map[string][]byte {
 	config := &Config{
-		Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+		Schema:               filepath.Join(dataDir, "schema.graphql"),
 		Operations:           []string{filepath.Join(dataDir, "GraphShapes.graphql")},
 		Generated:            filepath.Join(tempDir, "client", "generated.go"),
 		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
@@ -704,7 +740,7 @@ func TestGenerateLocalTestHandlerBindings(t *testing.T) {
 		err = os.WriteFile(operationPath, []byte(operation), 0o600)
 		require.NoError(t, err)
 		config := &Config{
-			Schema:               []string{schemaPath},
+			Schema:               schemaPath,
 			Operations:           []string{operationPath},
 			Generated:            filepath.Join(tempDir, "client", "generated.go"),
 			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
@@ -964,7 +1000,7 @@ query PointerDefaults(
 	require.NoError(t, err)
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(tempDir, "generated.go"),
 		Package:     "pointerdefaults",
@@ -1022,7 +1058,7 @@ query AbstractValues {
 	require.NoError(t, err)
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(tempDir, "generated.go"),
 		Package:     "abstractvalues",
@@ -1068,7 +1104,7 @@ query LocalBindings {
 	require.NoError(t, err)
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(tempDir, "generated.go"),
 		Package:     "localbindings",
@@ -1126,7 +1162,7 @@ query TypenameFields {
 	require.NoError(t, err)
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(tempDir, "generated.go"),
 		Package:     "typenamefields",
@@ -1239,7 +1275,7 @@ query WireSemantics {
 	require.NoError(t, err)
 
 	config := &Config{
-		Schema:      []string{schemaPath},
+		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(tempDir, "client", "generated.go"),
 		Package:     "client",
@@ -1407,7 +1443,7 @@ func TestTestHandlerConfigurationErrors(t *testing.T) {
 				packageName = "client"
 			}
 			config := &Config{
-				Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+				Schema:               filepath.Join(dataDir, "schema.graphql"),
 				Operations:           []string{filepath.Join(dataDir, "Repository.graphql")},
 				Generated:            filepath.Join(tempDir, "client", "generated.go"),
 				TestHandlerGenerated: test.handlerGenerated,
@@ -1426,7 +1462,7 @@ func TestTestHandlerConfigurationErrors(t *testing.T) {
 
 	t.Run("local types do not import main client", func(t *testing.T) {
 		config := &Config{
-			Schema:               []string{filepath.Join(dataDir, "schema.graphql")},
+			Schema:               filepath.Join(dataDir, "schema.graphql"),
 			Operations:           []string{filepath.Join(dataDir, "Repository.graphql")},
 			Generated:            filepath.Join(tempDir, "client", "generated.go"),
 			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
@@ -1482,7 +1518,7 @@ func TestGenerateTestHandlerNameCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 	config := &Config{
-		Schema:               []string{schemaPath},
+		Schema:               schemaPath,
 		Operations:           []string{operationPath},
 		Generated:            filepath.Join(tempDir, "client", "generated.go"),
 		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
@@ -1614,7 +1650,7 @@ type Query {
 				t.Fatal(err)
 			}
 			config := &Config{
-				Schema:               []string{schemaPath},
+				Schema:               schemaPath,
 				Operations:           []string{operationPath},
 				Generated:            filepath.Join(tempDir, "client", "generated.go"),
 				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
@@ -1687,7 +1723,7 @@ func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) 
 				t.Fatal(err)
 			}
 			config := &Config{
-				Schema:               []string{schemaPath},
+				Schema:               schemaPath,
 				Operations:           []string{operationPath},
 				Generated:            filepath.Join(tempDir, "client", "generated.go"),
 				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
@@ -1780,7 +1816,7 @@ func TestGenerateTestHandlerRejectsSubscription(t *testing.T) {
 		t.Fatal(err)
 	}
 	config := &Config{
-		Schema:               []string{schemaPath},
+		Schema:               schemaPath,
 		Operations:           []string{operationPath},
 		Generated:            filepath.Join(tempDir, "client", "generated.go"),
 		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
@@ -1899,7 +1935,7 @@ func TestGenerateWithConfig(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config := test.config
 			err := config.ValidateAndFillDefaults(dataDir)
-			config.Schema = []string{filepath.Join(dataDir, "schema.graphql")}
+			config.Schema = filepath.Join(dataDir, "schema.graphql")
 			if test.name != "package binding" && test.name != "exact fields binding" {
 				config.Bindings = addTestScalarBindings(config.Bindings)
 			}
@@ -1959,7 +1995,7 @@ func TestGenerateErrors(t *testing.T) {
 
 		t.Run(testFilename, func(t *testing.T) {
 			_, err := Generate(&Config{
-				Schema:      []string{filepath.Join(errorsDir, schemaFilename)},
+				Schema:      filepath.Join(errorsDir, schemaFilename),
 				Operations:  []string{filepath.Join(errorsDir, sourceFilename)},
 				Package:     "test",
 				Generated:   os.DevNull,

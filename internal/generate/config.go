@@ -22,8 +22,8 @@ func warn(err error) error {
 
 // Config contains the normalized settings used by the generator implementation.
 type Config struct {
-	Schema                          StringList
-	Operations                      StringList
+	Schema                          string
+	Operations                      []string
 	ConfigFile                      string
 	Generated                       string
 	TestHandlerGenerated            string
@@ -104,17 +104,20 @@ type Casing struct {
 
 func (c *Casing) validate() error {
 	if c.Default != "" {
-		if err := c.Default.validate(); err != nil {
+		err := c.Default.validate()
+		if err != nil {
 			return err
 		}
 	}
 	if c.AllEnums != "" {
-		if err := c.AllEnums.validate(); err != nil {
+		err := c.AllEnums.validate()
+		if err != nil {
 			return err
 		}
 	}
 	for _, algo := range c.Enums {
-		if err := algo.validate(); err != nil {
+		err := algo.validate()
+		if err != nil {
 			return err
 		}
 	}
@@ -129,7 +132,8 @@ func (c *Casing) getDefault() CasingAlgorithm {
 }
 
 func (c *Casing) forEnum(graphQLTypeName string) CasingAlgorithm {
-	if specificConfig, ok := c.Enums[graphQLTypeName]; ok {
+	specificConfig, ok := c.Enums[graphQLTypeName]
+	if ok {
 		return specificConfig
 	}
 	if c.AllEnums != "" {
@@ -165,7 +169,9 @@ func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error)
 		pkgNameGuess = ""
 	}
 
-	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName}, dir)
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName,
+	}, dir)
 	if err != nil { // e.g. not in a Go module
 		modulePkgPath, moduleErr := packagePathFromModule(dir)
 		if moduleErr == nil && pkgNameGuess != "" {
@@ -248,8 +254,8 @@ func packagePathFromModule(directory string) (string, error) {
 // typically the directory of the config file.
 func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	c.baseDir = baseDir
-	for i := range c.Schema {
-		c.Schema[i] = pathJoin(baseDir, c.Schema[i])
+	if c.Schema != "" {
+		c.Schema = pathJoin(baseDir, c.Schema)
 	}
 	for i := range c.Operations {
 		c.Operations[i] = pathJoin(baseDir, c.Operations[i])
@@ -386,11 +392,11 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 			}
 
 			mode := packages.NeedDeps | packages.NeedTypes
-			pkgs, err := packages.Load(&packages.Config{
+			pkgs, loadErr := packages.Load(&packages.Config{
 				Mode: mode,
 			}, binding.Package)
-			if err != nil {
-				return err
+			if loadErr != nil {
+				return loadErr
 			}
 
 			if c.Bindings == nil {
@@ -419,7 +425,8 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 		}
 	}
 
-	if err := c.Casing.validate(); err != nil {
+	err = c.Casing.validate()
+	if err != nil {
 		return err
 	}
 
@@ -437,18 +444,16 @@ func (c *Config) validateOutputPaths() error {
 			return err
 		}
 	}
-	for _, input := range []struct {
-		name  string
-		paths StringList
-	}{
-		{name: "schema input", paths: c.Schema},
-		{name: "operations input", paths: c.Operations},
-	} {
-		for _, filename := range input.paths {
-			err = validateProtectedPath(outputs, input.name, filename)
-			if err != nil {
-				return err
-			}
+	if c.Schema != "" {
+		err = validateProtectedPath(outputs, "schema input", c.Schema)
+		if err != nil {
+			return err
+		}
+	}
+	for _, filename := range c.Operations {
+		err = validateProtectedPath(outputs, "operations input", filename)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -486,9 +491,18 @@ func (c *Config) outputPaths() ([]inspectedPath, error) {
 		name string
 		path string
 	}{
-		{name: "generated", path: c.Generated},
-		{name: "export_operations", path: c.ExportOperations},
-		{name: "test_handler.generated", path: c.TestHandlerGenerated},
+		{
+			name: "generated",
+			path: c.Generated,
+		},
+		{
+			name: "export_operations",
+			path: c.ExportOperations,
+		},
+		{
+			name: "test_handler.generated",
+			path: c.TestHandlerGenerated,
+		},
 	} {
 		if output.path == "" {
 			continue
@@ -519,48 +533,57 @@ func (c *Config) outputPaths() ([]inspectedPath, error) {
 	return outputs, nil
 }
 
-func (c *Config) validateInputPaths() error {
+func (c *Config) resolveOperationFiles() ([]string, error) {
 	outputs, err := c.outputPaths()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	inputs := []struct {
-		name  string
-		globs StringList
-	}{
-		{name: "schema", globs: c.Schema},
-		{name: "operations", globs: c.Operations},
-	}
-	for _, input := range inputs {
-		filenames, expandErr := expandFilenames(input.globs)
-		if expandErr != nil {
-			return expandErr
+	var schemaInspected inspectedPath
+	if c.Schema != "" {
+		schemaInspected, err = inspectPath("schema", c.Schema)
+		if err != nil {
+			return nil, errorf(nil, "resolving schema input path %q: %v", c.Schema, err)
 		}
-		for _, filename := range filenames {
-			inspected, inspectErr := inspectPath(input.name, filename)
-			if inspectErr != nil {
-				return errorf(
+		for _, output := range outputs {
+			if pathsAlias(output, schemaInspected) {
+				return nil, errorf(
 					nil,
-					"resolving %s input path %q: %v",
-					input.name,
-					filename,
-					inspectErr,
+					"%s output path must be different from schema input path: %q",
+					output.name,
+					output.path,
 				)
 			}
-			for _, output := range outputs {
-				if pathsAlias(output, inspected) {
-					return errorf(
-						nil,
-						"%s output path must be different from %s input path: %q",
-						output.name,
-						input.name,
-						output.path,
-					)
-				}
-			}
 		}
 	}
-	return nil
+	if len(c.Operations) == 0 {
+		return nil, nil
+	}
+	filenames, err := expandFilenames(c.Operations)
+	if err != nil {
+		return nil, err
+	}
+	operationFiles := make([]string, 0, len(filenames))
+	for _, filename := range filenames {
+		opInspected, inspectErr := inspectPath("operations", filename)
+		if inspectErr != nil {
+			return nil, errorf(nil, "resolving operations input path %q: %v", filename, inspectErr)
+		}
+		for _, output := range outputs {
+			if pathsAlias(output, opInspected) {
+				return nil, errorf(
+					nil,
+					"%s output path must be different from operations input path: %q",
+					output.name,
+					output.path,
+				)
+			}
+		}
+		if c.Schema != "" && pathsAlias(schemaInspected, opInspected) {
+			continue
+		}
+		operationFiles = append(operationFiles, filename)
+	}
+	return operationFiles, nil
 }
 
 func inspectPath(name, filename string) (inspectedPath, error) {

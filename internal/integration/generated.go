@@ -36,18 +36,6 @@ func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
 	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
-// _octoqlNoMarshalJSON is for generated code only.
-//
-// Embedding _octoqlNoMarshalJSON alongside a type with a MarshalJSON method prevents
-// that sibling method from being promoted.
-type _octoqlNoMarshalJSON struct{}
-
-// MarshalJSON should never be called. It exists only to prevent a sibling
-// MarshalJSON method from being promoted.
-func (_octoqlNoMarshalJSON) MarshalJSON() ([]byte, error) {
-	panic("_octoqlNoMarshalJSON.MarshalJSON should never be called!")
-}
-
 const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
@@ -5901,7 +5889,7 @@ func (c *Client) queryWithCustomMarshalSlice(
 }
 
 // The query executed by queryWithFlatten.
-const queryWithFlatten_Operation = "\nquery queryWithFlatten ($ids: [ID!]!) {\n\t... queryFragment\n}\nfragment queryFragment on Query {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... flattenedUserFields\n\t\t... on Organization {\n\t\t\ttopContributor {\n\t\t\t\t__typename\n\t\t\t\t... actorFields\n\t\t\t}\n\t\t}\n\t}\n}\nfragment flattenedUserFields on User {\n\t... flattenedRepositoryOwnerFields\n}\nfragment actorFields on Actor {\n\t... innerActorFields\n}\nfragment flattenedRepositoryOwnerFields on RepositoryOwner {\n\t... innerRepositoryOwnerFields\n}\nfragment innerActorFields on Actor {\n\tid\n\tlogin\n\t... on User {\n\t\trepositories {\n\t\t\t... repositoriesFields\n\t\t}\n\t}\n}\nfragment innerRepositoryOwnerFields on RepositoryOwner {\n\tcontributionCount\n}\nfragment repositoriesFields on Repository {\n\tid\n\tname\n}\n"
+const queryWithFlatten_Operation = "\nquery queryWithFlatten ($ids: [ID!]!) {\n\t... queryFragment\n}\nfragment queryFragment on Query {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... flattenedUserFields\n\t\t... on Organization {\n\t\t\ttopContributor {\n\t\t\t\t__typename\n\t\t\t\t... actorFields\n\t\t\t}\n\t\t}\n\t}\n}\nfragment flattenedUserFields on User {\n\t... flattenedRepositoryOwnerFields\n}\nfragment flattenedRepositoryOwnerFields on RepositoryOwner {\n\t... innerRepositoryOwnerFields\n}\nfragment innerRepositoryOwnerFields on RepositoryOwner {\n\tcontributionCount\n}\nfragment actorFields on Actor {\n\t... innerActorFields\n}\nfragment innerActorFields on Actor {\n\tid\n\tlogin\n\t... on User {\n\t\trepositories {\n\t\t\t... repositoriesFields\n\t\t}\n\t}\n}\nfragment repositoriesFields on Repository {\n\tid\n\tname\n}\n"
 
 // queryWithFlattenPartialDataError contains partial data returned by queryWithFlatten.
 type queryWithFlattenPartialDataError struct {

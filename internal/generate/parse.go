@@ -5,6 +5,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"sort"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -14,20 +15,15 @@ import (
 	"github.com/willabides/octoql/internal"
 )
 
-func getSchema(globs StringList) (*ast.Schema, []string, error) {
-	filenames, err := expandFilenames(globs)
+func getSchema(filename string) (*ast.Schema, error) {
+	text, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, nil, err
+		return nil, errorf(nil, "unreadable schema file %v: %v", filename, err)
 	}
 
-	sources := make([]*ast.Source, len(filenames))
-	for i, filename := range filenames {
-		var text []byte
-		text, err = os.ReadFile(filename)
-		if err != nil {
-			return nil, nil, errorf(nil, "unreadable schema file %v: %v", filename, err)
-		}
-		sources[i] = &ast.Source{Name: filename, Input: string(text)}
+	source := &ast.Source{
+		Name:  filename,
+		Input: string(text),
 	}
 
 	// Ideally here we'd just call gqlparser.LoadSchema. But the schema we are
@@ -35,10 +31,10 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 	// spec says it shouldn't, but introspection will return those types, and
 	// some introspection-to-SDL tools aren't smart enough to remove them.) So
 	// we inline LoadSchema and insert some checks.
-	document, graphqlError := parser.ParseSchemas(sources...)
+	document, graphqlError := parser.ParseSchema(source)
 	if graphqlError != nil {
 		// Schema doesn't even parse.
-		return nil, nil, errorf(nil, "invalid schema: %v", graphqlError)
+		return nil, errorf(nil, "invalid schema: %v", graphqlError)
 	}
 
 	// Check if we have a builtin type. (String is an arbitrary choice.)
@@ -55,31 +51,30 @@ func getSchema(globs StringList) (*ast.Schema, []string, error) {
 		var preludeAST *ast.SchemaDocument
 		preludeAST, graphqlError = parser.ParseSchema(validator.Prelude)
 		if graphqlError != nil {
-			return nil, nil, errorf(nil, "invalid prelude (probably a gqlparser bug): %v", graphqlError)
+			return nil, errorf(nil, "invalid prelude (probably a gqlparser bug): %v", graphqlError)
 		}
 		document.Merge(preludeAST)
 	}
 
 	err = addOctoqlgenDirectiveDefinition(document)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	schema, graphqlError := validator.ValidateSchemaDocument(document)
 	if graphqlError != nil {
-		return nil, nil, errorf(nil, "invalid schema: %v", graphqlError)
+		return nil, errorf(nil, "invalid schema: %v", graphqlError)
 	}
 
-	return schema, filenames, nil
+	return schema, nil
 }
 
 func getAndValidateQueries(
 	basedir string,
-	filenames StringList,
-	excludedFilenames []string,
+	filenames []string,
 	schema *ast.Schema,
 ) (*ast.QueryDocument, error) {
-	queryDoc, err := getQueries(basedir, filenames, excludedFilenames)
+	queryDoc, err := getQueries(basedir, filenames)
 	if err != nil {
 		return nil, err
 	}
@@ -119,13 +114,13 @@ func expandFilenames(globs []string) ([]string, error) {
 	for filename := range uniqFilenames {
 		filenames = append(filenames, filename)
 	}
+	sort.Strings(filenames)
 	return filenames, nil
 }
 
 func getQueries(
 	basedir string,
-	globs StringList,
-	excludedFilenames []string,
+	filenames []string,
 ) (*ast.QueryDocument, error) {
 	// We merge all the queries into a single query-document, since operations
 	// in one might reference fragments in another.
@@ -139,44 +134,7 @@ func getQueries(
 		mergedQueryDoc.Fragments = append(mergedQueryDoc.Fragments, queryDoc.Fragments...)
 	}
 
-	filenames, err := expandFilenames(globs)
-	if err != nil {
-		return nil, err
-	}
-
-	excluded := make([]inspectedPath, 0, len(excludedFilenames))
-	for _, filename := range excludedFilenames {
-		inspected, inspectErr := inspectPath("excluded query", filename)
-		if inspectErr != nil {
-			return nil, errorf(
-				nil,
-				"resolving excluded query path %q: %v",
-				filename,
-				inspectErr,
-			)
-		}
-		excluded = append(excluded, inspected)
-	}
 	for _, filename := range filenames {
-		inspected, inspectErr := inspectPath("query", filename)
-		if inspectErr != nil {
-			return nil, errorf(
-				nil,
-				"resolving query path %q: %v",
-				filename,
-				inspectErr,
-			)
-		}
-		isExcluded := false
-		for _, excludedPath := range excluded {
-			if pathsAlias(excludedPath, inspected) {
-				isExcluded = true
-				break
-			}
-		}
-		if isExcluded {
-			continue
-		}
 		text, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, errorf(nil, "unreadable query-spec file %v: %v", filename, err)
@@ -199,7 +157,7 @@ func getQueries(
 	return mergedQueryDoc, nil
 }
 
-func getQueriesFromString(text string, basedir, filename string) (*ast.QueryDocument, error) {
+func getQueriesFromString(text, basedir, filename string) (*ast.QueryDocument, error) {
 	// make path relative to the config-directory
 	relname, err := filepath.Rel(basedir, filename)
 	if err == nil {
@@ -207,7 +165,10 @@ func getQueriesFromString(text string, basedir, filename string) (*ast.QueryDocu
 	}
 
 	// Cf. gqlparser.LoadQuery
-	document, graphqlError := parser.ParseQuery(&ast.Source{Name: filename, Input: text})
+	document, graphqlError := parser.ParseQuery(&ast.Source{
+		Name:  filename,
+		Input: text,
+	})
 	if graphqlError != nil { // ParseQuery returns type *graphql.Error, yuck
 		return nil, errorf(nil, "invalid query-spec file %v: %v", filename, graphqlError)
 	}
