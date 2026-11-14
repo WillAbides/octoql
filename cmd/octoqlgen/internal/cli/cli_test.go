@@ -148,24 +148,6 @@ func TestRunSchemaDefaultsToFetch(t *testing.T) {
 	assert.Equal(t, "schema.graphql", stub.request.Path)
 }
 
-func TestAtomicOutputWriter(t *testing.T) {
-	t.Parallel()
-
-	destination := filepath.Join(t.TempDir(), "nested", "schema.graphql")
-	writer := atomicOutputWriter{}
-	err := writer.Write(destination, []byte("first"))
-	require.NoError(t, err)
-	err = writer.Write(destination, []byte("second"))
-	require.NoError(t, err)
-
-	data, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	assert.Equal(t, []byte("second"), data)
-	tempFiles, err := filepath.Glob(filepath.Join(filepath.Dir(destination), ".schema.graphql.tmp-*"))
-	require.NoError(t, err)
-	assert.Empty(t, tempFiles)
-}
-
 func TestInitCommandRun(t *testing.T) {
 	t.Parallel()
 
@@ -473,7 +455,7 @@ func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
 		context:         t.Context(),
 		loadConfig:      config.Load,
 		resolver:        resolver,
-		outputWriter:    atomicOutputWriter{},
+		outputWriter:    fileOutputWriter{},
 		stdout:          io.Discard,
 	}
 
@@ -532,7 +514,7 @@ func TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged(t *testing.T) 
 				Data:     []byte(cliSchema),
 			},
 		},
-		outputWriter: atomicOutputWriter{},
+		outputWriter: fileOutputWriter{},
 		stdout:       &stdout,
 	}
 

@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -110,11 +109,7 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 		return data, nil
 	}
 
-	err = publish(
-		request.Path,
-		data,
-		request.SHA256,
-	)
+	err = WriteFile(request.Path, data)
 	if err != nil {
 		return nil, err
 	}
@@ -125,25 +120,44 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	return data, nil
 }
 
-func publishDirectiveFile(schemaPath string) error {
-	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
-	wanted := []byte(internal.DirectiveFileContents)
-
-	existing, err := os.ReadFile(path)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		return publish(path, wanted, "")
-	case err != nil:
-		return fmt.Errorf("reading directive file %q: %w", path, err)
+// WriteFile creates destination's parent directory if needed and writes data.
+func WriteFile(destination string, data []byte) error {
+	directory := filepath.Dir(destination)
+	err := os.MkdirAll(directory, 0o755)
+	if err != nil {
+		return fmt.Errorf("creating directory %q: %w", directory, err)
 	}
-	if bytes.Equal(existing, wanted) {
+	err = os.WriteFile(destination, data, 0o644)
+	if err != nil {
+		return fmt.Errorf("writing file %q: %w", destination, err)
+	}
+	return nil
+}
+
+// WriteDirectiveFile writes octoqlgen's companion directive declaration beside
+// schemaPath using write.
+func WriteDirectiveFile(write func(string, []byte) error, schemaPath string) error {
+	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
+	err := write(path, []byte(internal.DirectiveFileContents))
+	if err != nil {
+		return fmt.Errorf("writing directive file %q: %w", path, err)
+	}
+	return nil
+}
+
+func publishDirectiveFile(schemaPath string) error {
+	return WriteDirectiveFile(writeIfChanged, schemaPath)
+}
+
+func writeIfChanged(path string, wanted []byte) error {
+	existing, err := os.ReadFile(path)
+	if err == nil && bytes.Equal(existing, wanted) {
 		return nil
 	}
-	err = os.Remove(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("replacing directive file %q: %w", path, err)
+		return fmt.Errorf("reading existing file %q: %w", path, err)
 	}
-	return publish(path, wanted, "")
+	return WriteFile(path, wanted)
 }
 
 type dependencies struct {
@@ -207,59 +221,4 @@ func validateSDL(data []byte) error {
 
 func isRemote(source config.Source) bool {
 	return source.Repository != "" || source.Path != "" || source.Revision != ""
-}
-
-func publish(destination string, data []byte, expectedSHA256 string) (err error) {
-	directory := filepath.Dir(destination)
-	err = os.MkdirAll(directory, 0o755)
-	if err != nil {
-		return fmt.Errorf("creating schema directory %q: %w", directory, err)
-	}
-
-	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary schema file: %w", err)
-	}
-	isClosed := false
-	defer func() {
-		if !isClosed {
-			err = errors.Join(err, temp.Close())
-		}
-		err = errors.Join(err, os.Remove(temp.Name()))
-	}()
-
-	_, err = io.Copy(temp, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("writing temporary schema file: %w", err)
-	}
-	err = temp.Sync()
-	if err != nil {
-		return fmt.Errorf("syncing temporary schema file: %w", err)
-	}
-	err = temp.Close()
-	isClosed = true
-	if err != nil {
-		return fmt.Errorf("closing temporary schema file: %w", err)
-	}
-
-	err = os.Link(temp.Name(), destination)
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, fs.ErrExist) {
-		return fmt.Errorf("publishing schema file %q: %w", destination, err)
-	}
-
-	winner, readErr := os.ReadFile(destination)
-	if readErr != nil {
-		return fmt.Errorf("reading concurrently materialized schema file %q: %w", destination, readErr)
-	}
-	checksumErr := verifyChecksum(winner, expectedSHA256)
-	if checksumErr != nil {
-		return checksumErr
-	}
-	if !bytes.Equal(winner, data) {
-		return errors.New("concurrently materialized schema has different bytes")
-	}
-	return nil
 }

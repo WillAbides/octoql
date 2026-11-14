@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -15,7 +14,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -49,7 +47,6 @@ func TestMaterializerExistingFile(t *testing.T) {
 	companion, err := os.ReadFile(companionPath)
 	require.NoError(t, err)
 	assert.Equal(t, internal.DirectiveFileContents, string(companion))
-	assert.Empty(t, temporaryFiles(t, companionPath))
 }
 
 func TestMaterializerExistingFileMismatch(t *testing.T) {
@@ -115,7 +112,6 @@ func TestMaterializerGitHubFetch(t *testing.T) {
 	written, err := os.ReadFile(destination)
 	require.NoError(t, err)
 	assert.Equal(t, exactSchema, written)
-	assert.Empty(t, temporaryFiles(t, destination))
 }
 
 func TestFetchURLSanitizesErrors(t *testing.T) {
@@ -305,7 +301,6 @@ func TestMaterializerDownloadFailures(t *testing.T) {
 			assert.Contains(t, err.Error(), test.expectedError)
 			_, statErr := os.Stat(destination)
 			require.ErrorIs(t, statErr, fs.ErrNotExist)
-			assert.Empty(t, temporaryFiles(t, destination))
 		})
 	}
 }
@@ -484,127 +479,8 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 	}
 }
 
-func TestMaterializerConcurrent(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		_, _ = response.Write(exactSchema)
-	}))
-	t.Cleanup(server.Close)
-
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	const workers = 20
-	errorsByWorker := make([]error, workers)
-	results := make([][]byte, workers)
-	var waitGroup sync.WaitGroup
-	for worker := range workers {
-		waitGroup.Go(func() {
-			materializer := testGitHubMaterializer(server.Client())
-			materializer.GitHubAPIBaseURL = func(string) string {
-				return server.URL
-			}
-			results[worker], errorsByWorker[worker] = materializer.Materialize(t.Context(), &Request{
-				Path:   destination,
-				SHA256: checksum(exactSchema),
-				Source: config.Source{
-					Repository: "octo-org/octo-repo",
-					Path:       "schema.graphql",
-					Revision:   schemaRevision,
-				},
-			})
-		})
-	}
-	waitGroup.Wait()
-
-	for worker := range workers {
-		require.NoError(t, errorsByWorker[worker])
-		assert.Equal(t, exactSchema, results[worker])
-	}
-	written, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	assert.Equal(t, exactSchema, written)
-	assert.Empty(t, temporaryFiles(t, destination))
-}
-
-func TestMaterializerConcurrentDifferentBytes(t *testing.T) {
-	t.Parallel()
-
-	firstSchema := []byte("type Query { first: String }\n")
-	secondSchema := []byte("type Query { second: String }\n")
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		schemaData := firstSchema
-		if strings.Contains(request.URL.Path, "/second/") {
-			schemaData = secondSchema
-		}
-		_, _ = response.Write(schemaData)
-	}))
-	t.Cleanup(server.Close)
-
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	requests := []Request{
-		{
-			Path:   destination,
-			SHA256: checksum(firstSchema),
-			Source: config.Source{
-				Repository: "octo-org/first",
-				Path:       "schema.graphql",
-				Revision:   schemaRevision,
-			},
-		},
-		{
-			Path:   destination,
-			SHA256: checksum(secondSchema),
-			Source: config.Source{
-				Repository: "octo-org/second",
-				Path:       "schema.graphql",
-				Revision:   schemaRevision,
-			},
-		},
-	}
-	results := make([][]byte, len(requests))
-	resultErrors := make([]error, len(requests))
-	var waitGroup sync.WaitGroup
-	for index, request := range requests {
-		waitGroup.Go(func() {
-			materializer := testGitHubMaterializer(server.Client())
-			materializer.GitHubAPIBaseURL = func(string) string {
-				return server.URL
-			}
-			results[index], resultErrors[index] = materializer.Materialize(t.Context(), &request)
-		})
-	}
-	waitGroup.Wait()
-
-	successCount := 0
-	expectedResults := [][]byte{firstSchema, secondSchema}
-	for index := range requests {
-		if resultErrors[index] == nil {
-			successCount++
-			assert.Equal(t, expectedResults[index], results[index])
-			continue
-		}
-		assert.Contains(t, resultErrors[index].Error(), "checksum mismatch")
-	}
-	assert.Equal(t, 1, successCount)
-
-	written, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	isExpectedWinner := bytes.Equal(written, firstSchema) || bytes.Equal(written, secondSchema)
-	assert.True(t, isExpectedWinner)
-	assert.Empty(t, temporaryFiles(t, destination))
-}
-
 func checksum(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
-}
-
-func temporaryFiles(t *testing.T, destination string) []string {
-	files, err := filepath.Glob(filepath.Join(
-		filepath.Dir(destination),
-		"."+filepath.Base(destination)+".tmp-*",
-	))
-	require.NoError(t, err)
-	return files
 }
 
 func environmentLookup(environment map[string]string) func(string) (string, bool) {

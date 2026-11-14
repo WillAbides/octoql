@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/internal"
 	"github.com/willabides/octoql/internal/generate"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
@@ -132,17 +132,8 @@ func (cmd *initCommand) Run() (err error) {
 		}
 	}()
 	gitignorePath := filepath.Join(configDir, ".octoql", ".gitignore")
-	err = os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
-	if err != nil {
-		return fmt.Errorf("creating schema directory: %w", err)
-	}
-	gitignore, err := os.OpenFile(gitignorePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err == nil {
-		_, err = gitignore.WriteString("*\n!.gitignore\n")
-		closeErr := gitignore.Close()
-		err = errors.Join(err, closeErr)
-	}
-	if err != nil && !errors.Is(err, os.ErrExist) {
+	err = writeFileExclusive(gitignorePath, []byte("*\n!.gitignore\n"))
+	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("creating schema gitignore: %w", err)
 	}
 	err = createFileNoReplace(cmd.ConfigPath, configBytes)
@@ -206,43 +197,27 @@ func minimalConfigBytes(model *config.Config) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func createFileNoReplace(destination string, data []byte) (err error) {
-	directory := filepath.Dir(destination)
-	err = os.MkdirAll(directory, 0o755)
-	if err != nil {
-		return fmt.Errorf("creating config directory: %w", err)
-	}
-	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary config file: %w", err)
-	}
-	defer func() {
-		err = errors.Join(err, os.Remove(temp.Name()))
-	}()
-	_, err = temp.Write(data)
-	if err != nil {
-		return fmt.Errorf("writing temporary config file: %w", err)
-	}
-	err = temp.Chmod(0o644)
-	if err != nil {
-		return fmt.Errorf("setting config permissions: %w", err)
-	}
-	err = temp.Sync()
-	if err != nil {
-		return fmt.Errorf("syncing temporary config file: %w", err)
-	}
-	err = temp.Close()
-	if err != nil {
-		return fmt.Errorf("closing temporary config file: %w", err)
-	}
-	err = os.Link(temp.Name(), destination)
-	if errors.Is(err, os.ErrExist) {
+func createFileNoReplace(destination string, data []byte) error {
+	err := writeFileExclusive(destination, data)
+	if errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("refusing to overwrite existing config %q", destination)
 	}
+	return err
+}
+
+func writeFileExclusive(destination string, data []byte) error {
+	directory := filepath.Dir(destination)
+	err := os.MkdirAll(directory, 0o755)
 	if err != nil {
-		return fmt.Errorf("publishing config file: %w", err)
+		return fmt.Errorf("creating directory %q: %w", directory, err)
 	}
-	return nil
+	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return err
+	}
+	_, writeErr := file.Write(data)
+	closeErr := file.Close()
+	return errors.Join(writeErr, closeErr)
 }
 
 type schemaUpdateCommand struct {
@@ -313,7 +288,7 @@ func (cmd *schemaUpdateCommand) Run() error {
 				return fmt.Errorf("validating published config: %w", loadErr)
 			}
 		}
-		err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+		err = schema.WriteDirectiveFile(cmd.outputWriter.Write, loaded.SchemaPath())
 		if err != nil {
 			return err
 		}
@@ -344,7 +319,7 @@ func (cmd *schemaUpdateCommand) Run() error {
 	if err != nil {
 		return fmt.Errorf("publishing updated schema: %w", err)
 	}
-	err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+	err = schema.WriteDirectiveFile(cmd.outputWriter.Write, loaded.SchemaPath())
 	if err != nil {
 		return err
 	}
@@ -445,7 +420,7 @@ func (cmd *schemaFetchCommand) Run() error {
 		if err != nil {
 			return fmt.Errorf("writing schema output %q: %w", cmd.Output, err)
 		}
-		return writeDirectiveFile(cmd.outputWriter, cmd.Output)
+		return schema.WriteDirectiveFile(cmd.outputWriter.Write, cmd.Output)
 	}
 
 	_, err = cmd.stdout.Write(data)
@@ -473,15 +448,6 @@ type materializer interface {
 
 type outputWriter interface {
 	Write(string, []byte) error
-}
-
-func writeDirectiveFile(writer outputWriter, schemaPath string) error {
-	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
-	err := writer.Write(path, []byte(internal.DirectiveFileContents))
-	if err != nil {
-		return fmt.Errorf("writing directive file %q: %w", path, err)
-	}
-	return nil
 }
 
 type Dependencies struct {
@@ -617,62 +583,12 @@ func (d *Dependencies) setDefaults() {
 		d.RemoteResolver = resolver
 	}
 	if d.OutputWriter == nil {
-		d.OutputWriter = atomicOutputWriter{}
+		d.OutputWriter = fileOutputWriter{}
 	}
 }
 
-type atomicOutputWriter struct{}
+type fileOutputWriter struct{}
 
-func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
-	directory := filepath.Dir(destination)
-	err = os.MkdirAll(directory, 0o755)
-	if err != nil {
-		return fmt.Errorf("creating output directory: %w", err)
-	}
-	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary output file: %w", err)
-	}
-	isClosed := false
-	shouldRemove := true
-	defer func() {
-		if !isClosed {
-			err = errors.Join(err, temp.Close())
-		}
-		if shouldRemove {
-			err = errors.Join(err, os.Remove(temp.Name()))
-		}
-	}()
-
-	_, err = io.Copy(temp, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("writing temporary output file: %w", err)
-	}
-	mode := os.FileMode(0o644)
-	info, statErr := os.Stat(destination)
-	if statErr == nil {
-		mode = info.Mode()
-	}
-	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
-		return fmt.Errorf("reading output permissions: %w", statErr)
-	}
-	err = temp.Chmod(mode)
-	if err != nil {
-		return fmt.Errorf("setting temporary output permissions: %w", err)
-	}
-	err = temp.Sync()
-	if err != nil {
-		return fmt.Errorf("syncing temporary output file: %w", err)
-	}
-	err = temp.Close()
-	isClosed = true
-	if err != nil {
-		return fmt.Errorf("closing temporary output file: %w", err)
-	}
-	err = os.Rename(temp.Name(), destination)
-	if err != nil {
-		return fmt.Errorf("publishing output file: %w", err)
-	}
-	shouldRemove = false
-	return nil
+func (fileOutputWriter) Write(destination string, data []byte) error {
+	return schema.WriteFile(destination, data)
 }
