@@ -5,14 +5,12 @@ package config
 //go:generate go run ../../../../internal/configdocgen --schema ../../../../octoqlgen.schema.yaml --output ../../../../docs/configuration.md
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
-	yamlv3 "gopkg.in/yaml.v3"
+	yamlv4 "go.yaml.in/yaml/v4"
 	"sigs.k8s.io/yaml"
 )
 
@@ -56,25 +54,15 @@ func Parse(content []byte) (*Config, error) {
 }
 
 func requireSingleYAMLDocument(content []byte) error {
-	decoder := yamlv3.NewDecoder(bytes.NewReader(content))
-	var document yamlv3.Node
-	err := decoder.Decode(&document)
-	if errors.Is(err, io.EOF) {
-		return nil
-	}
+	var documents []yamlv4.Node
+	err := yamlv4.Load(content, &documents, yamlv4.WithAllDocuments())
 	if err != nil {
 		return err
 	}
-
-	var extra yamlv3.Node
-	err = decoder.Decode(&extra)
-	if errors.Is(err, io.EOF) {
-		return nil
+	if len(documents) > 1 {
+		return errors.New("multiple YAML documents are not allowed")
 	}
-	if err != nil {
-		return err
-	}
-	return errors.New("multiple YAML documents are not allowed")
+	return nil
 }
 
 func decodeConfig(content []byte) (*Config, error) {

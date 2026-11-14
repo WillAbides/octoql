@@ -17,9 +17,9 @@ import (
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
 	"github.com/willabides/octoql/internal/generate"
+	yamlv4 "go.yaml.in/yaml/v4"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
-	yamlv3 "gopkg.in/yaml.v3"
 )
 
 const (
@@ -90,16 +90,8 @@ func (cmd *initCommand) Run() (errOut error) {
 	if err != nil {
 		return fmt.Errorf("resolving GitHub Docs schema: %w", err)
 	}
-	model := config.Config{
-		Schema: config.Schema{
-			Path:   ".octoql/schema.graphql",
-			Sha256: new(result.SHA256),
-			Source: new(githubDocsSource(cmd.SchemaVersion, result.Revision)),
-		},
-		Operations: []string{"graphql/**/*.graphql"},
-		Generated:  "internal/githubapi/generated.go",
-	}
-	configBytes, err := minimalConfigBytes(&model)
+	pinnedSource := githubDocsSource(cmd.SchemaVersion, result.Revision)
+	configBytes, err := minimalConfigBytes(pinnedSource, result.SHA256)
 	if err != nil {
 		return fmt.Errorf("encoding generated config: %w", err)
 	}
@@ -109,7 +101,7 @@ func (cmd *initCommand) Run() (errOut error) {
 		return fmt.Errorf("validating generated config: %w", err)
 	}
 	configDir := filepath.Dir(cmd.ConfigPath)
-	schemaPath := filepath.Join(configDir, model.Schema.Path)
+	schemaPath := filepath.Join(configDir, defaultInitSchemaPath)
 	schemaCreated := false
 	existingSchema, err := os.ReadFile(schemaPath)
 	if err == nil && !bytes.Equal(existingSchema, result.Data) {
@@ -145,56 +137,41 @@ func (cmd *initCommand) Run() (errOut error) {
 	return err
 }
 
-func minimalConfigBytes(model *config.Config) ([]byte, error) {
-	document := yamlv3.Node{
-		Kind: yamlv3.DocumentNode,
-		Content: []*yamlv3.Node{{
-			Kind: yamlv3.MappingNode,
-			Content: []*yamlv3.Node{
-				{Kind: yamlv3.ScalarNode, Value: "schema"},
-				{
-					Kind: yamlv3.MappingNode,
-					Content: []*yamlv3.Node{
-						{Kind: yamlv3.ScalarNode, Value: "path"},
-						{Kind: yamlv3.ScalarNode, Value: model.Schema.Path},
-						{Kind: yamlv3.ScalarNode, Value: "sha256"},
-						{Kind: yamlv3.ScalarNode, Value: model.Schema.SHA256Value()},
-						{Kind: yamlv3.ScalarNode, Value: "source"},
-						{
-							Kind: yamlv3.MappingNode,
-							Content: []*yamlv3.Node{
-								{Kind: yamlv3.ScalarNode, Value: "repository"},
-								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Repository},
-								{Kind: yamlv3.ScalarNode, Value: "path"},
-								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Path},
-								{Kind: yamlv3.ScalarNode, Value: "revision"},
-								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Revision},
-							},
-						},
-					},
-				},
-				{Kind: yamlv3.ScalarNode, Value: "operations"},
-				{
-					Kind: yamlv3.SequenceNode,
-					Content: []*yamlv3.Node{
-						{Kind: yamlv3.ScalarNode, Value: model.Operations[0]},
-					},
-				},
-				{Kind: yamlv3.ScalarNode, Value: "generated"},
-				{Kind: yamlv3.ScalarNode, Value: model.Generated},
+const defaultInitSchemaPath = ".octoql/schema.graphql"
+
+type minimalConfig struct {
+	Schema     minimalSchema `yaml:"schema"`
+	Operations []string      `yaml:"operations"`
+	Generated  string        `yaml:"generated"`
+}
+
+type minimalSchema struct {
+	Path   string        `yaml:"path"`
+	SHA256 string        `yaml:"sha256"`
+	Source minimalSource `yaml:"source"`
+}
+
+type minimalSource struct {
+	Repository string `yaml:"repository"`
+	Path       string `yaml:"path"`
+	Revision   string `yaml:"revision"`
+}
+
+func minimalConfigBytes(source config.Source, sha256Sum string) ([]byte, error) {
+	doc := minimalConfig{
+		Schema: minimalSchema{
+			Path:   defaultInitSchemaPath,
+			SHA256: sha256Sum,
+			Source: minimalSource{
+				Repository: source.Repository,
+				Path:       source.Path,
+				Revision:   source.Revision,
 			},
-		}},
+		},
+		Operations: []string{"graphql/**/*.graphql"},
+		Generated:  "internal/githubapi/generated.go",
 	}
-	var buffer bytes.Buffer
-	encoder := yamlv3.NewEncoder(&buffer)
-	encoder.SetIndent(2)
-	err := encoder.Encode(&document)
-	closeErr := encoder.Close()
-	err = errors.Join(err, closeErr)
-	if err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
+	return yamlv4.Dump(doc, yamlv4.WithCompactSeqIndent(false), yamlv4.WithLineWidth(-1))
 }
 
 func createFileNoReplace(destination string, data []byte) error {

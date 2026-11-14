@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // render converts a JSON Schema document into the Markdown configuration
@@ -12,7 +12,7 @@ import (
 // runs produce identical output.
 func render(schema []byte) ([]byte, error) {
 	var document yaml.Node
-	err := yaml.Unmarshal(schema, &document)
+	err := yaml.Load(schema, &document)
 	if err != nil {
 		return nil, fmt.Errorf("parsing schema: %w", err)
 	}
