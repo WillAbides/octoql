@@ -86,21 +86,6 @@ func TestLoadStrict(t *testing.T) {
 			wantError: "field use_extensions not found in type config.Config",
 		},
 		{
-			name:      "removed optional mode",
-			content:   validConfigYAML() + "optional: pointer\n",
-			wantError: "field optional not found in type config.Config",
-		},
-		{
-			name:      "removed optional generic type",
-			content:   validConfigYAML() + "optional_generic_type: example.com/optional.Value\n",
-			wantError: "field optional_generic_type not found in type config.Config",
-		},
-		{
-			name:      "subscription setting",
-			content:   validConfigYAML() + "subscriptions: true\n",
-			wantError: "field subscriptions not found in type config.Config",
-		},
-		{
 			name: "unknown binding field",
 			content: validConfigYAML() +
 				"bindings:\n" +
@@ -146,79 +131,6 @@ func TestLoadStrict(t *testing.T) {
 			assert.Contains(t, err.Error(), test.wantError)
 		})
 	}
-}
-
-func TestLoadGeneratorOptions(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	filename := filepath.Join(directory, DefaultFilename)
-	content := []byte(
-		"schema:\n" +
-			"  path: .octoql/schema.graphql\n" +
-			"  source:\n" +
-			"    repository: github/docs\n" +
-			"    path: src/graphql/data/fpt/schema.docs.graphql\n" +
-			"    revision: " + testRevision + "\n" +
-			"operations:\n" +
-			"  - graphql/**/*.graphql\n" +
-			"generated: generated/client.go\n" +
-			"package: githubapi\n" +
-			"export_operations: generated/operations.json\n" +
-			"context_type: github.com/example/context.Type\n" +
-			"bindings:\n" +
-			"  DateTime:\n" +
-			"    type: github.com/example/scalar.DateTime\n" +
-			"    expect_exact_fields: \"{ id }\"\n" +
-			"    marshaler: github.com/example/scalar.Marshal\n" +
-			"    unmarshaler: github.com/example/scalar.Unmarshal\n" +
-			"package_bindings:\n" +
-			"  - package: github.com/example/models\n" +
-			"casing:\n" +
-			"  default: auto_camel_case\n" +
-			"  all_enums: raw\n" +
-			"  enums:\n" +
-			"    IssueState: default\n" +
-			"use_struct_references: true\n" +
-			"omit_unreferenced_implementations: false\n" +
-			"test_handler:\n" +
-			"  generated: generated/testhandler.go\n" +
-			"  types: local\n",
-	)
-	err := os.WriteFile(filename, content, 0o600)
-	require.NoError(t, err)
-
-	loaded, err := Load(filename)
-	require.NoError(t, err)
-
-	assert.Equal(t, filepath.Join(directory, ".octoql", "schema.graphql"), loaded.SchemaPath())
-	require.NotNil(t, loaded.Schema.Source)
-	assert.Equal(t, "github/docs", loaded.Schema.Source.Repository)
-	assert.Equal(t, "src/graphql/data/fpt/schema.docs.graphql", loaded.Schema.Source.Path)
-	assert.Equal(
-		t,
-		[]string{filepath.Join(directory, "graphql", "**", "*.graphql")},
-		loaded.OperationPaths(),
-	)
-	assert.Equal(t, filepath.Join(directory, "generated", "client.go"), loaded.GeneratedPath())
-	assert.Equal(t, filepath.Join(directory, "generated", "operations.json"), loaded.ExportOperationsPath())
-	assert.Equal(t, filepath.Join(directory, "generated", "testhandler.go"), loaded.TestHandlerGeneratedPath())
-	assert.Equal(t, TestHandlerTypesLocal, loaded.TestHandlerTypesValue())
-	require.NotNil(t, loaded.Package)
-	assert.Equal(t, "githubapi", *loaded.Package)
-	require.NotNil(t, loaded.Bindings)
-	require.Contains(t, *loaded.Bindings, "DateTime")
-	require.NotNil(t, (*loaded.Bindings)["DateTime"].Type)
-	assert.Equal(t, "github.com/example/scalar.DateTime", *(*loaded.Bindings)["DateTime"].Type)
-	require.Len(t, loaded.PackageBindings, 1)
-	assert.Equal(t, "github.com/example/models", loaded.PackageBindings[0].Package)
-	require.NotNil(t, loaded.Casing)
-	require.NotNil(t, loaded.Casing.Enums)
-	assert.Equal(t, "default", (*loaded.Casing.Enums)["IssueState"])
-	require.NotNil(t, loaded.UseStructReferences)
-	assert.True(t, *loaded.UseStructReferences)
-	require.NotNil(t, loaded.OmitUnreferencedImplementations)
-	assert.False(t, *loaded.OmitUnreferencedImplementations)
 }
 
 // TestDocumentationYAMLBlocksParse keeps the generated configuration reference

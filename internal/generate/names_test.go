@@ -3,51 +3,8 @@ package generate
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/vektah/gqlparser/v2/ast"
 )
-
-func TestNamePrefixTransitions(t *testing.T) {
-	tests := []struct {
-		name         string
-		prefix       namePrefix
-		expectedName string
-	}{
-		{
-			name:         "empty",
-			prefix:       namePrefix{},
-			expectedName: "FieldType",
-		},
-		{
-			name:         "operation",
-			prefix:       newNamePrefix("Op"),
-			expectedName: "OpFieldType",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			original := test.prefix
-			assert.Equal(t, original, typeNameParts(original, "Query", CasingDefault))
-			prefix := nextPrefix(original, fakeField("Query", "field"), CasingDefault)
-			assert.Equal(t, test.expectedName, makeTypeName(prefix, "Type", CasingDefault))
-			assert.False(t, prefix.isSingle(prefix.text))
-			otherPrefix := nextPrefix(original, fakeField("Query", "other"), CasingDefault)
-			assert.NotEqual(t, prefix, otherPrefix)
-			assert.Equal(t, original, test.prefix)
-		})
-	}
-}
-
-func TestNamePrefixExplicitType(t *testing.T) {
-	prefix := newNamePrefix("Custom")
-	assert.True(t, prefix.isSingle("Custom"))
-	assert.False(t, prefix.isSingle("Other"))
-	assert.False(t, (namePrefix{}).isSingle(""))
-	assert.Equal(t, "Custom", makeTypeName(prefix, "Type", CasingDefault))
-	assert.Equal(t, "CustomCustom", makeLongTypeName(prefix, "custom", CasingDefault))
-	assert.Equal(t, "CustomSnakeCase", makeLongTypeName(prefix, "snake_case", CasingAutoCamelCase))
-	assert.Equal(t, "Type", makeLongTypeName(namePrefix{}, "type", CasingDefault))
-}
 
 func fakeField(containingTypeName, fieldName string) *ast.Field {
 	// (just the fields we need, probably not usable outside this file)

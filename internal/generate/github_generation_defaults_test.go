@@ -12,83 +12,8 @@ import (
 
 const githubGenerationDefaultsDir = "testdata/github-generation-defaults"
 
-func TestGitHubScalarDefaultsAndOverrides(t *testing.T) {
+func TestGitHubScalarBindingOverrides(t *testing.T) {
 	t.Parallel()
-
-	schema := `
-scalar Base64String
-scalar BigInt
-scalar CustomPropertyValue
-scalar Date
-scalar DateTime
-scalar GitObjectID
-scalar GitRefname
-scalar GitSSHRemote
-scalar GitTimestamp
-scalar HTML
-scalar PreciseDateTime
-scalar URI
-scalar X509Certificate
-
-type Query {
-  base64String: Base64String!
-  bigInt: BigInt!
-  customPropertyValue: CustomPropertyValue!
-  date: Date!
-  dateTime: DateTime!
-  gitObjectID: GitObjectID!
-  gitRefname: GitRefname!
-  gitSSHRemote: GitSSHRemote!
-  gitTimestamp: GitTimestamp!
-  html: HTML!
-  preciseDateTime: PreciseDateTime!
-  uri: URI!
-  x509Certificate: X509Certificate!
-}
-`
-	operation := `
-query AllScalars {
-  base64String
-  bigInt
-  customPropertyValue
-  date
-  dateTime
-  gitObjectID
-  gitRefname
-  gitSSHRemote
-  gitTimestamp
-  html
-  preciseDateTime
-  uri
-  x509Certificate
-}
-`
-	defaultsSource, err := generateTestSource(t, &testGenerateSpec{
-		schema:      schema,
-		operations:  operation,
-		packageName: "scalar",
-	})
-	require.NoError(t, err)
-
-	for _, want := range []string{
-		`"encoding/json"`,
-		`"time"`,
-		"Base64String string",
-		"BigInt string",
-		"CustomPropertyValue json.RawMessage",
-		"Date string",
-		"DateTime time.Time",
-		"GitObjectID string",
-		"GitRefname string",
-		"GitSSHRemote string",
-		"GitTimestamp time.Time",
-		"Html string",
-		"PreciseDateTime time.Time",
-		"Uri string",
-		"X509Certificate string",
-	} {
-		assertDeclares(t, defaultsSource, want)
-	}
 
 	overrideTests := []struct {
 		binding    *TypeBinding
@@ -118,9 +43,7 @@ query AllScalars {
 		},
 	}
 
-	filesToBuild := map[string][]byte{
-		"defaults": []byte(defaultsSource),
-	}
+	filesToBuild := make(map[string][]byte, len(overrideTests))
 	for _, test := range overrideTests {
 		t.Run(test.name, func(t *testing.T) {
 			source, genErr := generateTestSource(t, &testGenerateSpec{

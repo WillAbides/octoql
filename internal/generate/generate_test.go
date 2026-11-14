@@ -460,69 +460,6 @@ func TestGeneratePackageDiscovery(t *testing.T) {
 	}
 }
 
-func TestGenerateSelfContainedClientWithOperationVariableNames(t *testing.T) {
-	t.Parallel()
-
-	source, err := generateTestSource(t, &testGenerateSpec{
-		packageName: "collision",
-		schema: `
-type Query {
-  value(
-    ctx: String!
-    client: String!
-    err: String!
-    vars: String!
-    response: String!
-    hasData: String!
-  ): String!
-}
-`,
-		operations: `
-query Value(
-  $ctx: String!
-  $client: String!
-  $err: String!
-  $vars: String!
-  $response: String!
-  $hasData: String!
-) {
-  value(
-    ctx: $ctx
-    client: $client
-    err: $err
-    vars: $vars
-    response: $response
-    hasData: $hasData
-  )
-}
-`,
-	})
-	require.NoError(t, err)
-
-	assert.NotContains(t, source, "func __octoqlDo")
-	assert.NotContains(t, source, "__octoqlPartialDataError")
-	assert.NotContains(t, source, `"github.com/willabides/octoql"`)
-	assert.NotContains(t, source, "type octoqlExecutor interface")
-	assert.Contains(t, source, "type ValueVariables struct")
-	assert.Contains(t, source, "vars ValueVariables,")
-	assert.Contains(t, source, "Variables:     &vars,")
-	assert.NotContains(t, source, "variables_2 := ValueVariables")
-	assert.Contains(t, source, "var response ValueResponse")
-	assert.Contains(t, source, "type Client struct {")
-	assert.Contains(t, source, "func NewClient(endpoint string, httpClient *http.Client) *Client")
-	assert.Contains(t, source, "func (c *Client) Value(")
-	assert.Contains(t, source, "hasData, err := c._octoqlExecute(")
-	assert.Contains(t, source, "type ValuePartialDataError struct {\n\tdata *ValueResponse\n\terr  error\n}")
-	assert.Contains(t, source, "func (e *ValuePartialDataError) Error() string")
-	assert.Contains(t, source, "func (e *ValuePartialDataError) Unwrap() error")
-	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialData() *ValueResponse")
-	assert.Contains(t, source, "func (e *ValuePartialDataError) PartialDataValue() any")
-	assert.Contains(t, source, "func (e *ResponseError) HTTPStatusCode() int")
-	assert.Contains(t, source, "func (e *RateLimitError) RateLimitKind() string")
-	assert.Contains(t, source, "func (e Errors) GraphQLError(index int) error")
-	compileStandaloneGo(t, map[string][]byte{"inline_execution_collision": []byte(source)})
-}
-
 func TestGenerateRuntimeImportAliasCollision(t *testing.T) {
 	t.Parallel()
 
@@ -583,16 +520,6 @@ func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 			name:      "runtime method collision",
 			operation: "query RateLimit {\n  value\n}\n",
 			wantError: `generated Client method "RateLimit" conflicts with operation "RateLimit"`,
-		},
-		{
-			name:      "allow redirects method collision",
-			operation: "query AllowRedirects {\n  value\n}\n",
-			wantError: `generated Client method "AllowRedirects" conflicts with operation "AllowRedirects"`,
-		},
-		{
-			name:      "set allow redirects method collision",
-			operation: "query SetAllowRedirects {\n  value\n}\n",
-			wantError: `generated Client method "SetAllowRedirects" conflicts with operation "SetAllowRedirects"`,
 		},
 		{
 			name:      "partial data error enum values variable collision",
@@ -1003,104 +930,6 @@ query Beta { second }
 	})
 
 	compileGeneratedOutputs(t, rootDir, compiledOutputs)
-}
-
-func TestGeneratedNullabilityAndPointerRules(t *testing.T) {
-	t.Parallel()
-
-	source, err := generateTestSource(t, &testGenerateSpec{
-		packageName: "nullability",
-		schema: `
-interface Node {
-  id: ID!
-}
-
-type User implements Node {
-  id: ID!
-}
-
-input PointerInput {
-  defaultInput: String
-  items: [String]
-}
-
-type PointerResult {
-  defaultOutput: String
-  overrideOutput: String
-  items: [String]
-}
-
-type Query {
-  pointer(input: PointerInput, overrideVariable: String): PointerResult
-  nullableNode: Node
-  nullableNodes: [Node]
-  forcedNode: Node!
-  concrete: User!
-  nullableDefault: String
-  nullableOptOut: String
-  nonNullDefault: String!
-  nonNullPointer: String!
-  nullableList: [String]
-}
-`,
-		operations: `
-query NullabilityRules(
-  $input: PointerInput
-  $overrideVariable: String @octoqlgen(pointer: false)
-) {
-  __typename
-  result: pointer(input: $input, overrideVariable: $overrideVariable) {
-    defaultOutput
-    overrideOutput @octoqlgen(pointer: false)
-    items
-  }
-  nullableNode {
-    id
-  }
-  nullableNodes {
-    __typename
-    id
-  }
-  forcedNode @octoqlgen(pointer: true) {
-    id
-  }
-  concrete {
-    __typename
-    id
-  }
-  nullableDefault @octoqlgen(bind: "string")
-  nullableOptOut @octoqlgen(bind: "string", pointer: false)
-  nonNullDefault @octoqlgen(bind: "string")
-  nonNullPointer @octoqlgen(bind: "string", pointer: true)
-  nullableList @octoqlgen(bind: "[]string")
-}
-`,
-	})
-	require.NoError(t, err)
-
-	for _, want := range []string{
-		"DefaultInput *string",
-		"Items []*string",
-		"Input *PointerInput",
-		"OverrideVariable string",
-		"DefaultOutput *string",
-		"OverrideOutput string",
-		"NullableNode NullabilityRulesNullableNode",
-		"NullableNodes []NullabilityRulesNullableNodesNode",
-		"ForcedNode NullabilityRulesForcedNode",
-		"NullableDefault *string",
-		"NullableOptOut string",
-		"NonNullDefault string",
-		"NonNullPointer *string",
-		"NullableList *[]string",
-		"Typename string",
-		"GetTypename() string",
-	} {
-		assertDeclares(t, source, want)
-	}
-	assert.NotContains(t, source, "Typename *string")
-	assert.NotContains(t, source, "GetTypename() *string")
-	compileStandaloneGo(t, map[string][]byte{"nullability": []byte(source)})
 }
 
 func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {

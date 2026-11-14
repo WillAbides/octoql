@@ -1291,6 +1291,698 @@ type addStarVariables struct {
 	Input server.AddStarInput `json:"input"`
 }
 
+// directivesResponse is returned by queryWithDirectivesAndSkipInclude on success.
+type directivesResponse struct {
+	User                   *directivesUser                             `json:"user"`
+	Actor                  directivesResponseActor                     `json:"-"`
+	Actors                 []directivesResponseActorsActor             `json:"-"`
+	UsersCreatedOnDates    []directivesResponseUsersCreatedOnDatesUser `json:"usersCreatedOnDates"`
+	structDefaultsFragment `json:"-"`
+}
+
+// GetUser returns directivesResponse.User, and is useful for accessing the field via an interface.
+func (v *directivesResponse) GetUser() *directivesUser { return v.User }
+
+// GetActor returns directivesResponse.Actor, and is useful for accessing the field via an interface.
+func (v *directivesResponse) GetActor() directivesResponseActor { return v.Actor }
+
+// GetActors returns directivesResponse.Actors, and is useful for accessing the field via an interface.
+func (v *directivesResponse) GetActors() []directivesResponseActorsActor { return v.Actors }
+
+// GetUsersCreatedOnDates returns directivesResponse.UsersCreatedOnDates, and is useful for accessing the field via an interface.
+func (v *directivesResponse) GetUsersCreatedOnDates() []directivesResponseUsersCreatedOnDatesUser {
+	return v.UsersCreatedOnDates
+}
+
+// GetStructActor returns directivesResponse.StructActor, and is useful for accessing the field via an interface.
+func (v *directivesResponse) GetStructActor() *structDefaultsFragmentStructActor {
+	return v.structDefaultsFragment.StructActor
+}
+
+func (v *directivesResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*directivesResponse
+		Actor  json.RawMessage `json:"actor"`
+		Actors json.RawMessage `json:"actors"`
+		_octoqlNoUnmarshalJSON
+	}
+	firstPass.directivesResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Actor
+		src := firstPass.Actor
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
+		if len(src) != 0 && string(src) != "null" {
+			err = _octoqlUnmarshaldirectivesResponseActor(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal directivesResponse.Actor: %w", err)
+			}
+		}
+	}
+
+	{
+		dst := &v.Actors
+		raw := firstPass.Actors
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal directivesResponse.Actors: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]directivesResponseActorsActor,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = _octoqlUnmarshaldirectivesResponseActorsActor(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal directivesResponse.Actors: %w", err)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	err = json.Unmarshal(
+		b, &v.structDefaultsFragment)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type _octoqlPremarshaldirectivesResponse struct {
+	User *directivesUser `json:"user"`
+
+	Actor json.RawMessage `json:"actor"`
+
+	Actors []json.RawMessage `json:"actors"`
+
+	UsersCreatedOnDates []directivesResponseUsersCreatedOnDatesUser `json:"usersCreatedOnDates"`
+
+	StructActor *structDefaultsFragmentStructActor `json:"structActor"`
+}
+
+func (v *directivesResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v._octoqlPremarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *directivesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshaldirectivesResponse, error) {
+	var retval _octoqlPremarshaldirectivesResponse
+
+	retval.User = v.User
+	{
+
+		dst := &retval.Actor
+		src := v.Actor
+		var err error
+		*dst, err = _octoqlMarshaldirectivesResponseActor(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal directivesResponse.Actor: %w", err)
+		}
+	}
+	{
+
+		dst := &retval.Actors
+		src := v.Actors
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = _octoqlMarshaldirectivesResponseActorsActor(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal directivesResponse.Actors: %w", err)
+				}
+			}
+		}
+	}
+	retval.UsersCreatedOnDates = v.UsersCreatedOnDates
+	retval.StructActor = v.structDefaultsFragment.StructActor
+	return &retval, nil
+}
+
+// directivesResponseActor includes the requested fields of the GraphQL interface Actor.
+//
+// directivesResponseActor is implemented by the following types:
+// directivesResponseActorBot
+// directivesResponseActorOrganization
+// directivesResponseActorUser
+type directivesResponseActor interface {
+	implementsGraphQLInterfacedirectivesResponseActor()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetId returns the interface-field "id" from its implementation.
+	GetId() string
+}
+
+func (v *directivesResponseActorBot) implementsGraphQLInterfacedirectivesResponseActor()          {}
+func (v *directivesResponseActorOrganization) implementsGraphQLInterfacedirectivesResponseActor() {}
+func (v *directivesResponseActorUser) implementsGraphQLInterfacedirectivesResponseActor()         {}
+
+func _octoqlUnmarshaldirectivesResponseActor(b []byte, v *directivesResponseActor) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Bot":
+		*v = new(directivesResponseActorBot)
+		return json.Unmarshal(b, *v)
+	case "Organization":
+		*v = new(directivesResponseActorOrganization)
+		return json.Unmarshal(b, *v)
+	case "User":
+		*v = new(directivesResponseActorUser)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Actor.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for directivesResponseActor: "%v"`, tn.TypeName)
+	}
+}
+
+func _octoqlMarshaldirectivesResponseActor(v *directivesResponseActor) ([]byte, error) {
+
+	var typename string
+	switch vv := (*v).(type) {
+	case *directivesResponseActorBot:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "Bot"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*directivesResponseActorBot
+		}{
+			TypeName:                   typename,
+			directivesResponseActorBot: vv,
+		}
+		return json.Marshal(result)
+	case *directivesResponseActorOrganization:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "Organization"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*directivesResponseActorOrganization
+		}{
+			TypeName:                            typename,
+			directivesResponseActorOrganization: vv,
+		}
+		return json.Marshal(result)
+	case *directivesResponseActorUser:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "User"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*directivesResponseActorUser
+		}{
+			TypeName:                    typename,
+			directivesResponseActorUser: vv,
+		}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for directivesResponseActor: "%T"`, vv)
+	}
+}
+
+// directivesResponseActorBot includes the requested fields of the GraphQL type Bot.
+type directivesResponseActorBot struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+}
+
+// GetTypename returns directivesResponseActorBot.Typename, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorBot) GetTypename() string { return v.Typename }
+
+// GetId returns directivesResponseActorBot.Id, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorBot) GetId() string { return v.Id }
+
+// directivesResponseActorOrganization includes the requested fields of the GraphQL type Organization.
+type directivesResponseActorOrganization struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+}
+
+// GetTypename returns directivesResponseActorOrganization.Typename, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorOrganization) GetTypename() string { return v.Typename }
+
+// GetId returns directivesResponseActorOrganization.Id, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorOrganization) GetId() string { return v.Id }
+
+// GetName returns directivesResponseActorOrganization.Name, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorOrganization) GetName() string { return v.Name }
+
+// directivesResponseActorUser includes the requested fields of the GraphQL type User.
+type directivesResponseActorUser struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+}
+
+// GetTypename returns directivesResponseActorUser.Typename, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorUser) GetTypename() string { return v.Typename }
+
+// GetId returns directivesResponseActorUser.Id, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorUser) GetId() string { return v.Id }
+
+// directivesResponseActorsActor includes the requested fields of the GraphQL interface Actor.
+//
+// directivesResponseActorsActor is implemented by the following types:
+// directivesResponseActorsBot
+// directivesResponseActorsOrganization
+// directivesResponseActorsUser
+type directivesResponseActorsActor interface {
+	implementsGraphQLInterfacedirectivesResponseActorsActor()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetId returns the interface-field "id" from its implementation.
+	GetId() string
+}
+
+func (v *directivesResponseActorsBot) implementsGraphQLInterfacedirectivesResponseActorsActor() {}
+func (v *directivesResponseActorsOrganization) implementsGraphQLInterfacedirectivesResponseActorsActor() {
+}
+func (v *directivesResponseActorsUser) implementsGraphQLInterfacedirectivesResponseActorsActor() {}
+
+func _octoqlUnmarshaldirectivesResponseActorsActor(b []byte, v *directivesResponseActorsActor) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Bot":
+		*v = new(directivesResponseActorsBot)
+		return json.Unmarshal(b, *v)
+	case "Organization":
+		*v = new(directivesResponseActorsOrganization)
+		return json.Unmarshal(b, *v)
+	case "User":
+		*v = new(directivesResponseActorsUser)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Actor.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for directivesResponseActorsActor: "%v"`, tn.TypeName)
+	}
+}
+
+func _octoqlMarshaldirectivesResponseActorsActor(v *directivesResponseActorsActor) ([]byte, error) {
+
+	var typename string
+	switch vv := (*v).(type) {
+	case *directivesResponseActorsBot:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "Bot"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*directivesResponseActorsBot
+		}{
+			TypeName:                    typename,
+			directivesResponseActorsBot: vv,
+		}
+		return json.Marshal(result)
+	case *directivesResponseActorsOrganization:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "Organization"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*directivesResponseActorsOrganization
+		}{
+			TypeName:                             typename,
+			directivesResponseActorsOrganization: vv,
+		}
+		return json.Marshal(result)
+	case *directivesResponseActorsUser:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "User"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*directivesResponseActorsUser
+		}{
+			TypeName:                     typename,
+			directivesResponseActorsUser: vv,
+		}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for directivesResponseActorsActor: "%T"`, vv)
+	}
+}
+
+// directivesResponseActorsBot includes the requested fields of the GraphQL type Bot.
+type directivesResponseActorsBot struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+}
+
+// GetTypename returns directivesResponseActorsBot.Typename, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorsBot) GetTypename() string { return v.Typename }
+
+// GetId returns directivesResponseActorsBot.Id, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorsBot) GetId() string { return v.Id }
+
+// directivesResponseActorsOrganization includes the requested fields of the GraphQL type Organization.
+type directivesResponseActorsOrganization struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+}
+
+// GetTypename returns directivesResponseActorsOrganization.Typename, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorsOrganization) GetTypename() string { return v.Typename }
+
+// GetId returns directivesResponseActorsOrganization.Id, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorsOrganization) GetId() string { return v.Id }
+
+// directivesResponseActorsUser includes the requested fields of the GraphQL type User.
+type directivesResponseActorsUser struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+}
+
+// GetTypename returns directivesResponseActorsUser.Typename, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorsUser) GetTypename() string { return v.Typename }
+
+// GetId returns directivesResponseActorsUser.Id, and is useful for accessing the field via an interface.
+func (v *directivesResponseActorsUser) GetId() string { return v.Id }
+
+// directivesResponseUsersCreatedOnDatesUser includes the requested fields of the GraphQL type User.
+type directivesResponseUsersCreatedOnDatesUser struct {
+	CreatedAt *time.Time `json:"-"`
+}
+
+// GetCreatedAt returns directivesResponseUsersCreatedOnDatesUser.CreatedAt, and is useful for accessing the field via an interface.
+func (v *directivesResponseUsersCreatedOnDatesUser) GetCreatedAt() *time.Time { return v.CreatedAt }
+
+func (v *directivesResponseUsersCreatedOnDatesUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*directivesResponseUsersCreatedOnDatesUser
+		CreatedAt json.RawMessage `json:"createdAt"`
+		_octoqlNoUnmarshalJSON
+	}
+	firstPass.directivesResponseUsersCreatedOnDatesUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.CreatedAt
+		src := firstPass.CreatedAt
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
+		if len(src) != 0 && string(src) != "null" {
+			*dst = new(time.Time)
+			err = testutil.UnmarshalDate(
+				src, *dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal directivesResponseUsersCreatedOnDatesUser.CreatedAt: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type _octoqlPremarshaldirectivesResponseUsersCreatedOnDatesUser struct {
+	CreatedAt json.RawMessage `json:"createdAt"`
+}
+
+func (v *directivesResponseUsersCreatedOnDatesUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v._octoqlPremarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *directivesResponseUsersCreatedOnDatesUser) _octoqlPremarshalJSON() (*_octoqlPremarshaldirectivesResponseUsersCreatedOnDatesUser, error) {
+	var retval _octoqlPremarshaldirectivesResponseUsersCreatedOnDatesUser
+
+	{
+
+		dst := &retval.CreatedAt
+		src := v.CreatedAt
+		if src != nil {
+			var err error
+			*dst, err = testutil.MarshalDate(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal directivesResponseUsersCreatedOnDatesUser.CreatedAt: %w", err)
+			}
+		}
+	}
+	return &retval, nil
+}
+
+// directivesUser includes the requested fields of the GraphQL type User.
+type directivesUser struct {
+	Typename       *string                                `json:"__typename"`
+	Login          string                                 `json:"login"`
+	SkippedLogin   *string                                `json:"skippedLogin"`
+	IncludedLogin  *string                                `json:"includedLogin"`
+	ForcedPtrLogin *string                                `json:"forcedPtrLogin"`
+	PlainName      string                                 `json:"plainName"`
+	CreatedAt      *time.Time                             `json:"-"`
+	Status         *directivesUserStatus                  `json:"status"`
+	Repositories   []directivesUserRepositoriesRepository `json:"repositories"`
+	BoundPtr       *string                                `json:"boundPtr"`
+	BoundAny       interface{}                            `json:"boundAny"`
+}
+
+// GetTypename returns directivesUser.Typename, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetTypename() *string { return v.Typename }
+
+// GetLogin returns directivesUser.Login, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetLogin() string { return v.Login }
+
+// GetSkippedLogin returns directivesUser.SkippedLogin, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetSkippedLogin() *string { return v.SkippedLogin }
+
+// GetIncludedLogin returns directivesUser.IncludedLogin, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetIncludedLogin() *string { return v.IncludedLogin }
+
+// GetForcedPtrLogin returns directivesUser.ForcedPtrLogin, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetForcedPtrLogin() *string { return v.ForcedPtrLogin }
+
+// GetPlainName returns directivesUser.PlainName, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetPlainName() string { return v.PlainName }
+
+// GetCreatedAt returns directivesUser.CreatedAt, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetCreatedAt() *time.Time { return v.CreatedAt }
+
+// GetStatus returns directivesUser.Status, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetStatus() *directivesUserStatus { return v.Status }
+
+// GetRepositories returns directivesUser.Repositories, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetRepositories() []directivesUserRepositoriesRepository {
+	return v.Repositories
+}
+
+// GetBoundPtr returns directivesUser.BoundPtr, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetBoundPtr() *string { return v.BoundPtr }
+
+// GetBoundAny returns directivesUser.BoundAny, and is useful for accessing the field via an interface.
+func (v *directivesUser) GetBoundAny() interface{} { return v.BoundAny }
+
+func (v *directivesUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*directivesUser
+		CreatedAt json.RawMessage `json:"createdAt"`
+		_octoqlNoUnmarshalJSON
+	}
+	firstPass.directivesUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.CreatedAt
+		src := firstPass.CreatedAt
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
+		if len(src) != 0 && string(src) != "null" {
+			*dst = new(time.Time)
+			err = testutil.UnmarshalDate(
+				src, *dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal directivesUser.CreatedAt: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type _octoqlPremarshaldirectivesUser struct {
+	Typename *string `json:"__typename"`
+
+	Login string `json:"login"`
+
+	SkippedLogin *string `json:"skippedLogin"`
+
+	IncludedLogin *string `json:"includedLogin"`
+
+	ForcedPtrLogin *string `json:"forcedPtrLogin"`
+
+	PlainName string `json:"plainName"`
+
+	CreatedAt json.RawMessage `json:"createdAt"`
+
+	Status *directivesUserStatus `json:"status"`
+
+	Repositories []directivesUserRepositoriesRepository `json:"repositories"`
+
+	BoundPtr *string `json:"boundPtr"`
+
+	BoundAny interface{} `json:"boundAny"`
+}
+
+func (v *directivesUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v._octoqlPremarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *directivesUser) _octoqlPremarshalJSON() (*_octoqlPremarshaldirectivesUser, error) {
+	var retval _octoqlPremarshaldirectivesUser
+
+	retval.Typename = v.Typename
+	retval.Login = v.Login
+	retval.SkippedLogin = v.SkippedLogin
+	retval.IncludedLogin = v.IncludedLogin
+	retval.ForcedPtrLogin = v.ForcedPtrLogin
+	retval.PlainName = v.PlainName
+	{
+
+		dst := &retval.CreatedAt
+		src := v.CreatedAt
+		if src != nil {
+			var err error
+			*dst, err = testutil.MarshalDate(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal directivesUser.CreatedAt: %w", err)
+			}
+		}
+	}
+	retval.Status = v.Status
+	retval.Repositories = v.Repositories
+	retval.BoundPtr = v.BoundPtr
+	retval.BoundAny = v.BoundAny
+	return &retval, nil
+}
+
+// directivesUserRepositoriesRepository includes the requested fields of the GraphQL type Repository.
+type directivesUserRepositoriesRepository struct {
+	Name string `json:"name"`
+}
+
+// GetName returns directivesUserRepositoriesRepository.Name, and is useful for accessing the field via an interface.
+func (v *directivesUserRepositoriesRepository) GetName() string { return v.Name }
+
+// directivesUserStatus includes the requested fields of the GraphQL type UserStatus.
+type directivesUserStatus struct {
+	Emoji *string `json:"emoji"`
+}
+
+// GetEmoji returns directivesUserStatus.Emoji, and is useful for accessing the field via an interface.
+func (v *directivesUserStatus) GetEmoji() *string { return v.Emoji }
+
 // failingQueryResponse is returned by failingQuery on success.
 type failingQueryResponse struct {
 	Fail   *bool                  `json:"fail"`
@@ -3096,6 +3788,119 @@ func (v *queryWithCustomMarshalVariables) _octoqlPremarshalJSON() (*_octoqlPrema
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal queryWithCustomMarshalVariables.Date: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// queryWithDirectivesAndSkipIncludeVariables contains the variables accepted by queryWithDirectivesAndSkipInclude.
+type queryWithDirectivesAndSkipIncludeVariables struct {
+	Hide          bool        `json:"hide"`
+	Show          bool        `json:"show"`
+	DefaultedId   *string     `json:"defaultedId,omitempty"`
+	OptionalLogin string      `json:"optionalLogin"`
+	Dates         []time.Time `json:"-"`
+}
+
+func (v *queryWithDirectivesAndSkipIncludeVariables) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*queryWithDirectivesAndSkipIncludeVariables
+		Dates json.RawMessage `json:"dates"`
+		_octoqlNoUnmarshalJSON
+	}
+	firstPass.queryWithDirectivesAndSkipIncludeVariables = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Dates
+		raw := firstPass.Dates
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src []json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal queryWithDirectivesAndSkipIncludeVariables.Dates: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[]time.Time,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if len(src) != 0 && string(src) != "null" {
+							err = testutil.UnmarshalDate(
+								src, dst)
+							if err != nil {
+								return fmt.Errorf(
+									"unable to unmarshal queryWithDirectivesAndSkipIncludeVariables.Dates: %w", err)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type _octoqlPremarshalqueryWithDirectivesAndSkipIncludeVariables struct {
+	Hide bool `json:"hide"`
+
+	Show bool `json:"show"`
+
+	DefaultedId *string `json:"defaultedId,omitempty"`
+
+	OptionalLogin string `json:"optionalLogin"`
+
+	Dates []json.RawMessage `json:"dates"`
+}
+
+func (v *queryWithDirectivesAndSkipIncludeVariables) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v._octoqlPremarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *queryWithDirectivesAndSkipIncludeVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithDirectivesAndSkipIncludeVariables, error) {
+	var retval _octoqlPremarshalqueryWithDirectivesAndSkipIncludeVariables
+
+	retval.Hide = v.Hide
+	retval.Show = v.Show
+	retval.DefaultedId = v.DefaultedId
+	retval.OptionalLogin = v.OptionalLogin
+	{
+
+		dst := &retval.Dates
+		src := v.Dates
+		if src != nil {
+			*dst = make(
+				[]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				var err error
+				*dst, err = testutil.MarshalDate(
+					&src)
+				if err != nil {
+					return nil, fmt.Errorf(
+						"unable to marshal queryWithDirectivesAndSkipIncludeVariables.Dates: %w", err)
+				}
+			}
 		}
 	}
 	return &retval, nil
@@ -5389,6 +6194,28 @@ func (v *repositoryOwnerFieldsUser) _octoqlPremarshalJSON() (*_octoqlPremarshalr
 	return &retval, nil
 }
 
+// structDefaultsFragment includes the GraphQL fields of Query requested by the fragment structDefaultsFragment.
+type structDefaultsFragment struct {
+	StructActor *structDefaultsFragmentStructActor `json:"structActor"`
+}
+
+// GetStructActor returns structDefaultsFragment.StructActor, and is useful for accessing the field via an interface.
+func (v *structDefaultsFragment) GetStructActor() *structDefaultsFragmentStructActor {
+	return v.StructActor
+}
+
+// structDefaultsFragmentStructActor includes the requested fields of the GraphQL type Actor.
+type structDefaultsFragmentStructActor struct {
+	Typename string `json:"__typename"`
+	Login    string `json:"login"`
+}
+
+// GetTypename returns structDefaultsFragmentStructActor.Typename, and is useful for accessing the field via an interface.
+func (v *structDefaultsFragmentStructActor) GetTypename() string { return v.Typename }
+
+// GetLogin returns structDefaultsFragmentStructActor.Login, and is useful for accessing the field via an interface.
+func (v *structDefaultsFragmentStructActor) GetLogin() string { return v.Login }
+
 // userFields includes the GraphQL fields of User requested by the fragment userFields.
 type userFields struct {
 	Id                        string `json:"id"`
@@ -5881,6 +6708,67 @@ func (c *Client) queryWithCustomMarshalSlice(
 	}
 	if err != nil {
 		return nil, &queryWithCustomMarshalSlicePartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
+}
+
+// The query executed by queryWithDirectivesAndSkipInclude.
+const queryWithDirectivesAndSkipInclude_Operation = "\nquery queryWithDirectivesAndSkipInclude ($hide: Boolean!, $show: Boolean!, $defaultedId: ID! = \"1\", $optionalLogin: String, $dates: [Date!]!) {\n\tuser(login: $optionalLogin) {\n\t\t__typename @skip(if: $hide)\n\t\tlogin\n\t\tskippedLogin: login @skip(if: $hide)\n\t\tincludedLogin: login @include(if: $show)\n\t\tforcedPtrLogin: login\n\t\tplainName: name\n\t\tcreatedAt @skip(if: $hide)\n\t\tstatus @skip(if: $hide) {\n\t\t\temoji\n\t\t}\n\t\trepositories @skip(if: $hide) {\n\t\t\tname\n\t\t}\n\t\tboundPtr: login @skip(if: $hide)\n\t\tboundAny: login @skip(if: $hide)\n\t}\n\tactor(id: $defaultedId) {\n\t\t__typename\n\t\tid\n\t\t... on Organization {\n\t\t\tname\n\t\t}\n\t}\n\tactors(ids: [\"1\"]) @skip(if: $hide) {\n\t\t__typename\n\t\tid\n\t}\n\tusersCreatedOnDates(dates: $dates) @skip(if: $hide) {\n\t\tcreatedAt\n\t}\n\t... structDefaultsFragment\n}\nfragment structDefaultsFragment on Query {\n\tstructActor: actor(id: \"1\") {\n\t\t__typename\n\t\tlogin\n\t}\n}\n"
+
+// queryWithDirectivesAndSkipIncludePartialDataError contains partial data returned by queryWithDirectivesAndSkipInclude.
+type queryWithDirectivesAndSkipIncludePartialDataError struct {
+	data *directivesResponse
+	err  error
+}
+
+func (e *queryWithDirectivesAndSkipIncludePartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *queryWithDirectivesAndSkipIncludePartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *queryWithDirectivesAndSkipIncludePartialDataError) PartialData() *directivesResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
+}
+
+// PartialDataValue returns the partial response as an untyped value.
+func (e *queryWithDirectivesAndSkipIncludePartialDataError) PartialDataValue() any {
+	return e.PartialData()
+}
+
+func (c *Client) queryWithDirectivesAndSkipInclude(
+	ctx context.Context,
+	vars queryWithDirectivesAndSkipIncludeVariables,
+) (*directivesResponse, error) {
+	var response directivesResponse
+	hasData, err := c._octoqlExecute(
+		ctx,
+		_octoqlPayload{
+			OperationName: "queryWithDirectivesAndSkipInclude",
+			Query:         queryWithDirectivesAndSkipInclude_Operation,
+			Variables:     &vars,
+		},
+		&response,
+	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &queryWithDirectivesAndSkipIncludePartialDataError{
 			data: &response,
 			err:  err,
 		}

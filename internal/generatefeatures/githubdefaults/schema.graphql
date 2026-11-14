@@ -2,10 +2,19 @@ schema {
   query: Query
 }
 
+scalar Base64String
 scalar BigInt
 scalar CustomPropertyValue
+scalar Date
 scalar DateTime
+scalar GitObjectID
+scalar GitRefname
+scalar GitSSHRemote
+scalar GitTimestamp
+scalar HTML
+scalar PreciseDateTime
 scalar URI
+scalar X509Certificate
 
 interface Node {
   id: ID!
@@ -44,6 +53,15 @@ type Organization implements Node & Actor {
 type Review {
   fullDatabaseId: BigInt!
   createdAt: DateTime!
+  publishedOn: Date!
+  updatedAt: PreciseDateTime!
+  pushedAt: GitTimestamp!
+  oid: GitObjectID!
+  refname: GitRefname!
+  sshRemote: GitSSHRemote!
+  bodyHTML: HTML!
+  encoded: Base64String!
+  certificate: X509Certificate!
   propertyValue: CustomPropertyValue
   author: Actor
   editor: Actor
@@ -53,4 +71,12 @@ type Query {
   review: Review!
   node(id: ID!): Node
   nestedNodes: [[[Node]]]
+  echoCollision(
+    ctx: String!
+    client: String!
+    err: String!
+    vars: String!
+    response: String!
+    hasData: String!
+  ): String!
 }

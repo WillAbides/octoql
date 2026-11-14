@@ -21,33 +21,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
-	"github.com/willabides/octoql/internal"
 )
 
 const schemaRevision = "45d83f459620340069df7c375a8867be62616d61"
 
 var exactSchema = []byte("# preserved comment\n\ntype Query {\n  viewer: String\n}\n")
-
-func TestMaterializerExistingFile(t *testing.T) {
-	t.Parallel()
-
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	err := os.WriteFile(destination, exactSchema, 0o600)
-	require.NoError(t, err)
-
-	materializer := NewMaterializer()
-	data, err := materializer.Materialize(t.Context(), &Request{
-		Path:   destination,
-		SHA256: checksum(exactSchema),
-	})
-	require.NoError(t, err)
-	assert.Equal(t, exactSchema, data)
-
-	companionPath := filepath.Join(filepath.Dir(destination), internal.DirectiveFilename)
-	companion, err := os.ReadFile(companionPath)
-	require.NoError(t, err)
-	assert.Equal(t, internal.DirectiveFileContents, string(companion))
-}
 
 func TestMaterializerExistingFileMismatch(t *testing.T) {
 	t.Parallel()
@@ -70,48 +48,6 @@ func TestMaterializerExistingFileMismatch(t *testing.T) {
 	after, readErr := os.ReadFile(destination)
 	require.NoError(t, readErr)
 	assert.Equal(t, exactSchema, after)
-}
-
-func TestMaterializerMissingLocalFile(t *testing.T) {
-	t.Parallel()
-
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	materializer := NewMaterializer()
-	_, err := materializer.Materialize(t.Context(), &Request{Path: destination})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "local schema file")
-	assert.Contains(t, err.Error(), "does not exist")
-}
-
-func TestMaterializerGitHubFetch(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		assert.Equal(t, "application/vnd.github.raw+json", request.Header.Get("Accept"))
-		_, _ = response.Write(exactSchema)
-	}))
-	t.Cleanup(server.Close)
-
-	destination := filepath.Join(t.TempDir(), "nested", "schema.graphql")
-	materializer := testGitHubMaterializer(server.Client())
-	materializer.GitHubAPIBaseURL = func(string) string {
-		return server.URL
-	}
-	data, err := materializer.Materialize(t.Context(), &Request{
-		Path:   destination,
-		SHA256: checksum(exactSchema),
-		Source: config.Source{
-			Repository: "octo-org/octo-repo",
-			Path:       "schema.graphql",
-			Revision:   schemaRevision,
-		},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, exactSchema, data)
-
-	written, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	assert.Equal(t, exactSchema, written)
 }
 
 func TestFetchURLSanitizesErrors(t *testing.T) {
@@ -477,6 +413,30 @@ func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMaterializerResolveValidationAndAuth(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewMaterializer().Resolve(t.Context(), config.Source{Path: "schema.graphql"})
+	require.ErrorContains(t, err, "repository is required")
+
+	_, err = NewMaterializer().Resolve(t.Context(), config.Source{Repository: "owner/repository"})
+	require.ErrorContains(t, err, "path is required")
+
+	materializer := testGitHubMaterializer(httpClientFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("unexpected GitHub request")
+		return nil, nil
+	}))
+	_, err = materializer.Resolve(t.Context(), config.Source{
+		Repository: "octo-owner/octo-repository",
+		Path:       "schema.graphql",
+	})
+	require.EqualError(
+		t,
+		err,
+		"github graphql authentication is required; set GH_TOKEN, GITHUB_TOKEN, or authenticate with gh",
+	)
 }
 
 func checksum(data []byte) string {

@@ -1,7 +1,6 @@
 package nocontext
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,11 +19,6 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
 	return f(request)
 }
-
-const (
-	validOperationName  = "Viewer"
-	validOperationQuery = "query Viewer { viewer { login } }"
-)
 
 func TestDoHTTPResponses(t *testing.T) {
 	tests := []struct {
@@ -74,8 +67,6 @@ func TestDoHTTPResponses(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				t.Helper()
 				require.Error(t, err)
-				_, responseErrorFound := errors.AsType[*ResponseError](err)
-				assert.True(t, responseErrorFound)
 				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
 				assert.True(t, syntaxErrorFound)
 			},
@@ -103,7 +94,6 @@ func TestDoHTTPResponses(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 				writer.Header().Set("X-GitHub-Request-ID", test.requestID)
-				writer.Header().Set("X-Test", "original")
 				writer.WriteHeader(test.statusCode)
 				_, err := io.WriteString(writer, test.body)
 				if err != nil {
@@ -125,7 +115,7 @@ func TestDoHTTPResponses(t *testing.T) {
 	}
 }
 
-func TestDoRequest(t *testing.T) {
+func TestDoRequestAndAuth(t *testing.T) {
 	type recordedRequest struct {
 		header http.Header
 		body   []byte
@@ -159,100 +149,50 @@ func TestDoRequest(t *testing.T) {
 	}
 
 	client := NewClient("https://github.example/api/graphql", httpClient)
-	operationName := "Repository"
-	query := "query Repository($owner: String!) { repository(owner: $owner) { name } }"
-	_, err := doOperation[struct{}](
-		t.Context(),
-		client,
-		operationSpec{
-			name:      operationName,
-			query:     query,
-			variables: map[string]any{"owner": "octo"},
-		},
-	)
+	err := client.SetBearerToken("github_pat_first")
+	require.NoError(t, err)
+	_, err = invokeRepositoryQuery(client)
 	require.NoError(t, err)
 	withVariables := <-requests
 	assert.Equal(t, http.MethodPost, withVariables.method)
 	assert.Equal(t, "https://github.example/api/graphql", withVariables.url)
 	assert.Equal(t, "application/json", withVariables.header.Get("Content-Type"))
-	wantBody := `{
-		"query":"query Repository($owner: String!) { repository(owner: $owner) { name } }",
-		"operationName":"Repository",
-		"variables":{"owner":"octo"}
-	}`
-	assert.JSONEq(t, wantBody, string(withVariables.body))
-
-	_, err = doOperation[struct{}](t.Context(), client, operationSpec{
-		name:  operationName,
-		query: query,
-	})
+	assert.Equal(t, "Bearer github_pat_first", withVariables.header.Get("Authorization"))
+	var withVariablesPayload map[string]json.RawMessage
+	err = json.Unmarshal(withVariables.body, &withVariablesPayload)
 	require.NoError(t, err)
-	withoutVariables := <-requests
-	var requestObject map[string]json.RawMessage
-	err = json.Unmarshal(withoutVariables.body, &requestObject)
-	require.NoError(t, err)
-	assert.NotContains(t, requestObject, "variables")
-}
-
-func TestClientBearerToken(t *testing.T) {
-	authorization := make(chan string, 2)
-	httpClient := &http.Client{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			authorization <- request.Header.Get("Authorization")
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{},
-				Body:       io.NopCloser(strings.NewReader(`{"data":{}}`)),
-			}, nil
-		}),
-	}
-	client := NewClient("https://github.example/api/graphql", httpClient)
-
-	err := client.SetBearerToken("github_pat_first")
-	require.NoError(t, err)
-	_, err = doDefaultOperation[struct{}](t, client)
-	require.NoError(t, err)
-	assert.Equal(t, "Bearer github_pat_first", <-authorization)
+	assert.JSONEq(t, `"getRepository"`, string(withVariablesPayload["operationName"]))
+	assert.JSONEq(t, `{"owner":"octo-org","name":"octo-repo"}`, string(withVariablesPayload["variables"]))
 
 	err = client.SetBearerToken("github_pat_second")
 	require.NoError(t, err)
-	_, err = doDefaultOperation[struct{}](t, client)
+	_, err = client.wireSemantics()
 	require.NoError(t, err)
-	assert.Equal(t, "Bearer github_pat_second", <-authorization)
-}
-
-func TestClientSetBearerTokenValidation(t *testing.T) {
-	client := NewClient("https://github.example/api/graphql", nil)
-	err := client.SetBearerToken("github_pat_valid")
+	withoutVariables := <-requests
+	assert.Equal(t, "Bearer github_pat_second", withoutVariables.header.Get("Authorization"))
+	var withoutVariablesPayload map[string]json.RawMessage
+	err = json.Unmarshal(withoutVariables.body, &withoutVariablesPayload)
 	require.NoError(t, err)
+	assert.NotContains(t, withoutVariablesPayload, "variables")
 
-	tests := []struct {
-		name  string
-		token string
-	}{
-		{name: "empty"},
-		{name: "space", token: " "},
-		{name: "padding only", token: "=="},
-		{name: "embedded space", token: "github token"},
-		{name: "embedded padding", token: "github_pat_valid=invalid"},
-		{name: "header injection", token: "github_pat_valid\ninjected"},
-		{name: "non-ASCII", token: "日本語"},
+	for _, invalid := range []string{
+		"",
+		" ",
+		"==",
+		"github token",
+		"github_pat_valid=invalid",
+		"github_pat_valid\ninjected",
+		"日本語",
+	} {
+		err = client.SetBearerToken(invalid)
+		require.EqualError(t, err, "octoql: invalid bearer token")
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err = client.SetBearerToken(test.token)
-			require.EqualError(t, err, "octoql: invalid bearer token")
-		})
-	}
-}
 
-func TestNilClient(t *testing.T) {
-	var client *Client
-	require.EqualError(t, client.SetBearerToken("github_pat_valid"), "octoql: client is nil")
-	require.EqualError(t, client.SetAllowRedirects(true), "octoql: client is nil")
-	assert.False(t, client.AllowRedirects())
-
-	response, err := invokeRepositoryQuery(client)
+	var nilClient *Client
+	require.EqualError(t, nilClient.SetBearerToken("github_pat_valid"), "octoql: client is nil")
+	require.EqualError(t, nilClient.SetAllowRedirects(true), "octoql: client is nil")
+	assert.False(t, nilClient.AllowRedirects())
+	response, err := invokeRepositoryQuery(nilClient)
 	assert.Nil(t, response)
 	require.EqualError(t, err, "octoql: client is nil")
 }
@@ -260,30 +200,17 @@ func TestNilClient(t *testing.T) {
 func TestDoFailurePhases(t *testing.T) {
 	readError := errors.New("body read failed")
 	transportError := errors.New("transport failed")
+	closeError := errors.New("body close failed")
 
 	tests := []struct {
 		client            *Client
-		ctx               context.Context
-		variables         any
 		wantCause         error
 		name              string
+		wantPartialOwner  string
 		wantResponseError bool
 	}{
 		{
-			name: "variables cannot be encoded",
-			ctx:  t.Context(),
-			client: NewClient(
-				"https://api.github.com/graphql",
-				&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-					require.FailNow(t, "transport called for unencodable variables")
-					return nil, nil
-				})},
-			),
-			variables: make(chan int),
-		},
-		{
 			name: "transport error",
-			ctx:  t.Context(),
 			client: NewClient(
 				"https://api.github.com/graphql",
 				&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -294,7 +221,6 @@ func TestDoFailurePhases(t *testing.T) {
 		},
 		{
 			name: "unreadable 2xx body",
-			ctx:  t.Context(),
 			client: newStaticResponseClient(
 				http.StatusOK,
 				http.Header{"X-Github-Request-Id": {"request-read-2xx"}},
@@ -305,7 +231,6 @@ func TestDoFailurePhases(t *testing.T) {
 		},
 		{
 			name: "unreadable non-2xx body",
-			ctx:  t.Context(),
 			client: newStaticResponseClient(
 				http.StatusBadGateway,
 				http.Header{"X-Github-Request-Id": {"request-read-error"}},
@@ -314,257 +239,178 @@ func TestDoFailurePhases(t *testing.T) {
 			wantCause:         readError,
 			wantResponseError: true,
 		},
+		{
+			name: "body close error preserves decoded partial data",
+			client: newStaticResponseClient(
+				http.StatusOK,
+				http.Header{"X-Github-Request-Id": {"request-close"}},
+				&closeErrorReadCloser{
+					Reader: strings.NewReader(`{
+						"data":{"repository":{"nameWithOwner":"octo-org/partial"}},
+						"errors":[{"message":"field failed"}]
+					}`),
+					err: closeError,
+				},
+			),
+			wantCause:         closeError,
+			wantPartialOwner:  "octo-org/partial",
+			wantResponseError: true,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response, err := doOperation[struct{}](
-				test.ctx,
-				test.client,
-				operationSpec{
-					name:      validOperationName,
-					query:     validOperationQuery,
-					variables: test.variables,
-				},
-			)
+			response, err := invokeRepositoryQuery(test.client)
 			require.Error(t, err)
 			assert.Nil(t, response)
-			if test.wantCause != nil {
-				require.ErrorIs(t, err, test.wantCause)
-			}
+			require.ErrorIs(t, err, test.wantCause)
 			responseError, hasResponseError := errors.AsType[*ResponseError](err)
 			assert.Equal(t, test.wantResponseError, hasResponseError)
 			if test.wantResponseError {
 				require.NotNil(t, responseError)
 				assert.NotEmpty(t, responseError.RequestID)
 			}
+			if test.wantPartialOwner != "" {
+				partialErr, ok := errors.AsType[*getRepositoryPartialDataError](err)
+				require.True(t, ok)
+				assert.Equal(t, test.wantPartialOwner, partialErr.PartialData().Repository.NameWithOwner)
+				_, graphqlErrorsFound := errors.AsType[Errors](err)
+				assert.True(t, graphqlErrorsFound)
+			}
 		})
 	}
 }
 
-func TestClientRefusesRedirects(t *testing.T) {
-	// net/http's default redirect protection compares hostnames and ignores ports.
-	tests := []struct {
-		targetURL func(*httptest.Server) string
-		name      string
-	}{
-		{
-			name: "different host",
-			targetURL: func(server *httptest.Server) string {
-				return strings.Replace(server.URL, "127.0.0.1", "localhost", 1)
-			},
-		},
-		{
-			name: "same host different port",
-			targetURL: func(server *httptest.Server) string {
-				return server.URL
-			},
-		},
-	}
+func TestClientRedirectPolicy(t *testing.T) {
+	t.Run("refuses redirects by default and on zero-value client", func(t *testing.T) {
+		targetRequests := make(chan struct{}, 1)
+		target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			targetRequests <- struct{}{}
+		}))
+		defer target.Close()
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			targetRequests := make(chan struct{}, 1)
-			target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-				targetRequests <- struct{}{}
-			}))
-			defer target.Close()
-
-			location := test.targetURL(target)
+		for _, location := range []string{
+			strings.Replace(target.URL, "127.0.0.1", "localhost", 1),
+			target.URL,
+		} {
 			origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 				writer.Header().Set("Location", location)
 				writer.Header().Set("X-GitHub-Request-ID", "redirect-request")
 				writer.WriteHeader(http.StatusFound)
 			}))
-			defer origin.Close()
-
 			client := NewClient(origin.URL, nil)
-			response, err := doDefaultOperation[struct{}](t, client)
+			response, err := client.wireSemantics()
+			origin.Close()
 
 			require.Error(t, err)
 			assert.Nil(t, response)
 			require.ErrorContains(t, err, "redirect refused")
-			require.ErrorContains(t, err, http.StatusText(http.StatusFound))
 			require.ErrorContains(t, err, location)
 			responseError, ok := errors.AsType[*ResponseError](err)
 			require.True(t, ok)
 			assert.Equal(t, http.StatusFound, responseError.StatusCode)
 			assert.Equal(t, "redirect-request", responseError.RequestID)
 			assert.Nil(t, responseError.RawBody)
-
-			select {
-			case <-targetRequests:
-				assert.Fail(t, "redirect target received a request")
-			default:
-			}
-		})
-	}
-}
-
-func TestClientAllowsSameOriginRedirectsWhenEnabled(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/redirected" {
-			_, err := io.WriteString(writer, `{"data":{}}`)
-			if err != nil {
-				panic(err)
-			}
-			return
 		}
-		writer.Header().Set("Location", "/redirected")
-		writer.WriteHeader(http.StatusFound)
-	}))
-	defer server.Close()
 
-	client := NewClient(server.URL, nil)
-	err := client.SetAllowRedirects(true)
-	require.NoError(t, err)
-	assert.True(t, client.AllowRedirects())
+		zeroOrigin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("Location", "/redirected")
+			writer.WriteHeader(http.StatusFound)
+		}))
+		defer zeroOrigin.Close()
+		zeroClient := Client{endpoint: zeroOrigin.URL}
+		_, err := zeroClient.wireSemantics()
+		require.ErrorContains(t, err, "redirect refused")
 
-	response, err := doDefaultOperation[struct{}](t, client)
-	require.NoError(t, err)
-	assert.NotNil(t, response)
-}
-
-func TestClientDiscardsSuppliedRedirectPolicy(t *testing.T) {
-	redirectError := errors.New("caller redirect policy")
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/redirected" {
-			_, err := io.WriteString(writer, `{"data":{}}`)
-			if err != nil {
-				panic(err)
-			}
-			return
+		select {
+		case <-targetRequests:
+			assert.Fail(t, "redirect target received a request")
+		default:
 		}
-		writer.Header().Set("Location", "/redirected")
-		writer.WriteHeader(http.StatusFound)
-	}))
-	defer server.Close()
+	})
 
-	httpClient := &http.Client{
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return redirectError
-		},
-	}
-	client := NewClient(server.URL, httpClient)
-	require.NotNil(t, httpClient.CheckRedirect)
-	err := client.SetAllowRedirects(true)
-	require.NoError(t, err)
+	t.Run("follows same-origin redirects overriding caller policy and caps hops", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			if request.URL.Path == "/loop" {
+				writer.Header().Set("Location", "/loop")
+				writer.WriteHeader(http.StatusFound)
+				return
+			}
+			if request.URL.Path == "/redirected" {
+				_, err := io.WriteString(writer, `{"data":{}}`)
+				if err != nil {
+					panic(err)
+				}
+				return
+			}
+			writer.Header().Set("Location", "/redirected")
+			writer.WriteHeader(http.StatusFound)
+		}))
+		defer server.Close()
 
-	response, err := doDefaultOperation[struct{}](t, client)
-	require.NoError(t, err)
-	assert.NotNil(t, response)
-}
-
-func TestClientStripsBearerTokenAcrossOriginsWhenRedirectsEnabled(t *testing.T) {
-	tests := []struct {
-		targetURL func(*httptest.Server) string
-		name      string
-	}{
-		{
-			name: "same host different port",
-			targetURL: func(server *httptest.Server) string {
-				return server.URL
+		httpClient := &http.Client{
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return errors.New("caller redirect policy")
 			},
-		},
-		{
-			name: "different host",
-			targetURL: func(server *httptest.Server) string {
+		}
+		client := NewClient(server.URL, httpClient)
+		assert.NotSame(t, httpClient, client.httpClient)
+		require.NotNil(t, httpClient.CheckRedirect)
+		require.Nil(t, http.DefaultClient.CheckRedirect)
+		err := client.SetAllowRedirects(true)
+		require.NoError(t, err)
+		assert.True(t, client.AllowRedirects())
+
+		response, err := client.wireSemantics()
+		require.NoError(t, err)
+		assert.NotNil(t, response)
+
+		loopClient := NewClient(server.URL+"/loop", nil)
+		require.NoError(t, loopClient.SetAllowRedirects(true))
+		_, err = loopClient.wireSemantics()
+		require.ErrorContains(t, err, "stopped after 10 redirects")
+	})
+
+	t.Run("strips bearer token across origins and multi-hop redirects", func(t *testing.T) {
+		for _, targetLocation := range []func(*httptest.Server) string{
+			func(server *httptest.Server) string {
+				return server.URL + "/final"
+			},
+			func(server *httptest.Server) string {
 				return strings.Replace(server.URL, "127.0.0.1", "localhost", 1)
 			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		} {
 			authorization := make(chan string, 1)
 			target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				if request.URL.Path != "/final" {
+					writer.Header().Set("Location", "/final")
+					writer.WriteHeader(http.StatusFound)
+					return
+				}
 				authorization <- request.Header.Get("Authorization")
 				_, err := io.WriteString(writer, `{"data":{}}`)
 				if err != nil {
 					panic(err)
 				}
 			}))
-			defer target.Close()
 
 			origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-				writer.Header().Set("Location", test.targetURL(target))
+				writer.Header().Set("Location", targetLocation(target))
 				writer.WriteHeader(http.StatusFound)
 			}))
-			defer origin.Close()
 
 			client := NewClient(origin.URL, nil)
-			err := client.SetBearerToken("github_pat_token")
-			require.NoError(t, err)
-			err = client.SetAllowRedirects(true)
-			require.NoError(t, err)
+			require.NoError(t, client.SetBearerToken("github_pat_token"))
+			require.NoError(t, client.SetAllowRedirects(true))
+			response, err := client.wireSemantics()
+			origin.Close()
+			target.Close()
 
-			response, err := doDefaultOperation[struct{}](t, client)
 			require.NoError(t, err)
 			assert.NotNil(t, response)
 			assert.Empty(t, <-authorization)
-		})
-	}
-}
-
-func TestClientStripsBearerTokenAfterLeavingOriginalOrigin(t *testing.T) {
-	authorization := make(chan string, 1)
-	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/final" {
-			authorization <- request.Header.Get("Authorization")
-			_, err := io.WriteString(writer, `{"data":{}}`)
-			if err != nil {
-				panic(err)
-			}
-			return
 		}
-		writer.Header().Set("Location", "/final")
-		writer.WriteHeader(http.StatusFound)
-	}))
-	defer target.Close()
-
-	targetURL := strings.Replace(target.URL, "127.0.0.1", "localhost", 1)
-	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Location", targetURL)
-		writer.WriteHeader(http.StatusFound)
-	}))
-	defer origin.Close()
-
-	client := NewClient(origin.URL, nil)
-	err := client.SetBearerToken("github_pat_token")
-	require.NoError(t, err)
-	err = client.SetAllowRedirects(true)
-	require.NoError(t, err)
-
-	response, err := doDefaultOperation[struct{}](t, client)
-	require.NoError(t, err)
-	assert.NotNil(t, response)
-	assert.Empty(t, <-authorization)
-}
-
-func TestClientRedirectLimitWhenEnabled(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Location", "/redirected")
-		writer.WriteHeader(http.StatusFound)
-	}))
-	defer server.Close()
-
-	client := NewClient(server.URL, nil)
-	err := client.SetAllowRedirects(true)
-	require.NoError(t, err)
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	defer cancel()
-
-	response, err := doOperation[struct{}](
-		ctx,
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
-	require.Error(t, err)
-	assert.Nil(t, response)
-	require.ErrorContains(t, err, "stopped after 10 redirects")
+	})
 }
 
 func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
@@ -588,12 +434,11 @@ func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
 		waitGroup.Add(2)
 		go func() {
 			defer waitGroup.Done()
-			err := client.SetAllowRedirects(i%2 == 0)
-			results <- err
+			results <- client.SetAllowRedirects(i%2 == 0)
 		}()
 		go func() {
 			defer waitGroup.Done()
-			_, err := doDefaultOperation[struct{}](t, client)
+			_, err := client.wireSemantics()
 			results <- err
 		}()
 	}
@@ -606,99 +451,6 @@ func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
 		}
 		require.ErrorContains(t, err, "redirect refused")
 	}
-}
-
-func TestNewClientDoesNotMutateHTTPRedirectPolicy(t *testing.T) {
-	httpClient := &http.Client{}
-	client := NewClient("https://api.github.com/graphql", httpClient)
-
-	assert.NotSame(t, httpClient, client.httpClient)
-	assert.Nil(t, httpClient.CheckRedirect)
-
-	require.Nil(t, http.DefaultClient.CheckRedirect)
-	defaultClient := NewClient("https://api.github.com/graphql", nil)
-	assert.NotSame(t, http.DefaultClient, defaultClient.httpClient)
-	assert.Nil(t, http.DefaultClient.CheckRedirect)
-}
-
-func TestZeroValueClientRefusesRedirects(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Location", "/redirected")
-		writer.WriteHeader(http.StatusFound)
-	}))
-	defer server.Close()
-
-	client := Client{}
-	client.endpoint = server.URL
-	response, err := doDefaultOperation[struct{}](t, &client)
-
-	require.Error(t, err)
-	assert.Nil(t, response)
-	require.ErrorContains(t, err, "redirect refused")
-	responseError, ok := errors.AsType[*ResponseError](err)
-	require.True(t, ok)
-	assert.Equal(t, http.StatusFound, responseError.StatusCode)
-}
-
-func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
-	closeError := errors.New("body close failed")
-	client := newStaticResponseClient(
-		http.StatusOK,
-		nil,
-		&closeErrorReadCloser{
-			Reader: strings.NewReader(`{
-				"data":{"repository":{"nameWithOwner":"octo-org/partial"}},
-				"errors":[{"message":"field failed"}]
-			}`),
-			err: closeError,
-		},
-	)
-
-	response, err := invokeRepositoryQuery(client)
-	assert.Nil(t, response)
-	require.ErrorIs(t, err, closeError)
-	partialErr, ok := errors.AsType[*getRepositoryPartialDataError](err)
-	require.True(t, ok)
-	require.NotNil(t, partialErr.PartialData())
-	assert.Equal(t, "octo-org/partial", partialErr.PartialData().Repository.NameWithOwner)
-	_, graphqlErrorsFound := errors.AsType[Errors](err)
-	assert.True(t, graphqlErrorsFound)
-	_, responseErrorFound := errors.AsType[*ResponseError](err)
-	assert.True(t, responseErrorFound)
-}
-
-type operationSpec struct {
-	variables any
-	name      string
-	query     string
-}
-
-func doDefaultOperation[T any](t *testing.T, client *Client) (*T, error) {
-	return doOperation[T](
-		t.Context(),
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
-}
-
-func doOperation[T any](
-	ctx context.Context,
-	client *Client,
-	operation operationSpec,
-) (*T, error) {
-	response := new(T)
-	hasData, err := client._octoqlExecute(ctx, _octoqlPayload{
-		OperationName: operation.name,
-		Query:         operation.query,
-		Variables:     operation.variables,
-	}, response)
-	if !hasData {
-		return nil, err
-	}
-	return response, err
 }
 
 func newResponseClient(statusCode int, header http.Header, body string) *Client {

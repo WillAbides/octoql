@@ -2,6 +2,15 @@ query getReview {
   review {
     fullDatabaseId
     createdAt
+    publishedOn
+    updatedAt
+    pushedAt
+    oid
+    refname
+    sshRemote
+    bodyHTML
+    encoded
+    certificate
     propertyValue
     author @octoqlgen(struct: true) {
       login
@@ -12,6 +21,24 @@ query getReview {
       url
     }
   }
+}
+
+query variableCollisions(
+  $ctx: String!
+  $client: String!
+  $err: String!
+  $vars: String!
+  $response: String!
+  $hasData: String!
+) {
+  echoCollision(
+    ctx: $ctx
+    client: $client
+    err: $err
+    vars: $vars
+    response: $response
+    hasData: $hasData
+  )
 }
 
 query runtimeAbstracts($id: ID!) {

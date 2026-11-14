@@ -1077,214 +1077,10 @@ type getRepositoryVariables struct {
 	Name  string `json:"name"`
 }
 
-// wireSemanticsNode includes the requested fields of the GraphQL interface Node.
-//
-// wireSemanticsNode is implemented by the following types:
-// wireSemanticsNodeUser
-// wireSemanticsNodeOctoqlOther
-type wireSemanticsNode interface {
-	implementsGraphQLInterfacewireSemanticsNode()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() string
-	// GetId returns the interface-field "id" from its implementation.
-	GetId() string
-}
-
-func (v *wireSemanticsNodeUser) implementsGraphQLInterfacewireSemanticsNode()        {}
-func (v *wireSemanticsNodeOctoqlOther) implementsGraphQLInterfacewireSemanticsNode() {}
-
-func _octoqlUnmarshalwireSemanticsNode(b []byte, v *wireSemanticsNode) error {
-	if string(b) == "null" {
-		return nil
-	}
-
-	var tn struct {
-		TypeName string `json:"__typename"`
-	}
-	err := json.Unmarshal(b, &tn)
-	if err != nil {
-		return err
-	}
-
-	switch tn.TypeName {
-	case "User":
-		*v = new(wireSemanticsNodeUser)
-		return json.Unmarshal(b, *v)
-	case "":
-		return fmt.Errorf(
-			"response was missing Node.__typename")
-	default:
-		*v = new(wireSemanticsNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
-	}
-}
-
-func _octoqlMarshalwireSemanticsNode(v *wireSemanticsNode) ([]byte, error) {
-
-	var typename string
-	switch vv := (*v).(type) {
-	case *wireSemanticsNodeUser:
-		if vv == nil {
-			return []byte("null"), nil
-		}
-		typename = "User"
-
-		result := struct {
-			TypeName string `json:"__typename"`
-			*wireSemanticsNodeUser
-		}{
-			TypeName:              typename,
-			wireSemanticsNodeUser: vv,
-		}
-		return json.Marshal(result)
-	case *wireSemanticsNodeOctoqlOther:
-		if vv == nil {
-			return []byte("null"), nil
-		}
-		return json.Marshal(vv)
-	case nil:
-		return []byte("null"), nil
-	default:
-		return nil, fmt.Errorf(
-			`unexpected concrete type for wireSemanticsNode: "%T"`, vv)
-	}
-}
-
-// wireSemanticsNodeOctoqlOther represents wireSemanticsNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
-type wireSemanticsNodeOctoqlOther struct {
-	Typename string `json:"__typename"`
-	Id       string `json:"id"`
-}
-
-// GetTypename returns wireSemanticsNodeOctoqlOther.Typename, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodeOctoqlOther) GetTypename() string { return v.Typename }
-
-// GetId returns wireSemanticsNodeOctoqlOther.Id, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodeOctoqlOther) GetId() string { return v.Id }
-
-// wireSemanticsNodeUser includes the requested fields of the GraphQL type User.
-type wireSemanticsNodeUser struct {
-	Typename string `json:"__typename"`
-	Id       string `json:"id"`
-	Login    string `json:"login"`
-}
-
-// GetTypename returns wireSemanticsNodeUser.Typename, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodeUser) GetTypename() string { return v.Typename }
-
-// GetId returns wireSemanticsNodeUser.Id, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodeUser) GetId() string { return v.Id }
-
-// GetLogin returns wireSemanticsNodeUser.Login, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodeUser) GetLogin() string { return v.Login }
-
-// wireSemanticsNodesNode includes the requested fields of the GraphQL interface Node.
-//
-// wireSemanticsNodesNode is implemented by the following types:
-// wireSemanticsNodesUser
-// wireSemanticsNodesNodeOctoqlOther
-type wireSemanticsNodesNode interface {
-	implementsGraphQLInterfacewireSemanticsNodesNode()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() string
-	// GetId returns the interface-field "id" from its implementation.
-	GetId() string
-}
-
-func (v *wireSemanticsNodesUser) implementsGraphQLInterfacewireSemanticsNodesNode()            {}
-func (v *wireSemanticsNodesNodeOctoqlOther) implementsGraphQLInterfacewireSemanticsNodesNode() {}
-
-func _octoqlUnmarshalwireSemanticsNodesNode(b []byte, v *wireSemanticsNodesNode) error {
-	if string(b) == "null" {
-		return nil
-	}
-
-	var tn struct {
-		TypeName string `json:"__typename"`
-	}
-	err := json.Unmarshal(b, &tn)
-	if err != nil {
-		return err
-	}
-
-	switch tn.TypeName {
-	case "User":
-		*v = new(wireSemanticsNodesUser)
-		return json.Unmarshal(b, *v)
-	case "":
-		return fmt.Errorf(
-			"response was missing Node.__typename")
-	default:
-		*v = new(wireSemanticsNodesNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
-	}
-}
-
-func _octoqlMarshalwireSemanticsNodesNode(v *wireSemanticsNodesNode) ([]byte, error) {
-
-	var typename string
-	switch vv := (*v).(type) {
-	case *wireSemanticsNodesUser:
-		if vv == nil {
-			return []byte("null"), nil
-		}
-		typename = "User"
-
-		result := struct {
-			TypeName string `json:"__typename"`
-			*wireSemanticsNodesUser
-		}{
-			TypeName:               typename,
-			wireSemanticsNodesUser: vv,
-		}
-		return json.Marshal(result)
-	case *wireSemanticsNodesNodeOctoqlOther:
-		if vv == nil {
-			return []byte("null"), nil
-		}
-		return json.Marshal(vv)
-	case nil:
-		return []byte("null"), nil
-	default:
-		return nil, fmt.Errorf(
-			`unexpected concrete type for wireSemanticsNodesNode: "%T"`, vv)
-	}
-}
-
-// wireSemanticsNodesNodeOctoqlOther represents wireSemanticsNodesNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
-type wireSemanticsNodesNodeOctoqlOther struct {
-	Typename string `json:"__typename"`
-	Id       string `json:"id"`
-}
-
-// GetTypename returns wireSemanticsNodesNodeOctoqlOther.Typename, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodesNodeOctoqlOther) GetTypename() string { return v.Typename }
-
-// GetId returns wireSemanticsNodesNodeOctoqlOther.Id, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodesNodeOctoqlOther) GetId() string { return v.Id }
-
-// wireSemanticsNodesUser includes the requested fields of the GraphQL type User.
-type wireSemanticsNodesUser struct {
-	Typename string `json:"__typename"`
-	Id       string `json:"id"`
-	Login    string `json:"login"`
-}
-
-// GetTypename returns wireSemanticsNodesUser.Typename, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodesUser) GetTypename() string { return v.Typename }
-
-// GetId returns wireSemanticsNodesUser.Id, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodesUser) GetId() string { return v.Id }
-
-// GetLogin returns wireSemanticsNodesUser.Login, and is useful for accessing the field via an interface.
-func (v *wireSemanticsNodesUser) GetLogin() string { return v.Login }
-
 // wireSemanticsResponse is returned by wireSemantics on success.
 type wireSemanticsResponse struct {
-	Date  *time.Time                   `json:"-"`
-	Dates [][][]*time.Time             `json:"-"`
-	Node  wireSemanticsNode            `json:"-"`
-	Nodes [][][]wireSemanticsNodesNode `json:"-"`
+	Date  *time.Time       `json:"-"`
+	Dates [][][]*time.Time `json:"-"`
 }
 
 // GetDate returns wireSemanticsResponse.Date, and is useful for accessing the field via an interface.
@@ -1292,12 +1088,6 @@ func (v *wireSemanticsResponse) GetDate() *time.Time { return v.Date }
 
 // GetDates returns wireSemanticsResponse.Dates, and is useful for accessing the field via an interface.
 func (v *wireSemanticsResponse) GetDates() [][][]*time.Time { return v.Dates }
-
-// GetNode returns wireSemanticsResponse.Node, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetNode() wireSemanticsNode { return v.Node }
-
-// GetNodes returns wireSemanticsResponse.Nodes, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetNodes() [][][]wireSemanticsNodesNode { return v.Nodes }
 
 func (v *wireSemanticsResponse) UnmarshalJSON(b []byte) error {
 
@@ -1309,8 +1099,6 @@ func (v *wireSemanticsResponse) UnmarshalJSON(b []byte) error {
 		*wireSemanticsResponse
 		Date  json.RawMessage `json:"date"`
 		Dates json.RawMessage `json:"dates"`
-		Node  json.RawMessage `json:"node"`
-		Nodes json.RawMessage `json:"nodes"`
 		_octoqlNoUnmarshalJSON
 	}
 	firstPass.wireSemanticsResponse = v
@@ -1387,72 +1175,6 @@ func (v *wireSemanticsResponse) UnmarshalJSON(b []byte) error {
 			}
 		}
 	}
-
-	{
-		dst := &v.Node
-		src := firstPass.Node
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalwireSemanticsNode(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal wireSemanticsResponse.Node: %w", err)
-			}
-		}
-	}
-
-	{
-		dst := &v.Nodes
-		raw := firstPass.Nodes
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src [][][]json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal wireSemanticsResponse.Nodes: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[][][]wireSemanticsNodesNode,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if src != nil {
-							*dst = make(
-								[][]wireSemanticsNodesNode,
-								len(src))
-							for i, src := range src {
-								dst := &(*dst)[i]
-								if src != nil {
-									*dst = make(
-										[]wireSemanticsNodesNode,
-										len(src))
-									for i, src := range src {
-										dst := &(*dst)[i]
-										if len(src) != 0 && string(src) != "null" {
-											err = _octoqlUnmarshalwireSemanticsNodesNode(
-												src, dst)
-											if err != nil {
-												return fmt.Errorf(
-													"unable to unmarshal wireSemanticsResponse.Nodes: %w", err)
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
 	return nil
 }
 
@@ -1460,10 +1182,6 @@ type _octoqlPremarshalwireSemanticsResponse struct {
 	Date json.RawMessage `json:"date"`
 
 	Dates [][][]json.RawMessage `json:"dates"`
-
-	Node json.RawMessage `json:"node"`
-
-	Nodes [][][]json.RawMessage `json:"nodes"`
 }
 
 func (v *wireSemanticsResponse) MarshalJSON() ([]byte, error) {
@@ -1521,54 +1239,6 @@ func (v *wireSemanticsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalwireS
 										return nil, fmt.Errorf(
 											"unable to marshal wireSemanticsResponse.Dates: %w", err)
 									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	{
-
-		dst := &retval.Node
-		src := v.Node
-		var err error
-		*dst, err = _octoqlMarshalwireSemanticsNode(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal wireSemanticsResponse.Node: %w", err)
-		}
-	}
-	{
-
-		dst := &retval.Nodes
-		src := v.Nodes
-		if src != nil {
-			*dst = make(
-				[][][]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if src != nil {
-					*dst = make(
-						[][]json.RawMessage,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if src != nil {
-							*dst = make(
-								[]json.RawMessage,
-								len(src))
-							for i, src := range src {
-								dst := &(*dst)[i]
-								var err error
-								*dst, err = _octoqlMarshalwireSemanticsNodesNode(
-									&src)
-								if err != nil {
-									return nil, fmt.Errorf(
-										"unable to marshal wireSemanticsResponse.Nodes: %w", err)
 								}
 							}
 						}
@@ -1641,7 +1311,7 @@ func (c *Client) getRepository(
 }
 
 // The query executed by wireSemantics.
-const wireSemantics_Operation = "\nquery wireSemantics {\n\tdate\n\tdates\n\tnode {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t}\n\tnodes {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
+const wireSemantics_Operation = "\nquery wireSemantics {\n\tdate\n\tdates\n}\n"
 
 // wireSemanticsPartialDataError contains partial data returned by wireSemantics.
 type wireSemanticsPartialDataError struct {

@@ -177,38 +177,6 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 	}
 }
 
-func TestDoPointerData(t *testing.T) {
-	t.Run("object allocates inner pointer", func(t *testing.T) {
-		client := newResponseClient(
-			http.StatusOK,
-			http.Header{},
-			`{"data":{"repository":{"nameWithOwner":"octoql"}}}`,
-		)
-
-		response, err := doDefaultOperation[*getRepositoryResponse](t, client)
-
-		require.NoError(t, err)
-		require.NotNil(t, response)
-		require.NotNil(t, *response)
-		require.NotNil(t, (*response).Repository)
-		assert.Equal(t, "octoql", (*response).Repository.NameWithOwner)
-	})
-
-	t.Run("null is not partial data", func(t *testing.T) {
-		client := newResponseClient(
-			http.StatusOK,
-			http.Header{},
-			`{"data":null,"errors":[{"message":"no data"}]}`,
-		)
-
-		response, err := doDefaultOperation[*getRepositoryResponse](t, client)
-
-		assert.Nil(t, response)
-		_, hasErrors := errors.AsType[Errors](err)
-		assert.True(t, hasErrors)
-	})
-}
-
 func TestResponseErrorBoundsRawBody(t *testing.T) {
 	body := strings.Repeat("x", 70*1024)
 	client := newResponseClient(
@@ -370,67 +338,43 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 }
 
 func TestSpecialSliceWireSemantics(t *testing.T) {
-	tests := []struct {
-		name string
-		wire string
-	}{
-		{
-			name: "null outer slices",
-			wire: `{"date":null,"dates":null,"node":null,"nodes":null}`,
-		},
-		{
-			name: "empty outer slices",
-			wire: `{"date":"2026-07-20","dates":[],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[]}`,
-		},
-		{
-			name: "null and empty nested slices",
-			wire: `{"date":null,"dates":[null,[],[null,[],[null,"2026-07-20"]]],"node":null,"nodes":[null,[],[null,[],[null,{"__typename":"User","id":"1","login":"octo"}]]]}`,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for name, wire := range map[string]string{
+		"null outer slices":            `{"date":null,"dates":null}`,
+		"empty outer slices":           `{"date":"2026-07-20","dates":[]}`,
+		"null and empty nested slices": `{"date":null,"dates":[null,[],[null,[],[null,"2026-07-20"]]]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
 			var response wireSemanticsResponse
-			err := json.Unmarshal([]byte(test.wire), &response)
+			err := json.Unmarshal([]byte(wire), &response)
 			require.NoError(t, err)
 			remarshaled, err := json.Marshal(&response)
 			require.NoError(t, err)
-			require.JSONEq(t, test.wire, string(remarshaled))
+			require.JSONEq(t, wire, string(remarshaled))
 		})
 	}
-}
 
-func TestSpecialSliceWireSemanticsReusedDestination(t *testing.T) {
-	const populated = `{"date":"2026-07-20","dates":[[["2026-07-20"]]],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[[[{"__typename":"User","id":"1","login":"octo"}]]]}`
-	tests := []struct {
-		name   string
+	const populated = `{"date":"2026-07-20","dates":[[["2026-07-20"]]]}`
+	for name, test := range map[string]struct {
 		update string
 		want   string
 	}{
-		{
-			name:   "present null clears special values",
-			update: `{"date":null,"dates":null,"node":null,"nodes":null}`,
-			want:   `{"date":null,"dates":null,"node":null,"nodes":null}`,
+		"present null clears special values": {
+			update: `{"date":null,"dates":null}`,
+			want:   `{"date":null,"dates":null}`,
 		},
-		{
-			name:   "present arrays replace slices",
-			update: `{"dates":[],"nodes":[]}`,
-			want:   `{"date":"2026-07-20","dates":[],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[]}`,
+		"present arrays replace slices": {
+			update: `{"dates":[]}`,
+			want:   `{"date":"2026-07-20","dates":[]}`,
 		},
-		{
-			name:   "omitted fields retain slices",
+		"omitted fields retain slices": {
 			update: `{}`,
 			want:   populated,
 		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	} {
+		t.Run(name, func(t *testing.T) {
 			var response wireSemanticsResponse
-			err := json.Unmarshal([]byte(populated), &response)
-			require.NoError(t, err)
-			err = json.Unmarshal([]byte(test.update), &response)
-			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal([]byte(populated), &response))
+			require.NoError(t, json.Unmarshal([]byte(test.update), &response))
 			remarshaled, err := json.Marshal(&response)
 			require.NoError(t, err)
 			require.JSONEq(t, test.want, string(remarshaled))

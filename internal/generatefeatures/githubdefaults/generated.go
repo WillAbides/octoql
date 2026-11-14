@@ -1065,6 +1065,15 @@ func (v *getReviewResponse) GetReview() getReviewReview { return v.Review }
 type getReviewReview struct {
 	FullDatabaseId string                      `json:"fullDatabaseId"`
 	CreatedAt      time.Time                   `json:"createdAt"`
+	PublishedOn    string                      `json:"publishedOn"`
+	UpdatedAt      time.Time                   `json:"updatedAt"`
+	PushedAt       time.Time                   `json:"pushedAt"`
+	Oid            string                      `json:"oid"`
+	Refname        string                      `json:"refname"`
+	SshRemote      string                      `json:"sshRemote"`
+	BodyHTML       string                      `json:"bodyHTML"`
+	Encoded        string                      `json:"encoded"`
+	Certificate    string                      `json:"certificate"`
 	PropertyValue  *json.RawMessage            `json:"propertyValue"`
 	Author         *getReviewReviewAuthorActor `json:"author"`
 	Editor         *getReviewReviewEditorActor `json:"editor"`
@@ -1075,6 +1084,33 @@ func (v *getReviewReview) GetFullDatabaseId() string { return v.FullDatabaseId }
 
 // GetCreatedAt returns getReviewReview.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getReviewReview) GetCreatedAt() time.Time { return v.CreatedAt }
+
+// GetPublishedOn returns getReviewReview.PublishedOn, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetPublishedOn() string { return v.PublishedOn }
+
+// GetUpdatedAt returns getReviewReview.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetUpdatedAt() time.Time { return v.UpdatedAt }
+
+// GetPushedAt returns getReviewReview.PushedAt, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetPushedAt() time.Time { return v.PushedAt }
+
+// GetOid returns getReviewReview.Oid, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetOid() string { return v.Oid }
+
+// GetRefname returns getReviewReview.Refname, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetRefname() string { return v.Refname }
+
+// GetSshRemote returns getReviewReview.SshRemote, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetSshRemote() string { return v.SshRemote }
+
+// GetBodyHTML returns getReviewReview.BodyHTML, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetBodyHTML() string { return v.BodyHTML }
+
+// GetEncoded returns getReviewReview.Encoded, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetEncoded() string { return v.Encoded }
+
+// GetCertificate returns getReviewReview.Certificate, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetCertificate() string { return v.Certificate }
 
 // GetPropertyValue returns getReviewReview.PropertyValue, and is useful for accessing the field via an interface.
 func (v *getReviewReview) GetPropertyValue() *json.RawMessage { return v.PropertyValue }
@@ -1633,8 +1669,26 @@ type runtimeAbstractsVariables struct {
 	Id string `json:"id"`
 }
 
+// variableCollisionsResponse is returned by variableCollisions on success.
+type variableCollisionsResponse struct {
+	EchoCollision string `json:"echoCollision"`
+}
+
+// GetEchoCollision returns variableCollisionsResponse.EchoCollision, and is useful for accessing the field via an interface.
+func (v *variableCollisionsResponse) GetEchoCollision() string { return v.EchoCollision }
+
+// variableCollisionsVariables contains the variables accepted by variableCollisions.
+type variableCollisionsVariables struct {
+	Ctx      string `json:"ctx"`
+	Client   string `json:"client"`
+	Err      string `json:"err"`
+	Vars     string `json:"vars"`
+	Response string `json:"response"`
+	HasData  string `json:"hasData"`
+}
+
 // The query executed by getReview.
-const getReview_Operation = "\nquery getReview {\n\treview {\n\t\tfullDatabaseId\n\t\tcreatedAt\n\t\tpropertyValue\n\t\tauthor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t\teditor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t}\n}\n"
+const getReview_Operation = "\nquery getReview {\n\treview {\n\t\tfullDatabaseId\n\t\tcreatedAt\n\t\tpublishedOn\n\t\tupdatedAt\n\t\tpushedAt\n\t\toid\n\t\trefname\n\t\tsshRemote\n\t\tbodyHTML\n\t\tencoded\n\t\tcertificate\n\t\tpropertyValue\n\t\tauthor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t\teditor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t}\n}\n"
 
 // getReviewPartialDataError contains partial data returned by getReview.
 type getReviewPartialDataError struct {
@@ -1747,6 +1801,67 @@ func (c *Client) runtimeAbstracts(
 	}
 	if err != nil {
 		return nil, &runtimeAbstractsPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
+}
+
+// The query executed by variableCollisions.
+const variableCollisions_Operation = "\nquery variableCollisions ($ctx: String!, $client: String!, $err: String!, $vars: String!, $response: String!, $hasData: String!) {\n\techoCollision(ctx: $ctx, client: $client, err: $err, vars: $vars, response: $response, hasData: $hasData)\n}\n"
+
+// variableCollisionsPartialDataError contains partial data returned by variableCollisions.
+type variableCollisionsPartialDataError struct {
+	data *variableCollisionsResponse
+	err  error
+}
+
+func (e *variableCollisionsPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *variableCollisionsPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *variableCollisionsPartialDataError) PartialData() *variableCollisionsResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
+}
+
+// PartialDataValue returns the partial response as an untyped value.
+func (e *variableCollisionsPartialDataError) PartialDataValue() any {
+	return e.PartialData()
+}
+
+func (c *Client) variableCollisions(
+	ctx context.Context,
+	vars variableCollisionsVariables,
+) (*variableCollisionsResponse, error) {
+	var response variableCollisionsResponse
+	hasData, err := c._octoqlExecute(
+		ctx,
+		_octoqlPayload{
+			OperationName: "variableCollisions",
+			Query:         variableCollisions_Operation,
+			Variables:     &vars,
+		},
+		&response,
+	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &variableCollisionsPartialDataError{
 			data: &response,
 			err:  err,
 		}

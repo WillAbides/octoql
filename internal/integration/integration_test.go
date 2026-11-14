@@ -529,6 +529,70 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, "dependabot", bot.Login)
 }
 
+func TestDirectivesNullabilityAndSkipInclude(t *testing.T) {
+	client := newTestClient(t)
+	queryDate := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	skipped, err := client.queryWithDirectivesAndSkipInclude(
+		t.Context(),
+		queryWithDirectivesAndSkipIncludeVariables{
+			Hide:          true,
+			Show:          false,
+			OptionalLogin: "octocat",
+			Dates:         []time.Time{queryDate},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, skipped.User)
+	assert.Equal(t, "octocat", skipped.User.Login)
+	assert.Equal(t, "Mona Octocat", skipped.User.PlainName)
+	assert.Equal(t, "octocat", requirePtrValue(t, skipped.User.ForcedPtrLogin))
+	assert.Nil(t, skipped.User.Typename)
+	assert.Nil(t, skipped.User.SkippedLogin)
+	assert.Nil(t, skipped.User.IncludedLogin)
+	assert.Nil(t, skipped.User.CreatedAt)
+	assert.Nil(t, skipped.User.Status)
+	assert.Empty(t, skipped.User.Repositories)
+	assert.Nil(t, skipped.User.BoundPtr)
+	assert.Nil(t, skipped.User.BoundAny)
+	require.NotNil(t, skipped.Actor)
+	assert.Equal(t, "1", skipped.Actor.GetId())
+	assert.Empty(t, skipped.Actors)
+	assert.Empty(t, skipped.UsersCreatedOnDates)
+	require.NotNil(t, skipped.StructActor)
+	assert.Equal(t, "octocat", skipped.StructActor.Login)
+
+	included, err := client.queryWithDirectivesAndSkipInclude(
+		t.Context(),
+		queryWithDirectivesAndSkipIncludeVariables{
+			Hide:          false,
+			Show:          true,
+			DefaultedId:   new("3"),
+			OptionalLogin: "octocat",
+			Dates:         []time.Time{queryDate},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, included.User)
+	assert.Equal(t, "User", requirePtrValue(t, included.User.Typename))
+	assert.Equal(t, "octocat", requirePtrValue(t, included.User.SkippedLogin))
+	assert.Equal(t, "octocat", requirePtrValue(t, included.User.IncludedLogin))
+	assert.Equal(t, queryDate, requirePtrValue(t, included.User.CreatedAt))
+	require.NotNil(t, included.User.Status)
+	assert.Equal(t, ":octocat:", requirePtrValue(t, included.User.Status.Emoji))
+	require.Len(t, included.User.Repositories, 1)
+	assert.Equal(t, "octo-repo", included.User.Repositories[0].Name)
+	assert.Equal(t, "octocat", requirePtrValue(t, included.User.BoundPtr))
+	assert.Equal(t, "octocat", included.User.BoundAny)
+	require.NotNil(t, included.Actor)
+	org, ok := included.Actor.(*directivesResponseActorOrganization)
+	require.True(t, ok)
+	assert.Equal(t, "3", org.Id)
+	assert.Equal(t, "Octo Org", org.Name)
+	require.Len(t, included.Actors, 1)
+	require.Len(t, included.UsersCreatedOnDates, 1)
+}
+
 func requirePtrValue[T any](t *testing.T, value *T) T {
 	t.Helper()
 	require.NotNil(t, value)

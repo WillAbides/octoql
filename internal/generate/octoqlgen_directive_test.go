@@ -54,82 +54,6 @@ func generateSplit(t *testing.T, operation string) (string, error) {
 	})
 }
 
-func TestDirectiveNeverReachesTheServer(t *testing.T) {
-	source, err := generateTestSource(t, &testGenerateSpec{
-		schema: `
-type Query {
-  viewer: User!
-}
-
-type User {
-  name: String
-  isSuspended: Boolean
-}
-`,
-		operations: `
-query Viewer($skipName: Boolean!) @octoqlgen(typename: "ViewerResp") {
-  viewer @octoqlgen(typename: "ViewerUser") {
-    name @skip(if: $skipName)
-    isSuspended @octoqlgen(pointer: false)
-  }
-}
-`,
-	})
-	require.NoError(t, err)
-
-	assert.Contains(t, source, "type ViewerResp struct")
-	assert.Contains(t, source, "type ViewerUser struct")
-	assert.NotContains(t, source, "@octoqlgen")
-	assert.Contains(t, source, `@skip(if: $skipName)`)
-}
-
-func TestOctoqlgenDirectiveVariableOmitempty(t *testing.T) {
-	tests := []struct {
-		name      string
-		operation string
-		wantField string
-	}{
-		{
-			name: "operation defaults omitempty with variable default",
-			operation: `
-query Value($input: String! = "default") @octoqlgenDefaults(pointer: true, omitempty: true) {
-  value(input: $input)
-}
-`,
-			wantField: `Input *string ` + "`json:\"input,omitempty\"`",
-		},
-		{
-			name: "local omitempty with variable default",
-			operation: `
-query Value($input: String! = "default" @octoqlgen(pointer: true, omitempty: true)) {
-  value(input: $input)
-}
-`,
-			wantField: `Input *string ` + "`json:\"input,omitempty\"`",
-		},
-		{
-			name: "local omitempty disable for required variable",
-			operation: `
-query Value($input: String! @octoqlgen(omitempty: false)) @octoqlgenDefaults(omitempty: true) {
-  value(input: $input)
-}
-`,
-			wantField: `Input string ` + "`json:\"input\"`",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			source, err := generateTestSource(t, &testGenerateSpec{
-				schema:     "type Query {\n  value(input: String!): String!\n}\n",
-				operations: test.operation,
-			})
-			require.NoError(t, err)
-			assertDeclares(t, source, test.wantField)
-		})
-	}
-}
-
 func TestGeneratorOwnsTheDirectiveDefinition(t *testing.T) {
 	const baseSchema = `
 type Query {
@@ -337,30 +261,7 @@ query QB($f: Filter)
 	}
 }
 
-func TestDefaultsStructAppliesInsideFragment(t *testing.T) {
-	source, err := generateSplit(t, `
-query Q { a { ...ThingFields } }
-fragment ThingFields on Thing @octoqlgenDefaults(struct: true) {
-  node { id }
-}
-`)
-
-	require.NoError(t, err)
-	assert.Contains(t, source, "type ThingFieldsNode struct")
-	assert.NotContains(t, source, "type ThingFieldsNode interface")
-}
-
 func TestDefaultsSeparatesScopeFromNodeOptions(t *testing.T) {
-	t.Run("defaults reach the fields", func(t *testing.T) {
-		source, err := generateSplit(t, `
-query Q @octoqlgenDefaults(pointer: false) { a { name size } }
-`)
-
-		require.NoError(t, err)
-		assertDeclares(t, source, "Name string")
-		assertDeclares(t, source, "Size int")
-	})
-
 	t.Run("defaults do not mutate shared input object fields", func(t *testing.T) {
 		source, err := generateSplit(t, `
 query QA($f: Filter) @octoqlgenDefaults(pointer: false) { a(filter: $f) { name } }
@@ -379,15 +280,6 @@ query Q @octoqlgen(pointer: false) { a { name } }
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not describe an operation or fragment")
 		assert.Contains(t, err.Error(), "@octoqlgenDefaults(pointer:)")
-	})
-
-	t.Run("the node directive still names the response type", func(t *testing.T) {
-		source, err := generateSplit(t, `
-query Q @octoqlgen(typename: "Resp") { a { name } }
-`)
-
-		require.NoError(t, err)
-		assert.Contains(t, source, "type Resp struct")
 	})
 }
 

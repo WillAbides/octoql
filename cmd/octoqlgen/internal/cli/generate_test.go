@@ -1,9 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
-	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,459 +8,200 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
-	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/internal/generate"
+	"github.com/willabides/octoql/internal"
 )
 
-func TestGenerateConfigMapsOptions(t *testing.T) {
+func TestRunGenerate(t *testing.T) {
 	t.Parallel()
 
-	bindings := map[string]*config.Binding{
-		"DateTime": {
-			Type:              new("github.com/example/scalar.DateTime"),
-			ExpectExactFields: new("{ id login }"),
-			Marshaler:         new("github.com/example/scalar.Marshal"),
-			Unmarshaler:       new("github.com/example/scalar.Unmarshal"),
-		},
-	}
-	enumCasing := map[string]string{"IssueState": "default"}
-	source := &config.Config{
-		Schema: config.Schema{
-			Path: "schema.graphql",
-		},
-		Operations:       []string{"graphql/**/*.graphql"},
-		Generated:        "githubapi/generated.go",
-		Package:          new("githubapi"),
-		ExportOperations: new("operations.json"),
-		ContextType:      new("github.com/example/context.Type"),
-		Bindings:         &bindings,
-		PackageBindings: []config.PackageBinding{{
-			Package: "github.com/example/models",
-		}},
-		Casing: &config.Casing{
-			Default:  new("auto_camel_case"),
-			AllEnums: new("raw"),
-			Enums:    &enumCasing,
-		},
-		UseStructReferences:             new(true),
-		OmitUnreferencedImplementations: new(false),
-		TestHandler: &config.TestHandler{
-			Generated: "githubapitest/generated.go",
-			Types:     new(config.TestHandlerTypesLocal),
-		},
-	}
+	t.Run("materializes remote schema maps config options and writes all outputs", func(t *testing.T) {
+		t.Parallel()
 
-	actual := generateConfig(source)
+		directory := t.TempDir()
+		require.NoError(t, os.WriteFile(
+			filepath.Join(directory, "go.mod"),
+			[]byte("module example.com/app\n\ngo 1.27.3\n"),
+			0o600,
+		))
+		operationDir := filepath.Join(directory, "graphql")
+		require.NoError(t, os.MkdirAll(operationDir, 0o755))
+		require.NoError(t, os.WriteFile(
+			filepath.Join(operationDir, "viewer.graphql"),
+			[]byte("query Viewer($filter: FilterInput) {\n  viewer(filter: $filter)\n  state\n}\n"),
+			0o600,
+		))
 
-	assert.Equal(t, "schema.graphql", actual.Schema)
-	assert.Equal(t, []string{"graphql/**/*.graphql"}, actual.Operations)
-	assert.Equal(t, "githubapi/generated.go", actual.Generated)
-	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
-	assert.Equal(t, generate.TestHandlerTypesLocal, actual.TestHandlerTypes)
-	assert.Equal(t, "githubapi", actual.Package)
-	assert.Equal(t, "operations.json", actual.ExportOperations)
-	assert.Equal(t, "github.com/example/context.Type", actual.ContextType)
-	assert.True(t, actual.StructReferences)
-	require.NotNil(t, actual.OmitUnreferencedImplementations)
-	assert.False(t, *actual.OmitUnreferencedImplementations)
-	assert.Equal(t, generate.CasingAutoCamelCase, actual.Casing.Default)
-	assert.Equal(t, generate.CasingRaw, actual.Casing.AllEnums)
-	assert.Equal(t, generate.CasingDefault, actual.Casing.Enums["IssueState"])
-	require.Len(t, actual.PackageBindings, 1)
-	assert.Equal(t, "github.com/example/models", actual.PackageBindings[0].Package)
-	require.Contains(t, actual.Bindings, "DateTime")
-	assert.Equal(t, "github.com/example/scalar.DateTime", actual.Bindings["DateTime"].Type)
-	assert.Equal(t, "{ id login }", actual.Bindings["DateTime"].ExpectExactFields)
-	assert.Equal(t, "github.com/example/scalar.Marshal", actual.Bindings["DateTime"].Marshaler)
-	assert.Equal(t, "github.com/example/scalar.Unmarshal", actual.Bindings["DateTime"].Unmarshaler)
-}
+		remoteSchema := "enum IssueState { OPEN }\n" +
+			"scalar CustomID\n" +
+			"input FilterInput { label: String }\n" +
+			"type Query { viewer(filter: FilterInput): CustomID! state: IssueState! }\n"
+		remoteSHA256 := sha256Hex(remoteSchema)
 
-func TestGenerateCommandRun(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	schemaPath := filepath.Join(tempDir, "schema.graphql")
-	generatedPath := filepath.Join(tempDir, "generated.go")
-	exportPath := filepath.Join(tempDir, "operations.json")
-	packageName := "client"
-	exportOperations := exportPath
-	loaded := &config.Config{
-		Schema:           config.Schema{Path: schemaPath},
-		Operations:       []string{filepath.Join(tempDir, "operation.graphql")},
-		Generated:        generatedPath,
-		Package:          &packageName,
-		ExportOperations: &exportOperations,
-	}
-
-	stub := &stubMaterializer{data: []byte("type Query { viewer: String }\n")}
-	writer := &recordingOutputWriter{}
-	didMaterialize := false
-	generateCalls := 0
-	command := generateCommand{
-		Config:  "custom-octoqlgen.yaml",
-		context: t.Context(),
-		loadConfig: func(filename string) (*config.Config, error) {
-			assert.Equal(t, "custom-octoqlgen.yaml", filename)
-			return loaded, nil
-		},
-		materializer: stub,
-		generate: func(generatorConfig *generate.Config) (map[string][]byte, error) {
-			generateCalls++
-			didMaterialize = stub.request.Path != ""
-			assert.Equal(t, schemaPath, generatorConfig.Schema)
-			return map[string][]byte{
-				generatedPath: []byte("generated"),
-				exportPath:    []byte("operations"),
-			}, nil
-		},
-		outputWriter: writer,
-	}
-
-	err := command.Run()
-	require.NoError(t, err)
-	assert.True(t, didMaterialize)
-	assert.Equal(t, 1, generateCalls)
-	assert.Equal(t, []byte("generated"), writer.outputs[generatedPath])
-	assert.Equal(t, []byte("operations"), writer.outputs[exportPath])
-}
-
-func TestGenerateCommandValidatesOutputsBeforeMaterialization(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		yaml      string
-		wantParts []string
-	}{
-		{
-			name: "config output collision",
-			yaml: "schema:\n" +
-				"  path: schema.graphql\n" +
-				"operations:\n" +
-				"  - operation.graphql\n" +
-				"generated: " + config.DefaultFilename + "\n",
-			wantParts: []string{"generated output path", "config"},
-		},
-		{
-			name: "schema output collision",
-			yaml: "schema:\n" +
-				"  path: generated.go\n" +
-				"  sha256: 559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd\n" +
-				"  source:\n" +
-				"    repository: octo-org/octo-repo\n" +
-				"    path: schema.graphql\n" +
-				"    revision: " + cliRevision + "\n" +
-				"operations: []\n" +
-				"generated: generated.go\n",
-			wantParts: []string{"generated output path", "schema input path"},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			directory := t.TempDir()
-			configPath := filepath.Join(directory, config.DefaultFilename)
-			err := os.WriteFile(configPath, []byte(test.yaml), 0o600)
-			require.NoError(t, err)
-
-			stub := &stubMaterializer{}
-			command := generateCommand{
-				Config:       configPath,
-				context:      t.Context(),
-				loadConfig:   config.Load,
-				materializer: stub,
-				generate: func(*generate.Config) (map[string][]byte, error) {
-					return nil, errors.New("generation should not run")
-				},
-				outputWriter: &recordingOutputWriter{},
-			}
-
-			err = command.Run()
-
-			require.Error(t, err)
-			for _, part := range test.wantParts {
-				assert.Contains(t, err.Error(), part)
-			}
-			assert.Empty(t, stub.request.Path)
-		})
-	}
-}
-
-func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	require.NoError(t, os.WriteFile(
-		filepath.Join(tempDir, "go.mod"),
-		[]byte("module example.com/app\n\ngo 1.27.3\n"),
-		0o600,
-	))
-	packageName := "client"
-	loaded := &config.Config{
-		Schema:     config.Schema{Path: filepath.Join(tempDir, "schema.graphql")},
-		Operations: []string{filepath.Join(tempDir, "operation.graphql")},
-		Generated:  filepath.Join(tempDir, "client", "generated.go"),
-		Package:    &packageName,
-		TestHandler: &config.TestHandler{
-			Generated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-		},
-	}
-	renderErr := errors.New("handler renderer failed")
-	writer := &recordingOutputWriter{}
-	command := generateCommand{
-		Config:  "octoqlgen.yaml",
-		context: t.Context(),
-		loadConfig: func(string) (*config.Config, error) {
-			return loaded, nil
-		},
-		materializer: &stubMaterializer{},
-		generate: func(*generate.Config) (map[string][]byte, error) {
-			return nil, renderErr
-		},
-		outputWriter: writer,
-	}
-
-	err := command.Run()
-
-	require.ErrorIs(t, err, renderErr)
-	assert.Empty(t, writer.outputs)
-}
-
-func TestGenerateCommandMaterializesConfiguredSources(t *testing.T) {
-	t.Parallel()
-
-	source := config.Source{
-		Repository: "octo-org/octo-repo",
-		Revision:   cliRevision,
-		Path:       "schema.graphql",
-	}
-
-	directory := t.TempDir()
-	packageName := "client"
-	stub := &stubMaterializer{}
-	command := generateCommand{
-		context: t.Context(),
-		loadConfig: func(string) (*config.Config, error) {
-			return &config.Config{
-				Schema: config.Schema{
-					Path:   filepath.Join(directory, "schema.graphql"),
-					Sha256: new(cliSHA256),
-					Source: &source,
-				},
-				Operations: []string{filepath.Join(directory, "operation.graphql")},
-				Generated:  filepath.Join(directory, "generated.go"),
-				Package:    &packageName,
-			}, nil
-		},
-		materializer: stub,
-		generate: func(*generate.Config) (map[string][]byte, error) {
-			return map[string][]byte{}, nil
-		},
-		outputWriter: &recordingOutputWriter{},
-	}
-
-	err := command.Run()
-	require.NoError(t, err)
-	assert.Equal(t, cliSHA256, stub.request.SHA256)
-	assert.Equal(t, source, stub.request.Source)
-}
-
-func TestGenerateSubdirectoryConfig(t *testing.T) {
-	t.Parallel()
-
-	configPath, err := filepath.Abs(
-		filepath.Join(
-			"..",
-			"..",
-			"..",
-			"..",
-			"internal",
-			"generate",
-			"testdata",
-			"queries",
-			"subpackage",
-			config.DefaultFilename,
-		),
-	)
-	require.NoError(t, err)
-	stub := &stubMaterializer{}
-	command := generateCommand{
-		Config:       configPath,
-		context:      t.Context(),
-		loadConfig:   config.Load,
-		materializer: stub,
-		generate: func(generatorConfig *generate.Config) (map[string][]byte, error) {
-			assert.Equal(t, "subpackage", generatorConfig.Package)
-			assert.Equal(
-				t,
-				filepath.Join(filepath.Dir(configPath), "generated.go"),
-				generatorConfig.Generated,
-			)
-			assert.Equal(
-				t,
-				filepath.Join(filepath.Dir(configPath), "..", "schema.graphql"),
-				generatorConfig.Schema,
-			)
-			return map[string][]byte{}, nil
-		},
-		outputWriter: &recordingOutputWriter{},
-	}
-
-	err = command.Run()
-	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(filepath.Dir(configPath), "..", "schema.graphql"), stub.request.Path)
-}
-
-func TestGenerateCommandMissingLocalSchema(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	packageName := "client"
-	command := generateCommand{
-		Config:  filepath.Join(tempDir, "octoqlgen.yaml"),
-		context: t.Context(),
-		loadConfig: func(string) (*config.Config, error) {
-			return &config.Config{
-				Schema:     config.Schema{Path: filepath.Join(tempDir, "missing.graphql")},
-				Operations: []string{filepath.Join(tempDir, "operation.graphql")},
-				Generated:  filepath.Join(tempDir, "generated.go"),
-				Package:    &packageName,
-			}, nil
-		},
-		materializer: schemaMaterializer(),
-		generate: func(*generate.Config) (map[string][]byte, error) {
-			return nil, errors.New("generation should not run")
-		},
-		outputWriter: &recordingOutputWriter{},
-	}
-
-	err := command.Run()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "local schema file")
-	assert.Contains(t, err.Error(), "edit schema.source or run octoqlgen schema fetch")
-}
-
-func TestGenerateRejectsPositionalConfig(t *testing.T) {
-	t.Parallel()
-
-	err := Run(
-		[]string{"generate", "genqlient.yaml"},
-		"test",
-		&Dependencies{
-			Context: t.Context(),
-			Stdout:  io.Discard,
-			Stderr:  io.Discard,
-		},
-	)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected argument")
-}
-
-func TestMinimalInitConfigGenerates(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	configPath := filepath.Join(directory, config.DefaultFilename)
-	initCmd := initCommand{
-		ConfigPath:    configPath,
-		SchemaVersion: "fpt",
-		context:       t.Context(),
-		resolver: &stubRemoteResolver{
-			result: schema.RemoteResult{
-				Revision: cliRevision,
-				SHA256:   "b21acab241b1703103b168e57541425e1593bcb6ea720351a753c45c446c15b4",
-				Data:     []byte("type Query { viewer: User }\ntype User { login: String! }\n"),
-			},
-		},
-		stdout: io.Discard,
-	}
-	err := initCmd.Run()
-	require.NoError(t, err)
-	err = os.MkdirAll(filepath.Join(directory, "graphql"), 0o755)
-	require.NoError(t, err)
-	err = os.WriteFile(
-		filepath.Join(directory, "graphql", "viewer.graphql"),
-		[]byte("query Viewer { viewer { login } }\n"),
-		0o600,
-	)
-	require.NoError(t, err)
-
-	err = Run(
-		[]string{"generate", "--config", configPath},
-		"test",
-		&Dependencies{
-			Context: t.Context(),
-			Stdout:  io.Discard,
-			Stderr:  io.Discard,
-		},
-	)
-	require.NoError(t, err)
-	generated, err := os.ReadFile(filepath.Join(directory, "internal", "githubapi", "generated.go"))
-	require.NoError(t, err)
-	assert.Contains(t, string(generated), "func (c *Client) Viewer(")
-}
-
-func TestGenerateOperationManifestPathsRelativeToConfig(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	configPath := filepath.Join(directory, config.DefaultFilename)
-	err := os.WriteFile(
-		configPath,
-		[]byte(
+		configPath := filepath.Join(directory, config.DefaultFilename)
+		require.NoError(t, os.WriteFile(configPath, []byte(
 			"schema:\n"+
-				"  path: schema.graphql\n"+
+				"  path: .octoql/schema.graphql\n"+
+				"  sha256: "+remoteSHA256+"\n"+
+				"  source:\n"+
+				"    repository: octo-org/octo-repo\n"+
+				"    path: schema.graphql\n"+
+				"    revision: "+cliRevision+"\n"+
 				"operations:\n"+
-				"  - graphql/*.graphql\n"+
-				"generated: generated.go\n"+
-				"package: client\n"+
-				"export_operations: operations.json\n",
-		),
-		0o600,
-	)
-	require.NoError(t, err)
-	err = os.WriteFile(
-		filepath.Join(directory, "schema.graphql"),
-		[]byte("type Query { viewer: String! }\n"),
-		0o600,
-	)
-	require.NoError(t, err)
-	err = os.Mkdir(filepath.Join(directory, "graphql"), 0o755)
-	require.NoError(t, err)
-	err = os.WriteFile(
-		filepath.Join(directory, "graphql", "viewer.graphql"),
-		[]byte("query Viewer { viewer }\n"),
-		0o600,
-	)
-	require.NoError(t, err)
+				"  - graphql/**/*.graphql\n"+
+				"generated: githubapi/generated.go\n"+
+				"package: githubapi\n"+
+				"export_operations: githubapi/operations.json\n"+
+				"context_type: \"-\"\n"+
+				"bindings:\n"+
+				"  CustomID:\n"+
+				"    type: string\n"+
+				"casing:\n"+
+				"  default: auto_camel_case\n"+
+				"  enums:\n"+
+				"    IssueState: raw\n"+
+				"use_struct_references: true\n"+
+				"omit_unreferenced_implementations: false\n"+
+				"test_handler:\n"+
+				"  generated: githubapitest/generated.go\n"+
+				"  types: local\n",
+		), 0o600))
 
-	err = Run(
-		[]string{"generate", "--config", configPath},
-		"test",
-		&Dependencies{
+		remote := newGitHubStubServer(t, map[string][]byte{
+			"/repos/octo-org/octo-repo/contents/schema.graphql?ref=" + cliRevision: []byte(remoteSchema),
+		})
+		err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: remote.materializer,
+		})
+		require.NoError(t, err)
+
+		clientSource, err := os.ReadFile(filepath.Join(directory, "githubapi", "generated.go"))
+		require.NoError(t, err)
+		assert.Contains(t, string(clientSource), "package githubapi")
+		assert.Contains(t, string(clientSource), "func (c *Client) Viewer(")
+		assert.Contains(t, string(clientSource), "context.Background()")
+		assert.Contains(t, string(clientSource), "IssueState_OPEN")
+
+		handlerSource, err := os.ReadFile(filepath.Join(directory, "githubapitest", "generated.go"))
+		require.NoError(t, err)
+		assert.Contains(t, string(handlerSource), "package githubapitest")
+		assert.Contains(t, string(handlerSource), "type ViewerResponse struct")
+
+		manifest, err := os.ReadFile(filepath.Join(directory, "githubapi", "operations.json"))
+		require.NoError(t, err)
+		assert.Contains(t, string(manifest), `"operationName": "Viewer"`)
+		assert.Contains(t, string(manifest), filepath.Join("graphql", "viewer.graphql"))
+		assert.NotContains(t, string(manifest), directory)
+
+		companion, err := os.ReadFile(filepath.Join(directory, ".octoql", internal.DirectiveFilename))
+		require.NoError(t, err)
+		assert.Equal(t, internal.DirectiveFileContents, string(companion))
+	})
+
+	t.Run("validates output collisions before materialization", func(t *testing.T) {
+		t.Parallel()
+
+		for _, test := range []struct {
+			name      string
+			yaml      string
+			wantParts []string
+		}{
+			{
+				name:      "config output collision",
+				yaml:      "schema:\n  path: schema.graphql\noperations:\n  - op.graphql\ngenerated: " + config.DefaultFilename + "\n",
+				wantParts: []string{"generated output path", "config"},
+			},
+			{
+				name: "schema output collision",
+				yaml: "schema:\n" +
+					"  path: generated.go\n" +
+					"  sha256: " + cliSchemaSHA256 + "\n" +
+					"  source:\n" +
+					"    repository: octo-org/octo-repo\n" +
+					"    path: schema.graphql\n" +
+					"    revision: " + cliRevision + "\n" +
+					"operations: []\n" +
+					"generated: generated.go\n",
+				wantParts: []string{"generated output path", "schema input path"},
+			},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
+
+				directory := t.TempDir()
+				configPath := filepath.Join(directory, config.DefaultFilename)
+				require.NoError(t, os.WriteFile(configPath, []byte(test.yaml), 0o600))
+				remote := newGitHubStubServer(t, nil)
+
+				err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
+					Context:      t.Context(),
+					Materializer: remote.materializer,
+				})
+				require.Error(t, err)
+				for _, part := range test.wantParts {
+					assert.Contains(t, err.Error(), part)
+				}
+				assert.Zero(t, remote.requests.Load())
+			})
+		}
+	})
+
+	t.Run("rejects missing local schema and writes nothing on invalid operations", func(t *testing.T) {
+		t.Parallel()
+
+		directory := t.TempDir()
+		require.NoError(t, os.WriteFile(
+			filepath.Join(directory, "go.mod"),
+			[]byte("module example.com/app\n\ngo 1.27.3\n"),
+			0o600,
+		))
+		configPath := filepath.Join(directory, config.DefaultFilename)
+		generatedPath := filepath.Join(directory, "client", "generated.go")
+		require.NoError(t, os.WriteFile(configPath, []byte(
+			"schema:\n  path: schema.graphql\noperations:\n  - op.graphql\ngenerated: client/generated.go\n",
+		), 0o600))
+
+		err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
 			Context: t.Context(),
-			Stdout:  io.Discard,
-			Stderr:  io.Discard,
-		},
-	)
-	require.NoError(t, err)
-	manifest, err := os.ReadFile(filepath.Join(directory, "operations.json"))
-	require.NoError(t, err)
-	var exported struct {
-		Operations []struct {
-			SourceLocation string `json:"sourceLocation"`
-		} `json:"operations"`
-	}
-	err = json.Unmarshal(manifest, &exported)
-	require.NoError(t, err)
-	require.Len(t, exported.Operations, 1)
-	assert.Equal(t, filepath.Join("graphql", "viewer.graphql"), exported.Operations[0].SourceLocation)
-	assert.NotContains(t, exported.Operations[0].SourceLocation, directory)
-}
+		})
+		require.ErrorContains(t, err, "local schema file")
+		assert.Contains(t, err.Error(), "edit schema.source or run octoqlgen schema fetch")
 
-func schemaMaterializer() materializer {
-	return schema.NewMaterializer()
+		err = Run([]string{"generate", "genqlient.yaml"}, "v1.2.3", &Dependencies{
+			Context: t.Context(),
+		})
+		require.ErrorContains(t, err, "unexpected argument")
+
+		require.NoError(t, os.WriteFile(filepath.Join(directory, "schema.graphql"), []byte(cliSchema), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(directory, "op.graphql"), []byte("query Broken { unknown }\n"), 0o600))
+		err = Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
+			Context: t.Context(),
+		})
+		require.ErrorContains(t, err, `Cannot query field "unknown"`)
+		_, statErr := os.Stat(generatedPath)
+		require.ErrorIs(t, statErr, os.ErrNotExist)
+	})
+
+	t.Run("resolves parent-relative paths from subdirectory config", func(t *testing.T) {
+		t.Parallel()
+
+		rootDir := t.TempDir()
+		subDir := filepath.Join(rootDir, "subpackage")
+		require.NoError(t, os.MkdirAll(subDir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(rootDir, "go.mod"), []byte("module example.com/app\n\ngo 1.27.3\n"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(rootDir, "schema.graphql"), []byte(cliSchema), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(rootDir, "viewer.graphql"), []byte("query Viewer { viewer }\n"), 0o600))
+		configPath := filepath.Join(subDir, config.DefaultFilename)
+		require.NoError(t, os.WriteFile(configPath, []byte(
+			"schema:\n  path: ../schema.graphql\noperations:\n  - ../viewer.graphql\ngenerated: generated.go\n",
+		), 0o600))
+
+		err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
+			Context: t.Context(),
+		})
+		require.NoError(t, err)
+		generated, err := os.ReadFile(filepath.Join(subDir, "generated.go"))
+		require.NoError(t, err)
+		assert.Contains(t, string(generated), "package subpackage")
+	})
 }

@@ -223,3 +223,49 @@ fragment queryFragment on Query {
     }
   }
 }
+
+query queryWithDirectivesAndSkipInclude(
+  $hide: Boolean!
+  $show: Boolean!
+  $defaultedId: ID! = "1" @octoqlgen(pointer: true, omitempty: true)
+  $optionalLogin: String @octoqlgen(pointer: false)
+  $dates: [Date!]!
+) @octoqlgen(typename: "directivesResponse")
+  @octoqlgenFor(field: "Organization.name", pointer: false) {
+  user(login: $optionalLogin) @octoqlgen(typename: "directivesUser") {
+    __typename @skip(if: $hide)
+    login
+    skippedLogin: login @skip(if: $hide)
+    includedLogin: login @include(if: $show)
+    forcedPtrLogin: login @octoqlgen(pointer: true)
+    plainName: name @octoqlgen(pointer: false)
+    createdAt @skip(if: $hide)
+    status @skip(if: $hide) {
+      emoji
+    }
+    repositories @skip(if: $hide) {
+      name
+    }
+    boundPtr: login @skip(if: $hide) @octoqlgen(bind: "*string")
+    boundAny: login @skip(if: $hide) @octoqlgen(bind: "any")
+  }
+  actor(id: $defaultedId) @octoqlgen(pointer: true) {
+    id
+    ... on Organization {
+      name
+    }
+  }
+  actors(ids: ["1"]) @skip(if: $hide) {
+    id
+  }
+  usersCreatedOnDates(dates: $dates) @skip(if: $hide) {
+    createdAt
+  }
+  ...structDefaultsFragment
+}
+
+fragment structDefaultsFragment on Query @octoqlgenDefaults(struct: true) {
+  structActor: actor(id: "1") {
+    login
+  }
+}
