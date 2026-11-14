@@ -26,8 +26,20 @@ func TestLoadStrict(t *testing.T) {
 		wantError    string
 	}{
 		{
-			name:    "aliases",
-			content: readTestFile(t, "yaml", "valid_aliases.yaml"),
+			name: "aliases",
+			content: "schema:\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: &checksum " + testSHA256 + "\n" +
+				"  source:\n" +
+				"    repository: &repository github/docs\n" +
+				"    path: &schema_path src/graphql/data/fpt/schema.docs.graphql\n" +
+				"    revision: &revision " + testRevision + "\n" +
+				"operations:\n" +
+				"  - &operation graphql/**/*.graphql\n" +
+				"  - *operation\n" +
+				"generated: &generated githubapi/generated.go\n" +
+				"test_handler:\n" +
+				"  generated: *generated\n",
 			assertLoaded: func(t *testing.T, loaded *Config) {
 				require.Len(t, loaded.Operations, 2)
 				assert.Equal(t, loaded.Operations[0], loaded.Operations[1])
@@ -36,12 +48,31 @@ func TestLoadStrict(t *testing.T) {
 			},
 		},
 		{
-			name:    "merge",
-			content: readTestFile(t, "yaml", "valid_merge.yaml"),
+			name: "merge",
+			content: "schema:\n" +
+				"  <<: &schema_defaults\n" +
+				"    source:\n" +
+				"      repository: github/docs\n" +
+				"      path: src/graphql/data/fpt/schema.docs.graphql\n" +
+				"      revision: " + testRevision + "\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  sha256: " + testSHA256 + "\n" +
+				"operations:\n" +
+				"  - graphql/**/*.graphql\n" +
+				"generated: githubapi/generated.go\n" +
+				"test_handler:\n" +
+				"  generated: githubapitest/generated.go\n",
 		},
 		{
-			name:      "duplicate key",
-			content:   readTestFile(t, "yaml", "invalid_duplicate_key.yaml"),
+			name: "duplicate key",
+			content: "schema:\n" +
+				"  path: .octoql/schema.graphql\n" +
+				"  path: duplicate.graphql\n" +
+				"operations:\n" +
+				"  - graphql/**/*.graphql\n" +
+				"generated: githubapi/generated.go\n" +
+				"test_handler:\n" +
+				"  generated: githubapitest/generated.go\n",
 			wantError: `mapping key "path" already defined`,
 		},
 		{
@@ -442,13 +473,6 @@ func TestUpdatePinRejectsAnchoredPin(t *testing.T) {
 	_, err := UpdatePin(content, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must not define a YAML anchor")
-}
-
-func readTestFile(t *testing.T, elements ...string) string {
-	t.Helper()
-	content, err := os.ReadFile(filepath.Join(append([]string{"testdata"}, elements...)...))
-	require.NoError(t, err)
-	return string(content)
 }
 
 func validConfigYAML() string {

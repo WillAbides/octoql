@@ -3,3 +3,22 @@ query getRepository($owner: String!, $name: String!) {
     nameWithOwner
   }
 }
+
+query wireSemantics {
+  date
+  dates
+  node {
+    __typename
+    id
+    ... on User {
+      login
+    }
+  }
+  nodes {
+    __typename
+    id
+    ... on User {
+      login
+    }
+  }
+}

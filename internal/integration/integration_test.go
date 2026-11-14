@@ -6,7 +6,6 @@
 package integration
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -19,13 +18,16 @@ import (
 
 //go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml
 
-func TestGetRepository(t *testing.T) {
-	ctx := context.Background()
+func newTestClient(t *testing.T) *Client {
 	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	t.Cleanup(server.Close)
+	return NewClient(server.URL, http.DefaultClient)
+}
 
-	response, err := client.getRepository(ctx, getRepositoryVariables{
+func TestGetRepository(t *testing.T) {
+	client := newTestClient(t)
+
+	response, err := client.getRepository(t.Context(), getRepositoryVariables{
 		Owner: "octocat",
 		Name:  "octo-repo",
 	})
@@ -40,12 +42,9 @@ func TestGetRepository(t *testing.T) {
 }
 
 func TestMutation(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.addComment(ctx, addCommentVariables{
+	response, err := client.addComment(t.Context(), addCommentVariables{
 		Input: gqlserver.AddCommentInput{
 			SubjectID: "20",
 			Body:      "Thanks for reporting!",
@@ -59,12 +58,9 @@ func TestMutation(t *testing.T) {
 }
 
 func TestStarMutations(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	starResponse, err := client.addStar(ctx, addStarVariables{
+	starResponse, err := client.addStar(t.Context(), addStarVariables{
 		Input: gqlserver.AddStarInput{StarrableID: "10"},
 	})
 
@@ -74,7 +70,7 @@ func TestStarMutations(t *testing.T) {
 	assert.True(t, starResponse.AddStar.Starrable.GetViewerHasStarred())
 	assert.Equal(t, 43, starResponse.AddStar.Starrable.GetStargazerCount())
 
-	unstarResponse, err := client.removeStar(ctx, removeStarVariables{
+	unstarResponse, err := client.removeStar(t.Context(), removeStarVariables{
 		Input: gqlserver.RemoveStarInput{StarrableID: "10"},
 	})
 
@@ -86,12 +82,9 @@ func TestStarMutations(t *testing.T) {
 }
 
 func TestServerError(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.failingQuery(ctx)
+	response, err := client.failingQuery(t.Context())
 	require.Error(t, err)
 	var gqlErrors Errors
 	require.ErrorAs(t, err, &gqlErrors, "error should contain Errors")
@@ -105,12 +98,9 @@ func TestServerError(t *testing.T) {
 }
 
 func TestVariables(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithVariables(ctx, queryWithVariablesVariables{
+	response, err := client.queryWithVariables(t.Context(), queryWithVariablesVariables{
 		Login: "raven",
 	})
 
@@ -121,7 +111,7 @@ func TestVariables(t *testing.T) {
 	assert.Equal(t, "raven", response.User.Login)
 	assert.Equal(t, -1, requirePtrValue(t, response.User.ContributionCount))
 
-	response, err = client.queryWithVariables(ctx, queryWithVariablesVariables{
+	response, err = client.queryWithVariables(t.Context(), queryWithVariablesVariables{
 		Login: "definitely-not-a-real-login",
 	})
 
@@ -130,12 +120,9 @@ func TestVariables(t *testing.T) {
 }
 
 func TestOmitempty(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithOmitempty(ctx, queryWithOmitemptyVariables{
+	response, err := client.queryWithOmitempty(t.Context(), queryWithOmitemptyVariables{
 		Login: new("raven"),
 	})
 
@@ -147,7 +134,7 @@ func TestOmitempty(t *testing.T) {
 	assert.Equal(t, -1, requirePtrValue(t, response.User.ContributionCount))
 
 	// should return the default viewer-like user, not the user with login ""
-	response, err = client.queryWithOmitempty(ctx, queryWithOmitemptyVariables{})
+	response, err = client.queryWithOmitempty(t.Context(), queryWithOmitemptyVariables{})
 	require.NoError(t, err)
 	require.NotNil(t, response.User)
 
@@ -157,12 +144,9 @@ func TestOmitempty(t *testing.T) {
 }
 
 func TestCustomMarshal(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithCustomMarshal(ctx, queryWithCustomMarshalVariables{
+	response, err := client.queryWithCustomMarshal(t.Context(), queryWithCustomMarshalVariables{
 		Date: time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC),
 	})
 
@@ -176,7 +160,7 @@ func TestCustomMarshal(t *testing.T) {
 		time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 		requirePtrValue(t, user.CreatedAt))
 
-	response, err = client.queryWithCustomMarshal(ctx, queryWithCustomMarshalVariables{
+	response, err = client.queryWithCustomMarshal(t.Context(), queryWithCustomMarshalVariables{
 		Date: time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC),
 	})
 
@@ -185,12 +169,9 @@ func TestCustomMarshal(t *testing.T) {
 }
 
 func TestCustomMarshalSlice(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithCustomMarshalSlice(ctx, queryWithCustomMarshalSliceVariables{
+	response, err := client.queryWithCustomMarshalSlice(t.Context(), queryWithCustomMarshalSliceVariables{
 		Dates: []time.Time{time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)},
 	})
 
@@ -204,7 +185,7 @@ func TestCustomMarshalSlice(t *testing.T) {
 		time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 		requirePtrValue(t, user.CreatedAt))
 
-	response, err = client.queryWithCustomMarshalSlice(ctx, queryWithCustomMarshalSliceVariables{
+	response, err = client.queryWithCustomMarshalSlice(t.Context(), queryWithCustomMarshalSliceVariables{
 		Dates: []time.Time{time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)},
 	})
 
@@ -213,13 +194,10 @@ func TestCustomMarshalSlice(t *testing.T) {
 }
 
 func TestCustomMarshalOptional(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
 	date := time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)
-	response, err := client.queryWithCustomMarshalOptional(ctx, queryWithCustomMarshalOptionalVariables{
+	response, err := client.queryWithCustomMarshalOptional(t.Context(), queryWithCustomMarshalOptionalVariables{
 		Date: &date,
 	})
 
@@ -235,7 +213,7 @@ func TestCustomMarshalOptional(t *testing.T) {
 		requirePtrValue(t, user.CreatedAt))
 
 	login := "raven"
-	response, err = client.queryWithCustomMarshalOptional(ctx, queryWithCustomMarshalOptionalVariables{
+	response, err = client.queryWithCustomMarshalOptional(t.Context(), queryWithCustomMarshalOptionalVariables{
 		Login: &login,
 	})
 
@@ -249,12 +227,9 @@ func TestCustomMarshalOptional(t *testing.T) {
 }
 
 func TestInterfaceNoFragments(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithInterfaceNoFragments(ctx, queryWithInterfaceNoFragmentsVariables{
+	response, err := client.queryWithInterfaceNoFragments(t.Context(), queryWithInterfaceNoFragmentsVariables{
 		Id: "1",
 	})
 
@@ -274,7 +249,7 @@ func TestInterfaceNoFragments(t *testing.T) {
 	assert.Equal(t, "1", user.Id)
 	assert.Equal(t, "octocat", user.Login)
 
-	response, err = client.queryWithInterfaceNoFragments(ctx, queryWithInterfaceNoFragmentsVariables{
+	response, err = client.queryWithInterfaceNoFragments(t.Context(), queryWithInterfaceNoFragmentsVariables{
 		Id: "3",
 	})
 
@@ -294,7 +269,7 @@ func TestInterfaceNoFragments(t *testing.T) {
 	assert.Equal(t, "3", org.Id)
 	assert.Equal(t, "octo-org", org.Login)
 
-	response, err = client.queryWithInterfaceNoFragments(ctx, queryWithInterfaceNoFragmentsVariables{
+	response, err = client.queryWithInterfaceNoFragments(t.Context(), queryWithInterfaceNoFragmentsVariables{
 		Id: "4757233945723",
 	})
 
@@ -306,12 +281,9 @@ func TestInterfaceNoFragments(t *testing.T) {
 }
 
 func TestInterfaceListField(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithInterfaceListField(ctx, queryWithInterfaceListFieldVariables{
+	response, err := client.queryWithInterfaceListField(t.Context(), queryWithInterfaceListFieldVariables{
 		Ids: []string{"1", "3", "12847394823"},
 	})
 
@@ -343,12 +315,9 @@ func TestInterfaceListField(t *testing.T) {
 }
 
 func TestFragments(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithFragments(ctx, queryWithFragmentsVariables{
+	response, err := client.queryWithFragments(t.Context(), queryWithFragmentsVariables{
 		Ids: []string{"1", "3", "12847394823"},
 	})
 
@@ -393,12 +362,9 @@ func TestFragments(t *testing.T) {
 }
 
 func TestNamedFragments(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithNamedFragments(ctx, queryWithNamedFragmentsVariables{
+	response, err := client.queryWithNamedFragments(t.Context(), queryWithNamedFragmentsVariables{
 		Ids: []string{"1", "3", "12847394823"},
 	})
 
@@ -463,12 +429,9 @@ func TestNamedFragments(t *testing.T) {
 }
 
 func TestFlatten(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithFlatten(ctx, queryWithFlattenVariables{
+	response, err := client.queryWithFlatten(t.Context(), queryWithFlattenVariables{
 		Ids: []string{"1", "3", "12847394823"},
 	})
 
@@ -520,12 +483,9 @@ func requireFlattenedTypeShape(
 }
 
 func TestSearch(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithSearch(ctx, queryWithSearchVariables{
+	response, err := client.queryWithSearch(t.Context(), queryWithSearchVariables{
 		Query:      "octo",
 		SearchType: gqlserver.SearchTypeRepository,
 	})
@@ -538,7 +498,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, "octo-repo", repo.Name)
 	assert.Equal(t, 42, repo.StargazerCount)
 
-	response, err = client.queryWithSearch(ctx, queryWithSearchVariables{
+	response, err = client.queryWithSearch(t.Context(), queryWithSearchVariables{
 		Query:      "bug",
 		SearchType: gqlserver.SearchTypeIssue,
 	})
@@ -556,7 +516,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, "Fix bug", pr.Title)
 	assert.Equal(t, gqlserver.PullRequestStateMerged, pr.PullRequestState)
 
-	response, err = client.queryWithSearch(ctx, queryWithSearchVariables{
+	response, err = client.queryWithSearch(t.Context(), queryWithSearchVariables{
 		Query:      "dependabot",
 		SearchType: gqlserver.SearchTypeUser,
 	})

@@ -2,7 +2,6 @@ package generate
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -16,7 +15,6 @@ const githubGenerationDefaultsDir = "testdata/github-generation-defaults"
 func TestGitHubScalarDefaultsAndOverrides(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
 	schema := `
 scalar Base64String
 scalar BigInt
@@ -65,19 +63,12 @@ query AllScalars {
   x509Certificate
 }
 `
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "operation.graphql"), []byte(operation), 0o600))
-
-	defaultsConfig := &Config{
-		Schema:      filepath.Join(dir, "schema.graphql"),
-		Operations:  []string{filepath.Join(dir, "operation.graphql")},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "scalar",
-		ContextType: "-",
-	}
-	defaultsGenerated, err := Generate(defaultsConfig)
+	defaultsSource, err := generateTestSource(t, &testGenerateSpec{
+		schema:      schema,
+		operations:  operation,
+		packageName: "scalar",
+	})
 	require.NoError(t, err)
-	defaultsSource := string(defaultsGenerated[defaultsConfig.Generated])
 
 	for _, want := range []string{
 		`"encoding/json"`,
@@ -128,11 +119,19 @@ query AllScalars {
 	}
 
 	filesToBuild := map[string][]byte{
-		"defaults": defaultsGenerated[defaultsConfig.Generated],
+		"defaults": []byte(defaultsSource),
 	}
 	for _, test := range overrideTests {
 		t.Run(test.name, func(t *testing.T) {
-			source := generateScalarOperation(t, test.scalar, test.binding)
+			source, genErr := generateTestSource(t, &testGenerateSpec{
+				schema:      fmt.Sprintf("scalar %s\ntype Query { value: %s! }\n", test.scalar, test.scalar),
+				operations:  "query ScalarValue { value }\n",
+				packageName: "scalar",
+				bindings: map[string]*TypeBinding{
+					test.scalar: test.binding,
+				},
+			})
+			require.NoError(t, genErr)
 			assert.Contains(t, source, test.wantField)
 			if test.wantImport != "" {
 				assert.Contains(t, source, test.wantImport)
@@ -221,13 +220,13 @@ func TestOmitUnreferencedImplementations(t *testing.T) {
 func TestCatchAllNameCollision(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	schema := `interface Node { id: ID! }
+	source, err := generateTestSource(t, &testGenerateSpec{
+		schema: `interface Node { id: ID! }
 type OctoqlOther implements Node { id: ID!, value: String! }
 type User implements Node { id: ID!, login: String! }
 type Query { node: Node }
-`
-	operation := `query CatchAllName {
+`,
+		operations: `query CatchAllName {
   node {
     id
     ... on OctoqlOther {
@@ -235,22 +234,13 @@ type Query { node: Node }
     }
   }
 }
-`
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "operation.graphql"), []byte(operation), 0o600))
-	config := &Config{
-		Schema:      filepath.Join(dir, "schema.graphql"),
-		Operations:  []string{filepath.Join(dir, "operation.graphql")},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "collision",
-		ContextType: "-",
-	}
-	generated, err := Generate(config)
+`,
+		packageName: "collision",
+	})
 	require.NoError(t, err)
-	source := generated[config.Generated]
-	assert.Contains(t, string(source), "type CatchAllNameNodeOctoqlOther struct")
-	assert.Contains(t, string(source), "type CatchAllNameNode2OctoqlOther struct")
-	compileStandaloneGo(t, map[string][]byte{"catch_all_collision": source})
+	assert.Contains(t, source, "type CatchAllNameNodeOctoqlOther struct")
+	assert.Contains(t, source, "type CatchAllNameNode2OctoqlOther struct")
+	compileStandaloneGo(t, map[string][]byte{"catch_all_collision": []byte(source)})
 }
 
 func generateGitHubAbstractSelections(t *testing.T, omit *bool) string {
@@ -261,32 +251,6 @@ func generateGitHubAbstractSelections(t *testing.T, omit *bool) string {
 		Package:                         "githubdefaults",
 		ContextType:                     "-",
 		OmitUnreferencedImplementations: omit,
-	}
-	generated, err := Generate(config)
-	require.NoError(t, err)
-	return string(generated[config.Generated])
-}
-
-func generateScalarOperation(t *testing.T, scalar string, binding *TypeBinding) string {
-	dir := t.TempDir()
-	schema := fmt.Sprintf("scalar %s\ntype Query { value: %s! }\n", scalar, scalar)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(dir, "operation.graphql"),
-		[]byte("query ScalarValue { value }\n"),
-		0o600,
-	))
-	bindings := map[string]*TypeBinding{}
-	if binding != nil {
-		bindings[scalar] = binding
-	}
-	config := &Config{
-		Schema:      filepath.Join(dir, "schema.graphql"),
-		Operations:  []string{filepath.Join(dir, "operation.graphql")},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "scalar",
-		ContextType: "-",
-		Bindings:    bindings,
 	}
 	generated, err := Generate(config)
 	require.NoError(t, err)

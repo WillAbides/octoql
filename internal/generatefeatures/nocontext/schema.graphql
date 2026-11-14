@@ -2,8 +2,23 @@ schema {
   query: Query
 }
 
+scalar Date
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  login: String!
+}
+
 type Query {
   repository(owner: String!, name: String!): Repository
+  date: Date
+  dates: [[[Date]]]
+  node: Node
+  nodes: [[[Node]]]
 }
 
 type Repository {

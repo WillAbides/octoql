@@ -15,12 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type rateLimitRoundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f rateLimitRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
-	return f(request)
-}
-
 func TestRateLimitFromHeader(t *testing.T) {
 	tests := map[string]struct {
 		want   *RateLimit
@@ -432,8 +426,8 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			client := rateLimitClient(test.statusCode, test.header, test.body)
-			response, err := doRateLimitOperation[struct {
+			client := newResponseClient(test.statusCode, test.header, test.body)
+			response, err := doDefaultOperation[struct {
 				Value string `json:"value"`
 			}](t, client)
 
@@ -510,36 +504,31 @@ func TestDoAnchorsRetryAfterToResponseArrival(t *testing.T) {
 		_octoqlRateLimitNow = previousNow
 	})
 
-	successClient := rateLimitClient(
+	successClient := newResponseClient(
 		http.StatusOK,
 		http.Header{},
 		`{"data":{"value":"ok"}}`,
 	)
-	_, err := doRateLimitOperation[struct {
+	_, err := doDefaultOperation[struct {
 		Value string `json:"value"`
 	}](t, successClient)
 	require.NoError(t, err)
 	assert.Zero(t, clockReads)
 
-	slowFailureClient := NewClient(
-		"https://api.github.com/graphql",
-		&http.Client{Transport: rateLimitRoundTripFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header: http.Header{
-					"Retry-After": {"30"},
-				},
-				Body: io.NopCloser(&delayedReader{
-					reader: strings.NewReader(`{"errors":[{"message":"slow down"}]}`),
-					onRead: func() {
-						currentNow = currentNow.Add(5 * time.Second)
-					},
-				}),
-			}, nil
-		})},
+	slowFailureClient := newStaticResponseClient(
+		http.StatusOK,
+		http.Header{
+			"Retry-After": {"30"},
+		},
+		io.NopCloser(&delayedReader{
+			reader: strings.NewReader(`{"errors":[{"message":"slow down"}]}`),
+			onRead: func() {
+				currentNow = currentNow.Add(5 * time.Second)
+			},
+		}),
 	)
 
-	_, err = doRateLimitOperation[struct{}](t, slowFailureClient)
+	_, err = doDefaultOperation[struct{}](t, slowFailureClient)
 	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)
 	assert.Equal(t, 30*time.Second, rateLimitError.RetryAfter)
@@ -554,13 +543,13 @@ func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
 		"X-RateLimit-Remaining": {"0"},
 		"X-RateLimit-Used":      {"5000"},
 	}
-	client := rateLimitClient(
+	client := newResponseClient(
 		http.StatusForbidden,
 		transportHeader,
 		`{"errors":[{"message":"rate limited"}]}`,
 	)
 
-	response, err := doRateLimitOperation[struct{}](t, client)
+	response, err := doDefaultOperation[struct{}](t, client)
 	assert.Nil(t, response)
 	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)
@@ -619,33 +608,4 @@ func TestClientRateLimitConcurrentAccess(t *testing.T) {
 	rateLimit, known := client.RateLimit()
 	require.True(t, known)
 	assert.Equal(t, 100, rateLimit.Remaining)
-}
-
-func rateLimitClient(statusCode int, header http.Header, body string) *Client {
-	return NewClient(
-		"https://api.github.com/graphql",
-		&http.Client{Transport: rateLimitRoundTripFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: statusCode,
-				Header:     header,
-				Body:       io.NopCloser(strings.NewReader(body)),
-			}, nil
-		})},
-	)
-}
-
-func doRateLimitOperation[T any](t *testing.T, client *Client) (*T, error) {
-	response := new(T)
-	hasData, err := client._octoqlExecute(
-		t.Context(),
-		_octoqlPayload{
-			OperationName: "Viewer",
-			Query:         "query Viewer { viewer { login } }",
-		},
-		response,
-	)
-	if !hasData {
-		return nil, err
-	}
-	return response, err
 }

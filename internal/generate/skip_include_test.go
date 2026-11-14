@@ -1,40 +1,11 @@
 package generate
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func generateSkipIncludeSource(
-	t *testing.T,
-	schema string,
-	operation string,
-	bindings map[string]*TypeBinding,
-) (string, error) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
-	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
-
-	config := &Config{
-		Schema:      schemaPath,
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "skipinclude",
-		ContextType: "-",
-		Bindings:    bindings,
-	}
-	generated, err := Generate(config)
-	if err != nil {
-		return "", err
-	}
-	return string(generated[config.Generated]), nil
-}
 
 const skipIncludeSchema = `
 type Query {
@@ -97,7 +68,10 @@ func TestSkipIncludeTypes(t *testing.T) {
 	filesToBuild := make(map[string][]byte)
 
 	t.Run("fields nested objects and lists", func(t *testing.T) {
-		source, err := generateSkipIncludeSource(t, skipIncludeSchema, `
+		source, err := generateTestSource(t, &testGenerateSpec{
+			schema:      skipIncludeSchema,
+			packageName: "skipinclude",
+			operations: `
 query Q($hide: Boolean!, $show: Boolean!) {
   user {
     login
@@ -113,7 +87,8 @@ query Q($hide: Boolean!, $show: Boolean!) {
     }
   }
 }
-`, nil)
+`,
+		})
 		require.NoError(t, err)
 		assertDeclares(t, source, "Login string")
 		assertDeclares(t, source, "IsSuspended *bool")
@@ -138,7 +113,11 @@ query Q($hide: Boolean!, $show: Boolean!) {
 				Unmarshaler: "github.com/willabides/octoql/internal/testutil.UnmarshalDate",
 			},
 		}
-		source, err := generateSkipIncludeSource(t, skipIncludeAbstractSchema, `
+		source, err := generateTestSource(t, &testGenerateSpec{
+			schema:      skipIncludeAbstractSchema,
+			packageName: "skipinclude",
+			bindings:    bindings,
+			operations: `
 query QAbstract($hide: Boolean!) {
   nodes @skip(if: $hide) {
     id
@@ -153,7 +132,8 @@ query QAbstractTypename($hide: Boolean!) {
     id
   }
 }
-`, bindings)
+`,
+		})
 		require.NoError(t, err)
 		assert.Regexp(t, `Nodes\s+\[\]QAbstractNodesNode`, source)
 		assert.NotContains(t, source, "Nodes *[]QAbstractNodesNode")
@@ -164,7 +144,10 @@ query QAbstractTypename($hide: Boolean!) {
 	})
 
 	t.Run("bound leaves arrays and any normalization", func(t *testing.T) {
-		source, err := generateSkipIncludeSource(t, skipIncludeBoundLeafSchema, `
+		source, err := generateTestSource(t, &testGenerateSpec{
+			schema:      skipIncludeBoundLeafSchema,
+			packageName: "skipinclude",
+			operations: `
 query QBound($hide: Boolean!) {
   thing {
     tags @skip(if: $hide) @octoqlgen(bind: "[]string")
@@ -175,7 +158,8 @@ query QBound($hide: Boolean!) {
     fixed @skip(if: $hide) @octoqlgen(bind: "[4]string")
   }
 }
-`, nil)
+`,
+		})
 		require.NoError(t, err)
 		assert.Regexp(t, `Tags\s+\[\]string`, source)
 		assert.NotContains(t, source, "*[]string")
@@ -191,7 +175,7 @@ query QBound($hide: Boolean!) {
 		filesToBuild["bound_leaves"] = []byte(source)
 	})
 
-	require.NoError(t, buildGoFiles(filesToBuild))
+	compileModulePackages(t, filesToBuild)
 }
 
 func TestSkipIncludeRejections(t *testing.T) {
@@ -289,7 +273,12 @@ query Q($hide: Boolean!) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := generateSkipIncludeSource(t, test.schema, test.operation, test.bindings)
+			_, err := generateTestSource(t, &testGenerateSpec{
+				schema:      test.schema,
+				operations:  test.operation,
+				packageName: "skipinclude",
+				bindings:    test.bindings,
+			})
 			require.Error(t, err)
 			for _, want := range test.wantError {
 				assert.Contains(t, err.Error(), want)

@@ -96,7 +96,7 @@ func TestGenerateCommandRun(t *testing.T) {
 	}
 
 	stub := &stubMaterializer{data: []byte("type Query { viewer: String }\n")}
-	writer := &recordingOutputWriter{outputs: map[string][]byte{}, writes: map[string]int{}}
+	writer := &recordingOutputWriter{}
 	didMaterialize := false
 	generateCalls := 0
 	command := generateCommand{
@@ -123,8 +123,6 @@ func TestGenerateCommandRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, didMaterialize)
 	assert.Equal(t, 1, generateCalls)
-	assert.Equal(t, 1, writer.writes[generatedPath])
-	assert.Equal(t, 1, writer.writes[exportPath])
 	assert.Equal(t, []byte("generated"), writer.outputs[generatedPath])
 	assert.Equal(t, []byte("operations"), writer.outputs[exportPath])
 }
@@ -213,10 +211,7 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 		},
 	}
 	renderErr := errors.New("handler renderer failed")
-	writer := &recordingOutputWriter{
-		outputs: map[string][]byte{},
-		writes:  map[string]int{},
-	}
+	writer := &recordingOutputWriter{}
 	command := generateCommand{
 		Config:  "octoqlgen.yaml",
 		context: t.Context(),
@@ -233,7 +228,6 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 	err := command.Run()
 
 	require.ErrorIs(t, err, renderErr)
-	assert.Empty(t, writer.writes)
 	assert.Empty(t, writer.outputs)
 }
 

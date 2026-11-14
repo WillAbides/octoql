@@ -6,3 +6,8 @@ operations:
   - operation.graphql
 generated: generated.go
 context_type: "-"
+bindings:
+  Date:
+    type: time.Time
+    marshaler: github.com/willabides/octoql/internal/testutil.MarshalDate
+    unmarshaler: github.com/willabides/octoql/internal/testutil.UnmarshalDate

@@ -22,12 +22,6 @@ func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) 
 	return f(request)
 }
 
-type testData struct {
-	Repository struct {
-		Name string `json:"name"`
-	} `json:"repository"`
-}
-
 const (
 	validOperationName  = "Viewer"
 	validOperationQuery = "query Viewer { viewer { login } }"
@@ -35,7 +29,7 @@ const (
 
 func TestDoHTTPResponses(t *testing.T) {
 	tests := []struct {
-		check      func(*testing.T, *testData, error)
+		check      func(*testing.T, error)
 		name       string
 		body       string
 		requestID  string
@@ -45,7 +39,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			name:       "unknown top-level error type",
 			statusCode: http.StatusOK,
 			body:       `{"errors":[{"type":"A_FUTURE_GITHUB_ERROR","message":"future failure"}]}`,
-			check: func(t *testing.T, _ *testData, err error) {
+			check: func(t *testing.T, err error) {
 				t.Helper()
 				var graphqlErrors Errors
 				require.ErrorAs(t, err, &graphqlErrors)
@@ -61,7 +55,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			statusCode: http.StatusServiceUnavailable,
 			body:       `{"errors":[`,
 			requestID:  "request-invalid-json",
-			check: func(t *testing.T, _ *testData, err error) {
+			check: func(t *testing.T, err error) {
 				t.Helper()
 				responseError, ok := errors.AsType[*ResponseError](err)
 				require.True(t, ok)
@@ -77,7 +71,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			statusCode: http.StatusOK,
 			body:       `{"data":`,
 			requestID:  "request-malformed",
-			check: func(t *testing.T, _ *testData, err error) {
+			check: func(t *testing.T, err error) {
 				t.Helper()
 				require.Error(t, err)
 				_, responseErrorFound := errors.AsType[*ResponseError](err)
@@ -93,7 +87,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				"errors":[{"type":"PARTIAL","message":"decoded before data"}],
 				"data":{"repository":"not an object"}
 			}`,
-			check: func(t *testing.T, _ *testData, err error) {
+			check: func(t *testing.T, err error) {
 				t.Helper()
 				var graphqlErrors Errors
 				require.ErrorAs(t, err, &graphqlErrors)
@@ -119,16 +113,9 @@ func TestDoHTTPResponses(t *testing.T) {
 			defer server.Close()
 
 			client := NewClient(server.URL, nil)
-			response, err := doOperation[testData](
-				t.Context(),
-				client,
-				operationSpec{
-					name:  "Repository",
-					query: "query Repository { repository { name } }",
-				},
-			)
+			response, err := invokeRepositoryQuery(client)
 			assert.Nil(t, response)
-			test.check(t, response, err)
+			test.check(t, err)
 
 			responseError, ok := errors.AsType[*ResponseError](err)
 			require.True(t, ok)
@@ -223,27 +210,13 @@ func TestClientBearerToken(t *testing.T) {
 
 	err := client.SetBearerToken("github_pat_first")
 	require.NoError(t, err)
-	_, err = doOperation[struct{}](
-		t.Context(),
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
+	_, err = doDefaultOperation[struct{}](t, client)
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer github_pat_first", <-authorization)
 
 	err = client.SetBearerToken("github_pat_second")
 	require.NoError(t, err)
-	_, err = doOperation[struct{}](
-		t.Context(),
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
+	_, err = doDefaultOperation[struct{}](t, client)
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer github_pat_second", <-authorization)
 }
@@ -406,14 +379,7 @@ func TestClientRefusesRedirects(t *testing.T) {
 			defer origin.Close()
 
 			client := NewClient(origin.URL, nil)
-			response, err := doOperation[struct{}](
-				t.Context(),
-				client,
-				operationSpec{
-					name:  validOperationName,
-					query: validOperationQuery,
-				},
-			)
+			response, err := doDefaultOperation[struct{}](t, client)
 
 			require.Error(t, err)
 			assert.Nil(t, response)
@@ -454,14 +420,7 @@ func TestClientAllowsSameOriginRedirectsWhenEnabled(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, client.AllowRedirects())
 
-	response, err := doOperation[struct{}](
-		t.Context(),
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
+	response, err := doDefaultOperation[struct{}](t, client)
 	require.NoError(t, err)
 	assert.NotNil(t, response)
 }
@@ -491,14 +450,7 @@ func TestClientDiscardsSuppliedRedirectPolicy(t *testing.T) {
 	err := client.SetAllowRedirects(true)
 	require.NoError(t, err)
 
-	response, err := doOperation[struct{}](
-		t.Context(),
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
+	response, err := doDefaultOperation[struct{}](t, client)
 	require.NoError(t, err)
 	assert.NotNil(t, response)
 }
@@ -546,14 +498,7 @@ func TestClientStripsBearerTokenAcrossOriginsWhenRedirectsEnabled(t *testing.T) 
 			err = client.SetAllowRedirects(true)
 			require.NoError(t, err)
 
-			response, err := doOperation[struct{}](
-				t.Context(),
-				client,
-				operationSpec{
-					name:  validOperationName,
-					query: validOperationQuery,
-				},
-			)
+			response, err := doDefaultOperation[struct{}](t, client)
 			require.NoError(t, err)
 			assert.NotNil(t, response)
 			assert.Empty(t, <-authorization)
@@ -590,14 +535,7 @@ func TestClientStripsBearerTokenAfterLeavingOriginalOrigin(t *testing.T) {
 	err = client.SetAllowRedirects(true)
 	require.NoError(t, err)
 
-	response, err := doOperation[struct{}](
-		t.Context(),
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
+	response, err := doDefaultOperation[struct{}](t, client)
 	require.NoError(t, err)
 	assert.NotNil(t, response)
 	assert.Empty(t, <-authorization)
@@ -655,14 +593,7 @@ func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
 		}()
 		go func() {
 			defer waitGroup.Done()
-			_, err := doOperation[struct{}](
-				t.Context(),
-				client,
-				operationSpec{
-					name:  validOperationName,
-					query: validOperationQuery,
-				},
-			)
+			_, err := doDefaultOperation[struct{}](t, client)
 			results <- err
 		}()
 	}
@@ -699,14 +630,7 @@ func TestZeroValueClientRefusesRedirects(t *testing.T) {
 
 	client := Client{}
 	client.endpoint = server.URL
-	response, err := doOperation[struct{}](
-		t.Context(),
-		&client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
+	response, err := doDefaultOperation[struct{}](t, &client)
 
 	require.Error(t, err)
 	assert.Nil(t, response)
@@ -749,6 +673,17 @@ type operationSpec struct {
 	query     string
 }
 
+func doDefaultOperation[T any](t *testing.T, client *Client) (*T, error) {
+	return doOperation[T](
+		t.Context(),
+		client,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
+	)
+}
+
 func doOperation[T any](
 	ctx context.Context,
 	client *Client,
@@ -764,6 +699,10 @@ func doOperation[T any](
 		return nil, err
 	}
 	return response, err
+}
+
+func newResponseClient(statusCode int, header http.Header, body string) *Client {
+	return newStaticResponseClient(statusCode, header, io.NopCloser(strings.NewReader(body)))
 }
 
 func newStaticResponseClient(statusCode int, header http.Header, body io.ReadCloser) *Client {

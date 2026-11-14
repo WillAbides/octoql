@@ -19,6 +19,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/willabides/octoql/internal/testutil"
 )
 
 // _octoqlNoUnmarshalJSON is for generated code only.
@@ -1075,6 +1077,509 @@ type getRepositoryVariables struct {
 	Name  string `json:"name"`
 }
 
+// wireSemanticsNode includes the requested fields of the GraphQL interface Node.
+//
+// wireSemanticsNode is implemented by the following types:
+// wireSemanticsNodeUser
+// wireSemanticsNodeOctoqlOther
+type wireSemanticsNode interface {
+	implementsGraphQLInterfacewireSemanticsNode()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetId returns the interface-field "id" from its implementation.
+	GetId() string
+}
+
+func (v *wireSemanticsNodeUser) implementsGraphQLInterfacewireSemanticsNode()        {}
+func (v *wireSemanticsNodeOctoqlOther) implementsGraphQLInterfacewireSemanticsNode() {}
+
+func _octoqlUnmarshalwireSemanticsNode(b []byte, v *wireSemanticsNode) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "User":
+		*v = new(wireSemanticsNodeUser)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Node.__typename")
+	default:
+		*v = new(wireSemanticsNodeOctoqlOther)
+		return json.Unmarshal(b, *v)
+	}
+}
+
+func _octoqlMarshalwireSemanticsNode(v *wireSemanticsNode) ([]byte, error) {
+
+	var typename string
+	switch vv := (*v).(type) {
+	case *wireSemanticsNodeUser:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "User"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*wireSemanticsNodeUser
+		}{
+			TypeName:              typename,
+			wireSemanticsNodeUser: vv,
+		}
+		return json.Marshal(result)
+	case *wireSemanticsNodeOctoqlOther:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for wireSemanticsNode: "%T"`, vv)
+	}
+}
+
+// wireSemanticsNodeOctoqlOther represents wireSemanticsNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
+type wireSemanticsNodeOctoqlOther struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+}
+
+// GetTypename returns wireSemanticsNodeOctoqlOther.Typename, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodeOctoqlOther) GetTypename() string { return v.Typename }
+
+// GetId returns wireSemanticsNodeOctoqlOther.Id, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodeOctoqlOther) GetId() string { return v.Id }
+
+// wireSemanticsNodeUser includes the requested fields of the GraphQL type User.
+type wireSemanticsNodeUser struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
+}
+
+// GetTypename returns wireSemanticsNodeUser.Typename, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodeUser) GetTypename() string { return v.Typename }
+
+// GetId returns wireSemanticsNodeUser.Id, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodeUser) GetId() string { return v.Id }
+
+// GetLogin returns wireSemanticsNodeUser.Login, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodeUser) GetLogin() string { return v.Login }
+
+// wireSemanticsNodesNode includes the requested fields of the GraphQL interface Node.
+//
+// wireSemanticsNodesNode is implemented by the following types:
+// wireSemanticsNodesUser
+// wireSemanticsNodesNodeOctoqlOther
+type wireSemanticsNodesNode interface {
+	implementsGraphQLInterfacewireSemanticsNodesNode()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetId returns the interface-field "id" from its implementation.
+	GetId() string
+}
+
+func (v *wireSemanticsNodesUser) implementsGraphQLInterfacewireSemanticsNodesNode()            {}
+func (v *wireSemanticsNodesNodeOctoqlOther) implementsGraphQLInterfacewireSemanticsNodesNode() {}
+
+func _octoqlUnmarshalwireSemanticsNodesNode(b []byte, v *wireSemanticsNodesNode) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "User":
+		*v = new(wireSemanticsNodesUser)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Node.__typename")
+	default:
+		*v = new(wireSemanticsNodesNodeOctoqlOther)
+		return json.Unmarshal(b, *v)
+	}
+}
+
+func _octoqlMarshalwireSemanticsNodesNode(v *wireSemanticsNodesNode) ([]byte, error) {
+
+	var typename string
+	switch vv := (*v).(type) {
+	case *wireSemanticsNodesUser:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "User"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*wireSemanticsNodesUser
+		}{
+			TypeName:               typename,
+			wireSemanticsNodesUser: vv,
+		}
+		return json.Marshal(result)
+	case *wireSemanticsNodesNodeOctoqlOther:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for wireSemanticsNodesNode: "%T"`, vv)
+	}
+}
+
+// wireSemanticsNodesNodeOctoqlOther represents wireSemanticsNodesNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
+type wireSemanticsNodesNodeOctoqlOther struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+}
+
+// GetTypename returns wireSemanticsNodesNodeOctoqlOther.Typename, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodesNodeOctoqlOther) GetTypename() string { return v.Typename }
+
+// GetId returns wireSemanticsNodesNodeOctoqlOther.Id, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodesNodeOctoqlOther) GetId() string { return v.Id }
+
+// wireSemanticsNodesUser includes the requested fields of the GraphQL type User.
+type wireSemanticsNodesUser struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Login    string `json:"login"`
+}
+
+// GetTypename returns wireSemanticsNodesUser.Typename, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodesUser) GetTypename() string { return v.Typename }
+
+// GetId returns wireSemanticsNodesUser.Id, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodesUser) GetId() string { return v.Id }
+
+// GetLogin returns wireSemanticsNodesUser.Login, and is useful for accessing the field via an interface.
+func (v *wireSemanticsNodesUser) GetLogin() string { return v.Login }
+
+// wireSemanticsResponse is returned by wireSemantics on success.
+type wireSemanticsResponse struct {
+	Date  *time.Time                   `json:"-"`
+	Dates [][][]*time.Time             `json:"-"`
+	Node  wireSemanticsNode            `json:"-"`
+	Nodes [][][]wireSemanticsNodesNode `json:"-"`
+}
+
+// GetDate returns wireSemanticsResponse.Date, and is useful for accessing the field via an interface.
+func (v *wireSemanticsResponse) GetDate() *time.Time { return v.Date }
+
+// GetDates returns wireSemanticsResponse.Dates, and is useful for accessing the field via an interface.
+func (v *wireSemanticsResponse) GetDates() [][][]*time.Time { return v.Dates }
+
+// GetNode returns wireSemanticsResponse.Node, and is useful for accessing the field via an interface.
+func (v *wireSemanticsResponse) GetNode() wireSemanticsNode { return v.Node }
+
+// GetNodes returns wireSemanticsResponse.Nodes, and is useful for accessing the field via an interface.
+func (v *wireSemanticsResponse) GetNodes() [][][]wireSemanticsNodesNode { return v.Nodes }
+
+func (v *wireSemanticsResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*wireSemanticsResponse
+		Date  json.RawMessage `json:"date"`
+		Dates json.RawMessage `json:"dates"`
+		Node  json.RawMessage `json:"node"`
+		Nodes json.RawMessage `json:"nodes"`
+		_octoqlNoUnmarshalJSON
+	}
+	firstPass.wireSemanticsResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Date
+		src := firstPass.Date
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
+		if len(src) != 0 && string(src) != "null" {
+			*dst = new(time.Time)
+			err = testutil.UnmarshalDate(
+				src, *dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal wireSemanticsResponse.Date: %w", err)
+			}
+		}
+	}
+
+	{
+		dst := &v.Dates
+		raw := firstPass.Dates
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src [][][]json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal wireSemanticsResponse.Dates: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[][][]*time.Time,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[][]*time.Time,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								if src != nil {
+									*dst = make(
+										[]*time.Time,
+										len(src))
+									for i, src := range src {
+										dst := &(*dst)[i]
+										if len(src) != 0 && string(src) != "null" {
+											*dst = new(time.Time)
+											err = testutil.UnmarshalDate(
+												src, *dst)
+											if err != nil {
+												return fmt.Errorf(
+													"unable to unmarshal wireSemanticsResponse.Dates: %w", err)
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	{
+		dst := &v.Node
+		src := firstPass.Node
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
+		if len(src) != 0 && string(src) != "null" {
+			err = _octoqlUnmarshalwireSemanticsNode(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal wireSemanticsResponse.Node: %w", err)
+			}
+		}
+	}
+
+	{
+		dst := &v.Nodes
+		raw := firstPass.Nodes
+		if len(raw) != 0 {
+			if string(raw) == "null" {
+				*dst = nil
+			}
+			if string(raw) != "null" {
+				var src [][][]json.RawMessage
+				err = json.Unmarshal(raw, &src)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal wireSemanticsResponse.Nodes: %w", err)
+				}
+				if src != nil {
+					*dst = make(
+						[][][]wireSemanticsNodesNode,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[][]wireSemanticsNodesNode,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								if src != nil {
+									*dst = make(
+										[]wireSemanticsNodesNode,
+										len(src))
+									for i, src := range src {
+										dst := &(*dst)[i]
+										if len(src) != 0 && string(src) != "null" {
+											err = _octoqlUnmarshalwireSemanticsNodesNode(
+												src, dst)
+											if err != nil {
+												return fmt.Errorf(
+													"unable to unmarshal wireSemanticsResponse.Nodes: %w", err)
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type _octoqlPremarshalwireSemanticsResponse struct {
+	Date json.RawMessage `json:"date"`
+
+	Dates [][][]json.RawMessage `json:"dates"`
+
+	Node json.RawMessage `json:"node"`
+
+	Nodes [][][]json.RawMessage `json:"nodes"`
+}
+
+func (v *wireSemanticsResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v._octoqlPremarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *wireSemanticsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalwireSemanticsResponse, error) {
+	var retval _octoqlPremarshalwireSemanticsResponse
+
+	{
+
+		dst := &retval.Date
+		src := v.Date
+		if src != nil {
+			var err error
+			*dst, err = testutil.MarshalDate(
+				src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal wireSemanticsResponse.Date: %w", err)
+			}
+		}
+	}
+	{
+
+		dst := &retval.Dates
+		src := v.Dates
+		if src != nil {
+			*dst = make(
+				[][][]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if src != nil {
+					*dst = make(
+						[][]json.RawMessage,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[]json.RawMessage,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								if src != nil {
+									var err error
+									*dst, err = testutil.MarshalDate(
+										src)
+									if err != nil {
+										return nil, fmt.Errorf(
+											"unable to marshal wireSemanticsResponse.Dates: %w", err)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	{
+
+		dst := &retval.Node
+		src := v.Node
+		var err error
+		*dst, err = _octoqlMarshalwireSemanticsNode(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal wireSemanticsResponse.Node: %w", err)
+		}
+	}
+	{
+
+		dst := &retval.Nodes
+		src := v.Nodes
+		if src != nil {
+			*dst = make(
+				[][][]json.RawMessage,
+				len(src))
+			for i, src := range src {
+				dst := &(*dst)[i]
+				if src != nil {
+					*dst = make(
+						[][]json.RawMessage,
+						len(src))
+					for i, src := range src {
+						dst := &(*dst)[i]
+						if src != nil {
+							*dst = make(
+								[]json.RawMessage,
+								len(src))
+							for i, src := range src {
+								dst := &(*dst)[i]
+								var err error
+								*dst, err = _octoqlMarshalwireSemanticsNodesNode(
+									&src)
+								if err != nil {
+									return nil, fmt.Errorf(
+										"unable to marshal wireSemanticsResponse.Nodes: %w", err)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return &retval, nil
+}
+
 // The query executed by getRepository.
 const getRepository_Operation = "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tnameWithOwner\n\t}\n}\n"
 
@@ -1128,6 +1633,64 @@ func (c *Client) getRepository(
 	}
 	if err != nil {
 		return nil, &getRepositoryPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
+}
+
+// The query executed by wireSemantics.
+const wireSemantics_Operation = "\nquery wireSemantics {\n\tdate\n\tdates\n\tnode {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t}\n\tnodes {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
+
+// wireSemanticsPartialDataError contains partial data returned by wireSemantics.
+type wireSemanticsPartialDataError struct {
+	data *wireSemanticsResponse
+	err  error
+}
+
+func (e *wireSemanticsPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *wireSemanticsPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *wireSemanticsPartialDataError) PartialData() *wireSemanticsResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
+}
+
+// PartialDataValue returns the partial response as an untyped value.
+func (e *wireSemanticsPartialDataError) PartialDataValue() any {
+	return e.PartialData()
+}
+
+func (c *Client) wireSemantics() (*wireSemanticsResponse, error) {
+	var response wireSemanticsResponse
+	hasData, err := c._octoqlExecute(
+		context.Background(),
+		_octoqlPayload{
+			OperationName: "wireSemantics",
+			Query:         wireSemantics_Operation,
+			Variables:     nil,
+		},
+		&response,
+	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &wireSemanticsPartialDataError{
 			data: &response,
 			err:  err,
 		}

@@ -48,31 +48,15 @@ func assertDeclares(t *testing.T, source, declaration string) {
 }
 
 func generateSplit(t *testing.T, operation string) (string, error) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	generatedPath := filepath.Join(dir, "generated.go")
-	require.NoError(t, os.WriteFile(schemaPath, []byte(splitSchema), 0o600))
-	require.NoError(t, os.WriteFile(operationPath, []byte(operation), 0o600))
-
-	generated, err := Generate(&Config{
-		Schema:      schemaPath,
-		Operations:  []string{operationPath},
-		Generated:   generatedPath,
-		Package:     "client",
-		ContextType: "-",
+	return generateTestSource(t, &testGenerateSpec{
+		schema:     splitSchema,
+		operations: operation,
 	})
-	if err != nil {
-		return "", err
-	}
-	return string(generated[generatedPath]), nil
 }
 
 func TestDirectiveNeverReachesTheServer(t *testing.T) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationPath := filepath.Join(dir, "operation.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
+	source, err := generateTestSource(t, &testGenerateSpec{
+		schema: `
 type Query {
   viewer: User!
 }
@@ -81,28 +65,17 @@ type User {
   name: String
   isSuspended: Boolean
 }
-`), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(operationPath, []byte(`
+`,
+		operations: `
 query Viewer($skipName: Boolean!) @octoqlgen(typename: "ViewerResp") {
   viewer @octoqlgen(typename: "ViewerUser") {
     name @skip(if: $skipName)
     isSuspended @octoqlgen(pointer: false)
   }
 }
-`), 0o600)
-	require.NoError(t, err)
-
-	generated, err := Generate(&Config{
-		Schema:      schemaPath,
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "client",
-		ContextType: "-",
+`,
 	})
-
 	require.NoError(t, err)
-	source := string(generated[filepath.Join(dir, "generated.go")])
 
 	assert.Contains(t, source, "type ViewerResp struct")
 	assert.Contains(t, source, "type ViewerUser struct")
@@ -147,22 +120,12 @@ query Value($input: String! @octoqlgen(omitempty: false)) @octoqlgenDefaults(omi
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dir := t.TempDir()
-			schemaPath := filepath.Join(dir, "schema.graphql")
-			operationPath := filepath.Join(dir, "operation.graphql")
-			require.NoError(t, os.WriteFile(schemaPath, []byte("type Query {\n  value(input: String!): String!\n}\n"), 0o600))
-			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
-
-			generated, err := Generate(&Config{
-				Schema:      schemaPath,
-				Operations:  []string{operationPath},
-				Generated:   filepath.Join(dir, "generated.go"),
-				Package:     "client",
-				ContextType: "-",
+			source, err := generateTestSource(t, &testGenerateSpec{
+				schema:     "type Query {\n  value(input: String!): String!\n}\n",
+				operations: test.operation,
 			})
-
 			require.NoError(t, err)
-			assertDeclares(t, string(generated[filepath.Join(dir, "generated.go")]), test.wantField)
+			assertDeclares(t, source, test.wantField)
 		})
 	}
 }
@@ -183,30 +146,17 @@ type User {
 		"stale declaration":   "\ndirective @octoqlgen(alias: String) on FIELD\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			dir := t.TempDir()
-			schemaPath := filepath.Join(dir, "schema.graphql")
-			operationPath := filepath.Join(dir, "operation.graphql")
-			require.NoError(t, os.WriteFile(
-				schemaPath, []byte(baseSchema+declaration), 0o600,
-			))
-			require.NoError(t, os.WriteFile(operationPath, []byte(`
+			source, err := generateTestSource(t, &testGenerateSpec{
+				schema: baseSchema + declaration,
+				operations: `
 query Viewer @octoqlgen(typename: "Resp") {
   viewer {
     isSuspended @octoqlgen(pointer: false)
   }
 }
-`), 0o600))
-
-			generated, err := Generate(&Config{
-				Schema:      schemaPath,
-				Operations:  []string{operationPath},
-				Generated:   filepath.Join(dir, "generated.go"),
-				Package:     "client",
-				ContextType: "-",
+`,
 			})
-
 			require.NoError(t, err)
-			source := string(generated[filepath.Join(dir, "generated.go")])
 			assert.Contains(t, source, "type Resp struct")
 			assertDeclares(t, source, "IsSuspended bool")
 			assert.NotContains(t, source, "@octoqlgen")
@@ -320,18 +270,9 @@ query Q @octoqlgen(typename: null) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			dir := t.TempDir()
-			schemaPath := filepath.Join(dir, "schema.graphql")
-			operationPath := filepath.Join(dir, "operation.graphql")
-			require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0o600))
-			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
-
-			_, err := Generate(&Config{
-				Schema:      schemaPath,
-				Operations:  []string{operationPath},
-				Generated:   filepath.Join(dir, "generated.go"),
-				Package:     "client",
-				ContextType: "-",
+			_, err := generateTestSource(t, &testGenerateSpec{
+				schema:     schema,
+				operations: test.operation,
 			})
 
 			require.Error(t, err)

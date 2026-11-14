@@ -544,28 +544,7 @@ func TestHelpSnapshots(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var stdout bytes.Buffer
-			var stderr bytes.Buffer
-			dependencies := &Dependencies{
-				Context: t.Context(),
-				Stdout:  &stdout,
-				Stderr:  &stderr,
-			}
-			dependencies.setDefaults()
-			command := newCommandTree(dependencies)
-			parser, err := newParser(
-				command,
-				"test",
-				kong.Writers(&stdout, &stderr),
-				kong.Exit(func(code int) {
-					panic(exitCode(code))
-				}),
-			)
-			require.NoError(t, err)
-			assertExitCode(t, 0, func() {
-				_, _ = parser.Parse(test.args)
-			})
-			output := strings.TrimRight(stdout.String()+stderr.String(), "\n")
+			output := strings.TrimRight(parseCLIExit(t, "test", test.args), "\n")
 			switch test.name {
 			case "root":
 				snaps.MatchInlineSnapshot(t, output, snaps.Inline(`Usage: octoqlgen <command> [flags]
@@ -661,29 +640,35 @@ Flags:
 func TestVersion(t *testing.T) {
 	t.Parallel()
 
+	assert.Equal(t, "v1.2.3\n", parseCLIExit(t, "v1.2.3", []string{"--version"}))
+}
+
+type exitCode int
+
+func parseCLIExit(t *testing.T, version string, args []string) string {
 	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 	dependencies := &Dependencies{
 		Context: t.Context(),
 		Stdout:  &stdout,
+		Stderr:  &stderr,
 	}
 	dependencies.setDefaults()
 	command := newCommandTree(dependencies)
 	parser, err := newParser(
 		command,
-		"v1.2.3",
-		kong.Writers(&stdout, io.Discard),
+		version,
+		kong.Writers(&stdout, &stderr),
 		kong.Exit(func(code int) {
 			panic(exitCode(code))
 		}),
 	)
 	require.NoError(t, err)
 	assertExitCode(t, 0, func() {
-		_, _ = parser.Parse([]string{"--version"})
+		_, _ = parser.Parse(args)
 	})
-	assert.Equal(t, "v1.2.3\n", stdout.String())
+	return stdout.String() + stderr.String()
 }
-
-type exitCode int
 
 func assertExitCode(t *testing.T, expected int, function func()) {
 	t.Helper()
@@ -725,17 +710,12 @@ func (r *stubRemoteResolver) Resolve(_ context.Context, source config.Source) (s
 
 type recordingOutputWriter struct {
 	outputs map[string][]byte
-	writes  map[string]int
 }
 
 func (w *recordingOutputWriter) Write(path string, data []byte) error {
 	if w.outputs == nil {
 		w.outputs = map[string][]byte{}
 	}
-	if w.writes == nil {
-		w.writes = map[string]int{}
-	}
 	w.outputs[path] = append([]byte{}, data...)
-	w.writes[path]++
 	return nil
 }

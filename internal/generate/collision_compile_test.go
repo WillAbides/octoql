@@ -1,8 +1,6 @@
 package generate
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -607,11 +605,16 @@ query Q {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			source, err := probeGenerated(t, &probeInput{
-				schema:              test.schema,
-				operations:          test.operations,
-				casing:              test.casing,
-				keepImplementations: test.keepImplementations,
+			var omitUnreferencedImplementations *bool
+			if test.keepImplementations {
+				omitUnreferencedImplementations = new(false)
+			}
+			source, err := generateTestSource(t, &testGenerateSpec{
+				schema:                          test.schema,
+				operations:                      test.operations,
+				packageName:                     "probe",
+				casing:                          test.casing,
+				omitUnreferencedImplementations: omitUnreferencedImplementations,
 			})
 			if test.wantGenerationErr != "" {
 				require.Error(t, err)
@@ -622,47 +625,9 @@ query Q {
 				return
 			}
 			require.NoError(t, err)
-			filesToBuild[test.name] = source
+			filesToBuild[test.name] = []byte(source)
 		})
 	}
 
 	compileStandaloneGo(t, filesToBuild)
-}
-
-type probeInput struct {
-	schema              string
-	operations          string
-	casing              Casing
-	keepImplementations bool
-}
-
-// probeGenerated intentionally does not configure bindings: compile probes must
-// only import the standard library, since user bindings are unavailable outside
-// their source module.
-func probeGenerated(t *testing.T, input *probeInput) ([]byte, error) {
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	operationsPath := filepath.Join(dir, "operations.graphql")
-	generatedPath := filepath.Join(dir, "generated.go")
-	require.NoError(t, os.WriteFile(schemaPath, []byte(input.schema), 0o600))
-	require.NoError(t, os.WriteFile(operationsPath, []byte(input.operations), 0o600))
-
-	var omitUnreferencedImplementations *bool
-	if input.keepImplementations {
-		omit := false
-		omitUnreferencedImplementations = &omit
-	}
-	outputs, err := Generate(&Config{
-		Schema:                          schemaPath,
-		Operations:                      []string{operationsPath},
-		Generated:                       generatedPath,
-		Package:                         "probe",
-		ContextType:                     "-",
-		Casing:                          input.casing,
-		OmitUnreferencedImplementations: omitUnreferencedImplementations,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return outputs[generatedPath], nil
 }

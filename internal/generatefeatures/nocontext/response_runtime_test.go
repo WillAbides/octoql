@@ -13,13 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type responseData struct {
-	Repository struct {
-		Name string `json:"name"`
-	} `json:"repository"`
-	Count int `json:"count"`
-}
-
 type responseErrorFacet interface {
 	error
 	GitHubRequestID() string
@@ -165,7 +158,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := responseAPIClient(test.statusCode, test.header, test.body)
+			client := newResponseClient(test.statusCode, test.header, test.body)
 			response, err := invokeRepositoryQuery(client)
 
 			if err == nil {
@@ -186,42 +179,29 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 
 func TestDoPointerData(t *testing.T) {
 	t.Run("object allocates inner pointer", func(t *testing.T) {
-		client := responseAPIClient(
+		client := newResponseClient(
 			http.StatusOK,
 			http.Header{},
-			`{"data":{"repository":{"name":"octoql"}}}`,
+			`{"data":{"repository":{"nameWithOwner":"octoql"}}}`,
 		)
 
-		response, err := doOperation[*responseData](
-			t.Context(),
-			client,
-			operationSpec{
-				name:  validOperationName,
-				query: validOperationQuery,
-			},
-		)
+		response, err := doDefaultOperation[*getRepositoryResponse](t, client)
 
 		require.NoError(t, err)
 		require.NotNil(t, response)
 		require.NotNil(t, *response)
-		assert.Equal(t, "octoql", (*response).Repository.Name)
+		require.NotNil(t, (*response).Repository)
+		assert.Equal(t, "octoql", (*response).Repository.NameWithOwner)
 	})
 
 	t.Run("null is not partial data", func(t *testing.T) {
-		client := responseAPIClient(
+		client := newResponseClient(
 			http.StatusOK,
 			http.Header{},
 			`{"data":null,"errors":[{"message":"no data"}]}`,
 		)
 
-		response, err := doOperation[*responseData](
-			t.Context(),
-			client,
-			operationSpec{
-				name:  validOperationName,
-				query: validOperationQuery,
-			},
-		)
+		response, err := doDefaultOperation[*getRepositoryResponse](t, client)
 
 		assert.Nil(t, response)
 		_, hasErrors := errors.AsType[Errors](err)
@@ -231,7 +211,7 @@ func TestDoPointerData(t *testing.T) {
 
 func TestResponseErrorBoundsRawBody(t *testing.T) {
 	body := strings.Repeat("x", 70*1024)
-	client := responseAPIClient(
+	client := newResponseClient(
 		http.StatusInternalServerError,
 		http.Header{},
 		body,
@@ -249,7 +229,7 @@ func TestResponseErrorBoundsRawBody(t *testing.T) {
 func TestClientResponseSizeLimit(t *testing.T) {
 	const responseSizeLimit int64 = 64
 
-	client := responseAPIClient(
+	client := newResponseClient(
 		http.StatusOK,
 		http.Header{
 			"Retry-After":           {"30"},
@@ -324,7 +304,7 @@ func TestDoRejectsMissingDataAndErrorsResponses(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := responseAPIClient(
+			client := newResponseClient(
 				http.StatusOK,
 				http.Header{},
 				test.body,
@@ -389,21 +369,73 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.Equal(t, rateLimit, preserved)
 }
 
-func responseAPIClient(
-	statusCode int,
-	header http.Header,
-	body string,
-) *Client {
-	return NewClient(
-		"https://api.github.com/graphql",
-		&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: statusCode,
-				Header:     header,
-				Body:       io.NopCloser(strings.NewReader(body)),
-			}, nil
-		})},
-	)
+func TestSpecialSliceWireSemantics(t *testing.T) {
+	tests := []struct {
+		name string
+		wire string
+	}{
+		{
+			name: "null outer slices",
+			wire: `{"date":null,"dates":null,"node":null,"nodes":null}`,
+		},
+		{
+			name: "empty outer slices",
+			wire: `{"date":"2026-07-20","dates":[],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[]}`,
+		},
+		{
+			name: "null and empty nested slices",
+			wire: `{"date":null,"dates":[null,[],[null,[],[null,"2026-07-20"]]],"node":null,"nodes":[null,[],[null,[],[null,{"__typename":"User","id":"1","login":"octo"}]]]}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var response wireSemanticsResponse
+			err := json.Unmarshal([]byte(test.wire), &response)
+			require.NoError(t, err)
+			remarshaled, err := json.Marshal(&response)
+			require.NoError(t, err)
+			require.JSONEq(t, test.wire, string(remarshaled))
+		})
+	}
+}
+
+func TestSpecialSliceWireSemanticsReusedDestination(t *testing.T) {
+	const populated = `{"date":"2026-07-20","dates":[[["2026-07-20"]]],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[[[{"__typename":"User","id":"1","login":"octo"}]]]}`
+	tests := []struct {
+		name   string
+		update string
+		want   string
+	}{
+		{
+			name:   "present null clears special values",
+			update: `{"date":null,"dates":null,"node":null,"nodes":null}`,
+			want:   `{"date":null,"dates":null,"node":null,"nodes":null}`,
+		},
+		{
+			name:   "present arrays replace slices",
+			update: `{"dates":[],"nodes":[]}`,
+			want:   `{"date":"2026-07-20","dates":[],"node":{"__typename":"User","id":"1","login":"octo"},"nodes":[]}`,
+		},
+		{
+			name:   "omitted fields retain slices",
+			update: `{}`,
+			want:   populated,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var response wireSemanticsResponse
+			err := json.Unmarshal([]byte(populated), &response)
+			require.NoError(t, err)
+			err = json.Unmarshal([]byte(test.update), &response)
+			require.NoError(t, err)
+			remarshaled, err := json.Marshal(&response)
+			require.NoError(t, err)
+			require.JSONEq(t, test.want, string(remarshaled))
+		})
+	}
 }
 
 func invokeRepositoryQuery(client *Client) (*getRepositoryResponse, error) {
