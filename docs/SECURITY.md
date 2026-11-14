@@ -35,10 +35,32 @@ generation.
 Treat both sets as open when writing authorization or policy checks. Permit
 specific known enum constants and concrete types, and use an explicit denying
 `default` in both enum and type switches. A negative enum comparison admits
-unknown strings, while a concrete-type assertion does not match `OctoqlOther`;
-either pattern can otherwise skip a deny condition without an error. See
-[Fragments, enums, and abstract types](../README.md#fragments-enums-and-abstract-types)
-for concrete fail-closed examples.
+unknown strings, while a concrete-type assertion does not match `OctoqlOther`:
+
+```go
+switch actor := response.Actor.(type) {
+case *githubapi.GetActorActorUser:
+	return !actor.IsSuspended
+case *githubapi.GetActorActorBot:
+	return false
+default:
+	return false
+}
+```
+
+```go
+switch permission {
+case githubapi.RepositoryPermissionAdmin:
+	return true
+case githubapi.RepositoryPermissionMaintain,
+	githubapi.RepositoryPermissionRead,
+	githubapi.RepositoryPermissionTriage,
+	githubapi.RepositoryPermissionWrite:
+	return false
+default:
+	return false
+}
+```
 
 ## Reporting a vulnerability
 
