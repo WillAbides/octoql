@@ -35,7 +35,12 @@ func render(schema []byte) ([]byte, error) {
 	out.WriteString("\n")
 
 	var missing []string
-	err = renderProperties(&out, root, defs, "", 2, &missing)
+	renderer := docRenderer{
+		out:     &out,
+		defs:    defs,
+		missing: &missing,
+	}
+	err = renderer.renderProperties(root, "", 2)
 	if err != nil {
 		return nil, err
 	}
@@ -46,15 +51,15 @@ func render(schema []byte) ([]byte, error) {
 	return []byte(out.String()), nil
 }
 
+type docRenderer struct {
+	out     *strings.Builder
+	defs    *yaml.Node
+	missing *[]string
+}
+
 // renderProperties emits every property of node, recursing into referenced and
 // nested object schemas.
-func renderProperties(
-	out *strings.Builder,
-	node, defs *yaml.Node,
-	prefix string,
-	depth int,
-	missing *[]string,
-) error {
+func (r *docRenderer) renderProperties(node *yaml.Node, prefix string, depth int) error {
 	properties := mappingValue(node, "properties")
 	if properties == nil {
 		return nil
@@ -63,7 +68,7 @@ func renderProperties(
 
 	for i := 0; i+1 < len(properties.Content); i += 2 {
 		name := properties.Content[i].Value
-		value, err := resolve(properties.Content[i+1], defs)
+		value, err := resolve(properties.Content[i+1], r.defs)
 		if err != nil {
 			return err
 		}
@@ -75,22 +80,22 @@ func renderProperties(
 
 		doc := scalarValue(value, "x-doc")
 		if doc == "" {
-			*missing = append(*missing, path)
+			*r.missing = append(*r.missing, path)
 			continue
 		}
 
-		fmt.Fprintf(out, "\n%s `%s`\n\n", strings.Repeat("#", depth), path)
-		out.WriteString(metadataLine(value, required[name]))
-		out.WriteString("\n\n")
-		out.WriteString(strings.TrimRight(doc, "\n"))
-		out.WriteString("\n")
+		fmt.Fprintf(r.out, "\n%s `%s`\n\n", strings.Repeat("#", depth), path)
+		r.out.WriteString(metadataLine(value, required[name]))
+		r.out.WriteString("\n\n")
+		r.out.WriteString(strings.TrimRight(doc, "\n"))
+		r.out.WriteString("\n")
 
 		examples := mappingValue(value, "examples")
 		if examples != nil && len(examples.Content) > 0 {
-			fmt.Fprintf(out, "\n%s\n", exampleLine(examples))
+			fmt.Fprintf(r.out, "\n%s\n", exampleLine(examples))
 		}
 
-		children, suffix, err := childSchema(value, defs)
+		children, suffix, err := childSchema(value, r.defs)
 		if err != nil {
 			return err
 		}
@@ -106,15 +111,15 @@ func renderProperties(
 		if suffix != "" {
 			entryDoc := scalarValue(children, "x-doc")
 			if entryDoc == "" {
-				*missing = append(*missing, childPath)
+				*r.missing = append(*r.missing, childPath)
 				continue
 			}
-			fmt.Fprintf(out, "\n%s `%s`\n\n", strings.Repeat("#", childDepth), childPath)
-			out.WriteString(strings.TrimRight(entryDoc, "\n"))
-			out.WriteString("\n")
+			fmt.Fprintf(r.out, "\n%s `%s`\n\n", strings.Repeat("#", childDepth), childPath)
+			r.out.WriteString(strings.TrimRight(entryDoc, "\n"))
+			r.out.WriteString("\n")
 			childDepth++
 		}
-		err = renderProperties(out, children, defs, childPath, childDepth, missing)
+		err = r.renderProperties(children, childPath, childDepth)
 		if err != nil {
 			return err
 		}

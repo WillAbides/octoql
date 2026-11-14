@@ -118,8 +118,8 @@ func parseRef(fullyQualifiedName string) (goRef, error) {
 	prefix := sliceOrMapPrefixRegexp.FindString(fullyQualifiedName)
 	nameToImport := fullyQualifiedName[len(prefix):]
 
-	dot := strings.LastIndex(nameToImport, ".")
-	if dot == -1 {
+	pkgPath, localName, hasPkg := strings.CutLast(nameToImport, ".")
+	if !hasPkg {
 		if nameToImport == "any" {
 			return goRef{
 				prefix:    prefix,
@@ -142,8 +142,8 @@ func parseRef(fullyQualifiedName string) (goRef, error) {
 
 	return goRef{
 		prefix:    prefix,
-		pkgPath:   nameToImport[:dot],
-		localName: nameToImport[dot+1:],
+		pkgPath:   pkgPath,
+		localName: localName,
 	}, nil
 }
 

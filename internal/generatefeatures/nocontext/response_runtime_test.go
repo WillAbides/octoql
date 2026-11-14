@@ -131,7 +131,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				require.True(t, ok)
 				assert.Equal(t, http.StatusForbidden, responseError.StatusCode)
 				assert.Equal(t, "request-forbidden", responseError.RequestID)
-				assert.Equal(t, `{"errors":[{"type":"FORBIDDEN","message":"rejected"}]}`, string(responseError.RawBody))
+				assert.JSONEq(t, `{"errors":[{"type":"FORBIDDEN","message":"rejected"}]}`, string(responseError.RawBody))
 				_, ok = errors.AsType[Errors](err)
 				assert.True(t, ok)
 			},
@@ -195,9 +195,10 @@ func TestDoPointerData(t *testing.T) {
 		response, err := doOperation[*responseData](
 			t.Context(),
 			client,
-			validOperationName,
-			validOperationQuery,
-			nil,
+			operationSpec{
+				name:  validOperationName,
+				query: validOperationQuery,
+			},
 		)
 
 		require.NoError(t, err)
@@ -216,9 +217,10 @@ func TestDoPointerData(t *testing.T) {
 		response, err := doOperation[*responseData](
 			t.Context(),
 			client,
-			validOperationName,
-			validOperationQuery,
-			nil,
+			operationSpec{
+				name:  validOperationName,
+				query: validOperationQuery,
+			},
 		)
 
 		assert.Nil(t, response)
@@ -296,7 +298,7 @@ func TestClientSetResponseSizeLimitRejectsNonpositiveValues(t *testing.T) {
 
 	for _, limit := range []int64{0, -1} {
 		err := client.SetResponseSizeLimit(limit)
-		assert.EqualError(t, err, "octoql: response size limit must be greater than zero")
+		require.EqualError(t, err, "octoql: response size limit must be greater than zero")
 		assert.Equal(t, DefaultResponseSizeLimit, client.ResponseSizeLimit())
 	}
 }

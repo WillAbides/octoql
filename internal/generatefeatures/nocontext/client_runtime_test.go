@@ -65,7 +65,8 @@ func TestDoHTTPResponses(t *testing.T) {
 				t.Helper()
 				responseError, ok := errors.AsType[*ResponseError](err)
 				require.True(t, ok)
-				assert.Equal(t, `{"errors":[`, string(responseError.RawBody))
+				truncatedBody := []byte(`{"errors":[`)
+				assert.Equal(t, truncatedBody, responseError.RawBody)
 				assert.Equal(t, http.StatusServiceUnavailable, responseError.StatusCode)
 				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
 				assert.True(t, syntaxErrorFound)
@@ -121,9 +122,10 @@ func TestDoHTTPResponses(t *testing.T) {
 			response, err := doOperation[testData](
 				t.Context(),
 				client,
-				"Repository",
-				"query Repository { repository { name } }",
-				nil,
+				operationSpec{
+					name:  "Repository",
+					query: "query Repository { repository { name } }",
+				},
 			)
 			assert.Nil(t, response)
 			test.check(t, response, err)
@@ -175,9 +177,11 @@ func TestDoRequest(t *testing.T) {
 	_, err := doOperation[struct{}](
 		t.Context(),
 		client,
-		operationName,
-		query,
-		map[string]any{"owner": "octo"},
+		operationSpec{
+			name:      operationName,
+			query:     query,
+			variables: map[string]any{"owner": "octo"},
+		},
 	)
 	require.NoError(t, err)
 	withVariables := <-requests
@@ -191,7 +195,10 @@ func TestDoRequest(t *testing.T) {
 	}`
 	assert.JSONEq(t, wantBody, string(withVariables.body))
 
-	_, err = doOperation[struct{}](t.Context(), client, operationName, query, nil)
+	_, err = doOperation[struct{}](t.Context(), client, operationSpec{
+		name:  operationName,
+		query: query,
+	})
 	require.NoError(t, err)
 	withoutVariables := <-requests
 	var requestObject map[string]json.RawMessage
@@ -219,9 +226,10 @@ func TestClientBearerToken(t *testing.T) {
 	_, err = doOperation[struct{}](
 		t.Context(),
 		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer github_pat_first", <-authorization)
@@ -231,9 +239,10 @@ func TestClientBearerToken(t *testing.T) {
 	_, err = doOperation[struct{}](
 		t.Context(),
 		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer github_pat_second", <-authorization)
@@ -259,20 +268,20 @@ func TestClientSetBearerTokenValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err = client.SetBearerToken(test.token)
-			assert.EqualError(t, err, "octoql: invalid bearer token")
+			require.EqualError(t, err, "octoql: invalid bearer token")
 		})
 	}
 }
 
 func TestNilClient(t *testing.T) {
 	var client *Client
-	assert.EqualError(t, client.SetBearerToken("github_pat_valid"), "octoql: client is nil")
-	assert.EqualError(t, client.SetAllowRedirects(true), "octoql: client is nil")
+	require.EqualError(t, client.SetBearerToken("github_pat_valid"), "octoql: client is nil")
+	require.EqualError(t, client.SetAllowRedirects(true), "octoql: client is nil")
 	assert.False(t, client.AllowRedirects())
 
 	response, err := invokeRepositoryQuery(client)
 	assert.Nil(t, response)
-	assert.EqualError(t, err, "octoql: client is nil")
+	require.EqualError(t, err, "octoql: client is nil")
 }
 
 func TestDoFailurePhases(t *testing.T) {
@@ -339,14 +348,16 @@ func TestDoFailurePhases(t *testing.T) {
 			response, err := doOperation[struct{}](
 				test.ctx,
 				test.client,
-				validOperationName,
-				validOperationQuery,
-				test.variables,
+				operationSpec{
+					name:      validOperationName,
+					query:     validOperationQuery,
+					variables: test.variables,
+				},
 			)
 			require.Error(t, err)
 			assert.Nil(t, response)
 			if test.wantCause != nil {
-				assert.ErrorIs(t, err, test.wantCause)
+				require.ErrorIs(t, err, test.wantCause)
 			}
 			responseError, hasResponseError := errors.AsType[*ResponseError](err)
 			assert.Equal(t, test.wantResponseError, hasResponseError)
@@ -377,16 +388,17 @@ func TestClientRefusesRedirects(t *testing.T) {
 	response, err := doOperation[struct{}](
 		t.Context(),
 		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 
 	require.Error(t, err)
 	assert.Nil(t, response)
-	assert.ErrorContains(t, err, "redirect refused")
-	assert.ErrorContains(t, err, http.StatusText(http.StatusFound))
-	assert.ErrorContains(t, err, targetURL)
+	require.ErrorContains(t, err, "redirect refused")
+	require.ErrorContains(t, err, http.StatusText(http.StatusFound))
+	require.ErrorContains(t, err, targetURL)
 	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusFound, responseError.StatusCode)
@@ -418,15 +430,16 @@ func TestClientRefusesSameHostDifferentPortRedirects(t *testing.T) {
 	response, err := doOperation[struct{}](
 		t.Context(),
 		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 
 	require.Error(t, err)
 	assert.Nil(t, response)
-	assert.ErrorContains(t, err, "redirect refused")
-	assert.ErrorContains(t, err, target.URL)
+	require.ErrorContains(t, err, "redirect refused")
+	require.ErrorContains(t, err, target.URL)
 
 	select {
 	case <-targetRequests:
@@ -457,9 +470,10 @@ func TestClientAllowsSameOriginRedirectsWhenEnabled(t *testing.T) {
 	response, err := doOperation[struct{}](
 		t.Context(),
 		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, response)
@@ -493,9 +507,10 @@ func TestClientDiscardsSuppliedRedirectPolicy(t *testing.T) {
 	response, err := doOperation[struct{}](
 		t.Context(),
 		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, response)
@@ -547,9 +562,10 @@ func TestClientStripsBearerTokenAcrossOriginsWhenRedirectsEnabled(t *testing.T) 
 			response, err := doOperation[struct{}](
 				t.Context(),
 				client,
-				validOperationName,
-				validOperationQuery,
-				nil,
+				operationSpec{
+					name:  validOperationName,
+					query: validOperationQuery,
+				},
 			)
 			require.NoError(t, err)
 			assert.NotNil(t, response)
@@ -590,9 +606,10 @@ func TestClientStripsBearerTokenAfterLeavingOriginalOrigin(t *testing.T) {
 	response, err := doOperation[struct{}](
 		t.Context(),
 		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, response)
@@ -615,13 +632,14 @@ func TestClientRedirectLimitWhenEnabled(t *testing.T) {
 	response, err := doOperation[struct{}](
 		ctx,
 		client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 	require.Error(t, err)
 	assert.Nil(t, response)
-	assert.ErrorContains(t, err, "stopped after 10 redirects")
+	require.ErrorContains(t, err, "stopped after 10 redirects")
 }
 
 func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
@@ -653,9 +671,10 @@ func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
 			_, err := doOperation[struct{}](
 				t.Context(),
 				client,
-				validOperationName,
-				validOperationQuery,
-				nil,
+				operationSpec{
+					name:  validOperationName,
+					query: validOperationQuery,
+				},
 			)
 			results <- err
 		}()
@@ -667,7 +686,7 @@ func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
 		if err == nil {
 			continue
 		}
-		assert.ErrorContains(t, err, "redirect refused")
+		require.ErrorContains(t, err, "redirect refused")
 	}
 }
 
@@ -696,14 +715,15 @@ func TestZeroValueClientRefusesRedirects(t *testing.T) {
 	response, err := doOperation[struct{}](
 		t.Context(),
 		&client,
-		validOperationName,
-		validOperationQuery,
-		nil,
+		operationSpec{
+			name:  validOperationName,
+			query: validOperationQuery,
+		},
 	)
 
 	require.Error(t, err)
 	assert.Nil(t, response)
-	assert.ErrorContains(t, err, "redirect refused")
+	require.ErrorContains(t, err, "redirect refused")
 	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusFound, responseError.StatusCode)
@@ -725,7 +745,7 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 
 	response, err := invokeRepositoryQuery(client)
 	assert.Nil(t, response)
-	assert.ErrorIs(t, err, closeError)
+	require.ErrorIs(t, err, closeError)
 	partialErr, ok := errors.AsType[*getRepositoryPartialDataError](err)
 	require.True(t, ok)
 	require.NotNil(t, partialErr.PartialData())
@@ -736,18 +756,22 @@ func TestDoDecodesBodyBeforeReturningCloseError(t *testing.T) {
 	assert.True(t, responseErrorFound)
 }
 
+type operationSpec struct {
+	variables any
+	name      string
+	query     string
+}
+
 func doOperation[T any](
 	ctx context.Context,
 	client *Client,
-	operationName string,
-	query string,
-	variables any,
+	operation operationSpec,
 ) (*T, error) {
 	response := new(T)
 	hasData, err := client._octoqlExecute(ctx, _octoqlPayload{
-		OperationName: operationName,
-		Query:         query,
-		Variables:     variables,
+		OperationName: operation.name,
+		Query:         operation.query,
+		Variables:     operation.variables,
 	}, response)
 	if !hasData {
 		return nil, err

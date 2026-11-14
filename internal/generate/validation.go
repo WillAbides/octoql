@@ -78,7 +78,8 @@ func selectionsMatch(
 	if len(expectedSelectionSet) != len(actualSelectionSet) {
 		return errorf(
 			pos, "expected %d fields, got %d",
-			len(expectedSelectionSet), len(actualSelectionSet))
+			len(expectedSelectionSet), len(actualSelectionSet),
+		)
 	}
 
 	for i, expected := range expectedSelectionSet {
@@ -153,7 +154,8 @@ func validateBindingSelection(
 	doc, gqlErr := parser.ParseQuery(&ast.Source{Input: binding.ExpectExactFields})
 	if gqlErr != nil {
 		return errorf(
-			nil, "invalid type-binding %s.expect_exact_fields: %w", typeName, gqlErr)
+			nil, "invalid type-binding %s.expect_exact_fields: %w", typeName, gqlErr,
+		)
 	}
 
 	err := selectionsMatch(pos, doc.Operations[0].SelectionSet, selectionSet)

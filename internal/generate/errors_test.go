@@ -81,9 +81,9 @@ func TestErrorf(t *testing.T) {
 
 			var generator *octoqlgenError
 			require.ErrorAs(t, err, &generator)
-			var graphql *gqlerror.Error
-			if errors.As(tt.err, &graphql) {
-				assert.ErrorIs(t, err, graphql)
+			graphql, isGraphQL := errors.AsType[*gqlerror.Error](tt.err)
+			if isGraphQL {
+				require.ErrorIs(t, err, graphql)
 				var unwrappedGraphQL *gqlerror.Error
 				require.ErrorAs(t, err, &unwrappedGraphQL)
 				assert.Same(t, graphql, unwrappedGraphQL)

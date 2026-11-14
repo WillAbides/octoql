@@ -200,7 +200,10 @@ func TestFetchURLSanitizesErrors(t *testing.T) {
 				receivedURL = request.URL.String()
 				return nil, test.transportError()
 			})
-			_, err := fetchURL(t.Context(), client, test.requestURL, "", false, 1024)
+			_, err := fetchURL(t.Context(), client, fetchRequest{
+				url:              test.requestURL,
+				maxResponseBytes: 1024,
+			})
 			require.Error(t, err)
 			assert.Equal(t, test.requestURL, receivedURL)
 			for _, value := range test.want {

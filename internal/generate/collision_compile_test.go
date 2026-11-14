@@ -561,7 +561,12 @@ query Q {
 
 	for index, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			source, err := probeGenerated(t, test.schema, test.operations, test.casing, test.keepImplementations)
+			source, err := probeGenerated(t, &probeInput{
+				schema:              test.schema,
+				operations:          test.operations,
+				casing:              test.casing,
+				keepImplementations: test.keepImplementations,
+			})
 			if test.wantGenerationErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.wantGenerationErr)
@@ -585,23 +590,25 @@ query Q {
 	}
 }
 
+type probeInput struct {
+	schema              string
+	operations          string
+	casing              Casing
+	keepImplementations bool
+}
+
 // probeGenerated intentionally does not configure bindings: compile probes must
 // only import the standard library, since user bindings are unavailable outside
 // their source module.
-func probeGenerated(
-	t *testing.T,
-	schema, operations string,
-	casing Casing,
-	keepImplementations bool,
-) ([]byte, error) {
+func probeGenerated(t *testing.T, input *probeInput) ([]byte, error) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module probe\n\ngo 1.27.3\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), []byte("package probe\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "operations.graphql"), []byte(operations), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(input.schema), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "operations.graphql"), []byte(input.operations), 0o600))
 
 	var omitUnreferencedImplementations *bool
-	if keepImplementations {
+	if input.keepImplementations {
 		omit := false
 		omitUnreferencedImplementations = &omit
 	}
@@ -611,7 +618,7 @@ func probeGenerated(
 		Generated:                       "generated.go",
 		Package:                         "probe",
 		ContextType:                     "-",
-		Casing:                          casing,
+		Casing:                          input.casing,
 		OmitUnreferencedImplementations: omitUnreferencedImplementations,
 	}
 	err := config.ValidateAndFillDefaults(dir)

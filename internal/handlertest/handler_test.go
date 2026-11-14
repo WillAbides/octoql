@@ -40,7 +40,8 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 	response, err := client.GetRepository(
 		t.Context(),
 
-		variables)
+		variables,
+	)
 
 	require.NoError(t, err)
 	require.NotNil(t, response.Repository)
@@ -53,18 +54,18 @@ func TestGeneratedHandlerSuccessMutationAndScalars(t *testing.T) {
 
 	input := githubapitest.CreateRepositoryInput{
 		Name:             "created",
-		OwnerId:          ptr("O1"),
-		Visibility:       ptr(githubapitest.RepositoryVisibilityPrivate),
-		ClientMutationId: ptr("mutation-1"),
+		OwnerId:          new("O1"),
+		Visibility:       new(githubapitest.RepositoryVisibilityPrivate),
+		ClientMutationId: new("mutation-1"),
 	}
 	mutationData := githubapitest.CreateRepositoryResponse{
 		CreateRepository: githubapitest.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
-			Repository: ptr(githubapitest.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+			Repository: new(githubapitest.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
 				Id:            "R2",
 				NameWithOwner: "octo-org/created",
 				UpdatedAt:     time.Date(2026, time.July, 19, 13, 0, 0, 0, time.UTC),
 			}),
-			ClientMutationId: ptr("mutation-1"),
+			ClientMutationId: new("mutation-1"),
 		},
 	}
 	handler.ExpectCreateRepository(githubapitest.CreateRepositoryVariables{
@@ -163,7 +164,8 @@ func TestGeneratedHandlerGraphQLErrorsAndPartialData(t *testing.T) {
 	partial, err := client.GetRepository(
 		t.Context(),
 
-		variables)
+		variables,
+	)
 
 	require.Error(t, err)
 	assert.Nil(t, partial)
@@ -190,7 +192,8 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 		response, err := client.GetRepository(
 			t.Context(),
 
-			variables)
+			variables,
+		)
 
 		require.NoError(t, err)
 		assert.Equal(t, "octo-org/octo-repo", response.Repository.FullName)
@@ -313,7 +316,8 @@ func TestGeneratedHandlerDynamicAndAbstractResponses(t *testing.T) {
 	dynamicResponse, err := client.EchoProperty(
 		t.Context(),
 
-		dynamicVariables)
+		dynamicVariables,
+	)
 
 	require.NoError(t, err)
 	assert.JSONEq(t, `"handled"`, string(dynamicResponse.EchoProperty))
@@ -414,13 +418,13 @@ func repositoryVariables() githubapitest.GetRepositoryVariables {
 		Owner: "octo-org",
 		Name:  "octo-repo",
 		First: 2,
-		After: ptr("cursor-1"),
+		After: new("cursor-1"),
 	}
 }
 
 func repositoryData() githubapitest.GetRepositoryResponse {
 	return githubapitest.GetRepositoryResponse{
-		Repository: ptr(githubapitest.GetRepositoryRepository{
+		Repository: new(githubapitest.GetRepositoryRepository{
 			Id:            "R1",
 			FullName:      "octo-org/octo-repo",
 			UpdatedAt:     time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC),
@@ -432,15 +436,11 @@ func repositoryData() githubapitest.GetRepositoryResponse {
 				}},
 				PageInfo: githubapitest.GetRepositoryRepositoryIssuesIssueConnectionPageInfo{
 					HasNextPage: true,
-					EndCursor:   ptr("cursor-2"),
+					EndCursor:   new("cursor-2"),
 				},
 			},
 		}),
 	}
-}
-
-func ptr[T any](value T) *T {
-	return &value
 }
 
 func requirePtrValue[T any](t *testing.T, value *T) T {

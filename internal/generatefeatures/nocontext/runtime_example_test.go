@@ -80,11 +80,11 @@ func ExampleErrors_partialData() {
 	client := NewClient(server.URL, server.Client())
 	response, err := getRepository(context.Background(), client)
 
-	var graphqlErrors Errors
-	if errors.As(err, &graphqlErrors) {
+	graphqlErrors, ok := errors.AsType[Errors](err)
+	if ok {
 		fmt.Println(response == nil)
-		partialErr, ok := errors.AsType[*exampleRepositoryPartialDataError](err)
-		if ok {
+		partialErr, hasPartialData := errors.AsType[*exampleRepositoryPartialDataError](err)
+		if hasPartialData {
 			fmt.Println(partialErr.PartialData().Repository.Name)
 		}
 		fmt.Println(graphqlErrors[0].Type)
@@ -191,10 +191,15 @@ func getViewer(
 	return executeExample[exampleViewerResponse](
 		ctx,
 		client,
-		"Viewer",
-		"query Viewer { viewer { login } }",
-		func(data *exampleViewerResponse, err error) error {
-			return &exampleViewerPartialDataError{data: data, err: err}
+		exampleOperation[exampleViewerResponse]{
+			name:  "Viewer",
+			query: "query Viewer { viewer { login } }",
+			newPartialDataError: func(data *exampleViewerResponse, err error) error {
+				return &exampleViewerPartialDataError{
+					data: data,
+					err:  err,
+				}
+			},
 		},
 	)
 }
@@ -206,31 +211,40 @@ func getRepository(
 	return executeExample[exampleRepositoryResponse](
 		ctx,
 		client,
-		"Repository",
-		"query Repository { repository { name owner { login } } }",
-		func(data *exampleRepositoryResponse, err error) error {
-			return &exampleRepositoryPartialDataError{data: data, err: err}
+		exampleOperation[exampleRepositoryResponse]{
+			name:  "Repository",
+			query: "query Repository { repository { name owner { login } } }",
+			newPartialDataError: func(data *exampleRepositoryResponse, err error) error {
+				return &exampleRepositoryPartialDataError{
+					data: data,
+					err:  err,
+				}
+			},
 		},
 	)
+}
+
+type exampleOperation[T any] struct {
+	newPartialDataError func(*T, error) error
+	name                string
+	query               string
 }
 
 func executeExample[T any](
 	ctx context.Context,
 	client *Client,
-	operationName string,
-	query string,
-	newPartialDataError func(*T, error) error,
+	operation exampleOperation[T],
 ) (*T, error) {
 	response := new(T)
 	hasData, err := client._octoqlExecute(ctx, _octoqlPayload{
-		OperationName: operationName,
-		Query:         query,
+		OperationName: operation.name,
+		Query:         operation.query,
 	}, response)
 	if !hasData {
 		return nil, err
 	}
 	if err != nil {
-		return nil, newPartialDataError(response, err)
+		return nil, operation.newPartialDataError(response, err)
 	}
 	return response, nil
 }

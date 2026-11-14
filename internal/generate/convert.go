@@ -12,39 +12,45 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-func (g *planState) getType(
-	goName, graphQLName, newSource string,
-	selectionSet ast.SelectionSet,
-	pos *ast.Position,
-) (goType, error) {
-	typ, ok := g.typeMap[goName]
+type typeLookup struct {
+	goName       string
+	graphQLName  string
+	newSource    string
+	selectionSet ast.SelectionSet
+	pos          *ast.Position
+}
+
+func (g *planState) getType(lookup *typeLookup) (goType, error) {
+	typ, ok := g.typeMap[lookup.goName]
 	if !ok {
 		return nil, nil
 	}
 
-	if typ.GraphQLTypeName() != graphQLName {
+	if typ.GraphQLTypeName() != lookup.graphQLName {
 		oldSource := describeTypeSource(typ)
-		oldPos := g.typePositions[goName]
+		oldPos := g.typePositions[lookup.goName]
 		return typ, errorf(
-			pos, "conflicting definition for the Go type %s: it is generated "+
+			lookup.pos, "conflicting definition for the Go type %s: it is generated "+
 				"from both %s (at %s) and %s (at %s), which are different "+
 				"GraphQL types (expected GraphQL type %s, got %s); give one of "+
 				"them a distinct name with an @octoqlgen(typename:) directive so "+
 				"they produce separate Go types",
-			goName, oldSource, posString(oldPos), newSource, posString(pos),
-			typ.GraphQLTypeName(), graphQLName)
+			lookup.goName, oldSource, posString(oldPos), lookup.newSource, posString(lookup.pos),
+			typ.GraphQLTypeName(), lookup.graphQLName,
+		)
 	}
 
-	err := selectionsMatch(pos, selectionSet, typ.SelectionSet())
+	err := selectionsMatch(lookup.pos, lookup.selectionSet, typ.SelectionSet())
 	if err != nil {
 		oldSource := describeTypeSource(typ)
-		oldPos := g.typePositions[goName]
+		oldPos := g.typePositions[lookup.goName]
 		return typ, errorf(
-			pos, "conflicting definition for the Go type %s: it is generated "+
+			lookup.pos, "conflicting definition for the Go type %s: it is generated "+
 				"from both %s (at %s) and %s (at %s), which select different "+
 				"fields (%v); give one of them a distinct name with an "+
 				"@octoqlgen(typename:) directive so they produce separate Go types",
-			goName, oldSource, posString(oldPos), newSource, posString(pos), err)
+			lookup.goName, oldSource, posString(oldPos), lookup.newSource, posString(lookup.pos), err,
+		)
 	}
 
 	return typ, nil
@@ -81,7 +87,13 @@ func posString(pos *ast.Position) string {
 
 func (g *planState) addType(typ goType, goName string, pos *ast.Position) (goType, error) {
 	newSource := describeTypeSource(typ)
-	otherTyp, err := g.getType(goName, typ.GraphQLTypeName(), newSource, typ.SelectionSet(), pos)
+	otherTyp, err := g.getType(&typeLookup{
+		goName:       goName,
+		graphQLName:  typ.GraphQLTypeName(),
+		newSource:    newSource,
+		selectionSet: typ.SelectionSet(),
+		pos:          pos,
+	})
 	if err != nil {
 		return otherTyp, err
 	}
@@ -94,7 +106,8 @@ func (g *planState) addType(typ goType, goName string, pos *ast.Position) (goTyp
 					"fields (%v); give one of them a distinct name with an "+
 					"@octoqlgen(typename:) directive so they produce separate Go types",
 				goName, describeTypeSource(otherTyp), posString(g.typePositions[goName]),
-				newSource, posString(pos), fieldErr)
+				newSource, posString(pos), fieldErr,
+			)
 		}
 		return otherTyp, nil
 	}
@@ -353,7 +366,8 @@ func (g *planState) convertOperation(
 
 	if opOptions.Flatten {
 		fieldIndex, flattenErr := validateFlattenOption(
-			baseType, operation.SelectionSet, operation.Position)
+			baseType, operation.SelectionSet, operation.Position,
+		)
 		if flattenErr != nil {
 			return nil, flattenErr
 		}
@@ -362,13 +376,12 @@ func (g *planState) convertOperation(
 
 	goTyp := &goStructType{
 		GoName: name,
-		descriptionInfo: descriptionInfo{
-			CommentOverride: fmt.Sprintf(
-				"%v is returned by %v on success.", name, operation.Name),
-			GraphQLName: baseType.Name,
-		},
-		Fields:    fields,
-		Selection: operation.SelectionSet,
+		CommentOverride: fmt.Sprintf(
+			"%v is returned by %v on success.", name, operation.Name,
+		),
+		GraphQLName: baseType.Name,
+		Fields:      fields,
+		Selection:   operation.SelectionSet,
 	}
 
 	return g.addType(goTyp, goTyp.GoName, operation.Position)
@@ -492,11 +505,10 @@ func (g *planState) convertArguments(
 		GoName:  name,
 		Fields:  fields,
 		IsInput: true,
-		descriptionInfo: descriptionInfo{
-			CommentOverride: fmt.Sprintf(
-				"%s contains the variables accepted by %s.", name, operation.Name),
-			GraphQLName: name,
-		},
+		CommentOverride: fmt.Sprintf(
+			"%s contains the variables accepted by %s.", name, operation.Name,
+		),
+		GraphQLName: name,
 	}
 	added, err := g.addType(goTyp, goTyp.GoName, operation.Position)
 	if err != nil {
@@ -559,37 +571,51 @@ func (g *planState) convertInputType(
 	return applyPointerSelection(goTyp, typ, options), false, nil
 }
 
-func (g *planState) convertSelectionType(
-	prefix namePrefix,
-	typ *ast.Type,
-	selectionSet ast.SelectionSet,
-	options *fieldOptions,
-	defaults defaultOptions,
-) (goType, error) {
-	if options.Bind != "" && options.Bind != "-" {
-		return g.convertLocalBinding(typ, selectionSet, options)
+type selectionTypeSpec struct {
+	prefix       namePrefix
+	typ          *ast.Type
+	selectionSet ast.SelectionSet
+	options      *fieldOptions
+	defaults     defaultOptions
+}
+
+func (g *planState) convertSelectionType(spec *selectionTypeSpec) (goType, error) {
+	if spec.options.Bind != "" && spec.options.Bind != "-" {
+		return g.convertLocalBinding(spec.typ, spec.selectionSet, spec.options)
 	}
-	if typ.Elem != nil {
-		elem, err := g.convertSelectionType(prefix, typ.Elem, selectionSet, options, defaults)
+	if spec.typ.Elem != nil {
+		elem, err := g.convertSelectionType(&selectionTypeSpec{
+			prefix:       spec.prefix,
+			typ:          spec.typ.Elem,
+			selectionSet: spec.selectionSet,
+			options:      spec.options,
+			defaults:     spec.defaults,
+		})
 		if err != nil {
 			return nil, err
 		}
 		return &goSliceType{Elem: elem}, nil
 	}
 
-	def := g.schema.Types[typ.Name()]
-	goTyp, isBound, err := g.convertOutputDefinition(
-		prefix, def, typ.Position, selectionSet, options, defaults)
+	def := g.schema.Types[spec.typ.Name()]
+	goTyp, isBound, err := g.convertOutputDefinition(&outputDefinitionSpec{
+		prefix:       spec.prefix,
+		def:          def,
+		pos:          spec.typ.Position,
+		selectionSet: spec.selectionSet,
+		options:      spec.options,
+		defaults:     spec.defaults,
+	})
 	if err != nil {
 		return nil, err
 	}
 	if !isBound && g.getStructReference(def) {
-		if !options.PointerIsFalse() {
+		if !spec.options.PointerIsFalse() {
 			goTyp = &goPointerType{Elem: goTyp}
 		}
 		return goTyp, nil
 	}
-	return applyPointerSelection(goTyp, typ, options), nil
+	return applyPointerSelection(goTyp, spec.typ, spec.options), nil
 }
 
 func applyPointerSelection(
@@ -690,7 +716,12 @@ func (g *planState) convertScalarOrEnumDefinition(
 	def *ast.Definition,
 	pos, provenancePos *ast.Position,
 ) (goType, error) {
-	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), nil, provenancePos)
+	existing, err := g.getType(&typeLookup{
+		goName:      name,
+		graphQLName: def.Name,
+		newSource:   describeGraphQLSource(def.Name, ""),
+		pos:         provenancePos,
+	})
 	if existing != nil || err != nil {
 		return existing, err
 	}
@@ -736,7 +767,8 @@ func (g *planState) convertScalarOrEnumDefinition(
 		}
 		return nil, errorf(
 			pos, "unknown scalar %v: please add it to \"bindings\" in octoqlgen.yaml"+
-				"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", def.Name)
+				"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", def.Name,
+		)
 
 	default:
 		return nil, errorf(pos, "unexpected kind: %v", def.Kind)
@@ -767,19 +799,22 @@ func (g *planState) convertInputDefinition(
 		return typ, false, scalarErr
 	}
 
-	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), nil, provPos)
+	existing, err := g.getType(&typeLookup{
+		goName:      name,
+		graphQLName: def.Name,
+		newSource:   describeGraphQLSource(def.Name, ""),
+		pos:         provPos,
+	})
 	if existing != nil || err != nil {
 		return existing, false, err
 	}
 
 	goTyp := &goStructType{
-		GoName: name,
-		Fields: make([]*goStructField, len(def.Fields)),
-		descriptionInfo: descriptionInfo{
-			GraphQLDescription: def.Description,
-			GraphQLName:        def.Name,
-		},
-		IsInput: true,
+		GoName:             name,
+		Fields:             make([]*goStructField, len(def.Fields)),
+		GraphQLDescription: def.Description,
+		GraphQLName:        def.Name,
+		IsInput:            true,
 	}
 	_, err = g.addType(goTyp, goTyp.GoName, provPos)
 	if err != nil {
@@ -847,7 +882,8 @@ func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goT
 
 	for _, implDef := range implementationTypes {
 		implFields, convertErr := g.convertSelectionSet(
-			spec.prefix, spec.selectionSet, implDef, spec.defaults)
+			spec.prefix, spec.selectionSet, implDef, spec.defaults,
+		)
 		if convertErr != nil {
 			return nil, convertErr
 		}
@@ -887,14 +923,22 @@ func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goT
 	return goTyp, nil
 }
 
-func (g *planState) convertOutputDefinition(
-	prefix namePrefix,
-	def *ast.Definition,
-	pos *ast.Position,
-	selectionSet ast.SelectionSet,
-	options *fieldOptions,
-	defaults defaultOptions,
-) (goType, bool, error) {
+type outputDefinitionSpec struct {
+	prefix       namePrefix
+	def          *ast.Definition
+	pos          *ast.Position
+	selectionSet ast.SelectionSet
+	options      *fieldOptions
+	defaults     defaultOptions
+}
+
+func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType, bool, error) {
+	prefix := spec.prefix
+	def := spec.def
+	pos := spec.pos
+	selectionSet := spec.selectionSet
+	options := spec.options
+	defaults := spec.defaults
 	bound, err := g.resolveConfiguredBinding(def, pos, selectionSet, options)
 	if bound != nil || err != nil {
 		return bound, bound != nil, err
@@ -1126,18 +1170,16 @@ func (g *planState) attachCatchAllImplementation(
 	}
 
 	catchAll := &goStructType{
-		GoName:    g.catchAllName(abstractType.GoName),
-		Fields:    fields,
-		Selection: abstractType.Selection,
-		descriptionInfo: descriptionInfo{
-			GraphQLName: graphQLName,
-			CommentOverride: fmt.Sprintf(
-				"%sOctoqlOther represents %s implementations not explicitly selected by a fragment. "+
-					"Use GetTypename to identify the concrete GraphQL type.",
-				abstractType.GoName,
-				abstractType.GoName,
-			),
-		},
+		GoName:      g.catchAllName(abstractType.GoName),
+		Fields:      fields,
+		Selection:   abstractType.Selection,
+		GraphQLName: graphQLName,
+		CommentOverride: fmt.Sprintf(
+			"%sOctoqlOther represents %s implementations not explicitly selected by a fragment. "+
+				"Use GetTypename to identify the concrete GraphQL type.",
+			abstractType.GoName,
+			abstractType.GoName,
+		),
 	}
 	_, err := g.addType(catchAll, catchAll.GoName, pos)
 	if err != nil {
@@ -1200,7 +1242,8 @@ func (g *planState) convertSelectionSet(
 						"silently generate value types for fields that can vanish")
 			}
 			fragmentFields, err := g.convertInlineFragment(
-				prefix, sel, containingTypedef, defaults)
+				prefix, sel, containingTypedef, defaults,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -1377,8 +1420,13 @@ func (g *planState) convertField(
 	goName = ApplyCasing(goName, casing, true)
 	prefix = nextPrefix(prefix, field, casing)
 
-	fieldGoType, err := g.convertSelectionType(
-		prefix, field.Definition.Type, field.SelectionSet, fieldOptions, defaults)
+	fieldGoType, err := g.convertSelectionType(&selectionTypeSpec{
+		prefix:       prefix,
+		typ:          field.Definition.Type,
+		selectionSet: field.SelectionSet,
+		options:      fieldOptions,
+		defaults:     defaults,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -1427,7 +1475,8 @@ func rejectConditionalDirectivesInBoundSelection(
 	selectionSet ast.SelectionSet,
 ) error {
 	return rejectConditionalDirectivesInSelection(
-		bindingName, selectionSet, map[string]bool{})
+		bindingName, selectionSet, map[string]bool{},
+	)
 }
 
 func rejectConditionalDirectivesInSelection(
@@ -1462,7 +1511,8 @@ func rejectConditionalDirectivesInSelection(
 				bindingName)
 		}
 		err := rejectConditionalDirectivesInSelection(
-			bindingName, nested, seenFragments)
+			bindingName, nested, seenFragments,
+		)
 		if err != nil {
 			return err
 		}

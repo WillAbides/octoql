@@ -90,12 +90,11 @@ func TestServerError(t *testing.T) {
 	client := NewClient(server.URL, http.DefaultClient)
 
 	response, err := client.failingQuery(ctx)
-	assert.Error(t, err)
+	require.Error(t, err)
 	var gqlErrors Errors
-	if assert.True(t, errors.As(err, &gqlErrors), "error should contain Errors") {
-		assert.Len(t, gqlErrors, 1, "Expected one GraphQL error")
-		assert.Equal(t, "oh no", gqlErrors[0].Message)
-	}
+	require.ErrorAs(t, err, &gqlErrors, "error should contain Errors")
+	require.Len(t, gqlErrors, 1, "Expected one GraphQL error")
+	assert.Equal(t, "oh no", gqlErrors[0].Message)
 	assert.Nil(t, response)
 	partialErr, ok := errors.AsType[*failingQueryPartialDataError](err)
 	require.True(t, ok)
@@ -135,7 +134,7 @@ func TestOmitempty(t *testing.T) {
 	client := NewClient(server.URL, http.DefaultClient)
 
 	response, err := client.queryWithOmitempty(ctx, queryWithOmitemptyVariables{
-		Login: ptr("raven"),
+		Login: new("raven"),
 	})
 
 	require.NoError(t, err)
@@ -566,10 +565,6 @@ func TestSearch(t *testing.T) {
 	bot, ok := response.Search[0].(*queryWithSearchSearchBot)
 	require.Truef(t, ok, "got %T, not Bot", response.Search[0])
 	assert.Equal(t, "dependabot", bot.Login)
-}
-
-func ptr[T any](value T) *T {
-	return &value
 }
 
 func requirePtrValue[T any](t *testing.T, value *T) T {

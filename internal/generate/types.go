@@ -331,7 +331,8 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 			}
 			description := fmt.Sprintf(
 				"Get%s returns %s.%s, and is useful for accessing the field via an interface.",
-				field.GoName, t.GoName, field.GoName)
+				field.GoName, t.GoName, field.GoName,
+			)
 			writeDescription(w, description)
 			fmt.Fprintf(w, "func (v *%s) Get%s() %s { return v.%s }\n",
 				t.GoName, field.GoName, typeRef, field.Selector)
@@ -436,16 +437,19 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 			sharedField := member.field
 			description := fmt.Sprintf(
 				`%s returns the interface-field %q from its implementation.`,
-				member.methodName, sharedField.GraphQLName)
+				member.methodName, sharedField.GraphQLName,
+			)
 			if sharedField.Description != "" {
 				description = fmt.Sprintf(
 					"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
-					description, sharedField.Description)
+					description, sharedField.Description,
+				)
 			}
 			if sharedField.GraphQLName == "__typename" {
 				description = fmt.Sprintf(
 					"%s returns the receiver's concrete GraphQL type-name "+
-						"(see interface doc for possible values).", member.methodName)
+						"(see interface doc for possible values).", member.methodName,
+				)
 			}
 
 			writeDescription(w, description)
@@ -500,7 +504,7 @@ func (t *goInterfaceType) IsPointer() bool          { return false }
 
 func writeDescription(w io.Writer, desc string) {
 	if desc != "" {
-		for _, line := range strings.Split(desc, "\n") {
+		for line := range strings.SplitSeq(desc, "\n") {
 			fmt.Fprintf(w, "// %s\n", strings.TrimLeft(line, " \t"))
 		}
 	}

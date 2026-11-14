@@ -43,16 +43,15 @@ func (r *renderer) typeRef(typ goType) (string, error) {
 }
 
 func repeat(n int, s string) string {
-	var builder strings.Builder
-	for i := 0; i < n; i++ {
-		builder.WriteString(s)
+	if n <= 0 {
+		return ""
 	}
-	return builder.String()
+	return strings.Repeat(s, n)
 }
 
 func intRange(n int) []int {
 	ret := make([]int, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		ret[i] = i
 	}
 	return ret

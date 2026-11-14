@@ -54,8 +54,8 @@ func collectURLErrorURLs(err error, urls *[]string) {
 		return
 	}
 
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
+	urlErr, ok := errors.AsType[*url.Error](err)
+	if ok {
 		*urls = append(*urls, urlErr.URL)
 	}
 
@@ -156,35 +156,37 @@ func (m *Materializer) fetch(
 	return fetchURL(
 		ctx,
 		dependencies.httpClient,
-		requestURL,
-		token,
-		true,
-		dependencies.maxResponseBytes,
+		fetchRequest{
+			url:              requestURL,
+			token:            token,
+			isGitHub:         true,
+			maxResponseBytes: dependencies.maxResponseBytes,
+		},
 	)
 }
 
-func fetchURL(
-	ctx context.Context,
-	client httpDoer,
-	requestURL string,
-	token string,
-	isGitHub bool,
-	maxResponseBytes int64,
-) (data []byte, err error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, http.NoBody)
+type fetchRequest struct {
+	url              string
+	token            string
+	isGitHub         bool
+	maxResponseBytes int64
+}
+
+func fetchURL(ctx context.Context, client httpDoer, req fetchRequest) (data []byte, err error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, req.url, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("creating schema request: %w", sanitizeURLDiagnostic(err, requestURL))
+		return nil, fmt.Errorf("creating schema request: %w", sanitizeURLDiagnostic(err, req.url))
 	}
-	if isGitHub {
+	if req.isGitHub {
 		request.Header.Set("Accept", "application/vnd.github.raw+json")
 	}
-	if token != "" {
-		request.Header.Set("Authorization", "Bearer "+token)
+	if req.token != "" {
+		request.Header.Set("Authorization", "Bearer "+req.token)
 	}
 
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("fetching schema: %w", sanitizeURLDiagnostic(err, requestURL))
+		return nil, fmt.Errorf("fetching schema: %w", sanitizeURLDiagnostic(err, req.url))
 	}
 	defer func() {
 		err = errors.Join(err, response.Body.Close())
@@ -193,21 +195,21 @@ func fetchURL(
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("fetching schema: http status %d", response.StatusCode)
 	}
-	if response.ContentLength > maxResponseBytes {
+	if response.ContentLength > req.maxResponseBytes {
 		return nil, fmt.Errorf(
 			"fetching schema: response exceeds %d-byte limit",
-			maxResponseBytes,
+			req.maxResponseBytes,
 		)
 	}
 
-	data, err = io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	data, err = io.ReadAll(io.LimitReader(response.Body, req.maxResponseBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("reading schema response: %w", err)
 	}
-	if int64(len(data)) > maxResponseBytes {
+	if int64(len(data)) > req.maxResponseBytes {
 		return nil, fmt.Errorf(
 			"fetching schema: response exceeds %d-byte limit",
-			maxResponseBytes,
+			req.maxResponseBytes,
 		)
 	}
 	return data, nil

@@ -60,7 +60,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					Owner: "octo-org",
 					Name:  "octo-repo",
 					First: 2,
-					After: ptr("cursor-1"),
+					After: new("cursor-1"),
 				}).Respond(
 					clientRepositoryResponse(updatedAt),
 					clienttypes.WithStatus(http.StatusAccepted),
@@ -82,7 +82,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					Owner: "octo-org",
 					Name:  "octo-repo",
 					First: 2,
-					After: ptr("cursor-1"),
+					After: new("cursor-1"),
 				}).Respond(
 					localRepositoryResponse(updatedAt),
 					localtypes.WithStatus(http.StatusAccepted),
@@ -115,18 +115,18 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 				handler.ExpectCreateRepository(clienttypes.CreateRepositoryVariables{
 					Input: clienttypes.CreateRepositoryInput{
 						Name:             "created",
-						OwnerId:          ptr("O1"),
-						Visibility:       ptr(clienttypes.RepositoryVisibilityPrivate),
-						ClientMutationId: ptr("mutation-1"),
+						OwnerId:          new("O1"),
+						Visibility:       new(clienttypes.RepositoryVisibilityPrivate),
+						ClientMutationId: new("mutation-1"),
 					},
 				}).Respond(clienttypes.CreateRepositoryResponse{
 					CreateRepository: clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
-						Repository: ptr(clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+						Repository: new(clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
 							Id:            "R2",
 							NameWithOwner: "octo-org/created",
 							UpdatedAt:     updatedAt,
 						}),
-						ClientMutationId: ptr("mutation-1"),
+						ClientMutationId: new("mutation-1"),
 					},
 				})
 			},
@@ -134,18 +134,18 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 				handler.ExpectCreateRepository(localtypes.CreateRepositoryVariables{
 					Input: localtypes.CreateRepositoryInput{
 						Name:             "created",
-						OwnerId:          ptr("O1"),
-						Visibility:       ptr(localtypes.RepositoryVisibilityPrivate),
-						ClientMutationId: ptr("mutation-1"),
+						OwnerId:          new("O1"),
+						Visibility:       new(localtypes.RepositoryVisibilityPrivate),
+						ClientMutationId: new("mutation-1"),
 					},
 				}).Respond(localtypes.CreateRepositoryResponse{
 					CreateRepository: localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
-						Repository: ptr(localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+						Repository: new(localtypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
 							Id:            "R2",
 							NameWithOwner: "octo-org/created",
 							UpdatedAt:     updatedAt,
 						}),
-						ClientMutationId: ptr("mutation-1"),
+						ClientMutationId: new("mutation-1"),
 					},
 				})
 			},
@@ -252,10 +252,10 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					Owner: "octo-org",
 					Name:  "partial",
 					First: 1,
-					After: ptr(""),
+					After: new(""),
 				}).RespondDataAndErrors(
 					clienttypes.GetRepositoryResponse{
-						Repository: ptr(clienttypes.GetRepositoryRepository{
+						Repository: new(clienttypes.GetRepositoryRepository{
 							Id:       "R1",
 							FullName: "octo-org/partial",
 						}),
@@ -273,10 +273,10 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					Owner: "octo-org",
 					Name:  "partial",
 					First: 1,
-					After: ptr(""),
+					After: new(""),
 				}).RespondDataAndErrors(
 					localtypes.GetRepositoryResponse{
-						Repository: ptr(localtypes.GetRepositoryRepository{
+						Repository: new(localtypes.GetRepositoryRepository{
 							Id:       "R1",
 							FullName: "octo-org/partial",
 						}),
@@ -366,11 +366,15 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	requests := make(chan recordedGraphQLRequest, 16)
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		body, err := io.ReadAll(request.Body)
-		require.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		request.Body = io.NopCloser(bytes.NewReader(body))
 		var recorded recordedGraphQLRequest
 		err = json.Unmarshal(body, &recorded)
-		require.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		requests <- recorded
 		handler.ServeHTTP(writer, request)
 	}))
@@ -382,7 +386,7 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 		Owner: "octo-org",
 		Name:  "octo-repo",
 		First: 2,
-		After: ptr("cursor-1"),
+		After: new("cursor-1"),
 	}
 	handler.ExpectGetRepository(variables).Respond(localRepositoryResponse(updatedAt))
 	response, err := client.GetRepository(
@@ -406,9 +410,11 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	requireGeneratedRequest(
 		t,
 		requests,
-		"GetRepository",
-		githubapi.GetRepository_Operation,
-		`{"owner":"octo-org","name":"octo-repo","first":2,"after":"cursor-1"}`,
+		expectedRequest{
+			operationName: "GetRepository",
+			query:         githubapi.GetRepository_Operation,
+			variables:     `{"owner":"octo-org","name":"octo-repo","first":2,"after":"cursor-1"}`,
+		},
 	)
 
 	nodeVariables := localtypes.GetNodeVariables{Id: "user"}
@@ -428,7 +434,11 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "User", other.Typename)
 	assert.Equal(t, "U1", other.Id)
-	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"user"}`)
+	requireGeneratedRequest(t, requests, expectedRequest{
+		operationName: "GetNode",
+		query:         githubapi.GetNode_Operation,
+		variables:     `{"id":"user"}`,
+	})
 
 	searchVariables := localtypes.SearchVariables{Query: "octo"}
 	handler.ExpectSearch(searchVariables).Respond(localtypes.SearchResponse{
@@ -453,7 +463,11 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	searchOther, ok := searchResponse.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
 	require.True(t, ok)
 	assert.Equal(t, "User", searchOther.Typename)
-	requireGeneratedRequest(t, requests, "Search", githubapi.Search_Operation, `{"query":"octo"}`)
+	requireGeneratedRequest(t, requests, expectedRequest{
+		operationName: "Search",
+		query:         githubapi.Search_Operation,
+		variables:     `{"query":"octo"}`,
+	})
 
 	property := json.RawMessage(`["one","two"]`)
 	handler.ExpectEchoProperty(localtypes.EchoPropertyVariables{Value: property}).
@@ -466,9 +480,11 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	requireGeneratedRequest(
 		t,
 		requests,
-		"EchoProperty",
-		githubapi.EchoProperty_Operation,
-		`{"value":["one","two"]}`,
+		expectedRequest{
+			operationName: "EchoProperty",
+			query:         githubapi.EchoProperty_Operation,
+			variables:     `{"value":["one","two"]}`,
+		},
 	)
 
 	handler.ExpectEchoAt(localtypes.EchoAtVariables{Value: updatedAt}).
@@ -481,9 +497,11 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	requireGeneratedRequest(
 		t,
 		requests,
-		"EchoAt",
-		githubapi.EchoAt_Operation,
-		`{"value":"2026-07-19T12:00:00Z"}`,
+		expectedRequest{
+			operationName: "EchoAt",
+			query:         githubapi.EchoAt_Operation,
+			variables:     `{"value":"2026-07-19T12:00:00Z"}`,
+		},
 	)
 
 	const largeInteger = int64(9_007_199_254_740_993)
@@ -498,14 +516,16 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	require.NoError(t, err)
 	arbitrary, ok := arbitraryResponse.EchoAny.(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, float64(42), arbitrary["count"])
+	assert.InDelta(t, 42.0, arbitrary["count"], 0)
 	assert.Equal(t, []any{"one", true}, arbitrary["items"])
 	requireGeneratedRequest(
 		t,
 		requests,
-		"EchoAny",
-		githubapi.EchoAny_Operation,
-		`{"value":9007199254740993}`,
+		expectedRequest{
+			operationName: "EchoAny",
+			query:         githubapi.EchoAny_Operation,
+			variables:     `{"value":9007199254740993}`,
+		},
 	)
 
 	errorVariables := localtypes.GetNodeVariables{Id: "missing"}
@@ -521,12 +541,16 @@ func TestLocalHandlerClientDecoding(t *testing.T) {
 	graphqlErrors, ok := errors.AsType[githubapi.Errors](err)
 	require.True(t, ok)
 	assert.Equal(t, "missing", graphqlErrors[0].Extensions["code"])
-	requireGeneratedRequest(t, requests, "GetNode", githubapi.GetNode_Operation, `{"id":"missing"}`)
+	requireGeneratedRequest(t, requests, expectedRequest{
+		operationName: "GetNode",
+		query:         githubapi.GetNode_Operation,
+		variables:     `{"id":"missing"}`,
+	})
 }
 
 func clientRepositoryResponse(updatedAt time.Time) clienttypes.GetRepositoryResponse {
 	return clienttypes.GetRepositoryResponse{
-		Repository: ptr(clienttypes.GetRepositoryRepository{
+		Repository: new(clienttypes.GetRepositoryRepository{
 			Id:            "R1",
 			FullName:      "octo-org/octo-repo",
 			UpdatedAt:     updatedAt,
@@ -538,7 +562,7 @@ func clientRepositoryResponse(updatedAt time.Time) clienttypes.GetRepositoryResp
 				}},
 				PageInfo: clienttypes.GetRepositoryRepositoryIssuesIssueConnectionPageInfo{
 					HasNextPage: true,
-					EndCursor:   ptr("cursor-2"),
+					EndCursor:   new("cursor-2"),
 				},
 			},
 		}),
@@ -547,7 +571,7 @@ func clientRepositoryResponse(updatedAt time.Time) clienttypes.GetRepositoryResp
 
 func localRepositoryResponse(updatedAt time.Time) localtypes.GetRepositoryResponse {
 	return localtypes.GetRepositoryResponse{
-		Repository: ptr(localtypes.GetRepositoryRepository{
+		Repository: new(localtypes.GetRepositoryRepository{
 			Id:            "R1",
 			FullName:      "octo-org/octo-repo",
 			UpdatedAt:     updatedAt,
@@ -559,7 +583,7 @@ func localRepositoryResponse(updatedAt time.Time) localtypes.GetRepositoryRespon
 				}},
 				PageInfo: localtypes.GetRepositoryRepositoryIssuesIssueConnectionPageInfo{
 					HasNextPage: true,
-					EndCursor:   ptr("cursor-2"),
+					EndCursor:   new("cursor-2"),
 				},
 			},
 		}),
@@ -596,22 +620,26 @@ type recordedGraphQLRequest struct {
 	Variables     json.RawMessage `json:"variables"`
 }
 
+type expectedRequest struct {
+	operationName string
+	query         string
+	variables     string
+}
+
 func requireGeneratedRequest(
 	t *testing.T,
 	requests <-chan recordedGraphQLRequest,
-	operationName string,
-	expectedQuery string,
-	variables string,
+	expected expectedRequest,
 ) {
 	t.Helper()
 	recorded := <-requests
-	assert.Equal(t, operationName, recorded.OperationName)
-	assert.Equal(t, expectedQuery, recorded.Query)
-	if variables == "" {
+	assert.Equal(t, expected.operationName, recorded.OperationName)
+	assert.Equal(t, expected.query, recorded.Query)
+	if expected.variables == "" {
 		assert.Empty(t, recorded.Variables)
 		return
 	}
-	assert.JSONEq(t, variables, string(recorded.Variables))
+	assert.JSONEq(t, expected.variables, string(recorded.Variables))
 }
 
 func canonicalOperationDocument(t *testing.T, operation string) string {

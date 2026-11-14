@@ -187,7 +187,8 @@ type User {
 			schemaPath := filepath.Join(dir, "schema.graphql")
 			operationPath := filepath.Join(dir, "operation.graphql")
 			require.NoError(t, os.WriteFile(
-				schemaPath, []byte(baseSchema+declaration), 0o600))
+				schemaPath, []byte(baseSchema+declaration), 0o600,
+			))
 			require.NoError(t, os.WriteFile(operationPath, []byte(`
 query Viewer @octoqlgen(typename: "Resp") {
   viewer {
@@ -461,7 +462,9 @@ func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
 	}
 
 	schema, schemaErr := gqlparser.LoadSchema(sources...)
-	require.Nil(t, schemaErr)
+	if schemaErr != nil {
+		t.Fatalf("unexpected schema error: %v", schemaErr)
+	}
 
 	operationFilenames, err := filepath.Glob(filepath.Join(dataDir, "*.graphql"))
 	require.NoError(t, err)
@@ -477,7 +480,9 @@ func TestOperationsResolveAgainstOnDiskSchema(t *testing.T) {
 			Name:  operationFilename,
 			Input: string(text),
 		})
-		require.Nil(t, parseErr)
+		if parseErr != nil {
+			t.Fatalf("unexpected parse error: %v", parseErr)
+		}
 
 		t.Run(filepath.Base(operationFilename), func(t *testing.T) {
 			for _, diagnostic := range validator.ValidateWithRules(schema, document, nil) {

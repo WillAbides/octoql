@@ -30,13 +30,15 @@ func maybeAddTypeDescription(info descriptionInfo, description string) string {
 	}
 	return fmt.Sprintf(
 		"%v\nThe GraphQL type's documentation follows.\n\n%v",
-		description, info.GraphQLDescription)
+		description, info.GraphQLDescription,
+	)
 }
 
 func fragmentDescription(info descriptionInfo) string {
 	return maybeAddTypeDescription(info, fmt.Sprintf(
 		"%v includes the GraphQL fields of %v requested by the fragment %v.",
-		info.FragmentName, info.GraphQLName, info.FragmentName))
+		info.FragmentName, info.GraphQLName, info.FragmentName,
+	))
 }
 
 func structDescription(typ *goStructType) string {
@@ -55,7 +57,8 @@ func structDescription(typ *goStructType) string {
 		// haven't selected, say.
 		return maybeAddTypeDescription(typ.descriptionInfo, fmt.Sprintf(
 			"%v includes the requested fields of the GraphQL type %v.",
-			typ.GoName, typ.GraphQLName))
+			typ.GoName, typ.GraphQLName,
+		))
 	}
 }
 
@@ -69,7 +72,8 @@ func interfaceDescription(typ *goInterfaceType) string {
 	}
 	implementationList := fmt.Sprintf(
 		"\n\n%v is implemented by the following types:\n\t%v",
-		typ.GoName, strings.Join(goImplNames, "\n\t"))
+		typ.GoName, strings.Join(goImplNames, "\n\t"),
+	)
 
 	switch {
 	case typ.CommentOverride != "":
@@ -79,6 +83,7 @@ func interfaceDescription(typ *goInterfaceType) string {
 	default:
 		return maybeAddTypeDescription(typ.descriptionInfo, fmt.Sprintf(
 			"%v includes the requested fields of the GraphQL interface %v.%v",
-			typ.GoName, typ.GraphQLName, implementationList))
+			typ.GoName, typ.GraphQLName, implementationList,
+		))
 	}
 }
