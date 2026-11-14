@@ -1,9 +1,7 @@
 package generate
 
 import (
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -555,11 +553,9 @@ query Q {
 		},
 	}
 
-	compileDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(compileDir, "go.mod"), []byte("module probe\n\ngo 1.27.3\n"), 0o600))
-	hasCompileCases := false
+	filesToBuild := make(map[string][]byte)
 
-	for index, test := range tests {
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			source, err := probeGenerated(t, &probeInput{
 				schema:              test.schema,
@@ -576,18 +572,11 @@ query Q {
 				return
 			}
 			require.NoError(t, err)
-
-			caseDir := filepath.Join(compileDir, fmt.Sprintf("case_%02d", index))
-			require.NoError(t, os.MkdirAll(caseDir, 0o755))
-			require.NoError(t, os.WriteFile(filepath.Join(caseDir, "generated.go"), source, 0o600))
-			hasCompileCases = true
+			filesToBuild[test.name] = source
 		})
 	}
 
-	if hasCompileCases {
-		output, compileErr := probeCompile(t, compileDir)
-		require.NoError(t, compileErr, output)
-	}
+	compileStandaloneGo(t, filesToBuild)
 }
 
 type probeInput struct {
@@ -602,39 +591,28 @@ type probeInput struct {
 // their source module.
 func probeGenerated(t *testing.T, input *probeInput) ([]byte, error) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module probe\n\ngo 1.27.3\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), []byte("package probe\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(input.schema), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "operations.graphql"), []byte(input.operations), 0o600))
+	schemaPath := filepath.Join(dir, "schema.graphql")
+	operationsPath := filepath.Join(dir, "operations.graphql")
+	generatedPath := filepath.Join(dir, "generated.go")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(input.schema), 0o600))
+	require.NoError(t, os.WriteFile(operationsPath, []byte(input.operations), 0o600))
 
 	var omitUnreferencedImplementations *bool
 	if input.keepImplementations {
 		omit := false
 		omitUnreferencedImplementations = &omit
 	}
-	config := &Config{
-		Schema:                          "schema.graphql",
-		Operations:                      []string{"operations.graphql"},
-		Generated:                       "generated.go",
+	outputs, err := Generate(&Config{
+		Schema:                          schemaPath,
+		Operations:                      []string{operationsPath},
+		Generated:                       generatedPath,
 		Package:                         "probe",
 		ContextType:                     "-",
 		Casing:                          input.casing,
 		OmitUnreferencedImplementations: omitUnreferencedImplementations,
-	}
-	err := config.ValidateAndFillDefaults(dir)
+	})
 	if err != nil {
 		return nil, err
 	}
-	outputs, err := Generate(config)
-	if err != nil {
-		return nil, err
-	}
-	return outputs[config.Generated], nil
-}
-
-func probeCompile(t *testing.T, dir string) (string, error) {
-	cmd := exec.CommandContext(t.Context(), "go", "build", "./...")
-	cmd.Dir = dir
-	output, err := cmd.CombinedOutput()
-	return string(output), err
+	return outputs[generatedPath], nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/willabides/octoql/internal"
 )
 
 func TestValidateOutputPathsFilesystemAliases(t *testing.T) {
@@ -212,9 +213,19 @@ func TestResolveOperationFiles(t *testing.T) {
 
 	directory := t.TempDir()
 	schemaPath := filepath.Join(directory, "schema.graphql")
-	for _, name := range []string{"schema.graphql", "z.graphql", "b.graphql", "a.graphql"} {
+	for _, name := range []string{
+		"schema.graphql",
+		internal.DirectiveFilename,
+		"z.graphql",
+		"b.graphql",
+		"a.graphql",
+	} {
 		err := os.WriteFile(filepath.Join(directory, name), nil, 0o600)
 		require.NoError(t, err)
+	}
+	linkErr := os.Link(schemaPath, filepath.Join(directory, "schema-alias.graphql"))
+	if linkErr != nil {
+		t.Skipf("hard links are unavailable: %v", linkErr)
 	}
 	config := Config{
 		Schema: schemaPath,
@@ -237,7 +248,16 @@ func TestResolveOperationFiles(t *testing.T) {
 func TestConfigValidationErrors(t *testing.T) {
 	t.Parallel()
 
+	moduleDir := t.TempDir()
+	setupErr := os.WriteFile(
+		filepath.Join(moduleDir, "go.mod"),
+		[]byte("module example.com/app\n\ngo 1.27.3\n"),
+		0o600,
+	)
+	require.NoError(t, setupErr)
+
 	tests := []struct {
+		baseDir   string
 		name      string
 		config    Config
 		wantError string
@@ -259,13 +279,48 @@ func TestConfigValidationErrors(t *testing.T) {
 			},
 			wantError: "unknown casing algorithm",
 		},
+		{
+			name:    "test handler in client package",
+			baseDir: moduleDir,
+			config: Config{
+				Generated:            "client/generated.go",
+				TestHandlerGenerated: "client/handler.go",
+				Package:              "client",
+			},
+			wantError: "separate package",
+		},
+		{
+			name:    "invalid test handler package directory",
+			baseDir: moduleDir,
+			config: Config{
+				Generated:            "client/generated.go",
+				TestHandlerGenerated: "bad-package-name/handler.go",
+				Package:              "client",
+			},
+			wantError: "unable to identify test handler package",
+		},
+		{
+			name:    "client types with main package",
+			baseDir: moduleDir,
+			config: Config{
+				Generated:            "client/generated.go",
+				TestHandlerGenerated: "githubapitest/generated.go",
+				Package:              "main",
+			},
+			wantError: "cannot import a generated client in package main",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := test.config.ValidateAndFillDefaults(filepath.Join("testdata", "queries", "subpackage"))
+			baseDir := test.baseDir
+			if baseDir == "" {
+				baseDir = filepath.Join("testdata", "queries", "subpackage")
+			}
+			cfg := test.config
+			err := cfg.ValidateAndFillDefaults(baseDir)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.wantError)
 		})

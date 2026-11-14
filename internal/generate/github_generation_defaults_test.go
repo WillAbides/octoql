@@ -140,7 +140,7 @@ query AllScalars {
 			filesToBuild[test.name] = []byte(source)
 		})
 	}
-	require.NoError(t, buildGoFiles(filesToBuild))
+	compileStandaloneGo(t, filesToBuild)
 }
 
 func TestOmitUnreferencedImplementations(t *testing.T) {
@@ -250,7 +250,7 @@ type Query { node: Node }
 	source := generated[config.Generated]
 	assert.Contains(t, string(source), "type CatchAllNameNodeOctoqlOther struct")
 	assert.Contains(t, string(source), "type CatchAllNameNode2OctoqlOther struct")
-	require.NoError(t, buildGoFile("catch_all_collision", source))
+	compileStandaloneGo(t, map[string][]byte{"catch_all_collision": source})
 }
 
 func generateGitHubAbstractSelections(t *testing.T, omit *bool) string {

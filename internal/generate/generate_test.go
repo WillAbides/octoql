@@ -2,6 +2,7 @@ package generate
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,9 +59,8 @@ func addTestScalarBindings(bindings map[string]*TypeBinding) map[string]*TypeBin
 	return bindings
 }
 
-// buildGoFile returns an error if the given Go code is not valid.
-//
-// name is used for the temp-file, and is just for debugging.
+// buildGoFile returns an error if the given Go code does not compile inside
+// the current module.
 func buildGoFile(name string, content []byte) error {
 	return buildGoFiles(map[string][]byte{name: content})
 }
@@ -69,8 +69,8 @@ func buildGoFiles(files map[string][]byte) error {
 	if len(files) == 0 {
 		return nil
 	}
-	// We need to put this within the current module, rather than in
-	// /tmp, so that it can access internal/testutil.
+	// Put module-dependent builds within the current module so generated files
+	// can import internal/testutil.
 	tempRoot := filepath.Join("testdata", "tmp")
 	err := os.MkdirAll(tempRoot, 0o755)
 	if err != nil {
@@ -84,6 +84,35 @@ func buildGoFiles(files map[string][]byte) error {
 		_ = os.RemoveAll(tempDir)
 	}()
 
+	err = writeNamedPackages(tempDir, files)
+	if err != nil {
+		return err
+	}
+	return runGoSubcommand(context.Background(), tempDir, "build")
+}
+
+func compileStandaloneGo(t *testing.T, files map[string][]byte) {
+	t.Helper()
+	if len(files) == 0 {
+		return
+	}
+	tempDir := t.TempDir()
+	err := os.WriteFile(
+		filepath.Join(tempDir, "go.mod"),
+		[]byte("module probe\n\ngo 1.27.3\n"),
+		0o600,
+	)
+	require.NoError(t, err)
+	require.NoError(t, writeNamedPackages(tempDir, files))
+
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-mod=readonly", "./...")
+	cmd.Dir = tempDir
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOSUMDB=off")
+	output, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "generated code does not compile:\n%s", output)
+}
+
+func writeNamedPackages(rootDir string, files map[string][]byte) error {
 	names := make([]string, 0, len(files))
 	for name := range files {
 		names = append(names, name)
@@ -91,10 +120,10 @@ func buildGoFiles(files map[string][]byte) error {
 	sort.Strings(names)
 	for index, name := range names {
 		packageDir := filepath.Join(
-			tempDir,
+			rootDir,
 			fmt.Sprintf("pkg_%02d_%s", index, sanitizeBuildDirName(name)),
 		)
-		err = os.MkdirAll(packageDir, 0o755)
+		err := os.MkdirAll(packageDir, 0o755)
 		if err != nil {
 			return err
 		}
@@ -103,9 +132,12 @@ func buildGoFiles(files map[string][]byte) error {
 			return err
 		}
 	}
+	return nil
+}
 
-	cmd := exec.Command("go", "build", "./...")
-	cmd.Dir = tempDir
+func runGoSubcommand(ctx context.Context, dir, subcommand string) error {
+	cmd := exec.CommandContext(ctx, "go", subcommand, "./...")
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -318,37 +350,6 @@ func TestGenerateExcludesSchemaFromOperationGlobs(t *testing.T) {
 	}
 }
 
-func TestGenerateExcludesSchemaAliasesFromOperationGlobs(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.graphql")
-	require.NoError(t, os.WriteFile(
-		schemaPath,
-		[]byte("type Query { field: String }\n"),
-		0o600,
-	))
-	require.NoError(t, os.Link(schemaPath, filepath.Join(dir, "schema-alias.graphql")))
-	operationPath := filepath.Join(dir, "operation.graphql")
-	require.NoError(t, os.WriteFile(
-		operationPath,
-		[]byte("query Q { field }\n"),
-		0o600,
-	))
-
-	config := &Config{
-		Schema:      schemaPath,
-		Operations:  []string{filepath.Join(dir, "*.graphql")},
-		Generated:   filepath.Join(dir, "generated.go"),
-		Package:     "client",
-		ContextType: "-",
-	}
-	outputs, err := Generate(config)
-
-	require.NoError(t, err)
-	assert.Contains(t, string(outputs[config.Generated]), "func (c *Client) Q(")
-}
-
 func TestGenerateSelfContainedClientWithOperationVariableNames(t *testing.T) {
 	t.Parallel()
 
@@ -421,7 +422,7 @@ query Value(
 	assert.Contains(t, source, "func (e *ResponseError) HTTPStatusCode() int")
 	assert.Contains(t, source, "func (e *RateLimitError) RateLimitKind() string")
 	assert.Contains(t, source, "func (e Errors) GraphQLError(index int) error")
-	require.NoError(t, buildGoFile("inline_execution_collision", []byte(source)))
+	compileStandaloneGo(t, map[string][]byte{"inline_execution_collision": []byte(source)})
 }
 
 func TestGenerateRuntimeImportAliasCollision(t *testing.T) {
@@ -598,7 +599,7 @@ type Query {
 	assert.NotContains(t, source, "const Backtick_Operation = `")
 	assert.Equal(t, ordinary.Body, generatedStringConstant(t, generated[config.Generated], "Ordinary_Operation"))
 	assert.Equal(t, backtick.Body, generatedStringConstant(t, generated[config.Generated], "Backtick_Operation"))
-	require.NoError(t, buildGoFile("operation_literals", []byte(source)))
+	compileStandaloneGo(t, map[string][]byte{"operation_literals": []byte(source)})
 }
 
 func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
@@ -958,69 +959,19 @@ query Beta { second }
 		maps.Copy(compiledOutputs, first)
 	})
 
+	t.Run("local types do not import main client", func(t *testing.T) {
+		config, _ := newConfig(t, "type Query { value: String! }\n", "query Value { value }\n")
+		config.Package = "main"
+
+		outputs, err := Generate(config)
+		require.NoError(t, err)
+		assert.NotContains(t, string(outputs[config.TestHandlerGenerated]), config.pkgPath+`"`)
+	})
+
 	compileGeneratedOutputs(t, rootDir, compiledOutputs)
 }
 
-func TestGeneratedNullableValuesDefaultToPointers(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	schemaPath := filepath.Join(tempDir, "schema.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
-input PointerInput {
-  defaultInput: String
-  overrideInput: String
-  items: [String]
-}
-
-type PointerResult {
-  defaultOutput: String
-  overrideOutput: String
-  items: [String]
-}
-
-type Query {
-  pointer(input: PointerInput, overrideVariable: String): PointerResult
-}
-`), 0o600)
-	require.NoError(t, err)
-	operationPath := filepath.Join(tempDir, "operation.graphql")
-	err = os.WriteFile(operationPath, []byte(`
-query PointerDefaults(
-  $input: PointerInput
-  $overrideVariable: String @octoqlgen(pointer: false)
-) {
-  result: pointer(input: $input, overrideVariable: $overrideVariable) {
-    defaultOutput
-    overrideOutput @octoqlgen(pointer: false)
-    items
-  }
-}
-`), 0o600)
-	require.NoError(t, err)
-
-	config := &Config{
-		Schema:      schemaPath,
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(tempDir, "generated.go"),
-		Package:     "pointerdefaults",
-		ContextType: "-",
-	}
-	outputs, err := Generate(config)
-	require.NoError(t, err)
-	source := string(outputs[config.Generated])
-	assert.Regexp(t, `DefaultInput\s+\*string`, source)
-	assert.Regexp(t, `OverrideInput\s+\*string`, source)
-	assert.Regexp(t, `Items\s+\[\]\*string`, source)
-	assert.Regexp(t, `Input\s+\*PointerInput`, source)
-	assert.Regexp(t, `OverrideVariable\s+string`, source)
-	assert.Regexp(t, `Result\s+\*`, source)
-	assert.Regexp(t, `DefaultOutput\s+\*string`, source)
-	assert.Regexp(t, `OverrideOutput\s+string`, source)
-	require.NoError(t, buildGoFile("pointer-defaults", outputs[config.Generated]))
-}
-
-func TestGeneratedAbstractValuesAreInterfaces(t *testing.T) {
+func TestGeneratedNullabilityAndPointerRules(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
@@ -1034,55 +985,23 @@ type User implements Node {
   id: ID!
 }
 
+input PointerInput {
+  defaultInput: String
+  items: [String]
+}
+
+type PointerResult {
+  defaultOutput: String
+  overrideOutput: String
+  items: [String]
+}
+
 type Query {
+  pointer(input: PointerInput, overrideVariable: String): PointerResult
   nullableNode: Node
   nullableNodes: [Node]
   forcedNode: Node!
-}
-`), 0o600)
-	require.NoError(t, err)
-	operationPath := filepath.Join(tempDir, "operation.graphql")
-	err = os.WriteFile(operationPath, []byte(`
-query AbstractValues {
-  nullableNode {
-    id
-  }
-  nullableNodes {
-    id
-  }
-  forcedNode @octoqlgen(pointer: true) {
-    id
-  }
-}
-`), 0o600)
-	require.NoError(t, err)
-
-	config := &Config{
-		Schema:      schemaPath,
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(tempDir, "generated.go"),
-		Package:     "abstractvalues",
-		ContextType: "-",
-	}
-	outputs, err := Generate(config)
-	require.NoError(t, err)
-	source := string(outputs[config.Generated])
-	assert.Regexp(t, `NullableNode\s+AbstractValuesNullableNode`, source)
-	assert.NotRegexp(t, `NullableNode\s+\*AbstractValuesNullableNode`, source)
-	assert.Regexp(t, `NullableNodes\s+\[\]AbstractValuesNullableNodesNode`, source)
-	assert.NotRegexp(t, `NullableNodes\s+\[\]\*AbstractValuesNullableNodesNode`, source)
-	assert.Regexp(t, `ForcedNode\s+AbstractValuesForcedNode`, source)
-	assert.NotRegexp(t, `ForcedNode\s+\*AbstractValuesForcedNode`, source)
-	require.NoError(t, buildGoFile("abstract-values", outputs[config.Generated]))
-}
-
-func TestGeneratedLocalBindingsRespectPointerSelection(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	schemaPath := filepath.Join(tempDir, "schema.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
-type Query {
+  concrete: User!
   nullableDefault: String
   nullableOptOut: String
   nonNullDefault: String!
@@ -1093,7 +1012,30 @@ type Query {
 	require.NoError(t, err)
 	operationPath := filepath.Join(tempDir, "operation.graphql")
 	err = os.WriteFile(operationPath, []byte(`
-query LocalBindings {
+query NullabilityRules(
+  $input: PointerInput
+  $overrideVariable: String @octoqlgen(pointer: false)
+) {
+  __typename
+  result: pointer(input: $input, overrideVariable: $overrideVariable) {
+    defaultOutput
+    overrideOutput @octoqlgen(pointer: false)
+    items
+  }
+  nullableNode {
+    id
+  }
+  nullableNodes {
+    __typename
+    id
+  }
+  forcedNode @octoqlgen(pointer: true) {
+    id
+  }
+  concrete {
+    __typename
+    id
+  }
   nullableDefault @octoqlgen(bind: "string")
   nullableOptOut @octoqlgen(bind: "string", pointer: false)
   nonNullDefault @octoqlgen(bind: "string")
@@ -1107,115 +1049,36 @@ query LocalBindings {
 		Schema:      schemaPath,
 		Operations:  []string{operationPath},
 		Generated:   filepath.Join(tempDir, "generated.go"),
-		Package:     "localbindings",
+		Package:     "nullability",
 		ContextType: "-",
 	}
 	outputs, err := Generate(config)
 	require.NoError(t, err)
 	source := string(outputs[config.Generated])
-	assert.Regexp(t, `NullableDefault\s+\*string`, source)
-	assert.Regexp(t, `NullableOptOut\s+string`, source)
-	assert.Regexp(t, `NonNullDefault\s+string`, source)
-	assert.Regexp(t, `NonNullPointer\s+\*string`, source)
-	assert.Regexp(t, `NullableList\s+\*\[\]string`, source)
-	require.NoError(t, buildGoFile("local-binding-pointers", outputs[config.Generated]))
-}
 
-func TestGeneratedTypenameIsNonNull(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	schemaPath := filepath.Join(tempDir, "schema.graphql")
-	err := os.WriteFile(schemaPath, []byte(`
-interface Node {
-  id: ID!
-}
-
-type User implements Node {
-  id: ID!
-}
-
-type Query {
-  injected: Node
-  explicit: Node
-  concrete: User!
-}
-`), 0o600)
-	require.NoError(t, err)
-	operationPath := filepath.Join(tempDir, "operation.graphql")
-	err = os.WriteFile(operationPath, []byte(`
-query TypenameFields {
-  __typename
-  injected {
-    id
-  }
-  explicit {
-    __typename
-    id
-  }
-  concrete {
-    __typename
-    id
-  }
-}
-`), 0o600)
-	require.NoError(t, err)
-
-	config := &Config{
-		Schema:      schemaPath,
-		Operations:  []string{operationPath},
-		Generated:   filepath.Join(tempDir, "generated.go"),
-		Package:     "typenamefields",
-		ContextType: "-",
+	for _, want := range []string{
+		"DefaultInput *string",
+		"Items []*string",
+		"Input *PointerInput",
+		"OverrideVariable string",
+		"DefaultOutput *string",
+		"OverrideOutput string",
+		"NullableNode NullabilityRulesNullableNode",
+		"NullableNodes []NullabilityRulesNullableNodesNode",
+		"ForcedNode NullabilityRulesForcedNode",
+		"NullableDefault *string",
+		"NullableOptOut string",
+		"NonNullDefault string",
+		"NonNullPointer *string",
+		"NullableList *[]string",
+		"Typename string",
+		"GetTypename() string",
+	} {
+		assertDeclares(t, source, want)
 	}
-	outputs, err := Generate(config)
-	require.NoError(t, err)
-	generated, err := parser.ParseFile(
-		token.NewFileSet(),
-		config.Generated,
-		outputs[config.Generated],
-		0,
-	)
-	require.NoError(t, err)
-
-	typenameFields := 0
-	getTypenameSignatures := 0
-	requireString := func(expr ast.Expr) {
-		t.Helper()
-		identifier, ok := expr.(*ast.Ident)
-		require.Truef(t, ok, "generated typename type is %T, want string", expr)
-		assert.Equal(t, "string", identifier.Name)
-	}
-	ast.Inspect(generated, func(node ast.Node) bool {
-		switch node := node.(type) {
-		case *ast.Field:
-			if len(node.Names) == 0 {
-				return true
-			}
-			switch node.Names[0].Name {
-			case "Typename":
-				typenameFields++
-				requireString(node.Type)
-			case "GetTypename":
-				signature, ok := node.Type.(*ast.FuncType)
-				require.True(t, ok)
-				require.Len(t, signature.Results.List, 1)
-				getTypenameSignatures++
-				requireString(signature.Results.List[0].Type)
-			}
-		case *ast.FuncDecl:
-			if node.Name.Name != "GetTypename" {
-				return true
-			}
-			require.Len(t, node.Type.Results.List, 1)
-			getTypenameSignatures++
-			requireString(node.Type.Results.List[0].Type)
-		}
-		return true
-	})
-	assert.GreaterOrEqual(t, typenameFields, 2)
-	assert.GreaterOrEqual(t, getTypenameSignatures, 2)
-	require.NoError(t, buildGoFile("typename-fields", outputs[config.Generated]))
+	assert.NotContains(t, source, "Typename *string")
+	assert.NotContains(t, source, "GetTypename() *string")
+	compileStandaloneGo(t, map[string][]byte{"nullability": outputs[config.Generated]})
 }
 
 func TestGeneratedSpecialSliceWireSemantics(t *testing.T) {
@@ -1371,179 +1234,8 @@ func TestSpecialSliceWireSemanticsReusedDestination(t *testing.T) {
 	compileGeneratedOutputs(t, tempDir, outputs)
 }
 
-func TestTestHandlerConfigurationErrors(t *testing.T) {
-	t.Parallel()
-
-	tempRoot := filepath.Join("testdata", "tmp")
-	setupErr := os.MkdirAll(tempRoot, 0o755)
-	if setupErr != nil {
-		t.Fatal(setupErr)
-	}
-	tempDir, setupErr := os.MkdirTemp(tempRoot, "test-handler-config-")
-	if setupErr != nil {
-		t.Fatal(setupErr)
-	}
-	t.Cleanup(func() {
-		removeErr := os.RemoveAll(tempDir)
-		if removeErr != nil {
-			t.Errorf("removing temporary generation directory: %v", removeErr)
-		}
-	})
-	absoluteClientOutput, setupErr := filepath.Abs(
-		filepath.Join(tempDir, "client", "generated.go"),
-	)
-	if setupErr != nil {
-		t.Fatal(setupErr)
-	}
-
-	tests := []struct {
-		name             string
-		handlerGenerated string
-		exportOperations string
-		packageName      string
-		wantError        string
-	}{
-		{
-			name:             "same package",
-			handlerGenerated: filepath.Join(tempDir, "client", "handler.go"),
-			wantError:        "separate package",
-		},
-		{
-			name:             "invalid package directory",
-			handlerGenerated: filepath.Join(tempDir, "bad-package-name", "handler.go"),
-			wantError:        "unable to identify test handler package",
-		},
-		{
-			name:             "client output collision",
-			handlerGenerated: filepath.Join(tempDir, "client", "generated.go"),
-			wantError:        "output paths must be different",
-		},
-		{
-			name:             "absolute client output collision",
-			handlerGenerated: absoluteClientOutput,
-			wantError:        "output paths must be different",
-		},
-		{
-			name:             "operation manifest collision",
-			handlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-			exportOperations: filepath.Join(tempDir, "githubapitest", "generated.go"),
-			wantError:        "output paths must be different",
-		},
-		{
-			name:             "main client package",
-			handlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-			packageName:      "main",
-			wantError:        "cannot import a generated client in package main",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			packageName := test.packageName
-			if packageName == "" {
-				packageName = "client"
-			}
-			config := &Config{
-				Schema:               filepath.Join(dataDir, "schema.graphql"),
-				Operations:           []string{filepath.Join(dataDir, "Repository.graphql")},
-				Generated:            filepath.Join(tempDir, "client", "generated.go"),
-				TestHandlerGenerated: test.handlerGenerated,
-				ExportOperations:     test.exportOperations,
-				Package:              packageName,
-				ContextType:          "-",
-				Bindings:             testBindings(),
-			}
-
-			err := config.ValidateAndFillDefaults("")
-			if err == nil || !strings.Contains(err.Error(), test.wantError) {
-				t.Fatalf("error = %v, want containing %q", err, test.wantError)
-			}
-		})
-	}
-
-	t.Run("local types do not import main client", func(t *testing.T) {
-		config := &Config{
-			Schema:               filepath.Join(dataDir, "schema.graphql"),
-			Operations:           []string{filepath.Join(dataDir, "Repository.graphql")},
-			Generated:            filepath.Join(tempDir, "client", "generated.go"),
-			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-			TestHandlerTypes:     TestHandlerTypesLocal,
-			Package:              "main",
-			ContextType:          "-",
-			Bindings:             testBindings(),
-		}
-
-		err := config.ValidateAndFillDefaults("")
-		require.NoError(t, err)
-		outputs, err := Generate(config)
-		require.NoError(t, err)
-		assert.NotContains(
-			t,
-			string(outputs[config.TestHandlerGenerated]),
-			config.pkgPath+`"`,
-		)
-	})
-}
-
-func TestGenerateTestHandlerNameCollision(t *testing.T) {
-	t.Parallel()
-
-	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-collision-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		err = os.RemoveAll(tempDir)
-		if err != nil {
-			t.Errorf("removing temporary generation directory: %v", err)
-		}
-	})
-
-	schemaPath := filepath.Join(tempDir, "schema.graphql")
-	operationPath := filepath.Join(tempDir, "operation.graphql")
-	err = os.WriteFile(schemaPath, []byte("type Query { value: String! }\n"), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = os.WriteFile(
-		operationPath,
-		[]byte("query Value @octoqlgen(typename: \"TestHandler\") {\n  value\n}\n"),
-		0o600,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config := &Config{
-		Schema:               schemaPath,
-		Operations:           []string{operationPath},
-		Generated:            filepath.Join(tempDir, "client", "generated.go"),
-		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-		Package:              "client",
-		ContextType:          "-",
-	}
-	err = config.ValidateAndFillDefaults("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = Generate(config)
-	if err == nil || !strings.Contains(err.Error(), "conflicts with test handler runtime") {
-		t.Fatalf("error = %v, want test handler name collision", err)
-	}
-}
-
 func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 	t.Parallel()
-
-	tempRoot := filepath.Join("testdata", "tmp")
-	setupErr := os.MkdirAll(tempRoot, 0o755)
-	if setupErr != nil {
-		t.Fatal(setupErr)
-	}
 
 	tests := []struct {
 		name      string
@@ -1552,6 +1244,12 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 		types     TestHandlerTypeStrategy
 		wantError string
 	}{
+		{
+			name:      "typename collision with test handler runtime",
+			schema:    "type Query { value: String! }\n",
+			operation: "query Value @octoqlgen(typename: \"TestHandler\") {\n  value\n}\n",
+			wantError: "conflicts with test handler runtime",
+		},
 		{
 			name:      "lowercase operation with client types",
 			schema:    "type Query { viewer: String! }\n",
@@ -1628,27 +1326,19 @@ type Query {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tempDir, err := os.MkdirTemp(tempRoot, "test-handler-identifiers-")
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() {
-				removeErr := os.RemoveAll(tempDir)
-				if removeErr != nil {
-					t.Errorf("removing temporary generation directory: %v", removeErr)
-				}
-			})
+			t.Parallel()
 
+			tempDir := t.TempDir()
+			require.NoError(t, os.WriteFile(
+				filepath.Join(tempDir, "go.mod"),
+				[]byte("module example.com/app\n\ngo 1.27.3\n"),
+				0o600,
+			))
 			schemaPath := filepath.Join(tempDir, "schema.graphql")
 			operationPath := filepath.Join(tempDir, "operation.graphql")
-			err = os.WriteFile(schemaPath, []byte(test.schema), 0o600)
-			if err != nil {
-				t.Fatal(err)
-			}
-			err = os.WriteFile(operationPath, []byte(test.operation), 0o600)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.WriteFile(schemaPath, []byte(test.schema), 0o600))
+			require.NoError(t, os.WriteFile(operationPath, []byte(test.operation), 0o600))
+
 			config := &Config{
 				Schema:               schemaPath,
 				Operations:           []string{operationPath},
@@ -1658,15 +1348,11 @@ type Query {
 				Package:              "client",
 				ContextType:          "-",
 			}
-			err = config.ValidateAndFillDefaults("")
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, config.ValidateAndFillDefaults(tempDir))
 
-			_, err = Generate(config)
-			if err == nil || !strings.Contains(err.Error(), test.wantError) {
-				t.Fatalf("error = %v, want containing %q", err, test.wantError)
-			}
+			_, err := Generate(config)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.wantError)
 		})
 	}
 }
@@ -1771,67 +1457,7 @@ func compileGeneratedOutputs(
 		}
 	}
 
-	command := exec.Command("go", subcommand, "./...")
-	command.Dir = directory
-	command.Env = append(os.Environ(), "GOWORK=off")
-	output, err := command.CombinedOutput()
-	require.NoErrorf(t, err, "generated packages do not compile:\n%s", output)
-}
-
-func TestGenerateTestHandlerRejectsSubscription(t *testing.T) {
-	t.Parallel()
-
-	tempRoot := filepath.Join("testdata", "tmp")
-	err := os.MkdirAll(tempRoot, 0o755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tempDir, err := os.MkdirTemp(tempRoot, "test-handler-subscription-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		err = os.RemoveAll(tempDir)
-		if err != nil {
-			t.Errorf("removing temporary generation directory: %v", err)
-		}
-	})
-
-	schemaPath := filepath.Join(tempDir, "schema.graphql")
-	operationPath := filepath.Join(tempDir, "operation.graphql")
-	err = os.WriteFile(
-		schemaPath,
-		[]byte("type Query { value: String! }\ntype Subscription { value: String! }\n"),
-		0o600,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = os.WriteFile(
-		operationPath,
-		[]byte("subscription Value { value }\n"),
-		0o600,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config := &Config{
-		Schema:               schemaPath,
-		Operations:           []string{operationPath},
-		Generated:            filepath.Join(tempDir, "client", "generated.go"),
-		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-		Package:              "client",
-		ContextType:          "-",
-	}
-	err = config.ValidateAndFillDefaults("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = Generate(config)
-	if err == nil || !strings.Contains(err.Error(), "subscriptions are not supported by octoql") {
-		t.Fatalf("error = %v, want subscription rejection", err)
-	}
+	require.NoError(t, runGoSubcommand(t.Context(), directory, subcommand))
 }
 
 func TestGenerateWithConfig(t *testing.T) {
@@ -1843,17 +1469,6 @@ func TestGenerateWithConfig(t *testing.T) {
 		operations []string
 		name       string
 	}{
-		{
-			name:   "export operations",
-			config: &Config{ExportOperations: "operations.json"},
-			check: func(t *testing.T, config *Config, generated map[string][]byte) {
-				t.Helper()
-				require.Len(t, generated, 2)
-				manifest := generated[config.ExportOperations]
-				assert.True(t, json.Valid(manifest))
-				assert.Contains(t, string(manifest), `"operationName": "GetRepository"`)
-			},
-		},
 		{
 			name: "custom context",
 			config: &Config{
@@ -2081,6 +1696,8 @@ func TestGenerateErrors(t *testing.T) {
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionOnObject.graphql:2: struct is only applicable to interface-typed fields"))
 			case "StructOptionWithFragments.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionWithFragments.graphql:2: struct is not allowed for types with fragments"))
+			case "Subscription.graphql":
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/Subscription.graphql:1: subscriptions are not supported by octoql"))
 			case "UnknownScalar.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownScalar.schema.graphql:3: unknown scalar UnknownScalar: please add it to "bindings" in octoqlgen.yaml
 Example: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml`))

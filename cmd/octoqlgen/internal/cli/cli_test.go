@@ -53,7 +53,7 @@ func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
 			}, nil
 		},
 		materializer: stub,
-		outputWriter: &stubOutputWriter{},
+		outputWriter: &recordingOutputWriter{},
 		stdout:       &stdout,
 	}
 
@@ -68,7 +68,7 @@ func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
 	t.Parallel()
 
 	stub := &stubMaterializer{data: []byte("exact schema bytes\n")}
-	writer := &stubOutputWriter{}
+	writer := &recordingOutputWriter{}
 	var stdout bytes.Buffer
 	command := schemaFetchCommand{
 		Output:  "schema.graphql",
@@ -94,11 +94,8 @@ func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
 	err := command.Run()
 	require.NoError(t, err)
 	assert.Empty(t, stdout.String())
-	assert.Equal(t, "schema.graphql", writer.path)
-	assert.Equal(t, []byte("exact schema bytes\n"), writer.data)
-	companion, ok := writer.writtenTo(internal.DirectiveFilename)
-	require.True(t, ok)
-	assert.Contains(t, string(companion), "directive @octoqlgen(")
+	assert.Equal(t, []byte("exact schema bytes\n"), writer.outputs["schema.graphql"])
+	assert.Contains(t, string(writer.outputs[internal.DirectiveFilename]), "directive @octoqlgen(")
 	assert.Equal(t, "github/docs", stub.request.Source.Repository)
 	assert.Equal(t, "src/graphql/data/ghec/schema.docs.graphql", stub.request.Source.Path)
 	assert.Equal(t, cliRevision, stub.request.Source.Revision)
@@ -108,7 +105,7 @@ func TestSchemaCommandFetchFailureDoesNotWriteOutput(t *testing.T) {
 	t.Parallel()
 
 	expectedErr := errors.New("fetch failed")
-	writer := &stubOutputWriter{}
+	writer := &recordingOutputWriter{}
 	command := schemaFetchCommand{
 		Output:  "schema.graphql",
 		context: t.Context(),
@@ -122,7 +119,7 @@ func TestSchemaCommandFetchFailureDoesNotWriteOutput(t *testing.T) {
 
 	err := command.Run()
 	require.ErrorIs(t, err, expectedErr)
-	assert.Empty(t, writer.path)
+	assert.Empty(t, writer.outputs)
 }
 
 func TestRunSchemaDefaultsToFetch(t *testing.T) {
@@ -715,18 +712,6 @@ func (m *stubMaterializer) Materialize(
 	return m.data, m.err
 }
 
-type stubOutputWriter struct {
-	err     error
-	path    string
-	data    []byte
-	written map[string][]byte
-}
-
-func (w *stubOutputWriter) writtenTo(path string) ([]byte, bool) {
-	data, ok := w.written[path]
-	return data, ok
-}
-
 type stubRemoteResolver struct {
 	err    error
 	result schema.RemoteResult
@@ -738,17 +723,19 @@ func (r *stubRemoteResolver) Resolve(_ context.Context, source config.Source) (s
 	return r.result, r.err
 }
 
-func (w *stubOutputWriter) Write(path string, data []byte) error {
-	if w.err != nil {
-		return w.err
+type recordingOutputWriter struct {
+	outputs map[string][]byte
+	writes  map[string]int
+}
+
+func (w *recordingOutputWriter) Write(path string, data []byte) error {
+	if w.outputs == nil {
+		w.outputs = map[string][]byte{}
 	}
-	if w.written == nil {
-		w.written = map[string][]byte{}
+	if w.writes == nil {
+		w.writes = map[string]int{}
 	}
-	w.written[path] = append([]byte{}, data...)
-	if filepath.Base(path) != internal.DirectiveFilename {
-		w.path = path
-		w.data = append([]byte{}, data...)
-	}
+	w.outputs[path] = append([]byte{}, data...)
+	w.writes[path]++
 	return nil
 }

@@ -18,50 +18,38 @@ import (
 func TestGenerateConfigMapsOptions(t *testing.T) {
 	t.Parallel()
 
-	exportOperations := "operations.json"
-	packageName := "githubapi"
-	contextType := "github.com/example/context.Type"
-	useStructReferences := true
-	omitUnreferencedImplementations := false
-	bindingType := "github.com/example/scalar.DateTime"
-	expectExactFields := "{ id login }"
-	marshaler := "github.com/example/scalar.Marshal"
-	unmarshaler := "github.com/example/scalar.Unmarshal"
-	defaultCasing := "auto_camel_case"
-	allEnumsCasing := "raw"
-	enumCasing := map[string]string{"IssueState": "default"}
-	localTypes := config.TestHandlerTypesLocal
 	bindings := map[string]*config.Binding{
 		"DateTime": {
-			Type:              &bindingType,
-			ExpectExactFields: &expectExactFields,
-			Marshaler:         &marshaler,
-			Unmarshaler:       &unmarshaler,
+			Type:              new("github.com/example/scalar.DateTime"),
+			ExpectExactFields: new("{ id login }"),
+			Marshaler:         new("github.com/example/scalar.Marshal"),
+			Unmarshaler:       new("github.com/example/scalar.Unmarshal"),
 		},
 	}
+	enumCasing := map[string]string{"IssueState": "default"}
 	source := &config.Config{
 		Schema: config.Schema{
 			Path: "schema.graphql",
 		},
 		Operations:       []string{"graphql/**/*.graphql"},
 		Generated:        "githubapi/generated.go",
-		Package:          &packageName,
-		ExportOperations: &exportOperations,
-		ContextType:      &contextType,
+		Package:          new("githubapi"),
+		ExportOperations: new("operations.json"),
+		ContextType:      new("github.com/example/context.Type"),
 		Bindings:         &bindings,
 		PackageBindings: []config.PackageBinding{{
 			Package: "github.com/example/models",
 		}},
 		Casing: &config.Casing{
-			Default:  &defaultCasing,
-			AllEnums: &allEnumsCasing,
+			Default:  new("auto_camel_case"),
+			AllEnums: new("raw"),
 			Enums:    &enumCasing,
 		},
-		UseStructReferences:             &useStructReferences,
-		OmitUnreferencedImplementations: &omitUnreferencedImplementations,
+		UseStructReferences:             new(true),
+		OmitUnreferencedImplementations: new(false),
 		TestHandler: &config.TestHandler{
 			Generated: "githubapitest/generated.go",
-			Types:     &localTypes,
+			Types:     new(config.TestHandlerTypesLocal),
 		},
 	}
 
@@ -72,9 +60,9 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	assert.Equal(t, "githubapi/generated.go", actual.Generated)
 	assert.Equal(t, "githubapitest/generated.go", actual.TestHandlerGenerated)
 	assert.Equal(t, generate.TestHandlerTypesLocal, actual.TestHandlerTypes)
-	assert.Equal(t, packageName, actual.Package)
-	assert.Equal(t, exportOperations, actual.ExportOperations)
-	assert.Equal(t, contextType, actual.ContextType)
+	assert.Equal(t, "githubapi", actual.Package)
+	assert.Equal(t, "operations.json", actual.ExportOperations)
+	assert.Equal(t, "github.com/example/context.Type", actual.ContextType)
 	assert.True(t, actual.StructReferences)
 	require.NotNil(t, actual.OmitUnreferencedImplementations)
 	assert.False(t, *actual.OmitUnreferencedImplementations)
@@ -84,10 +72,10 @@ func TestGenerateConfigMapsOptions(t *testing.T) {
 	require.Len(t, actual.PackageBindings, 1)
 	assert.Equal(t, "github.com/example/models", actual.PackageBindings[0].Package)
 	require.Contains(t, actual.Bindings, "DateTime")
-	assert.Equal(t, bindingType, actual.Bindings["DateTime"].Type)
-	assert.Equal(t, expectExactFields, actual.Bindings["DateTime"].ExpectExactFields)
-	assert.Equal(t, marshaler, actual.Bindings["DateTime"].Marshaler)
-	assert.Equal(t, unmarshaler, actual.Bindings["DateTime"].Unmarshaler)
+	assert.Equal(t, "github.com/example/scalar.DateTime", actual.Bindings["DateTime"].Type)
+	assert.Equal(t, "{ id login }", actual.Bindings["DateTime"].ExpectExactFields)
+	assert.Equal(t, "github.com/example/scalar.Marshal", actual.Bindings["DateTime"].Marshaler)
+	assert.Equal(t, "github.com/example/scalar.Unmarshal", actual.Bindings["DateTime"].Unmarshaler)
 }
 
 func TestGenerateCommandRun(t *testing.T) {
@@ -141,84 +129,68 @@ func TestGenerateCommandRun(t *testing.T) {
 	assert.Equal(t, []byte("operations"), writer.outputs[exportPath])
 }
 
-func TestGenerateCommandRefusesConfigOutput(t *testing.T) {
+func TestGenerateCommandValidatesOutputsBeforeMaterialization(t *testing.T) {
 	t.Parallel()
 
-	directory := t.TempDir()
-	configPath := filepath.Join(directory, config.DefaultFilename)
-	err := os.WriteFile(
-		configPath,
-		[]byte(
-			"schema:\n"+
-				"  path: schema.graphql\n"+
-				"operations:\n"+
-				"  - operation.graphql\n"+
-				"generated: "+config.DefaultFilename+"\n",
-		),
-		0o600,
-	)
-	require.NoError(t, err)
-
-	stub := &stubMaterializer{}
-	command := generateCommand{
-		Config:       configPath,
-		context:      t.Context(),
-		loadConfig:   config.Load,
-		materializer: stub,
-		generate: func(*generate.Config) (map[string][]byte, error) {
-			return nil, errors.New("generation should not run")
+	tests := []struct {
+		name      string
+		yaml      string
+		wantParts []string
+	}{
+		{
+			name: "config output collision",
+			yaml: "schema:\n" +
+				"  path: schema.graphql\n" +
+				"operations:\n" +
+				"  - operation.graphql\n" +
+				"generated: " + config.DefaultFilename + "\n",
+			wantParts: []string{"generated output path", "config"},
 		},
-		outputWriter: &recordingOutputWriter{},
-	}
-
-	err = command.Run()
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "generated output path")
-	assert.Contains(t, err.Error(), "config")
-	assert.Empty(t, stub.request.Path)
-}
-
-func TestGenerateCommandRefusesSchemaOutputBeforeMaterialization(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	configPath := filepath.Join(directory, config.DefaultFilename)
-	err := os.WriteFile(
-		configPath,
-		[]byte(
-			"schema:\n"+
-				"  path: generated.go\n"+
-				"  sha256: 559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd\n"+
-				"  source:\n"+
-				"    repository: octo-org/octo-repo\n"+
-				"    path: schema.graphql\n"+
-				"    revision: "+cliRevision+"\n"+
-				"operations: []\n"+
+		{
+			name: "schema output collision",
+			yaml: "schema:\n" +
+				"  path: generated.go\n" +
+				"  sha256: 559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd\n" +
+				"  source:\n" +
+				"    repository: octo-org/octo-repo\n" +
+				"    path: schema.graphql\n" +
+				"    revision: " + cliRevision + "\n" +
+				"operations: []\n" +
 				"generated: generated.go\n",
-		),
-		0o600,
-	)
-	require.NoError(t, err)
-
-	stub := &stubMaterializer{}
-	command := generateCommand{
-		Config:       configPath,
-		context:      t.Context(),
-		loadConfig:   config.Load,
-		materializer: stub,
-		generate: func(*generate.Config) (map[string][]byte, error) {
-			return nil, errors.New("generation should not run")
+			wantParts: []string{"generated output path", "schema input path"},
 		},
-		outputWriter: &recordingOutputWriter{},
 	}
 
-	err = command.Run()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "generated output path")
-	assert.Contains(t, err.Error(), "schema input path")
-	assert.Empty(t, stub.request.Path)
+			directory := t.TempDir()
+			configPath := filepath.Join(directory, config.DefaultFilename)
+			err := os.WriteFile(configPath, []byte(test.yaml), 0o600)
+			require.NoError(t, err)
+
+			stub := &stubMaterializer{}
+			command := generateCommand{
+				Config:       configPath,
+				context:      t.Context(),
+				loadConfig:   config.Load,
+				materializer: stub,
+				generate: func(*generate.Config) (map[string][]byte, error) {
+					return nil, errors.New("generation should not run")
+				},
+				outputWriter: &recordingOutputWriter{},
+			}
+
+			err = command.Run()
+
+			require.Error(t, err)
+			for _, part := range test.wantParts {
+				assert.Contains(t, err.Error(), part)
+			}
+			assert.Empty(t, stub.request.Path)
+		})
+	}
 }
 
 func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
@@ -495,21 +467,4 @@ func TestGenerateOperationManifestPathsRelativeToConfig(t *testing.T) {
 
 func schemaMaterializer() materializer {
 	return schema.NewMaterializer()
-}
-
-type recordingOutputWriter struct {
-	outputs map[string][]byte
-	writes  map[string]int
-}
-
-func (w *recordingOutputWriter) Write(path string, data []byte) error {
-	if w.outputs == nil {
-		w.outputs = map[string][]byte{}
-	}
-	if w.writes == nil {
-		w.writes = map[string]int{}
-	}
-	w.outputs[path] = append([]byte{}, data...)
-	w.writes[path]++
-	return nil
 }

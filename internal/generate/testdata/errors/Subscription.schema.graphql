@@ -1,0 +1,7 @@
+type Query {
+  value: String!
+}
+
+type Subscription {
+  value: String!
+}

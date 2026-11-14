@@ -370,81 +370,68 @@ func TestDoFailurePhases(t *testing.T) {
 }
 
 func TestClientRefusesRedirects(t *testing.T) {
-	targetRequests := make(chan struct{}, 1)
-	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		targetRequests <- struct{}{}
-	}))
-	defer target.Close()
-
-	targetURL := strings.Replace(target.URL, "127.0.0.1", "localhost", 1)
-	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Location", targetURL)
-		writer.Header().Set("X-GitHub-Request-ID", "redirect-request")
-		writer.WriteHeader(http.StatusFound)
-	}))
-	defer origin.Close()
-
-	client := NewClient(origin.URL, nil)
-	response, err := doOperation[struct{}](
-		t.Context(),
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
+	// net/http's default redirect protection compares hostnames and ignores ports.
+	tests := []struct {
+		targetURL func(*httptest.Server) string
+		name      string
+	}{
+		{
+			name: "different host",
+			targetURL: func(server *httptest.Server) string {
+				return strings.Replace(server.URL, "127.0.0.1", "localhost", 1)
+			},
 		},
-	)
-
-	require.Error(t, err)
-	assert.Nil(t, response)
-	require.ErrorContains(t, err, "redirect refused")
-	require.ErrorContains(t, err, http.StatusText(http.StatusFound))
-	require.ErrorContains(t, err, targetURL)
-	responseError, ok := errors.AsType[*ResponseError](err)
-	require.True(t, ok)
-	assert.Equal(t, http.StatusFound, responseError.StatusCode)
-	assert.Equal(t, "redirect-request", responseError.RequestID)
-	assert.Nil(t, responseError.RawBody)
-
-	select {
-	case <-targetRequests:
-		assert.Fail(t, "redirect target received a request")
-	default:
+		{
+			name: "same host different port",
+			targetURL: func(server *httptest.Server) string {
+				return server.URL
+			},
+		},
 	}
-}
 
-// net/http's default redirect protection compares hostnames and ignores ports.
-func TestClientRefusesSameHostDifferentPortRedirects(t *testing.T) {
-	targetRequests := make(chan struct{}, 1)
-	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		targetRequests <- struct{}{}
-	}))
-	defer target.Close()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			targetRequests := make(chan struct{}, 1)
+			target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				targetRequests <- struct{}{}
+			}))
+			defer target.Close()
 
-	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Location", target.URL)
-		writer.WriteHeader(http.StatusFound)
-	}))
-	defer origin.Close()
+			location := test.targetURL(target)
+			origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				writer.Header().Set("Location", location)
+				writer.Header().Set("X-GitHub-Request-ID", "redirect-request")
+				writer.WriteHeader(http.StatusFound)
+			}))
+			defer origin.Close()
 
-	client := NewClient(origin.URL, nil)
-	response, err := doOperation[struct{}](
-		t.Context(),
-		client,
-		operationSpec{
-			name:  validOperationName,
-			query: validOperationQuery,
-		},
-	)
+			client := NewClient(origin.URL, nil)
+			response, err := doOperation[struct{}](
+				t.Context(),
+				client,
+				operationSpec{
+					name:  validOperationName,
+					query: validOperationQuery,
+				},
+			)
 
-	require.Error(t, err)
-	assert.Nil(t, response)
-	require.ErrorContains(t, err, "redirect refused")
-	require.ErrorContains(t, err, target.URL)
+			require.Error(t, err)
+			assert.Nil(t, response)
+			require.ErrorContains(t, err, "redirect refused")
+			require.ErrorContains(t, err, http.StatusText(http.StatusFound))
+			require.ErrorContains(t, err, location)
+			responseError, ok := errors.AsType[*ResponseError](err)
+			require.True(t, ok)
+			assert.Equal(t, http.StatusFound, responseError.StatusCode)
+			assert.Equal(t, "redirect-request", responseError.RequestID)
+			assert.Nil(t, responseError.RawBody)
 
-	select {
-	case <-targetRequests:
-		assert.Fail(t, "redirect target received a request")
-	default:
+			select {
+			case <-targetRequests:
+				assert.Fail(t, "redirect target received a request")
+			default:
+			}
+		})
 	}
 }
 
