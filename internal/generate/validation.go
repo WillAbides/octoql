@@ -16,9 +16,8 @@ import (
 // not.  It compares the generated field plan — Go field names, type references,
 // JSON names, and omitempty — rather than comparing raw directives, so the
 // check is derived from exactly what gets emitted and cannot drift as new
-// @octoqlgen options are added.  Returns nil for non-struct/non-interface
-// types; those are generated from the schema definition and AST comparison
-// alone is sufficient.
+// @octoqlgen options are added. Non-struct/non-interface types are determined
+// entirely by their schema definition.
 func generatedTypeFieldsMatch(existing, candidate goType) error {
 	switch ex := existing.(type) {
 	case *goStructType:
@@ -26,13 +25,39 @@ func generatedTypeFieldsMatch(existing, candidate goType) error {
 		if !ok {
 			return fmt.Errorf("type kind changed: was struct, now %T", candidate)
 		}
+		if ex.IsInput != can.IsInput {
+			return fmt.Errorf("input type changed: %v vs %v", ex.IsInput, can.IsInput)
+		}
 		return structFieldsMatch(ex.Fields, can.Fields)
 	case *goInterfaceType:
 		can, ok := candidate.(*goInterfaceType)
 		if !ok {
 			return fmt.Errorf("type kind changed: was interface, now %T", candidate)
 		}
-		return structFieldsMatch(ex.SharedFields, can.SharedFields)
+		err := structFieldsMatch(ex.SharedFields, can.SharedFields)
+		if err != nil {
+			return err
+		}
+		if len(ex.Implementations) != len(can.Implementations) {
+			return fmt.Errorf("implementation count changed: %d vs %d",
+				len(ex.Implementations), len(can.Implementations))
+		}
+		for i, impl := range ex.Implementations {
+			other := can.Implementations[i]
+			if impl.GoName != other.GoName {
+				return fmt.Errorf("implementation %d changed: %s vs %s", i, impl.GoName, other.GoName)
+			}
+		}
+		if ex.OtherImplementation == nil && can.OtherImplementation == nil {
+			return nil
+		}
+		if ex.OtherImplementation == nil || can.OtherImplementation == nil {
+			return fmt.Errorf("catch-all implementation changed")
+		}
+		if ex.OtherImplementation.GoName != can.OtherImplementation.GoName {
+			return fmt.Errorf("catch-all implementation changed: %s vs %s",
+				ex.OtherImplementation.GoName, can.OtherImplementation.GoName)
+		}
 	}
 	return nil
 }

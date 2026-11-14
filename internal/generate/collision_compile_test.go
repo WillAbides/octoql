@@ -428,12 +428,75 @@ query Q($foo: String, $Foo: String) {
 				"rename the variable or input field, or change the casing configuration",
 		},
 		{
+			name: "typename reuse with equivalent inline selections",
+			schema: `
+type Query { a: Item! b: Item! }
+type Item { id: String! }
+`,
+			operations: `
+query Q {
+  a @octoqlgen(typename: "Shared") { id }
+  b @octoqlgen(typename: "Shared") { ... on Item { id } }
+}
+`,
+		},
+		{
+			name: "typename reuse with equivalent abstract shared fields",
+			schema: `
+interface Node { id: String! }
+type User implements Node { id: String! }
+type Query { a: Node! b: Node! }
+`,
+			operations: `
+query Q {
+  a @octoqlgen(typename: "Shared") { id }
+  b @octoqlgen(typename: "Shared") { id }
+}
+`,
+		},
+		{
+			name: "typename reuse with conflicting abstract shared fields",
+			schema: `
+interface Node { id: String! name: String! }
+type User implements Node { id: String! name: String! }
+type Query { a: Node! b: Node! }
+`,
+			operations: `
+query Q {
+  a @octoqlgen(typename: "Shared") { id }
+  b @octoqlgen(typename: "Shared") { name }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type Shared:",
+			wantGenerationErrAlso: []string{
+				`"Id" vs "Name"`,
+			},
+		},
+		{
+			name: "typename reuse with different abstract implementations",
+			schema: `
+interface Node { id: String! }
+type User implements Node { id: String! }
+type Admin implements Node { id: String! }
+type Query { a: Node! b: Node! }
+`,
+			operations: `
+query Q {
+  a @octoqlgen(typename: "Shared") { ... on User { id } }
+  b @octoqlgen(typename: "Shared") { ... on Admin { id } }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type Shared:",
+			wantGenerationErrAlso: []string{
+				"implementation 0 changed: SharedUser vs SharedAdmin",
+			},
+		},
+		{
 			// Two sibling fields both carry @octoqlgen(typename:"Shared"), but
 			// the first names its id sub-field "NodeId" via
 			// @octoqlgen(alias:"nodeId") while the second uses the plain name
-			// "Id".  selectionsMatch sees identical AST (field "id" in both)
-			// and passes; only the structural Go field comparison in addType
-			// catches that NodeId ≠ Id and rejects the conflicting registration.
+			// "Id". The generated field names must agree despite the identical
+			// GraphQL field selections.
 			name: "typename reuse with distinct aliases",
 			schema: `
 type Query {
@@ -465,14 +528,8 @@ query Q {
 		{
 			// Two sibling fields both carry @octoqlgen(typename:"Shared"), but
 			// one applies @skip to the flag sub-field, which forces a pointer
-			// on that field.  selectionsMatch sees identical field names and
-			// passes; the structural comparison catches *bool ≠ bool and
-			// rejects the conflicting registration.
-			//
-			// This covers the live bypass on main: without this fix, a
-			// typename-reused conditional field keeps its value type from the
-			// first registration, so a skipped Boolean! decodes to false
-			// instead of being absent.
+			// on that field. Reusing the value type from the other selection
+			// would decode a skipped Boolean! as false instead of absent.
 			name: "typename reuse with distinct conditional directives",
 			schema: `
 type Query {
@@ -500,16 +557,9 @@ query Q($hide: Boolean!) {
 			// A direct selection with @octoqlgen(typename:"F") is processed
 			// before a spread of fragment F on the same interface type.  The
 			// fragment carries @octoqlgen(alias:"userId") on an id sub-field
-			// inside an inline fragment — invisible to selectionsMatch, which
-			// compares field names and aliases and not the options attached to
-			// them.  The outer SelectionSets are structurally identical
-			// (explicit __typename in both), so selectionsMatch passes and
-			// generatedTypeFieldsMatch on the interface's SharedFields passes
-			// (the inline-fragment field is implementation-specific, not
-			// shared).  The conflict is only detectable by building the
-			// per-implementation candidate type FUser and routing it through
-			// addType, which is what the implementations loop in
-			// convertNamedFragment now does even on the reuse path.
+			// inside an inline fragment. SharedFields alone cannot detect this
+			// implementation-specific difference, so reused interfaces must
+			// still build and check each implementation.
 			name: "typename reuse with distinct implementation-level aliases (direct selection first, fragment second)",
 			schema: `
 interface Node {

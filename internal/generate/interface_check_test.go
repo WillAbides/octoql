@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newInterfaceGetterField builds a shared field that members() renders as a
+// newInterfaceGetterField builds a shared field rendered as a
 // Get<goName> getter returning the given Go type reference.
 func newInterfaceGetterField(goName, graphQLName, rawRef string) *goStructField {
 	parsed, err := parseRef(rawRef)
@@ -63,13 +63,44 @@ func TestCheckInterfaceIdentifiersAliasSignatures(t *testing.T) {
 				},
 			}
 
-			err := checkInterfaceIdentifiers(parent, newImportScope("", ""))
+			err := checkInterfaceIdentifiers(parent, "")
 			if test.wantConflict {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "two methods named GetFoo that do not agree")
 				return
 			}
+
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestCheckInterfaceIdentifiersLocalBinding(t *testing.T) {
+	t.Parallel()
+
+	embedded := &goInterfaceType{
+		GoName: "Frag",
+		SharedFields: []*goStructField{
+			newInterfaceGetterField("Foo", "foo", "[]*example.com/client.Value"),
+		},
+	}
+	parent := &goInterfaceType{
+		GoName: "Parent",
+		SharedFields: []*goStructField{
+			{
+				GoName:      "Foo",
+				GraphQLName: "foo",
+				GoType: &goSliceType{
+					Elem: &goPointerType{Elem: &goStructType{GoName: "Value"}},
+				},
+			},
+			{GoType: embedded},
+		},
+	}
+
+	err := checkInterfaceIdentifiers(parent, "example.com/client")
+	require.NoError(t, err)
+
+	err = checkInterfaceIdentifiers(parent, "example.com/other")
+	assert.ErrorContains(t, err, "two methods named GetFoo that do not agree")
 }

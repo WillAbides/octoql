@@ -51,10 +51,6 @@ type generationPlan struct {
 	typeMap    map[string]goType
 }
 
-type planBuilder func(*Config) (*generationPlan, error)
-
-type outputRenderer func(*generationPlan) ([]byte, error)
-
 func renderTypeDefinitions(r *renderer, typeMap map[string]goType) ([]byte, error) {
 	names := make([]string, 0, len(typeMap))
 	for name := range typeMap {
@@ -237,47 +233,48 @@ var clientRuntimeMethods = map[string]bool{
 func validateClientNames(typeMap map[string]goType, operations []*plannedOperation) error {
 	const reservedRuntimePrefix = "_octoql"
 
-	operationNames := make(map[string]bool, len(operations))
-	variablesTypeNames := make(map[string]bool, len(operations))
+	type symbol struct {
+		declaration string
+		isOperation bool
+	}
+	packageSymbols := make(map[string]symbol, len(typeMap)+len(operations))
+	for name := range typeMap {
+		packageSymbols[name] = symbol{declaration: "a generated GraphQL type"}
+	}
 	for _, op := range operations {
-		operationNames[op.Name] = true
+		entry := packageSymbols[op.Name]
+		entry.isOperation = true
+		packageSymbols[op.Name] = entry
 		if op.Input != nil {
-			variablesTypeNames[op.Input.GoName] = true
+			entry = packageSymbols[op.Input.GoName]
+			entry.declaration = ""
+			packageSymbols[op.Input.GoName] = entry
 		}
 	}
-
-	enumValueNames := map[string]bool{}
-	enumValuesVarNames := map[string]bool{}
 	for _, typ := range typeMap {
 		enumType, ok := typ.(*goEnumType)
 		if !ok {
 			continue
 		}
-		enumValuesVarNames["All"+enumType.GoName] = true
+		name := "All" + enumType.GoName
+		entry := packageSymbols[name]
+		entry.declaration = "a generated enum values variable"
+		packageSymbols[name] = entry
 		for _, value := range enumType.Values {
-			enumValueNames[value.GoName] = true
+			entry = packageSymbols[value.GoName]
+			if entry.declaration != "a generated enum values variable" {
+				entry.declaration = "a generated enum value"
+			}
+			packageSymbols[value.GoName] = entry
 		}
 	}
 
-	seenPrefixCandidates := map[string]bool{}
-	for _, set := range []map[string]bool{
-		operationNames,
-		enumValueNames,
-		enumValuesVarNames,
-	} {
-		for name := range set {
-			seenPrefixCandidates[name] = true
-		}
+	names := make([]string, 0, len(packageSymbols))
+	for name := range packageSymbols {
+		names = append(names, name)
 	}
-	for name := range typeMap {
-		seenPrefixCandidates[name] = true
-	}
-	sortedCandidates := make([]string, 0, len(seenPrefixCandidates))
-	for name := range seenPrefixCandidates {
-		sortedCandidates = append(sortedCandidates, name)
-	}
-	sort.Strings(sortedCandidates)
-	for _, name := range sortedCandidates {
+	sort.Strings(names)
+	for _, name := range names {
 		if strings.HasPrefix(name, reservedRuntimePrefix) {
 			return errorf(
 				nil,
@@ -288,20 +285,6 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 		}
 	}
 
-	packageSymbols := make(map[string]string, len(typeMap)+len(enumValueNames)+len(enumValuesVarNames))
-	for name := range typeMap {
-		if variablesTypeNames[name] {
-			continue
-		}
-		packageSymbols[name] = "a generated GraphQL type"
-	}
-	for name := range enumValueNames {
-		packageSymbols[name] = "a generated enum value"
-	}
-	for name := range enumValuesVarNames {
-		packageSymbols[name] = "a generated enum values variable"
-	}
-
 	for _, name := range clientRuntimeDeclarations {
 		if typeMap[name] != nil {
 			return errorf(
@@ -310,14 +293,16 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 				name,
 			)
 		}
-		if enumValueNames[name] || enumValuesVarNames[name] {
+		entry := packageSymbols[name]
+		if entry.declaration == "a generated enum value" || entry.declaration == "a generated enum values variable" {
 			return errorf(
 				nil,
 				"generated runtime declaration %q conflicts with a generated enum declaration",
 				name,
 			)
 		}
-		packageSymbols[name] = fmt.Sprintf("runtime declaration %q", name)
+		entry.declaration = fmt.Sprintf("runtime declaration %q", name)
+		packageSymbols[name] = entry
 	}
 
 	for _, op := range operations {
@@ -331,15 +316,16 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 		}
 
 		partialErrName := op.Name + "PartialDataError"
-		if conflict := packageSymbols[partialErrName]; conflict != "" {
+		entry := packageSymbols[partialErrName]
+		if entry.declaration != "" {
 			return errorf(
 				nil,
 				"generated partial data error %q conflicts with %s",
 				partialErrName,
-				conflict,
+				entry.declaration,
 			)
 		}
-		if operationNames[partialErrName] {
+		if entry.isOperation {
 			return errorf(
 				nil,
 				"generated partial data error %q conflicts with operation %q",
@@ -347,13 +333,15 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 				partialErrName,
 			)
 		}
-		packageSymbols[partialErrName] = fmt.Sprintf("partial data error %q", partialErrName)
+		entry.declaration = fmt.Sprintf("partial data error %q", partialErrName)
+		packageSymbols[partialErrName] = entry
 
 		if op.Input == nil {
 			continue
 		}
 		varsName := op.Input.GoName
-		if operationNames[varsName] {
+		entry = packageSymbols[varsName]
+		if entry.isOperation {
 			return errorf(
 				nil,
 				"generated variables type %q conflicts with operation %q",
@@ -361,15 +349,16 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 				varsName,
 			)
 		}
-		if conflict := packageSymbols[varsName]; conflict != "" {
+		if entry.declaration != "" {
 			return errorf(
 				nil,
 				"generated variables type %q conflicts with %s",
 				varsName,
-				conflict,
+				entry.declaration,
 			)
 		}
-		packageSymbols[varsName] = fmt.Sprintf("variables type %q", varsName)
+		entry.declaration = fmt.Sprintf("variables type %q", varsName)
+		packageSymbols[varsName] = entry
 	}
 
 	return nil
@@ -439,10 +428,6 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 		operations: state.operations,
 		typeMap:    state.typeMap,
 	}
-	err = validateTestHandlerNames(plan)
-	if err != nil {
-		return nil, err
-	}
 	return plan, nil
 }
 
@@ -480,11 +465,6 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	bodyBuf.WriteString("\n")
-	err = r.render("runtime_facets.go.tmpl", &bodyBuf, nil)
-	if err != nil {
-		return nil, err
-	}
 	bodyBuf.Write(typeDefinitions)
 
 	for _, op := range plan.operations {
@@ -499,7 +479,6 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 
 	return r.formatGoFile(
 		"// Code generated by octoqlgen, DO NOT EDIT.",
-		plan.config.Generated,
 		"",
 		bodyBuf.Bytes(),
 	)
@@ -517,18 +496,18 @@ func renderExportedOperations(plan *generationPlan) ([]byte, error) {
 	return content, nil
 }
 
-func generateWith(
-	config *Config,
-	buildPlan planBuilder,
-	clientRenderer outputRenderer,
-	handlerRenderer outputRenderer,
-) (map[string][]byte, error) {
-	plan, err := buildPlan(config)
+// Generate renders every configured output from one shared generation plan.
+func Generate(config *Config) (map[string][]byte, error) {
+	err := config.ValidateAndFillDefaults(".")
+	if err != nil {
+		return nil, err
+	}
+	plan, err := buildGenerationPlan(config)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := clientRenderer(plan)
+	client, err := renderClient(plan)
 	if err != nil {
 		return nil, err
 	}
@@ -544,21 +523,11 @@ func generateWith(
 	}
 
 	if config.TestHandlerGenerated != "" {
-		outputs[config.TestHandlerGenerated], err = handlerRenderer(plan)
+		outputs[config.TestHandlerGenerated], err = renderTestHandler(plan)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return outputs, nil
-}
-
-// Generate renders every configured output from one shared generation plan.
-func Generate(config *Config) (map[string][]byte, error) {
-	return generateWith(
-		config,
-		buildGenerationPlan,
-		renderClient,
-		renderTestHandler,
-	)
 }

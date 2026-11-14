@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,6 +66,35 @@ func TestValidateOutputPathsFilesystemAliases(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "output paths must be different")
+	})
+
+	t.Run("dangling parent with relative target", func(t *testing.T) {
+		aliasParent := filepath.Join(tempDir, "future-parent")
+		err := os.Symlink(filepath.Join("real", "future"), aliasParent)
+		require.NoError(t, err)
+		config := Config{
+			Generated:            filepath.Join(realDir, "future", "nested", "generated.go"),
+			TestHandlerGenerated: filepath.Join(aliasParent, "nested", "generated.go"),
+		}
+
+		err = config.validateOutputPaths()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "output paths must be different")
+	})
+
+	t.Run("symlink cycle through missing parent", func(t *testing.T) {
+		aliasFile := filepath.Join(tempDir, "cycle")
+		err := os.Symlink("missing/../cycle", aliasFile)
+		require.NoError(t, err)
+		config := Config{
+			Generated: filepath.Join(aliasFile, "generated.go"),
+		}
+
+		err = config.validateOutputPaths()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "too many symlinks")
 	})
 
 	t.Run("hard-linked file", func(t *testing.T) {
@@ -190,6 +220,11 @@ func TestConfigValidateAndFillDefaults(t *testing.T) {
 	assert.Equal(t, TestHandlerTypesClient, config.TestHandlerTypes)
 	require.NotNil(t, config.OmitUnreferencedImplementations)
 	assert.True(t, *config.OmitUnreferencedImplementations)
+	assert.Equal(t, CasingDefault, config.Casing.Default)
+
+	require.NoError(t, config.ValidateAndFillDefaults(baseDir))
+	assert.Equal(t, filepath.Join(baseDir, "schema.graphql"), config.Schema)
+	assert.Equal(t, []string{filepath.Join(baseDir, "operations.graphql")}, config.Operations)
 
 	t.Run("parses go.mod module declarations with comments", func(t *testing.T) {
 		t.Parallel()
@@ -206,6 +241,31 @@ func TestConfigValidateAndFillDefaults(t *testing.T) {
 		require.NoError(t, moduleErr)
 		assert.Equal(t, "example.com/app/client", pkgPath)
 	})
+}
+
+func TestConfigWarnings(t *testing.T) {
+	t.Parallel()
+
+	baseDir := t.TempDir()
+	for name, content := range map[string]string{
+		"go.mod":      "module example.com/client\n\ngo 1.27.3\n",
+		"existing.go": "package client\n",
+	} {
+		err := os.WriteFile(filepath.Join(baseDir, name), []byte(content), 0o600)
+		require.NoError(t, err)
+	}
+	var warnings bytes.Buffer
+	config := &Config{
+		Package:  "override",
+		Warnings: &warnings,
+	}
+	err := config.ValidateAndFillDefaults(baseDir)
+	require.NoError(t, err)
+	assert.Contains(t, warnings.String(), "package setting in octoqlgen.yaml 'override' looks wrong")
+
+	firstWarning := warnings.String()
+	require.NoError(t, config.ValidateAndFillDefaults(baseDir))
+	assert.Equal(t, firstWarning, warnings.String())
 }
 
 func TestResolveOperationFiles(t *testing.T) {

@@ -27,10 +27,6 @@ type goType interface {
 	// corresponds.
 	GraphQLTypeName() string
 
-	// SelectionSet returns the selection-set of the GraphQL field from which
-	// this type was generated, or nil if none is applicable.
-	SelectionSet() ast.SelectionSet
-
 	// Unwrap removes slice/pointer wrappers and returns the underlying type.
 	Unwrap() goType
 
@@ -115,11 +111,6 @@ func (t *goPointerType) renderRef(scope *importScope) (string, error) {
 	return "*" + elem, nil
 }
 
-func (t *goOpaqueType) SelectionSet() ast.SelectionSet             { return nil }
-func (t *goTypenameForBuiltinType) SelectionSet() ast.SelectionSet { return nil }
-func (t *goSliceType) SelectionSet() ast.SelectionSet              { return t.Elem.SelectionSet() }
-func (t *goPointerType) SelectionSet() ast.SelectionSet            { return t.Elem.SelectionSet() }
-
 func (t *goOpaqueType) GraphQLTypeName() string             { return t.GraphQLName }
 func (t *goTypenameForBuiltinType) GraphQLTypeName() string { return t.GraphQLName }
 func (t *goSliceType) GraphQLTypeName() string              { return t.Elem.GraphQLTypeName() }
@@ -159,15 +150,13 @@ func (t *goEnumType) WriteDefinition(w io.Writer, _ *renderer) error {
 
 func (t *goEnumType) QualifiedRef() string                   { return t.GoName }
 func (t *goEnumType) renderRef(*importScope) (string, error) { return t.GoName, nil }
-func (t *goEnumType) SelectionSet() ast.SelectionSet         { return nil }
 func (t *goEnumType) GraphQLTypeName() string                { return t.GraphQLName }
 
 // goStructType represents a Go struct type for a GraphQL object or input-object.
 type goStructType struct {
-	GoName    string
-	Fields    []*goStructField
-	IsInput   bool
-	Selection ast.SelectionSet
+	GoName  string
+	Fields  []*goStructField
+	IsInput bool
 	descriptionInfo
 }
 
@@ -354,7 +343,6 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 
 func (t *goStructType) QualifiedRef() string                   { return t.GoName }
 func (t *goStructType) renderRef(*importScope) (string, error) { return t.GoName, nil }
-func (t *goStructType) SelectionSet() ast.SelectionSet         { return t.Selection }
 func (t *goStructType) GraphQLTypeName() string                { return t.GraphQLName }
 
 // goInterfaceType represents a Go interface type for a GraphQL interface or union.
@@ -363,98 +351,47 @@ type goInterfaceType struct {
 	SharedFields        []*goStructField
 	Implementations     []*goStructType
 	OtherImplementation *goStructType
-	Selection           ast.SelectionSet
 	descriptionInfo
-}
-
-type interfaceMemberKind int
-
-const (
-	interfaceMarkerMember interfaceMemberKind = iota
-	interfaceGetterMember
-	interfaceEmbeddedMember
-)
-
-type interfaceMember struct {
-	kind       interfaceMemberKind
-	methodName string
-	resultRef  string
-	field      *goStructField
 }
 
 func (t *goInterfaceType) markerMethodName() string {
 	return "implementsGraphQLInterface" + t.GoName
 }
 
-func (t *goInterfaceType) members(scope *importScope) ([]interfaceMember, error) {
-	members := make([]interfaceMember, 0, len(t.SharedFields)+1)
-	members = append(members, interfaceMember{
-		kind:       interfaceMarkerMember,
-		methodName: t.markerMethodName(),
-	})
-	for _, sharedField := range t.SharedFields {
-		if sharedField.GoName == "" {
-			members = append(members, interfaceMember{
-				kind:  interfaceEmbeddedMember,
-				field: sharedField,
-			})
-			continue
-		}
-		resultRef, err := sharedField.GoType.renderRef(scope)
-		if err != nil {
-			return nil, err
-		}
-		members = append(members, interfaceMember{
-			kind:       interfaceGetterMember,
-			methodName: "Get" + sharedField.GoName,
-			resultRef:  resultRef,
-			field:      sharedField,
-		})
-	}
-	return members, nil
-}
-
 func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 	writeDescription(w, interfaceDescription(t))
 
-	members, err := t.members(r.imports)
-	if err != nil {
-		return err
-	}
-
 	fmt.Fprintf(w, "type %s interface {\n", t.GoName)
-	for _, member := range members {
-		switch member.kind {
-		case interfaceMarkerMember:
-			fmt.Fprintf(w, "\t%s()\n", member.methodName)
-		case interfaceEmbeddedMember:
-			embeddedRef, refErr := r.typeRef(member.field.GoType)
-			if refErr != nil {
-				return refErr
-			}
-			fmt.Fprintf(w, "\t%s\n", embeddedRef)
-		case interfaceGetterMember:
-			sharedField := member.field
-			description := fmt.Sprintf(
-				`%s returns the interface-field %q from its implementation.`,
-				member.methodName, sharedField.GraphQLName,
-			)
-			if sharedField.Description != "" {
-				description = fmt.Sprintf(
-					"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
-					description, sharedField.Description,
-				)
-			}
-			if sharedField.GraphQLName == "__typename" {
-				description = fmt.Sprintf(
-					"%s returns the receiver's concrete GraphQL type-name "+
-						"(see interface doc for possible values).", member.methodName,
-				)
-			}
-
-			writeDescription(w, description)
-			fmt.Fprintf(w, "\t%s() %s\n", member.methodName, member.resultRef)
+	fmt.Fprintf(w, "\t%s()\n", t.markerMethodName())
+	for _, field := range t.SharedFields {
+		ref, err := r.typeRef(field.GoType)
+		if err != nil {
+			return err
 		}
+		if field.IsEmbedded() {
+			fmt.Fprintf(w, "\t%s\n", ref)
+			continue
+		}
+		methodName := "Get" + field.GoName
+		description := fmt.Sprintf(
+			`%s returns the interface-field %q from its implementation.`,
+			methodName, field.GraphQLName,
+		)
+		if field.Description != "" {
+			description = fmt.Sprintf(
+				"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
+				description, field.Description,
+			)
+		}
+		if field.GraphQLName == "__typename" {
+			description = fmt.Sprintf(
+				"%s returns the receiver's concrete GraphQL type-name "+
+					"(see interface doc for possible values).", methodName,
+			)
+		}
+
+		writeDescription(w, description)
+		fmt.Fprintf(w, "\t%s() %s\n", methodName, ref)
 	}
 	fmt.Fprintf(w, "}\n")
 
@@ -466,7 +403,7 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 		fmt.Fprintf(w, "func (v *%s) %s() {}\n", t.OtherImplementation.GoName, implementsMethodName)
 	}
 
-	err = r.render("unmarshal_helper.go.tmpl", w, t)
+	err := r.render("unmarshal_helper.go.tmpl", w, t)
 	if err != nil {
 		return err
 	}
@@ -475,7 +412,6 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 
 func (t *goInterfaceType) QualifiedRef() string                   { return t.GoName }
 func (t *goInterfaceType) renderRef(*importScope) (string, error) { return t.GoName, nil }
-func (t *goInterfaceType) SelectionSet() ast.SelectionSet         { return t.Selection }
 func (t *goInterfaceType) GraphQLTypeName() string                { return t.GraphQLName }
 
 func (t *goOpaqueType) Unwrap() goType             { return t }

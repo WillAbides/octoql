@@ -486,6 +486,7 @@ func newCommandTree(dependencies *Dependencies) *commandTree {
 			materializer: dependencies.Materializer,
 			generate:     dependencies.Generate,
 			outputWriter: dependencies.OutputWriter,
+			stderr:       dependencies.Stderr,
 		},
 		Init: initCommand{
 			context:         dependencies.Context,

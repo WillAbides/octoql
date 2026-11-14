@@ -350,6 +350,112 @@ func TestGenerateExcludesSchemaFromOperationGlobs(t *testing.T) {
 	}
 }
 
+func TestGenerateNormalizesConfig(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	for name, content := range map[string]string{
+		"go.mod":                     "module example.com/app\n\ngo 1.27.3\n",
+		"client/existing.go":         "package api\n\nfunc unfinished(",
+		"client/api_test.go":         "package api_test\n",
+		"client/generated.go":        "not a package clause\n",
+		"githubapitest/generated.go": "",
+		"schema.graphql":             "type Query { field: String! }\n",
+		"operation.graphql":          "query Q { field }\n",
+	} {
+		filename := filepath.Join(directory, name)
+		require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
+		require.NoError(t, os.WriteFile(filename, []byte(content), 0o600))
+	}
+	config := &Config{
+		Schema:               filepath.Join(directory, "schema.graphql"),
+		Operations:           []string{filepath.Join(directory, "operation.graphql")},
+		Generated:            filepath.Join(directory, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(directory, "githubapitest", "generated.go"),
+	}
+
+	outputs, err := Generate(config)
+	require.NoError(t, err)
+	source := string(outputs[config.Generated])
+	assert.Contains(t, source, "package api")
+	assert.Contains(t, source, "ctx context.Context,")
+	assert.Equal(t, "example.com/app/client", config.pkgPath)
+	assert.Equal(t, CasingDefault, config.Casing.Default)
+	assert.Contains(t, string(outputs[config.TestHandlerGenerated]), "package githubapitest")
+
+	repeated, err := Generate(config)
+	require.NoError(t, err)
+	assert.Equal(t, outputs, repeated)
+}
+
+func TestGeneratePackageDiscovery(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		modulePath  string
+		directory   string
+		packageName string
+		wantPackage string
+	}{
+		{
+			name:        "versioned module",
+			modulePath:  "example.com/app/v2",
+			wantPackage: "app",
+		},
+		{
+			name:        "explicit package for non-identifier module suffix",
+			modulePath:  "example.com/foo-bar",
+			packageName: "foobar",
+			wantPackage: "foobar",
+		},
+		{
+			name:        "explicit package different from module suffix",
+			modulePath:  "example.com/client",
+			packageName: "githubapi",
+			wantPackage: "githubapi",
+		},
+		{
+			name:        "directory fallback for non-identifier module suffix",
+			modulePath:  "example.com/foo-bar",
+			directory:   "client",
+			wantPackage: "client",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			directory := filepath.Join(t.TempDir(), test.directory)
+			require.NoError(t, os.MkdirAll(directory, 0o755))
+			for name, content := range map[string]string{
+				"go.mod":            "module " + test.modulePath + "\n\ngo 1.27.3\n",
+				"schema.graphql":    "type Query { field: String! }\n",
+				"operation.graphql": "query Q { field }\n",
+			} {
+				err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600)
+				require.NoError(t, err)
+			}
+			var warnings bytes.Buffer
+			config := &Config{
+				Schema:               filepath.Join(directory, "schema.graphql"),
+				Operations:           []string{filepath.Join(directory, "operation.graphql")},
+				Generated:            filepath.Join(directory, "generated.go"),
+				TestHandlerGenerated: filepath.Join(directory, "githubapitest", "generated.go"),
+				Package:              test.packageName,
+				Warnings:             &warnings,
+			}
+
+			outputs, err := Generate(config)
+			require.NoError(t, err)
+			assert.Equal(t, test.wantPackage, config.Package)
+			assert.Equal(t, test.modulePath, config.pkgPath)
+			assert.Empty(t, warnings.String())
+			compileGeneratedOutputs(t, directory, outputs)
+		})
+	}
+}
+
 func TestGenerateSelfContainedClientWithOperationVariableNames(t *testing.T) {
 	t.Parallel()
 
@@ -654,21 +760,9 @@ func testGenerateWithTestHandlerUsesOnePlan(
 		t.Fatal(err)
 	}
 
-	planCount := 0
-	outputs, err := generateWith(
-		config,
-		func(cfg *Config) (*generationPlan, error) {
-			planCount++
-			return buildGenerationPlan(cfg)
-		},
-		renderClient,
-		renderTestHandler,
-	)
+	outputs, err := Generate(config)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if planCount != 1 {
-		t.Fatalf("plan builds = %d, want 1", planCount)
 	}
 	if len(outputs) != 2 {
 		t.Fatalf("outputs = %d, want 2", len(outputs))
@@ -1549,17 +1643,17 @@ func TestGenerateWithConfig(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config := test.config
-			err := config.ValidateAndFillDefaults(dataDir)
-			config.Schema = filepath.Join(dataDir, "schema.graphql")
+			config.Schema = "schema.graphql"
 			if test.name != "package binding" && test.name != "exact fields binding" {
 				config.Bindings = addTestScalarBindings(config.Bindings)
 			}
-			require.NoError(t, err)
 			operations := test.operations
 			if operations == nil {
 				operations = []string{"Repository.graphql"}
 			}
-			config.Operations = []string{filepath.Join(dataDir, operations[0])}
+			config.Operations = operations
+			err := config.ValidateAndFillDefaults(dataDir)
+			require.NoError(t, err)
 			generated, err := Generate(config)
 			require.NoError(t, err)
 			test.check(t, config, generated)
@@ -1649,7 +1743,7 @@ func TestGenerateErrors(t *testing.T) {
 			case "ConflictingTypeNameAndLocalBind.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndLocalBind.graphql:3: typename and bind may not be used together"))
 			case "ConflictingTypeNames.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.graphql:5: conflicting definition for the Go type T: it is generated from both the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:2) and the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:5), which select different fields (expected 2 fields, got 1); give one of them a distinct name with an @octoqlgen(typename:) directive so they produce separate Go types"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.graphql:5: conflicting definition for the Go type T: it is generated from both the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:2) and the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:5), which select different fields (field count changed: 1 fields vs 2 fields); give one of them a distinct name with an @octoqlgen(typename:) directive so they produce separate Go types"))
 			case "DefaultInputsNoOmitPointerForDirective.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
 			case "EmptyForDirective.graphql":

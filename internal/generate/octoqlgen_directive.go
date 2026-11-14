@@ -223,38 +223,9 @@ func stripOctoqlgenDirectives(directives *ast.DirectiveList) []*ast.Directive {
 }
 
 func (s *directiveSet) collectOperation(op *ast.OperationDefinition, schema *ast.Schema) error {
-	ours := stripOctoqlgenDirectives(&op.Directives)
-	if len(ours) == 0 {
-		return nil
-	}
-
-	rawNode := newFieldOptions(ours[0].Position)
-	var defaults defaultOptions
-	forDirectives := map[fieldKey]*fieldOptions{}
-
-	for _, dir := range ours {
-		pos := dir.Position
-		switch dir.Name {
-		case octoqlgenForName:
-			err := addFor(forDirectives, dir, pos)
-			if err != nil {
-				return err
-			}
-		case octoqlgenDefaultsName:
-			err := applyDefaultsArguments(&defaults, dir, pos)
-			if err != nil {
-				return err
-			}
-		default:
-			err := rejectDefaultArgsOnDefinition(dir, pos)
-			if err != nil {
-				return err
-			}
-			err = rawNode.applyArguments(dir, pos)
-			if err != nil {
-				return err
-			}
-		}
+	rawNode, defaults, err := s.collectDefinitionDirectives(&op.Directives, schema)
+	if err != nil || rawNode == nil {
+		return err
 	}
 
 	if rawNode.Bind != "" {
@@ -262,11 +233,6 @@ func (s *directiveSet) collectOperation(op *ast.OperationDefinition, schema *ast
 	}
 	if rawNode.Alias != "" {
 		return errorf(rawNode.pos, "alias is only applicable to selected fields, not operations")
-	}
-
-	err := s.recordForDirectives(forDirectives, schema)
-	if err != nil {
-		return err
 	}
 
 	s.operations[op] = operationOptions{
@@ -279,38 +245,9 @@ func (s *directiveSet) collectOperation(op *ast.OperationDefinition, schema *ast
 }
 
 func (s *directiveSet) collectFragment(frag *ast.FragmentDefinition, schema *ast.Schema) error {
-	ours := stripOctoqlgenDirectives(&frag.Directives)
-	if len(ours) == 0 {
-		return nil
-	}
-
-	rawNode := newFieldOptions(ours[0].Position)
-	var defaults defaultOptions
-	forDirectives := map[fieldKey]*fieldOptions{}
-
-	for _, dir := range ours {
-		pos := dir.Position
-		switch dir.Name {
-		case octoqlgenForName:
-			err := addFor(forDirectives, dir, pos)
-			if err != nil {
-				return err
-			}
-		case octoqlgenDefaultsName:
-			err := applyDefaultsArguments(&defaults, dir, pos)
-			if err != nil {
-				return err
-			}
-		default:
-			err := rejectDefaultArgsOnDefinition(dir, pos)
-			if err != nil {
-				return err
-			}
-			err = rawNode.applyArguments(dir, pos)
-			if err != nil {
-				return err
-			}
-		}
+	rawNode, defaults, err := s.collectDefinitionDirectives(&frag.Directives, schema)
+	if err != nil || rawNode == nil {
+		return err
 	}
 
 	if rawNode.Bind != "" {
@@ -325,17 +262,57 @@ func (s *directiveSet) collectFragment(frag *ast.FragmentDefinition, schema *ast
 				"the generated type is named after the fragment")
 	}
 
-	err := s.recordForDirectives(forDirectives, schema)
-	if err != nil {
-		return err
-	}
-
 	s.fragments[frag] = fragmentOptions{
 		pos:      rawNode.pos,
 		Flatten:  rawNode.GetFlatten(),
 		Defaults: defaults,
 	}
 	return nil
+}
+
+func (s *directiveSet) collectDefinitionDirectives(
+	directives *ast.DirectiveList,
+	schema *ast.Schema,
+) (*fieldOptions, defaultOptions, error) {
+	ours := stripOctoqlgenDirectives(directives)
+	if len(ours) == 0 {
+		return nil, defaultOptions{}, nil
+	}
+
+	rawNode := newFieldOptions(ours[0].Position)
+	var defaults defaultOptions
+	forDirectives := map[fieldKey]*fieldOptions{}
+
+	for _, dir := range ours {
+		pos := dir.Position
+		switch dir.Name {
+		case octoqlgenForName:
+			err := addFor(forDirectives, dir, pos)
+			if err != nil {
+				return nil, defaultOptions{}, err
+			}
+		case octoqlgenDefaultsName:
+			err := applyDefaultsArguments(&defaults, dir, pos)
+			if err != nil {
+				return nil, defaultOptions{}, err
+			}
+		default:
+			err := rejectDefaultArgsOnDefinition(dir, pos)
+			if err != nil {
+				return nil, defaultOptions{}, err
+			}
+			err = rawNode.applyArguments(dir, pos)
+			if err != nil {
+				return nil, defaultOptions{}, err
+			}
+		}
+	}
+
+	err := s.recordForDirectives(forDirectives, schema)
+	if err != nil {
+		return nil, defaultOptions{}, err
+	}
+	return rawNode, defaults, nil
 }
 
 func (s *directiveSet) collectVariable(variable *ast.VariableDefinition) error {

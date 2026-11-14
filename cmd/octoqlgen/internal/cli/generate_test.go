@@ -197,6 +197,11 @@ func TestGenerateCommandRendererFailureWritesNothing(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tempDir, "go.mod"),
+		[]byte("module example.com/app\n\ngo 1.27.3\n"),
+		0o600,
+	))
 	packageName := "client"
 	loaded := &config.Config{
 		Schema:     config.Schema{Path: filepath.Join(tempDir, "schema.graphql")},

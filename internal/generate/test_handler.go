@@ -60,92 +60,6 @@ var testHandlerReservedNames = []string{
 	"writeRequestError",
 }
 
-func validateTestHandlerNames(plan *generationPlan) error {
-	if plan.config.TestHandlerGenerated == "" {
-		return nil
-	}
-
-	identifiers := make(map[string]string)
-	addIdentifier := func(name, source string) error {
-		existing := identifiers[name]
-		if existing != "" {
-			return errorf(
-				nil,
-				"generated identifier %q for %s conflicts with %s",
-				name,
-				source,
-				existing,
-			)
-		}
-		identifiers[name] = source
-		return nil
-	}
-
-	for _, name := range testHandlerReservedNames {
-		err := addIdentifier(name, "test handler runtime")
-		if err != nil {
-			return err
-		}
-	}
-
-	typeNames := make([]string, 0, len(plan.typeMap))
-	for name := range plan.typeMap {
-		if token.IsExported(name) {
-			typeNames = append(typeNames, name)
-		}
-	}
-	sort.Strings(typeNames)
-	for _, name := range typeNames {
-		err := addIdentifier(name, "client type alias")
-		if err != nil {
-			return err
-		}
-		enumType, ok := plan.typeMap[name].(*goEnumType)
-		if !ok {
-			continue
-		}
-		for _, enumValue := range enumType.Values {
-			err = addIdentifier(enumValue.GoName, "client enum value alias")
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	for _, op := range plan.operations {
-		if !token.IsExported(op.Name) {
-			return errorf(
-				nil,
-				"test handler operation %q must begin with an uppercase letter",
-				op.Name,
-			)
-		}
-		if !token.IsExported(op.ResponseName) {
-			return errorf(
-				nil,
-				"test handler response type %q must be exported",
-				op.ResponseName,
-			)
-		}
-
-		expectationName := op.Name + "Expectation"
-		err := addIdentifier(expectationName, op.Name+" expectation")
-		if err != nil {
-			return err
-		}
-
-		responseName := op.Name + "Response"
-		if responseName != op.ResponseName {
-			err = addIdentifier(responseName, op.Name+" response alias")
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplateData, error) {
 	localTypes := plan.config.TestHandlerTypes == TestHandlerTypesLocal
 	forbiddenPkgPath := ""
@@ -165,45 +79,80 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 		Operations:   make([]testHandlerOperation, 0, len(plan.operations)),
 	}
 
-	switch {
-	case localTypes:
-		err := registerBoundTypeImports(plan.typeMap, r.imports)
+	identifiers := make(map[string]string)
+	addIdentifier := func(name, source string) error {
+		existing := identifiers[name]
+		if existing != "" {
+			return errorf(
+				nil,
+				"generated identifier %q for %s conflicts with %s",
+				name,
+				source,
+				existing,
+			)
+		}
+		identifiers[name] = source
+		r.imports.usedAliases[name] = true
+		return nil
+	}
+	for _, name := range testHandlerReservedNames {
+		err := addIdentifier(name, "test handler runtime")
 		if err != nil {
 			return nil, testHandlerTemplateData{}, err
 		}
-		typeDefinitions, err := renderTypeDefinitions(r, plan.typeMap)
+	}
+	typeNames := make([]string, 0, len(plan.typeMap))
+	for name := range plan.typeMap {
+		if token.IsExported(name) {
+			typeNames = append(typeNames, name)
+		}
+	}
+	sort.Strings(typeNames)
+	for _, name := range typeNames {
+		err := addIdentifier(name, "client type alias")
 		if err != nil {
 			return nil, testHandlerTemplateData{}, err
 		}
-		data.LocalTypeDefinitions = string(typeDefinitions)
-	default:
-		typeNames := make([]string, 0, len(plan.typeMap))
-		for name := range plan.typeMap {
-			if token.IsExported(name) {
-				typeNames = append(typeNames, name)
-			}
+		handlerType := testHandlerType{
+			Name:       name,
+			ClientName: name,
 		}
-		sort.Strings(typeNames)
-		for _, name := range typeNames {
-			handlerType := testHandlerType{
-				Name:       name,
-				ClientName: name,
-			}
-			enumType, ok := plan.typeMap[name].(*goEnumType)
-			if ok {
-				handlerType.EnumValues = enumType.Values
-				for _, enumValue := range enumType.Values {
-					r.imports.usedAliases[enumValue.GoName] = true
+		enumType, ok := plan.typeMap[name].(*goEnumType)
+		if ok {
+			handlerType.EnumValues = enumType.Values
+			for _, enumValue := range enumType.Values {
+				err = addIdentifier(enumValue.GoName, "client enum value alias")
+				if err != nil {
+					return nil, testHandlerTemplateData{}, err
 				}
 			}
+		}
+		if !localTypes {
 			data.Types = append(data.Types, handlerType)
-			r.imports.usedAliases[name] = true
 		}
 	}
 
 	for index, op := range plan.operations {
+		if !token.IsExported(op.Name) {
+			return nil, testHandlerTemplateData{}, errorf(
+				nil, "test handler operation %q must begin with an uppercase letter", op.Name,
+			)
+		}
+		if !token.IsExported(op.ResponseName) {
+			return nil, testHandlerTemplateData{}, errorf(
+				nil, "test handler response type %q must be exported", op.ResponseName,
+			)
+		}
+		err := addIdentifier(op.Name+"Expectation", op.Name+" expectation")
+		if err != nil {
+			return nil, testHandlerTemplateData{}, err
+		}
 		responseName := op.Name + "Response"
 		if responseName != op.ResponseName {
+			err = addIdentifier(responseName, op.Name+" response alias")
+			if err != nil {
+				return nil, testHandlerTemplateData{}, err
+			}
 			responseAlias := testHandlerType{
 				Name:       responseName,
 				ClientName: op.ResponseName,
@@ -211,10 +160,9 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 			switch {
 			case localTypes:
 				data.LocalAliases = append(data.LocalAliases, responseAlias)
-			case !containsTestHandlerType(data.Types, responseName):
+			default:
 				data.Types = append(data.Types, responseAlias)
 			}
-			r.imports.usedAliases[responseName] = true
 		}
 		handlerOperation := testHandlerOperation{
 			Name:          op.Name,
@@ -226,10 +174,8 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 		}
 		if handlerOperation.HasVariables {
 			handlerOperation.VariablesType = handlerOperation.VariablesName
-			r.imports.usedAliases[handlerOperation.VariablesName] = true
 		}
 		data.Operations = append(data.Operations, handlerOperation)
-		r.imports.usedAliases[op.Name+"Expectation"] = true
 		for _, prefix := range []string{"Expect", "Default", "Reset"} {
 			r.imports.usedAliases[prefix+op.Name] = true
 		}
@@ -238,10 +184,17 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 		return data.Types[i].Name < data.Types[j].Name
 	})
 
-	for _, name := range testHandlerReservedNames {
-		r.imports.usedAliases[name] = true
+	if localTypes {
+		err := registerBoundTypeImports(plan.typeMap, r.imports)
+		if err != nil {
+			return nil, testHandlerTemplateData{}, err
+		}
+		typeDefinitions, err := renderTypeDefinitions(r, plan.typeMap)
+		if err != nil {
+			return nil, testHandlerTemplateData{}, err
+		}
+		data.LocalTypeDefinitions = string(typeDefinitions)
 	}
-
 	if !localTypes {
 		clientPackage := allocateIdentifier(plan.config.Package, r.imports.usedAliases)
 		r.imports.imports[plan.config.pkgPath] = clientPackage
@@ -249,15 +202,6 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 	}
 
 	return r, data, nil
-}
-
-func containsTestHandlerType(types []testHandlerType, name string) bool {
-	for _, handlerType := range types {
-		if handlerType.Name == name {
-			return true
-		}
-	}
-	return false
 }
 
 func renderTestHandler(plan *generationPlan) ([]byte, error) {
@@ -274,7 +218,6 @@ func renderTestHandler(plan *generationPlan) ([]byte, error) {
 
 	return r.formatGoFile(
 		"// Code generated by octoqlgen. DO NOT EDIT.",
-		plan.config.TestHandlerGenerated,
 		" test handler",
 		buffer.Bytes(),
 	)

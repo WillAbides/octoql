@@ -188,21 +188,32 @@ func (s *importScope) declaration() string {
 		return ""
 	}
 
-	paths := make([]string, 0, len(s.imports))
+	var standard, external []string
 	for pkgPath := range s.imports {
-		paths = append(paths, pkgPath)
+		first, _, _ := strings.Cut(pkgPath, "/")
+		if strings.Contains(first, ".") {
+			external = append(external, pkgPath)
+			continue
+		}
+		standard = append(standard, pkgPath)
 	}
-	sort.Strings(paths)
+	sort.Strings(standard)
+	sort.Strings(external)
 
 	var builder strings.Builder
 	builder.WriteString("import (\n")
-	for _, pkgPath := range paths {
-		alias := s.imports[pkgPath]
-		if pkgPath == alias || strings.HasSuffix(pkgPath, "/"+alias) {
-			builder.WriteString("\t" + strconv.Quote(pkgPath) + "\n")
-			continue
+	for index, group := range [][]string{standard, external} {
+		if index == 1 && len(standard) > 0 && len(external) > 0 {
+			builder.WriteByte('\n')
 		}
-		builder.WriteString("\t" + alias + " " + strconv.Quote(pkgPath) + "\n")
+		for _, pkgPath := range group {
+			alias := s.imports[pkgPath]
+			if pkgPath == alias || strings.HasSuffix(pkgPath, "/"+alias) {
+				builder.WriteString("\t" + strconv.Quote(pkgPath) + "\n")
+				continue
+			}
+			builder.WriteString("\t" + alias + " " + strconv.Quote(pkgPath) + "\n")
+		}
 	}
 	builder.WriteString(")\n\n")
 	return builder.String()

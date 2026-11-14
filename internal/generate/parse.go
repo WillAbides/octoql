@@ -129,11 +129,6 @@ func getQueries(
 	// that fragment-names don't need to be unique across files.  (Although
 	// then we may have other problems; and query-names still need to be.)
 	mergedQueryDoc := new(ast.QueryDocument)
-	addQueryDoc := func(queryDoc *ast.QueryDocument) {
-		mergedQueryDoc.Operations = append(mergedQueryDoc.Operations, queryDoc.Operations...)
-		mergedQueryDoc.Fragments = append(mergedQueryDoc.Fragments, queryDoc.Fragments...)
-	}
-
 	for _, filename := range filenames {
 		text, err := os.ReadFile(filename)
 		if err != nil {
@@ -142,37 +137,24 @@ func getQueries(
 
 		switch filepath.Ext(filename) {
 		case ".graphql", ".graphqls", ".gql":
-			var queryDoc *ast.QueryDocument
-			queryDoc, err = getQueriesFromString(string(text), basedir, filename)
-			if err != nil {
-				return nil, err
-			}
-
-			addQueryDoc(queryDoc)
-
 		default:
 			return nil, errorf(nil, "unknown file type: %v", filename)
 		}
+
+		relative, relErr := filepath.Rel(basedir, filename)
+		if relErr == nil {
+			filename = relative
+		}
+		queryDoc, graphqlError := parser.ParseQuery(&ast.Source{
+			Name:  filename,
+			Input: string(text),
+		})
+		if graphqlError != nil {
+			return nil, errorf(nil, "invalid query-spec file %v: %v", filename, graphqlError)
+		}
+		mergedQueryDoc.Operations = append(mergedQueryDoc.Operations, queryDoc.Operations...)
+		mergedQueryDoc.Fragments = append(mergedQueryDoc.Fragments, queryDoc.Fragments...)
 	}
 
 	return mergedQueryDoc, nil
-}
-
-func getQueriesFromString(text, basedir, filename string) (*ast.QueryDocument, error) {
-	// make path relative to the config-directory
-	relname, err := filepath.Rel(basedir, filename)
-	if err == nil {
-		filename = relname
-	}
-
-	// Cf. gqlparser.LoadQuery
-	document, graphqlError := parser.ParseQuery(&ast.Source{
-		Name:  filename,
-		Input: text,
-	})
-	if graphqlError != nil { // ParseQuery returns type *graphql.Error, yuck
-		return nil, errorf(nil, "invalid query-spec file %v: %v", filename, graphqlError)
-	}
-
-	return document, nil
 }

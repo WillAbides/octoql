@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sort"
 
@@ -17,6 +18,7 @@ type generateCommand struct {
 	materializer materializer
 	generate     func(*generate.Config) (map[string][]byte, error)
 	outputWriter outputWriter
+	stderr       io.Writer
 
 	Config string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path to an octoqlgen configuration file.'"`
 }
@@ -38,6 +40,7 @@ func (cmd *generateCommand) Run() error {
 
 	generatorConfig := generateConfig(loaded)
 	generatorConfig.ConfigFile = configPath
+	generatorConfig.Warnings = cmd.stderr
 	err = generatorConfig.ValidateAndFillDefaults(filepath.Dir(configPath))
 	if err != nil {
 		return fmt.Errorf("validating generation config: %w", err)

@@ -2,25 +2,29 @@ package generate
 
 import (
 	"fmt"
+	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/module"
 	"golang.org/x/tools/go/packages"
 )
 
-func warn(err error) error {
-	_, writeErr := fmt.Fprintln(os.Stderr, err)
+func (c *Config) warn(err error) error {
+	_, writeErr := fmt.Fprintln(c.Warnings, err)
 	if writeErr != nil {
 		return fmt.Errorf("writing warning: %w", writeErr)
 	}
 	return nil
 }
 
-// Config contains the normalized settings used by the generator implementation.
+// Config contains generator settings. Generate normalizes unspecified values
+// automatically, or callers can validate them before materializing the schema.
 type Config struct {
 	Schema                          string
 	Operations                      []string
@@ -36,6 +40,7 @@ type Config struct {
 	Casing                          Casing
 	StructReferences                bool
 	OmitUnreferencedImplementations *bool
+	Warnings                        io.Writer // Warnings are discarded when nil.
 
 	// The directory of the config-file (relative to which all the other paths
 	// are resolved).  Set by ValidateAndFillDefaults.
@@ -45,6 +50,8 @@ type Config struct {
 	// The package name and path for the generated test handler.
 	testHandlerPackage string
 	testHandlerPkgPath string
+	normalized         bool
+	outputs            []inspectedPath
 }
 
 // TestHandlerTypeStrategy controls where generated test handlers get operation types.
@@ -103,32 +110,23 @@ type Casing struct {
 }
 
 func (c *Casing) validate() error {
-	if c.Default != "" {
-		err := c.Default.validate()
-		if err != nil {
-			return err
-		}
+	err := c.Default.validate()
+	if err != nil {
+		return err
 	}
 	if c.AllEnums != "" {
-		err := c.AllEnums.validate()
+		err = c.AllEnums.validate()
 		if err != nil {
 			return err
 		}
 	}
 	for _, algo := range c.Enums {
-		err := algo.validate()
+		err = algo.validate()
 		if err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func (c *Casing) getDefault() CasingAlgorithm {
-	if c.Default != "" {
-		return c.Default
-	}
-	return CasingDefault
 }
 
 func (c *Casing) forEnum(graphQLTypeName string) CasingAlgorithm {
@@ -139,7 +137,7 @@ func (c *Casing) forEnum(graphQLTypeName string) CasingAlgorithm {
 	if c.AllEnums != "" {
 		return c.AllEnums
 	}
-	return c.getDefault()
+	return c.Default
 }
 
 // pathJoin is like filepath.Join but 1) it only takes two arguments,
@@ -154,64 +152,55 @@ func pathJoin(a, b string) string {
 
 // Try to figure out the package-name and package-path of the given .go file.
 //
+// Without sibling Go files, prefer fallbackPackage to a path-based guess.
 // Returns a best-guess pkgName if possible, even on error.
-func getPackageNameAndPath(filename string) (string, string, error) {
+func getPackageNameAndPath(filename, fallbackPackage string) (string, string, error) {
 	abs, err := filepath.Abs(filename)
 	if err != nil { // path is totally bogus
 		return "", "", err
 	}
 
 	dir := filepath.Dir(abs)
-	// If we don't get a clean answer from go/packages, we'll use the
-	// directory-name as a backup guess, as long as it's a valid identifier.
-	pkgNameGuess := filepath.Base(dir)
-	if !token.IsIdentifier(pkgNameGuess) {
-		pkgNameGuess = ""
+	pkgPath, moduleErr := packagePathFromModule(dir)
+	pkgName := ""
+	entries, err := os.ReadDir(dir)
+	if err != nil && !os.IsNotExist(err) {
+		return "", pkgPath, err
 	}
-
-	pkgs, err := packages.Load(&packages.Config{
-		Mode: packages.NeedName,
-	}, dir)
-	if err != nil { // e.g. not in a Go module
-		modulePkgPath, moduleErr := packagePathFromModule(dir)
-		if moduleErr == nil && pkgNameGuess != "" {
-			return pkgNameGuess, modulePkgPath, nil
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
 		}
-		return pkgNameGuess, "", err
-	}
-	if len(pkgs) != 1 { // probably never happens?
-		modulePkgPath, moduleErr := packagePathFromModule(dir)
-		if moduleErr == nil && pkgNameGuess != "" {
-			return pkgNameGuess, modulePkgPath, nil
+		if filepath.Join(dir, name) == abs {
+			continue
 		}
-		return pkgNameGuess, "", fmt.Errorf("found %v packages in %v, expected 1", len(pkgs), dir)
+		file, parseErr := parser.ParseFile(
+			token.NewFileSet(), filepath.Join(dir, name), nil, parser.PackageClauseOnly,
+		)
+		if parseErr != nil {
+			return "", pkgPath, parseErr
+		}
+		if pkgName != "" && pkgName != file.Name.Name {
+			return "", pkgPath, fmt.Errorf("found packages %s and %s in %q", pkgName, file.Name.Name, dir)
+		}
+		pkgName = file.Name.Name
 	}
-
-	pkg := pkgs[0]
-	// TODO(benkraft): Can PkgPath ever be empty while in a module? If so, we
-	// could warn.
-	if pkg.Name != "" { // found a good package!
-		return pkg.Name, pkg.PkgPath, nil
+	if pkgName == "" {
+		pkgName = fallbackPackage
 	}
-
-	// Package path is valid, but name is empty: probably an empty package
-	// (within a valid module). If the package-path-suffix is a valid
-	// identifier, that's a better guess than the directory-suffix, so use it.
-	pathSuffix := filepath.Base(pkg.PkgPath)
-	if token.IsIdentifier(pathSuffix) {
-		pkgNameGuess = pathSuffix
-	}
-	if pkg.PkgPath == "" || pkg.PkgPath == "command-line-arguments" {
-		modulePkgPath, moduleErr := packagePathFromModule(dir)
-		if moduleErr == nil {
-			pkg.PkgPath = modulePkgPath
+	if pkgName == "" {
+		pkgName = filepath.Base(dir)
+		unversionedPath, _, ok := module.SplitPathVersion(pkgPath)
+		pathSuffix := path.Base(unversionedPath)
+		if ok && token.IsIdentifier(pathSuffix) {
+			pkgName = pathSuffix
+		}
+		if !token.IsIdentifier(pkgName) {
+			return "", pkgPath, fmt.Errorf("no package found in %v", dir)
 		}
 	}
-
-	if pkgNameGuess != "" {
-		return pkgNameGuess, pkg.PkgPath, nil
-	}
-	return "", "", fmt.Errorf("no package found in %v", dir)
+	return pkgName, pkgPath, moduleErr
 }
 
 func packagePathFromModule(directory string) (string, error) {
@@ -248,11 +237,18 @@ func packagePathFromModule(directory string) (string, error) {
 }
 
 // ValidateAndFillDefaults ensures that the configuration is valid, and fills
-// in any options that were unspecified.
+// in any options that were unspecified. A successfully normalized Config is
+// reused unchanged on later calls.
 //
 // The argument is the directory relative to which paths will be interpreted,
 // typically the directory of the config file.
 func (c *Config) ValidateAndFillDefaults(baseDir string) error {
+	if c.normalized {
+		return nil
+	}
+	if c.Warnings == nil {
+		c.Warnings = io.Discard
+	}
 	c.baseDir = baseDir
 	if c.Schema != "" {
 		c.Schema = pathJoin(baseDir, c.Schema)
@@ -277,13 +273,11 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if err != nil {
 		return err
 	}
-
 	if c.ContextType == "" {
 		c.ContextType = "context.Context"
 	}
 	if c.OmitUnreferencedImplementations == nil {
-		omit := true
-		c.OmitUnreferencedImplementations = &omit
+		c.OmitUnreferencedImplementations = new(true)
 	}
 	if c.TestHandlerTypes == "" {
 		c.TestHandlerTypes = TestHandlerTypesClient
@@ -299,16 +293,16 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 		return errorf(nil, "invalid package in octoqlgen.yaml: '%v' is not a valid identifier", c.Package)
 	}
 
-	pkgName, pkgPath, err := getPackageNameAndPath(c.Generated)
+	pkgName, pkgPath, err := getPackageNameAndPath(c.Generated, c.Package)
 	switch {
 	case err != nil && c.Package != "":
-		warnErr := warn(errorf(nil, "warning: unable to identify current package-path "+
+		warnErr := c.warn(errorf(nil, "warning: unable to identify current package-path "+
 			"(using 'package' config '%v'): %v\n", c.Package, err))
 		if warnErr != nil {
 			return warnErr
 		}
 	case err != nil && pkgName != "":
-		warnErr := warn(errorf(nil, "warning: unable to identify current package-path "+
+		warnErr := c.warn(errorf(nil, "warning: unable to identify current package-path "+
 			"(using directory name '%v': %v\n", pkgName, err))
 		if warnErr != nil {
 			return warnErr
@@ -321,7 +315,7 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	case c.Package == pkgName || c.Package == "":
 		c.Package = pkgName
 	default:
-		warnErr := warn(errorf(nil, "warning: package setting in octoqlgen.yaml '%v' looks wrong "+
+		warnErr := c.warn(errorf(nil, "warning: package setting in octoqlgen.yaml '%v' looks wrong "+
 			"('%v' is in package '%v') but proceeding with '%v' anyway\n",
 			c.Package, c.Generated, pkgName, c.Package))
 		if warnErr != nil {
@@ -345,7 +339,7 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 			)
 		}
 
-		handlerPackage, handlerPkgPath, handlerErr := getPackageNameAndPath(c.TestHandlerGenerated)
+		handlerPackage, handlerPkgPath, handlerErr := getPackageNameAndPath(c.TestHandlerGenerated, "")
 		if handlerErr != nil {
 			return errorf(
 				nil,
@@ -384,7 +378,7 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 			}
 
 			if binding.Package == c.pkgPath {
-				warnErr := warn(errorf(nil, "warning: package_bindings set to the same package as your generated "+
+				warnErr := c.warn(errorf(nil, "warning: package_bindings set to the same package as your generated "+
 					"code ('%v'); this may cause nondeterministic output due to circularity", c.pkgPath))
 				if warnErr != nil {
 					return warnErr
@@ -425,37 +419,82 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 		}
 	}
 
+	if c.Casing.Default == "" {
+		c.Casing.Default = CasingDefault
+	}
 	err = c.Casing.validate()
 	if err != nil {
 		return err
 	}
 
+	c.normalized = true
 	return nil
 }
 
 func (c *Config) validateOutputPaths() error {
-	outputs, err := c.outputPaths()
-	if err != nil {
-		return err
+	var outputs []inspectedPath
+	for _, output := range []struct {
+		name string
+		path string
+	}{
+		{
+			name: "generated",
+			path: c.Generated,
+		},
+		{
+			name: "export_operations",
+			path: c.ExportOperations,
+		},
+		{
+			name: "test_handler.generated",
+			path: c.TestHandlerGenerated,
+		},
+	} {
+		if output.path == "" {
+			continue
+		}
+		inspected, err := inspectPath(output.name, output.path)
+		if err != nil {
+			return errorf(
+				nil,
+				"resolving %s output path %q: %v",
+				output.name,
+				output.path,
+				err,
+			)
+		}
+		for _, existing := range outputs {
+			if pathsAlias(existing, inspected) {
+				return errorf(
+					nil,
+					"%s and %s output paths must be different: %q",
+					existing.name,
+					output.name,
+					inspected.canonical,
+				)
+			}
+		}
+		outputs = append(outputs, inspected)
 	}
 	if c.ConfigFile != "" {
-		err = validateProtectedPath(outputs, "config", c.ConfigFile)
+		err := validateProtectedPath(outputs, "config", c.ConfigFile)
 		if err != nil {
 			return err
 		}
 	}
 	if c.Schema != "" {
-		err = validateProtectedPath(outputs, "schema input", c.Schema)
+		err := validateProtectedPath(outputs, "schema input", c.Schema)
 		if err != nil {
 			return err
 		}
 	}
 	for _, filename := range c.Operations {
-		err = validateProtectedPath(outputs, "operations input", filename)
+		err := validateProtectedPath(outputs, "operations input", filename)
 		if err != nil {
 			return err
 		}
 	}
+	c.outputs = outputs
 	return nil
 }
 
@@ -485,74 +524,13 @@ type inspectedPath struct {
 	info      os.FileInfo
 }
 
-func (c *Config) outputPaths() ([]inspectedPath, error) {
-	var outputs []inspectedPath
-	for _, output := range []struct {
-		name string
-		path string
-	}{
-		{
-			name: "generated",
-			path: c.Generated,
-		},
-		{
-			name: "export_operations",
-			path: c.ExportOperations,
-		},
-		{
-			name: "test_handler.generated",
-			path: c.TestHandlerGenerated,
-		},
-	} {
-		if output.path == "" {
-			continue
-		}
-		inspected, err := inspectPath(output.name, output.path)
-		if err != nil {
-			return nil, errorf(
-				nil,
-				"resolving %s output path %q: %v",
-				output.name,
-				output.path,
-				err,
-			)
-		}
-		for _, existing := range outputs {
-			if pathsAlias(existing, inspected) {
-				return nil, errorf(
-					nil,
-					"%s and %s output paths must be different: %q",
-					existing.name,
-					output.name,
-					inspected.canonical,
-				)
-			}
-		}
-		outputs = append(outputs, inspected)
-	}
-	return outputs, nil
-}
-
 func (c *Config) resolveOperationFiles() ([]string, error) {
-	outputs, err := c.outputPaths()
-	if err != nil {
-		return nil, err
-	}
 	var schemaInspected inspectedPath
 	if c.Schema != "" {
+		var err error
 		schemaInspected, err = inspectPath("schema", c.Schema)
 		if err != nil {
 			return nil, errorf(nil, "resolving schema input path %q: %v", c.Schema, err)
-		}
-		for _, output := range outputs {
-			if pathsAlias(output, schemaInspected) {
-				return nil, errorf(
-					nil,
-					"%s output path must be different from schema input path: %q",
-					output.name,
-					output.path,
-				)
-			}
 		}
 	}
 	if len(c.Operations) == 0 {
@@ -568,7 +546,7 @@ func (c *Config) resolveOperationFiles() ([]string, error) {
 		if inspectErr != nil {
 			return nil, errorf(nil, "resolving operations input path %q: %v", filename, inspectErr)
 		}
-		for _, output := range outputs {
+		for _, output := range c.outputs {
 			if pathsAlias(output, opInspected) {
 				return nil, errorf(
 					nil,
@@ -615,7 +593,7 @@ func canonicalOutputPath(filename string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	resolved, existingAncestor, err := resolveOutputPath(absolute, 0)
+	resolved, existingAncestor, err := resolveOutputPath(absolute)
 	if err != nil {
 		return "", err
 	}
@@ -626,86 +604,60 @@ func canonicalOutputPath(filename string) (string, error) {
 	return resolved, nil
 }
 
-func resolveOutputPath(
-	absolute string,
-	symlinkDepth int,
-) (string, string, error) {
-	if symlinkDepth > 255 {
-		return "", "", fmt.Errorf("too many symlinks resolving %q", absolute)
-	}
-
-	volume := filepath.VolumeName(absolute)
-	root := volume + string(filepath.Separator)
-	relative, err := filepath.Rel(root, absolute)
-	if err != nil {
-		return "", "", err
-	}
-	components := strings.Split(relative, string(filepath.Separator))
-	resolved := root
-	for index, component := range components {
-		if component == "." || component == "" {
-			continue
+func resolveOutputPath(absolute string) (string, string, error) {
+	current := absolute
+	remainder := ""
+	symlinkHops := 0
+	for {
+		resolved, err := filepath.EvalSymlinks(current)
+		if err == nil {
+			return filepath.Join(resolved, remainder), resolved, nil
 		}
-
-		candidate := filepath.Join(resolved, component)
-		info, lstatErr := os.Lstat(candidate)
-		if os.IsNotExist(lstatErr) {
-			return filepath.Join(
-				resolved,
-				filepath.Join(components[index:]...),
-			), resolved, nil
-		}
-		if lstatErr != nil {
-			return "", "", lstatErr
-		}
-		if info.Mode()&os.ModeSymlink == 0 {
-			resolved = candidate
-			continue
-		}
-
-		target, readErr := os.Readlink(candidate)
-		if readErr != nil {
-			return "", "", readErr
-		}
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(resolved, target)
-		}
-		if index+1 < len(components) {
-			target = filepath.Join(
-				target,
-				filepath.Join(components[index+1:]...),
-			)
-		}
-		target, err = filepath.Abs(target)
-		if err != nil {
+		if !os.IsNotExist(err) {
 			return "", "", err
 		}
-		return resolveOutputPath(target, symlinkDepth+1)
+		info, statErr := os.Lstat(current)
+		if statErr != nil && !os.IsNotExist(statErr) {
+			return "", "", statErr
+		}
+		// EvalSymlinks cannot resolve a dangling link, but its target may
+		// still alias another not-yet-created output.
+		if statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+			symlinkHops++
+			if symlinkHops > 255 {
+				return "", "", fmt.Errorf("too many symlinks resolving %q", absolute)
+			}
+			target, readErr := os.Readlink(current)
+			if readErr != nil {
+				return "", "", readErr
+			}
+			current = filepath.Join(pathJoin(filepath.Dir(current), target), remainder)
+			remainder = ""
+			continue
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", "", err
+		}
+		remainder = filepath.Join(filepath.Base(current), remainder)
+		current = parent
 	}
-	return resolved, resolved, nil
 }
 
 func filesystemCaseInsensitive(existingPath string) bool {
-	current := existingPath
-	for {
+	for current := existingPath; current != filepath.Dir(current); current = filepath.Dir(current) {
+		base := filepath.Base(current)
+		alternateBase := toggledCase(base)
+		if alternateBase == base {
+			continue
+		}
 		info, err := os.Stat(current)
-		if err == nil {
-			alternateBase := toggledCase(filepath.Base(current))
-			if alternateBase != filepath.Base(current) {
-				alternate := filepath.Join(filepath.Dir(current), alternateBase)
-				alternateInfo, alternateErr := os.Stat(alternate)
-				if alternateErr == nil && os.SameFile(info, alternateInfo) {
-					return true
-				}
-			}
+		alternateInfo, alternateErr := os.Stat(filepath.Join(filepath.Dir(current), alternateBase))
+		if err == nil && alternateErr == nil && os.SameFile(info, alternateInfo) {
+			return true
 		}
-
-		parent := filepath.Dir(current)
-		if parent == current {
-			return false
-		}
-		current = parent
 	}
+	return false
 }
 
 func toggledCase(value string) string {
@@ -718,13 +670,4 @@ func toggledCase(value string) string {
 		}
 	}
 	return value
-}
-
-func (c *Config) omitUnreferencedImplementations() bool {
-	return c.OmitUnreferencedImplementations == nil || *c.OmitUnreferencedImplementations
-}
-
-// GetDefaultCasingAlgorithm returns the default casing algorithm for the config.
-func (c *Config) GetDefaultCasingAlgorithm() CasingAlgorithm {
-	return c.Casing.getDefault()
 }

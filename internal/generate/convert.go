@@ -5,19 +5,18 @@ package generate
 
 import (
 	"fmt"
-	"regexp"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
 type typeLookup struct {
-	goName       string
-	graphQLName  string
-	newSource    string
-	selectionSet ast.SelectionSet
-	pos          *ast.Position
+	goName      string
+	graphQLName string
+	newSource   string
+	pos         *ast.Position
 }
 
 func (g *planState) getType(lookup *typeLookup) (goType, error) {
@@ -37,19 +36,6 @@ func (g *planState) getType(lookup *typeLookup) (goType, error) {
 				"they produce separate Go types",
 			lookup.goName, oldSource, posString(oldPos), lookup.newSource, posString(lookup.pos),
 			typ.GraphQLTypeName(), lookup.graphQLName,
-		)
-	}
-
-	err := selectionsMatch(lookup.pos, lookup.selectionSet, typ.SelectionSet())
-	if err != nil {
-		oldSource := describeTypeSource(typ)
-		oldPos := g.typePositions[lookup.goName]
-		return typ, errorf(
-			lookup.pos, "conflicting definition for the Go type %s: it is generated "+
-				"from both %s (at %s) and %s (at %s), which select different "+
-				"fields (%v); give one of them a distinct name with an "+
-				"@octoqlgen(typename:) directive so they produce separate Go types",
-			lookup.goName, oldSource, posString(oldPos), lookup.newSource, posString(lookup.pos), err,
 		)
 	}
 
@@ -88,11 +74,10 @@ func posString(pos *ast.Position) string {
 func (g *planState) addType(typ goType, goName string, pos *ast.Position) (goType, error) {
 	newSource := describeTypeSource(typ)
 	otherTyp, err := g.getType(&typeLookup{
-		goName:       goName,
-		graphQLName:  typ.GraphQLTypeName(),
-		newSource:    newSource,
-		selectionSet: typ.SelectionSet(),
-		pos:          pos,
+		goName:      goName,
+		graphQLName: typ.GraphQLTypeName(),
+		newSource:   newSource,
+		pos:         pos,
 	})
 	if err != nil {
 		return otherTyp, err
@@ -117,7 +102,6 @@ func (g *planState) addType(typ goType, goName string, pos *ast.Position) (goTyp
 }
 
 func checkGeneratedIdentifiers(typeMap map[string]goType, pkgPath string) error {
-	scope := newImportScope(pkgPath, "")
 	names := make([]string, 0, len(typeMap))
 	for name := range typeMap {
 		names = append(names, name)
@@ -131,7 +115,7 @@ func checkGeneratedIdentifiers(typeMap map[string]goType, pkgPath string) error 
 				return err
 			}
 		case *goInterfaceType:
-			err := checkInterfaceIdentifiers(t, scope)
+			err := checkInterfaceIdentifiers(t, pkgPath)
 			if err != nil {
 				return err
 			}
@@ -226,78 +210,66 @@ type interfaceMethod struct {
 	pos            *ast.Position
 }
 
-var predeclaredTypeAliases = []struct {
-	alias *regexp.Regexp
-	canon string
-}{
-	{regexp.MustCompile(`\bbyte\b`), "uint8"},
-	{regexp.MustCompile(`\brune\b`), "int32"},
-	{regexp.MustCompile(`\bany\b`), "interface{}"},
-}
-
-func canonicalizeTypeRef(ref string) string {
-	for _, a := range predeclaredTypeAliases {
-		ref = a.alias.ReplaceAllString(ref, a.canon)
+func canonicalizeTypeRef(ref, pkgPath string) string {
+	start := strings.LastIndexAny(ref, "*]") + 1
+	name := ref[start:]
+	if pkgPath != "" {
+		name = strings.TrimPrefix(name, pkgPath+".")
 	}
-	return ref
+	switch name {
+	case "byte":
+		name = "uint8"
+	case "rune":
+		name = "int32"
+	case "any":
+		name = "interface{}"
+	}
+	return ref[:start] + name
 }
 
 func interfaceMethodSet(
 	t *goInterfaceType,
-	scope *importScope,
+	pkgPath string,
 	visited map[string]bool,
-) ([]interfaceMethod, error) {
+) []interfaceMethod {
 	if visited[t.GoName] {
-		return nil, nil
+		return nil
 	}
 	visited[t.GoName] = true
 
-	members, err := t.members(scope)
-	if err != nil {
-		return nil, err
-	}
-
-	var methods []interfaceMethod
-	for _, member := range members {
-		switch member.kind {
-		case interfaceMarkerMember:
-			methods = append(methods, interfaceMethod{
-				name:           member.methodName,
-				signature:      "()",
-				canonSignature: "()",
-				owner:          t.GoName,
-				description:    fmt.Sprintf("the implements-marker method of interface %s", t.GoName),
-			})
-		case interfaceGetterMember:
-			methods = append(methods, interfaceMethod{
-				name:           member.methodName,
-				signature:      "() " + member.resultRef,
-				canonSignature: "() " + canonicalizeTypeRef(member.resultRef),
-				owner:          t.GoName,
-				description: fmt.Sprintf("getter %s (for field %s, GraphQL %s)",
-					member.methodName, member.field.GoName, member.field.GraphQLName),
-				pos: member.field.Position,
-			})
-		case interfaceEmbeddedMember:
-			embedded, ok := member.field.GoType.Unwrap().(*goInterfaceType)
+	methods := []interfaceMethod{{
+		name:           t.markerMethodName(),
+		signature:      "()",
+		canonSignature: "()",
+		owner:          t.GoName,
+		description:    fmt.Sprintf("the implements-marker method of interface %s", t.GoName),
+	}}
+	for _, field := range t.SharedFields {
+		if field.IsEmbedded() {
+			embedded, ok := field.GoType.Unwrap().(*goInterfaceType)
 			if !ok {
 				continue
 			}
-			promoted, promotedErr := interfaceMethodSet(embedded, scope, visited)
-			if promotedErr != nil {
-				return nil, promotedErr
-			}
-			methods = append(methods, promoted...)
+			methods = append(methods, interfaceMethodSet(embedded, pkgPath, visited)...)
+			continue
 		}
+		methodName := "Get" + field.GoName
+		ref := field.GoType.QualifiedRef()
+		methods = append(methods, interfaceMethod{
+			name:           methodName,
+			signature:      "() " + ref,
+			canonSignature: "() " + canonicalizeTypeRef(ref, pkgPath),
+			owner:          t.GoName,
+			description: fmt.Sprintf("getter %s (for field %s, GraphQL %s)",
+				methodName, field.GoName, field.GraphQLName),
+			pos: field.Position,
+		})
 	}
-	return methods, nil
+	return methods
 }
 
-func checkInterfaceIdentifiers(t *goInterfaceType, scope *importScope) error {
-	methods, err := interfaceMethodSet(t, scope, map[string]bool{})
-	if err != nil {
-		return err
-	}
+func checkInterfaceIdentifiers(t *goInterfaceType, pkgPath string) error {
+	methods := interfaceMethodSet(t, pkgPath, map[string]bool{})
 	seen := make(map[string]interfaceMethod, len(methods))
 	for _, method := range methods {
 		existing, ok := seen[method.name]
@@ -381,7 +353,6 @@ func (g *planState) convertOperation(
 		),
 		GraphQLName: baseType.Name,
 		Fields:      fields,
-		Selection:   operation.SelectionSet,
 	}
 
 	return g.addType(goTyp, goTyp.GoName, operation.Position)
@@ -421,21 +392,20 @@ func defaultScalarType(graphQLName string) (string, bool) {
 }
 
 type inputFieldSpec struct {
-	ownerName          string
-	fieldName          string
-	kindLabel          string
-	astType            *ast.Type
-	hasDefault         bool
-	description        string
-	fieldPos           *ast.Position
-	errPos             *ast.Position
-	enforcePointerRule bool
-	enforceOmitRule    bool
-	options            *fieldOptions
+	ownerName    string
+	fieldName    string
+	kindLabel    string
+	astType      *ast.Type
+	hasDefault   bool
+	description  string
+	fieldPos     *ast.Position
+	errPos       *ast.Position
+	enforceRules bool
+	options      *fieldOptions
 }
 
 func (g *planState) convertInputField(spec *inputFieldSpec) (*goStructField, error) {
-	if spec.enforceOmitRule && spec.astType.NonNull && !spec.hasDefault && spec.options.GetOmitempty() {
+	if spec.enforceRules && spec.astType.NonNull && !spec.hasDefault && spec.options.GetOmitempty() {
 		return nil, errorf(spec.errPos,
 			"omitempty may only be used on optional arguments: %s.%s",
 			spec.ownerName, spec.fieldName)
@@ -452,13 +422,13 @@ func (g *planState) convertInputField(spec *inputFieldSpec) (*goStructField, err
 	}
 
 	_, isPointer := goTyp.(*goPointerType)
-	if spec.enforcePointerRule && spec.astType.NonNull && isPointer && !omitempty {
+	if spec.enforceRules && spec.astType.NonNull && isPointer && !omitempty {
 		return nil, errorf(spec.errPos,
 			"pointer on non-null %s can only be used together with omitempty: %s.%s",
 			spec.kindLabel, spec.ownerName, spec.fieldName)
 	}
 
-	goName := ApplyCasing(spec.fieldName, g.config.GetDefaultCasingAlgorithm(), true)
+	goName := applyCasing(spec.fieldName, g.config.Casing.Default)
 	return &goStructField{
 		GoName:      goName,
 		GoType:      goTyp,
@@ -485,16 +455,15 @@ func (g *planState) convertArguments(
 		}
 		options := g.directives.forVariable(arg, opOptions.Defaults)
 		field, err := g.convertInputField(&inputFieldSpec{
-			ownerName:          operation.Name,
-			fieldName:          arg.Variable,
-			kindLabel:          "argument",
-			astType:            arg.Type,
-			hasDefault:         arg.DefaultValue != nil,
-			fieldPos:           arg.Position,
-			errPos:             arg.Position,
-			enforcePointerRule: true,
-			enforceOmitRule:    true,
-			options:            options,
+			ownerName:    operation.Name,
+			fieldName:    arg.Variable,
+			kindLabel:    "argument",
+			astType:      arg.Type,
+			hasDefault:   arg.DefaultValue != nil,
+			fieldPos:     arg.Position,
+			errPos:       arg.Position,
+			enforceRules: true,
+			options:      options,
 		})
 		if err != nil {
 			return nil, err
@@ -785,7 +754,7 @@ func (g *planState) convertInputDefinition(
 		return bound, bound != nil, err
 	}
 
-	name := ApplyCasing(def.Name, g.config.GetDefaultCasingAlgorithm(), true)
+	name := applyCasing(def.Name, g.config.Casing.Default)
 	if options.TypeName != "" {
 		if goKeywords[options.TypeName] {
 			return nil, false, errorf(pos, "typename option must not be a go keyword")
@@ -828,17 +797,16 @@ func (g *planState) convertInputDefinition(
 			return nil, false, dirErr
 		}
 		convertedField, fieldErr := g.convertInputField(&inputFieldSpec{
-			ownerName:          name,
-			fieldName:          field.Name,
-			kindLabel:          "input field",
-			astType:            field.Type,
-			hasDefault:         field.DefaultValue != nil,
-			description:        field.Description,
-			fieldPos:           field.Position,
-			errPos:             pos,
-			enforcePointerRule: enforceRules,
-			enforceOmitRule:    enforceRules,
-			options:            opts,
+			ownerName:    name,
+			fieldName:    field.Name,
+			kindLabel:    "input field",
+			astType:      field.Type,
+			hasDefault:   field.DefaultValue != nil,
+			description:  field.Description,
+			fieldPos:     field.Position,
+			errPos:       pos,
+			enforceRules: enforceRules,
+			options:      opts,
 		})
 		if fieldErr != nil {
 			return nil, false, fieldErr
@@ -862,6 +830,16 @@ type abstractSelectionSpec struct {
 }
 
 func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goType, error) {
+	existing, err := g.getType(&typeLookup{
+		goName:      spec.goName,
+		graphQLName: spec.def.Name,
+		newSource:   describeGraphQLSource(spec.def.Name, spec.desc.FragmentName),
+		pos:         spec.provenancePos,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	implementationTypes := g.schema.GetPossibleTypes(spec.def)
 	sort.Slice(implementationTypes, func(i, j int) bool {
 		return implementationTypes[i].Name < implementationTypes[j].Name
@@ -871,13 +849,11 @@ func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goT
 	goTyp := &goInterfaceType{
 		GoName:          spec.goName,
 		SharedFields:    spec.sharedFields,
-		Selection:       spec.selectionSet,
 		descriptionInfo: spec.desc,
 	}
-
-	result, addErr := g.addType(goTyp, goTyp.GoName, spec.provenancePos)
-	if addErr != nil {
-		return nil, addErr
+	existingInterface, isInterface := existing.(*goInterfaceType)
+	if isInterface {
+		goTyp.OtherImplementation = existingInterface.OtherImplementation
 	}
 
 	for _, implDef := range implementationTypes {
@@ -897,7 +873,6 @@ func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goT
 		implTyp := &goStructType{
 			GoName:          spec.implGoName(implDef),
 			Fields:          implFields,
-			Selection:       spec.selectionSet,
 			descriptionInfo: implDesc,
 		}
 		addedImpl, implErr := g.addType(implTyp, implTyp.GoName, spec.provenancePos)
@@ -912,15 +887,13 @@ func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goT
 		goTyp.Implementations = append(goTyp.Implementations, implStruct)
 	}
 
-	if result != goTyp {
-		return result, nil
+	if existing == nil {
+		err = g.attachCatchAllImplementation(goTyp, spec.def.Name, spec.pos)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	err := g.attachCatchAllImplementation(goTyp, spec.def.Name, spec.pos)
-	if err != nil {
-		return nil, err
-	}
-	return goTyp, nil
+	return g.addType(goTyp, goTyp.GoName, spec.provenancePos)
 }
 
 type outputDefinitionSpec struct {
@@ -944,7 +917,7 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 		return bound, bound != nil, err
 	}
 
-	casing := g.config.GetDefaultCasingAlgorithm()
+	casing := g.config.Casing.Default
 	var name string
 	switch {
 	case options.TypeName != "":
@@ -957,7 +930,7 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 		}
 		prefix = newNamePrefix(options.TypeName)
 	case def.Kind == ast.Enum:
-		name = ApplyCasing(def.Name, casing, true)
+		name = applyCasing(def.Name, casing)
 	default:
 		name = makeTypeName(prefix, def.Name, casing)
 	}
@@ -995,7 +968,6 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 		goTyp := &goStructType{
 			GoName:          name,
 			Fields:          fields,
-			Selection:       selectionSet,
 			descriptionInfo: desc,
 		}
 		added, addErr := g.addType(goTyp, goTyp.GoName, provPos)
@@ -1031,7 +1003,7 @@ func (g *planState) filterReferencedImplementations(
 	implementations []*ast.Definition,
 	selectionSet ast.SelectionSet,
 ) []*ast.Definition {
-	if !g.config.omitUnreferencedImplementations() {
+	if !*g.config.OmitUnreferencedImplementations {
 		return implementations
 	}
 
@@ -1147,7 +1119,7 @@ func (g *planState) attachCatchAllImplementation(
 	graphQLName string,
 	pos *ast.Position,
 ) error {
-	if !g.config.omitUnreferencedImplementations() {
+	if !*g.config.OmitUnreferencedImplementations {
 		return nil
 	}
 
@@ -1169,10 +1141,10 @@ func (g *planState) attachCatchAllImplementation(
 		fields = append(fields, &replacement)
 	}
 
+	name := g.catchAllName(abstractType.GoName)
 	catchAll := &goStructType{
-		GoName:      g.catchAllName(abstractType.GoName),
+		GoName:      name,
 		Fields:      fields,
-		Selection:   abstractType.Selection,
 		GraphQLName: graphQLName,
 		CommentOverride: fmt.Sprintf(
 			"%sOctoqlOther represents %s implementations not explicitly selected by a fragment. "+
@@ -1181,11 +1153,15 @@ func (g *planState) attachCatchAllImplementation(
 			abstractType.GoName,
 		),
 	}
-	_, err := g.addType(catchAll, catchAll.GoName, pos)
+	added, err := g.addType(catchAll, catchAll.GoName, pos)
 	if err != nil {
 		return err
 	}
-	abstractType.OtherImplementation = catchAll
+	registered, ok := added.(*goStructType)
+	if !ok {
+		return errorf(pos, "internal error: catch-all type was %T", added)
+	}
+	abstractType.OtherImplementation = registered
 	return nil
 }
 
@@ -1375,7 +1351,6 @@ func (g *planState) convertNamedFragment(fragment *ast.FragmentDefinition) (goTy
 		goTyp := &goStructType{
 			GoName:          fragment.Name,
 			Fields:          fields,
-			Selection:       fragment.SelectionSet,
 			descriptionInfo: desc,
 		}
 		return g.addType(goTyp, goTyp.GoName, fragment.Position)
@@ -1416,8 +1391,8 @@ func (g *planState) convertField(
 	if opts.Alias != "" {
 		goName = opts.Alias
 	}
-	casing := g.config.GetDefaultCasingAlgorithm()
-	goName = ApplyCasing(goName, casing, true)
+	casing := g.config.Casing.Default
+	goName = applyCasing(goName, casing)
 	prefix = nextPrefix(prefix, field, casing)
 
 	fieldGoType, err := g.convertSelectionType(&selectionTypeSpec{

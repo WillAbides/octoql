@@ -129,7 +129,7 @@ func (p namePrefix) isSingle(name string) bool {
 // the next prefix.
 func typeNameParts(prefix namePrefix, typeName string, algorithm CasingAlgorithm) namePrefix {
 	// Apply the specified casing algorithm with uppercase first letter
-	typeName = ApplyCasing(typeName, algorithm, true)
+	typeName = applyCasing(typeName, algorithm)
 
 	// If the prefix has just one part, that's the operation-name.  There's no
 	// need to add "Query" or "Mutation". An empty prefix is unused.
@@ -150,7 +150,7 @@ func nextPrefix(prefix namePrefix, field *ast.Field, algorithm CasingAlgorithm) 
 	// Add the type.
 	prefix = typeNameParts(prefix, field.ObjectDefinition.Name, algorithm)
 	// Add the field (there's no shortening here, see top-of-file comment).
-	fieldAlias := ApplyCasing(field.Alias, algorithm, true)
+	fieldAlias := applyCasing(field.Alias, algorithm)
 	return namePrefix{text: prefix.text + fieldAlias}
 }
 
@@ -166,7 +166,7 @@ func makeTypeName(prefix namePrefix, typeName string, algorithm CasingAlgorithm)
 // type; we use YourName for the interface, but need to do YourNameImplName for
 // the implementations.
 func makeLongTypeName(prefix namePrefix, typeName string, algorithm CasingAlgorithm) string {
-	typeName = ApplyCasing(typeName, algorithm, true)
+	typeName = applyCasing(typeName, algorithm)
 	return prefix.text + typeName
 }
 
@@ -177,7 +177,7 @@ func (c *Casing) enumValueName(goTypeName string, enum *ast.Definition, val *ast
 	case CasingRaw:
 		return goTypeName + "_" + val.Name
 	case CasingAutoCamelCase:
-		return goTypeName + ApplyCasing(val.Name, algo, true)
+		return goTypeName + applyCasing(val.Name, algo)
 	default:
 		// Should already be caught by validation.
 		panic(fmt.Sprintf("unknown casing algorithm %s", algo))

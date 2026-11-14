@@ -7,8 +7,6 @@ import (
 	"io"
 	"strings"
 	"text/template"
-
-	"golang.org/x/tools/imports"
 )
 
 //go:embed *.tmpl
@@ -87,10 +85,9 @@ func (r *renderer) render(tmplRelFilename string, w io.Writer, data any) error {
 }
 
 // formatGoFile prepends the package header and collected imports to body, then
-// runs gofmt and goimports.
+// formats the complete source once.
 func (r *renderer) formatGoFile(
 	headerComment string,
-	outputFilename string,
 	opLabel string,
 	body []byte,
 ) ([]byte, error) {
@@ -107,9 +104,5 @@ func (r *renderer) formatGoFile(
 	if err != nil {
 		return nil, goSourceError("gofmt"+opLabel, unformatted, err)
 	}
-	processed, err := imports.Process(outputFilename, formatted, nil)
-	if err != nil {
-		return nil, goSourceError("goimports"+opLabel, formatted, err)
-	}
-	return processed, nil
+	return formatted, nil
 }
