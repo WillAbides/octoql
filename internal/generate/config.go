@@ -155,7 +155,7 @@ func pathJoin(a, b string) string {
 // Try to figure out the package-name and package-path of the given .go file.
 //
 // Returns a best-guess pkgName if possible, even on error.
-func getPackageNameAndPath(filename string) (pkgName, pkgPath string, err error) {
+func getPackageNameAndPath(filename string) (string, string, error) {
 	abs, err := filepath.Abs(filename)
 	if err != nil { // path is totally bogus
 		return "", "", err
@@ -629,7 +629,7 @@ func canonicalOutputPath(filename string) (string, error) {
 func resolveOutputPath(
 	absolute string,
 	symlinkDepth int,
-) (resolved, existingAncestor string, err error) {
+) (string, string, error) {
 	if symlinkDepth > 255 {
 		return "", "", fmt.Errorf("too many symlinks resolving %q", absolute)
 	}
@@ -641,7 +641,7 @@ func resolveOutputPath(
 		return "", "", err
 	}
 	components := strings.Split(relative, string(filepath.Separator))
-	resolved = root
+	resolved := root
 	for index, component := range components {
 		if component == "." || component == "" {
 			continue

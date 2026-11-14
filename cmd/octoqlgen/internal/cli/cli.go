@@ -77,8 +77,8 @@ func githubDocsSource(version, revision string) config.Source {
 	}
 }
 
-func (cmd *initCommand) Run() (err error) {
-	_, err = os.Lstat(cmd.ConfigPath)
+func (cmd *initCommand) Run() (errOut error) {
+	_, err := os.Lstat(cmd.ConfigPath)
 	if err == nil || !errors.Is(err, os.ErrNotExist) {
 		if err != nil {
 			return fmt.Errorf("checking config path %q: %w", cmd.ConfigPath, err)
@@ -128,7 +128,7 @@ func (cmd *initCommand) Run() (err error) {
 	initializationComplete := false
 	defer func() {
 		if schemaCreated && !initializationComplete {
-			err = errors.Join(err, os.Remove(schemaPath))
+			errOut = errors.Join(errOut, os.Remove(schemaPath))
 		}
 	}()
 	gitignorePath := filepath.Join(configDir, ".octoql", ".gitignore")

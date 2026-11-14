@@ -172,7 +172,7 @@ type fetchRequest struct {
 	maxResponseBytes int64
 }
 
-func fetchURL(ctx context.Context, client httpDoer, req fetchRequest) (data []byte, err error) {
+func fetchURL(ctx context.Context, client httpDoer, req fetchRequest) (_ []byte, errOut error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, req.url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating schema request: %w", sanitizeURLDiagnostic(err, req.url))
@@ -189,7 +189,7 @@ func fetchURL(ctx context.Context, client httpDoer, req fetchRequest) (data []by
 		return nil, fmt.Errorf("fetching schema: %w", sanitizeURLDiagnostic(err, req.url))
 	}
 	defer func() {
-		err = errors.Join(err, response.Body.Close())
+		errOut = errors.Join(errOut, response.Body.Close())
 	}()
 
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
@@ -202,7 +202,7 @@ func fetchURL(ctx context.Context, client httpDoer, req fetchRequest) (data []by
 		)
 	}
 
-	data, err = io.ReadAll(io.LimitReader(response.Body, req.maxResponseBytes+1))
+	data, err := io.ReadAll(io.LimitReader(response.Body, req.maxResponseBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("reading schema response: %w", err)
 	}
