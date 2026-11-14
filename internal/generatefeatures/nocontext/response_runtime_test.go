@@ -252,7 +252,9 @@ func TestClientResponseSizeLimit(t *testing.T) {
 		http.Header{
 			"Retry-After":           {"30"},
 			"X-GitHub-Request-ID":   {"request-too-large"},
+			"X-RateLimit-Limit":     {"5000"},
 			"X-RateLimit-Remaining": {"0"},
+			"X-RateLimit-Used":      {"5000"},
 		},
 		`{"data":{"repository":{"nameWithOwner":"`+
 			strings.Repeat("x", int(responseSizeLimit))+
@@ -377,8 +379,6 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.Equal(t, 4999, rateLimit.Remaining)
 	assert.Equal(t, 1, rateLimit.Used)
 	assert.Equal(t, "graphql", rateLimit.Resource)
-	assert.Zero(t, rateLimit.RetryAfter)
-	assert.True(t, rateLimit.RetryAt.IsZero())
 
 	_, err = invokeRepositoryQuery(client)
 	require.NoError(t, err)

@@ -204,7 +204,10 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 		variables := githubapitest.GetNodeVariables{Id: "primary"}
 		reset := time.Date(2026, time.July, 19, 13, 0, 0, 0, time.UTC)
 		handler.ExpectGetNode(variables).RespondError(
-			githubapi.Error{Type: "RATE_LIMITED", Message: "quota exhausted"},
+			githubapi.Error{
+				Type:    "RATE_LIMITED",
+				Message: "quota exhausted",
+			},
 			githubapitest.WithPrimaryRateLimit(githubapi.RateLimit{
 				Limit:     5000,
 				Remaining: 0,
@@ -219,12 +222,40 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 		rateLimitError, ok := errors.AsType[*githubapi.RateLimitError](err)
 		require.True(t, ok)
 		assert.Equal(t, githubapi.RateLimitPrimary, rateLimitError.Kind)
+		require.NotNil(t, rateLimitError.RateLimit)
 		assert.Equal(t, 5000, rateLimitError.RateLimit.Limit)
+		assert.Zero(t, rateLimitError.RateLimit.Remaining)
+		assert.Equal(t, 5000, rateLimitError.RateLimit.Used)
 		assert.Equal(t, reset, rateLimitError.RateLimit.Reset)
 		assert.Equal(t, "graphql", rateLimitError.RateLimit.Resource)
+		assert.Equal(t, reset, rateLimitError.RetryAt())
 		rateLimit, known := client.RateLimit()
 		require.True(t, known)
-		assert.Equal(t, rateLimitError.RateLimit, rateLimit)
+		assert.Equal(t, *rateLimitError.RateLimit, rateLimit)
+	})
+
+	t.Run("primary rate limit without headers leaves RateLimit nil", func(t *testing.T) {
+		handler := githubapitest.NewTestHandler(t)
+		server := httptest.NewServer(handler)
+		t.Cleanup(server.Close)
+		client := githubapi.NewClient(server.URL, http.DefaultClient)
+		variables := githubapitest.GetNodeVariables{Id: "primary-no-headers"}
+		handler.ExpectGetNode(variables).RespondError(
+			githubapi.Error{
+				Type:    "RATE_LIMITED",
+				Message: "quota exhausted",
+			},
+		)
+
+		response, err := client.GetNode(t.Context(), variables)
+		assert.Nil(t, response)
+		rateLimitError, ok := errors.AsType[*githubapi.RateLimitError](err)
+		require.True(t, ok)
+		assert.Equal(t, githubapi.RateLimitPrimary, rateLimitError.Kind)
+		assert.Nil(t, rateLimitError.RateLimit)
+		assert.True(t, rateLimitError.RetryAt().IsZero())
+		_, known := client.RateLimit()
+		assert.False(t, known)
 	})
 
 	for _, status := range []int{
@@ -249,7 +280,8 @@ func TestGeneratedHandlerResponseOptionsAndRateLimits(t *testing.T) {
 			rateLimitError, ok := errors.AsType[*githubapi.RateLimitError](err)
 			require.True(t, ok)
 			assert.Equal(t, githubapi.RateLimitSecondary, rateLimitError.Kind)
-			assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
+			assert.Nil(t, rateLimitError.RateLimit)
+			assert.Equal(t, 30*time.Second, rateLimitError.RetryAfter)
 			responseError, ok := errors.AsType[*githubapi.ResponseError](err)
 			require.True(t, ok)
 			assert.Equal(t, status, responseError.StatusCode)

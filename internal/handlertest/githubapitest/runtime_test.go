@@ -136,6 +136,31 @@ func TestResetDisarmsExpectations(t *testing.T) {
 	assert.Empty(t, fake.errorMessages())
 }
 
+func TestWithPrimaryRateLimitRejectsNegativeValues(t *testing.T) {
+	tests := map[string]RateLimit{
+		"negative limit": {
+			Limit: -1,
+		},
+		"negative remaining": {
+			Remaining: -1,
+		},
+		"negative used": {
+			Used: -1,
+		},
+	}
+
+	for name, rateLimit := range tests {
+		t.Run(name, func(t *testing.T) {
+			options := buildResponseOptions(WithPrimaryRateLimit(rateLimit))
+			require.EqualError(
+				t,
+				options.err,
+				"primary rate limit values must not be negative",
+			)
+		})
+	}
+}
+
 func postOperation(
 	t *testing.T,
 	handler http.Handler,
