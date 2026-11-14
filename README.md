@@ -207,7 +207,8 @@ or secondary rate-limit signals:
 - **`RateLimitPrimary`** applies when `RateLimitSecondary` does not match and
   the response either contains a GraphQL error with `type == "RATE_LIMITED"`
   (on status `200`, `403`, or `429`), has HTTP status `429`, or has HTTP status
-  `403` with `X-RateLimit-Remaining: 0`.
+  `403` with valid `X-RateLimit-Limit`, `X-RateLimit-Used`, and
+  `X-RateLimit-Remaining: 0` headers.
 
 `Retry-After` is never set on `5xx` responses, so `octoql` surfaces
 `Retry-After` only on `*RateLimitError`. `RateLimitError.RateLimit` is non-nil
