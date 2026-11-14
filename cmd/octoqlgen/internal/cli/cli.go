@@ -17,7 +17,7 @@ import (
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
 	"github.com/willabides/octoql/internal/generate"
-	yamlv4 "go.yaml.in/yaml/v4"
+	"go.yaml.in/yaml/v4"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
@@ -171,7 +171,7 @@ func minimalConfigBytes(source config.Source, sha256Sum string) ([]byte, error) 
 		Operations: []string{"graphql/**/*.graphql"},
 		Generated:  "internal/githubapi/generated.go",
 	}
-	return yamlv4.Dump(doc, yamlv4.WithCompactSeqIndent(false), yamlv4.WithLineWidth(-1))
+	return yaml.Dump(doc, yaml.WithCompactSeqIndent(false), yaml.WithLineWidth(-1))
 }
 
 func createFileNoReplace(destination string, data []byte) error {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/yaml"
+	"go.yaml.in/yaml/v4"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 	testSHA256   = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
 )
 
-func TestLoadUsesJSONTagsStrictly(t *testing.T) {
+func TestLoadStrict(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -42,32 +42,32 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 		{
 			name:      "duplicate key",
 			content:   readTestFile(t, "yaml", "invalid_duplicate_key.yaml"),
-			wantError: "key \"path\" already set",
+			wantError: `mapping key "path" already defined`,
 		},
 		{
 			name:      "unknown field",
 			content:   validConfigYAML() + "unknown: true\n",
-			wantError: `unknown field "unknown"`,
+			wantError: "field unknown not found in type config.Config",
 		},
 		{
 			name:      "removed extensions",
 			content:   validConfigYAML() + "use_extensions: true\n",
-			wantError: `unknown field "use_extensions"`,
+			wantError: "field use_extensions not found in type config.Config",
 		},
 		{
 			name:      "removed optional mode",
 			content:   validConfigYAML() + "optional: pointer\n",
-			wantError: `unknown field "optional"`,
+			wantError: "field optional not found in type config.Config",
 		},
 		{
 			name:      "removed optional generic type",
 			content:   validConfigYAML() + "optional_generic_type: example.com/optional.Value\n",
-			wantError: `unknown field "optional_generic_type"`,
+			wantError: "field optional_generic_type not found in type config.Config",
 		},
 		{
 			name:      "subscription setting",
 			content:   validConfigYAML() + "subscriptions: true\n",
-			wantError: `unknown field "subscriptions"`,
+			wantError: "field subscriptions not found in type config.Config",
 		},
 		{
 			name: "unknown binding field",
@@ -75,14 +75,14 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 				"bindings:\n" +
 				"  DateTime:\n" +
 				"    unknown: true\n",
-			wantError: `unknown field "unknown"`,
+			wantError: "field unknown not found in type config.Binding",
 		},
 		{
 			name: "unknown casing field",
 			content: validConfigYAML() +
 				"casing:\n" +
 				"  unknown: raw\n",
-			wantError: `unknown field "unknown"`,
+			wantError: "field unknown not found in type config.Casing",
 		},
 		{
 			name:      "invalid test handler type strategy",
@@ -92,7 +92,7 @@ func TestLoadUsesJSONTagsStrictly(t *testing.T) {
 		{
 			name:      "multiple documents",
 			content:   validConfigYAML() + "---\n{}\n",
-			wantError: "multiple YAML documents are not allowed",
+			wantError: "expected single document, found multiple",
 		},
 	}
 
@@ -205,7 +205,7 @@ func TestDocumentationYAMLBlocksParse(t *testing.T) {
 
 	for i, block := range blocks {
 		loaded := &Config{}
-		err = yaml.UnmarshalStrict([]byte(block), loaded)
+		err = yaml.Load([]byte(block), loaded, yaml.WithKnownFields())
 		assert.NoError(t, err, "yaml block %d:\n%s", i+1, block)
 	}
 }

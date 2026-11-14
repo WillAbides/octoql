@@ -1,7 +1,7 @@
 // Package config loads octoqlgen configuration files.
 package config
 
-//go:generate ../../../../script/jsonschematogo --package config --output model_gen.go ../../../../octoqlgen.schema.yaml
+//go:generate ../../../../script/jsonschematogo --yaml-tags --package config --output model_gen.go ../../../../octoqlgen.schema.yaml
 //go:generate go run ../../../../internal/configdocgen --schema ../../../../octoqlgen.schema.yaml --output ../../../../docs/configuration.md
 
 import (
@@ -10,8 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	yamlv4 "go.yaml.in/yaml/v4"
-	"sigs.k8s.io/yaml"
+	"go.yaml.in/yaml/v4"
 )
 
 const DefaultFilename = "octoqlgen.yaml"
@@ -46,28 +45,8 @@ func Load(filename string) (*Config, error) {
 
 // Parse decodes one octoqlgen configuration document without resolving paths.
 func Parse(content []byte) (*Config, error) {
-	err := requireSingleYAMLDocument(content)
-	if err != nil {
-		return nil, err
-	}
-	return decodeConfig(content)
-}
-
-func requireSingleYAMLDocument(content []byte) error {
-	var documents []yamlv4.Node
-	err := yamlv4.Load(content, &documents, yamlv4.WithAllDocuments())
-	if err != nil {
-		return err
-	}
-	if len(documents) > 1 {
-		return errors.New("multiple YAML documents are not allowed")
-	}
-	return nil
-}
-
-func decodeConfig(content []byte) (*Config, error) {
 	loaded := &Config{}
-	err := yaml.UnmarshalStrict(content, loaded)
+	err := yaml.Load(content, loaded, yaml.WithKnownFields())
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +70,7 @@ func decodeConfig(content []byte) (*Config, error) {
 
 func validateRequiredFields(content []byte, loaded *Config) error {
 	var fields map[string]any
-	err := yaml.Unmarshal(content, &fields)
+	err := yaml.Load(content, &fields)
 	if err != nil {
 		return err
 	}

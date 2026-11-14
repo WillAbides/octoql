@@ -19,7 +19,7 @@ dependencies:
   jsonschematogo:
     template: jsonschematogo#jsonschematogo
     vars:
-      version: 0.2.0
+      version: 0.4.0
   shfmt:
     template: origin#shfmt
     vars:
@@ -154,10 +154,10 @@ template_sources:
   jsonschematogo: https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/bindown.yaml
   origin: https://raw.githubusercontent.com/WillAbides/bindown-templates/master/bindown.yml
 url_checksums:
-  https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_darwin_amd64.tar.gz: 783c79296e7f14555ef554705602e067f119dce244ca35d022a1cc071b60e1cd
-  https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_darwin_arm64.tar.gz: ed0800be4e46e2339035a04f5a4480ed7144d5eae49ade983f0fbbdb2a991def
-  https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_linux_amd64.tar.gz: 964e4154abd2ad7cca30c37c674441dde7e019143393d365e21232907f705512
-  https://github.com/WillAbides/jsonschematogo/releases/download/v0.2.0/jsonschematogo_0.2.0_windows_amd64.tar.gz: 472bd30dd320f1777d459fc16ca349825436cf5e3674099209ae0f1305a30fa2
+  https://github.com/WillAbides/jsonschematogo/releases/download/v0.4.0/jsonschematogo_0.4.0_darwin_amd64.tar.gz: 43ec2df49215830bc1913c52c01aa8659203e6646b187b49fbe5dbe0d102b50c
+  https://github.com/WillAbides/jsonschematogo/releases/download/v0.4.0/jsonschematogo_0.4.0_darwin_arm64.tar.gz: f075c5b0cc846bc1e9c1836dfe05449531ef61deb968473699e103a66bb5c209
+  https://github.com/WillAbides/jsonschematogo/releases/download/v0.4.0/jsonschematogo_0.4.0_linux_amd64.tar.gz: 4269a645a31a472147d284bffc7225c203fd00ef9c8df441235640e3ffa14ac5
+  https://github.com/WillAbides/jsonschematogo/releases/download/v0.4.0/jsonschematogo_0.4.0_windows_amd64.tar.gz: 4ef3ebd2c1c944fd23b09bc2970e5458a705001a90451566884b9f7636cca835
   https://github.com/cli/cli/releases/download/v2.88.1/gh_2.88.1_linux_amd64.tar.gz: 36352a993b97e9758793cdb87f9ba674bd6d88c914488e122be78a1962203803
   https://github.com/cli/cli/releases/download/v2.88.1/gh_2.88.1_macOS_amd64.zip: ff0fc4bdb9699f0c02e5bcdcbd09d0f8e4c4659aa5d30bcd39a3557ed7379b2e
   https://github.com/cli/cli/releases/download/v2.88.1/gh_2.88.1_macOS_arm64.zip: bdbeed4821d450ef0d14821d856c05b308ab449fbf60527f298d96fbf5d2447b
