@@ -1,7 +1,7 @@
 # octoql
 
 octoql generates type-safe Go clients and typed test handlers for GitHub's
-GraphQL API from your graphql queries and mutations.
+GraphQL API from your GraphQL queries and mutations.
 
 octoql started as a fork of [Khan/genqlient](https://github.com/Khan/genqlient).
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
@@ -9,10 +9,9 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
 ## Requirements and installation
 
 octoql requires Go 1.27 or newer. Run `octoqlgen` from a `go:generate`
-directive with an explicit release version; this does not add a dependency to
-the module that owns the generated client.
+directive with an explicit release version.
 
-From the root of an existing Go module, initialize a project with:
+From the root of an existing Go module, initialize a project:
 
 ```sh
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> init
@@ -21,34 +20,17 @@ go run github.com/willabides/octoql/cmd/octoqlgen@<version> init
 Replace `<version>` here and throughout this guide with a release tag from the
 [releases page](https://github.com/WillAbides/octoql/releases). Pinning an
 explicit tag keeps generation reproducible. octoql is pre-1.0, so review the
-release notes before moving between minor versions.
+release notes before updating.
 
-Generated clients are self-contained and use only the standard library by
-default. External types named by `bindings`, `package_bindings`, a custom
-`context_type`, or an operation's `@octoqlgen(bind: ...)` directive can add
-imports for the packages they name. Application code does not import
-`github.com/willabides/octoql`.
+Generated clients are self-contained and depend only on the Go standard library
+by default. Application code never imports `github.com/willabides/octoql`.
 
 ## Generate a client
 
-GitHub authentication must be available through `GH_TOKEN`, `GITHUB_TOKEN`, or
-the `gh` CLI.
-
-`octoqlgen init` resolves and fetches the latest GitHub Docs Free, Pro, & Team
-(`fpt`) schema, then creates a configuration containing its commit revision and
-SHA-256 digest. It also creates `.octoql/.gitignore`; the generated config uses
-the gitignored `.octoql/schema.graphql` path, `graphql/**/*.graphql` for
-operations, and `internal/githubapi/generated.go` for output.
-
-Choose another GitHub Docs schema version with `--schema-version`:
-
-```sh
-go run github.com/willabides/octoql/cmd/octoqlgen@<version> init --schema-version ghec
-go run github.com/willabides/octoql/cmd/octoqlgen@<version> init --schema-version ghes-3.21
-```
-
-All paths and globs in `octoqlgen.yaml` are relative to that file. The generated
-configuration looks like this:
+`octoqlgen init` requires GitHub authentication through `GH_TOKEN`,
+`GITHUB_TOKEN`, or the `gh` CLI. By default, it downloads the latest GitHub
+Docs Free, Pro, & Team (`fpt`) schema into `.octoql/`, creates
+`.octoql/.gitignore`, and writes `octoqlgen.yaml`:
 
 ```yaml
 # yaml-language-server: $schema=https://github.com/WillAbides/octoql/releases/download/<version>/octoqlgen.schema.yaml
@@ -65,11 +47,18 @@ operations:
 generated: internal/githubapi/generated.go
 ```
 
-The `$schema` comment gives editors completion and hover text for every option.
-See the [configuration reference](docs/configuration.md) for local schemas, other
-remote sources, and every configuration option.
+To target GitHub Enterprise Cloud or GitHub Enterprise Server instead, pass
+`--schema-version`:
 
-Create `graphql/repository.graphql`:
+```sh
+go run github.com/willabides/octoql/cmd/octoqlgen@<version> init --schema-version ghec
+go run github.com/willabides/octoql/cmd/octoqlgen@<version> init --schema-version ghes-3.21
+```
+
+See the [configuration reference](docs/configuration.md) for all `octoqlgen.yaml`
+options.
+
+Next, write a query in `graphql/repository.graphql`:
 
 ```graphql
 query GetRepository($owner: String!, $name: String!, $first: Int!) {
@@ -85,7 +74,7 @@ query GetRepository($owner: String!, $name: String!, $first: Int!) {
 }
 ```
 
-Create `internal/githubapi/githubapi.go` to generate the configured client:
+Add a `go:generate` directive in `internal/githubapi/githubapi.go`:
 
 ```go
 package githubapi
@@ -93,50 +82,39 @@ package githubapi
 //go:generate go run github.com/willabides/octoql/cmd/octoqlgen@<version> generate --config ../../octoqlgen.yaml
 ```
 
-Run generation with:
+Then run `go generate`:
 
 ```sh
 go generate ./...
 ```
 
-Generation verifies or fetches the configured schema before it writes code.
-Query and mutation operation names become generated helper names, so an
-operation needs an uppercase name whenever its helper must be exported.
-Configuring a [test handler](#typed-test-handlers) makes uppercase names a hard
-requirement for every operation. octoql does not support GraphQL subscriptions,
-and `octoqlgen` rejects subscription operations.
-
-Operations are defined in `.graphql`, `.graphqls`, or `.gql` files. See the
-[directive reference](docs/directive.md) for per-operation options.
+Each query or mutation name becomes a method on the generated `Client`. Use an
+uppercase operation name whenever the generated method and types need to be
+exported, or whenever a [typed test handler](#typed-test-handlers) is
+configured. GraphQL subscriptions are not supported. See the
+[directive reference](docs/directive.md) for per-operation and per-field
+customization.
 
 ## Schema sources and updates
 
-`schema.path` is always the schema used for generation. Keep it in the
-gitignored `.octoql` directory when the source is remote. A local schema needs
-only its path:
+When `schema.source` is configured, keep `schema.path` in the gitignored
+`.octoql` directory and commit the pinned `revision` and `sha256` in
+`octoqlgen.yaml`. For a checked-in local schema, specify only `path`:
 
 ```yaml
 schema:
   path: schema/github.graphql
 ```
 
-GitHub.com sources require a SHA-256 digest and a Git ref. Use a full commit SHA
-so generation is reproducible; `init` and `schema update` always write one.
-Authentication uses `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`. See the
-[configuration reference](docs/configuration.md) for all schema settings.
-
-`octoqlgen init` configures and fetches the latest `fpt` schema by default.
-Pass `--schema-version` to initialize with another GitHub Docs version.
-
-`schema fetch` verifies an existing file or fetches a missing remote file:
+To verify an existing schema file or download a missing remote schema without
+running code generation:
 
 ```sh
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> schema fetch
 ```
 
-`schema update` fetches the latest version of the configured repository path
-from its default branch, validates and writes it, then updates the configuration
-revision and `sha256`. Run schema updates serially.
+To pull the latest schema from the configured repository's default branch and
+update `octoqlgen.yaml`:
 
 ```sh
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> schema update
@@ -144,14 +122,12 @@ git diff -- octoqlgen.yaml
 go generate ./...
 ```
 
-The `.octoql` schema normally remains ignored while the reviewed pin in
-`octoqlgen.yaml` is committed. Use `--config PATH` with fetch, update, or generate
-when the config has another name or location. See the
-[CLI reference](docs/cli.md#schema-update) for every command and flag.
+See the [CLI reference](docs/cli.md) for all commands and flags.
 
 ## Call the generated client
 
-Configure GitHub bearer authentication directly on the client:
+Create a client with `NewClient` and configure bearer authentication with
+`SetBearerToken`:
 
 ```go
 client := githubapi.NewClient("https://api.github.com/graphql", nil)
@@ -177,40 +153,29 @@ if response.Repository == nil {
 fmt.Println(response.Repository.NameWithOwner)
 ```
 
-`Repository` is a pointer because `Query.repository` is nullable in GitHub's
-schema. GitHub returns null for repositories that do not exist or that the
-token cannot see, so check nullable values before dereferencing them.
+`response.Repository` is a pointer because `Query.repository` is nullable in
+GitHub's schema. GitHub returns `null` when a repository does not exist or is
+hidden from the caller's token, so check nullable fields before dereferencing
+them.
 
-Pass a different endpoint to `githubapi.NewClient` for GHES, a proxy, or an
-`httptest.Server`. Pass nil as the HTTP client to use `http.DefaultClient`.
+Pass a different URL to `NewClient` for GitHub Enterprise Server, a proxy, or an
+`httptest.Server`. Passing `nil` for the HTTP client uses `http.DefaultClient`.
+For non-bearer authentication schemes, configure the `http.Client` or
+`http.RoundTripper` passed to `NewClient`.
 
-Use `Client.SetBearerToken` for OAuth 2.0 bearer authentication. For basic
-authentication or another scheme, configure the `http.Client` or
-`http.RoundTripper` passed to `NewClient`. Generated clients refuse redirects
-by default. See [security considerations](docs/SECURITY.md#redirects-and-credentials)
-before enabling redirects or applying credentials in a custom `RoundTripper`.
-
-Configure the final GraphQL endpoint directly whenever possible. An appliance
-behind a redirecting load balancer or vanity hostname can opt in to redirects:
-
-```go
-err := client.SetAllowRedirects(true)
-if err != nil {
-	return err
-}
-```
-
-The opt-in follows at most 10 redirects and removes the bearer `Authorization`
-header when a redirect leaves the original scheme, host, and port. Do not enable
-redirects to turn an `http://` endpoint into `https://`: configure the
-`https://` endpoint directly so the bearer token is never sent in cleartext on
-the first hop.
+Generated clients refuse HTTP redirects by default. Point `NewClient` directly
+at the final GraphQL endpoint whenever possible, or call
+`client.SetAllowRedirects(true)` when a redirecting appliance requires it. See
+[security considerations](docs/SECURITY.md#redirects-and-credentials) before
+enabling redirects or attaching credentials in a custom `RoundTripper`.
 
 ## Runtime responses and errors
 
-Generated helpers return a pointer to the concrete operation response and an
-error. The response is nil when the error is non-nil. Sometimes GitHub returns
-partial data with an error. Use `errors.AsType` to check for partial data:
+Generated operation methods return `(*<Operation>Response, error)`. Whenever
+`err` is non-nil, the returned response pointer is `nil`.
+
+If the server returns valid partial `data` alongside GraphQL errors, the error
+chain includes a typed `*<Operation>PartialDataError`:
 
 ```go
 partialErr, ok := errors.AsType[*githubapi.GetRepositoryPartialDataError](err)
@@ -219,10 +184,10 @@ if ok {
 }
 ```
 
-Every failure after receiving an HTTP response includes
-`*githubapi.ResponseError`. GraphQL errors, rate limits, and partial data are
-independent error facets, so use `errors.AsType` for each detail your application
-needs:
+Every failure after receiving an HTTP response wraps `*githubapi.ResponseError`.
+GraphQL errors, rate-limit metadata, and partial data are independent facets on
+the returned error chain. Inspect whichever facets your caller needs with
+`errors.AsType`:
 
 | Facet                          | Carries                                                                        | Present when                                                  |
 | ------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
@@ -231,24 +196,27 @@ needs:
 | `*RateLimitError`              | `Kind` (`RateLimitPrimary` or `RateLimitSecondary`) and a `RateLimit` snapshot | The failing response carried rate-limit signals (see below)   |
 | `*<Operation>PartialDataError` | Typed `PartialData()` for that operation                                       | `data` was non-null and decoded successfully alongside errors |
 
-Transport-level failures, such as a connection error before any response
-arrives, do not carry `*ResponseError`.
+Transport errors that occur before an HTTP response is received do not include
+`*ResponseError`.
 
-A failure becomes a `*RateLimitError` only when the response carries matching
-signals. `RateLimitSecondary` requires a valid `Retry-After` header with status
-200, 403, or 429. When `RateLimitSecondary` does not apply, `RateLimitPrimary`
-requires a GraphQL error of type `RATE_LIMITED` (with status 200, 403, or 429),
-status 429, or status 403 with `X-RateLimit-Remaining: 0`. Other rejections
-surface as ordinary errors.
+A failing response includes `*RateLimitError` when it matches GitHub's primary
+or secondary rate-limit signals:
 
-Read the latest observed primary rate-limit state with `client.RateLimit()`,
-which is a concurrency-safe advisory snapshot. The client never retries
-automatically.
+- **`RateLimitSecondary`** applies when the response status is `200`, `403`, or
+  `429` and includes a valid `Retry-After` header.
+- **`RateLimitPrimary`** applies when `RateLimitSecondary` does not match and
+  the response either contains a GraphQL error with `type == "RATE_LIMITED"`
+  (on status `200`, `403`, or `429`), has HTTP status `429`, or has HTTP status
+  `403` with `X-RateLimit-Remaining: 0`.
+
+Call `client.RateLimit()` at any time to read a concurrency-safe snapshot of the
+most recently observed primary rate-limit headers. The generated client never
+sleeps or retries automatically.
 
 ## Fragments, enums, and abstract types
 
-A named fragment generates its own Go type, embedded in each operation that
-spreads it:
+A named GraphQL fragment generates a reusable Go struct that is embedded into
+every selection that spreads it:
 
 ```graphql
 fragment RepositoryFields on Repository {
@@ -270,20 +238,15 @@ type RepositoryFields struct {
 }
 ```
 
-When a field's selection is a single fragment spread, `@octoqlgen(flatten: true)`
-uses the fragment type directly instead of generating a wrapper struct. See the
+When a field's selection consists of a single fragment spread, annotate the
+field with `@octoqlgen(flatten: true)` to use the fragment struct directly
+instead of generating a wrapper struct. See the
 [directive reference](docs/directive.md#flatten).
 
-GraphQL enums generate a named string type with one constant per value. Use
-[`casing`](docs/configuration.md#casing) when the default GraphQL-to-Go name
-conversion is wrong for a schema, such as enums whose values differ only in
-casing.
-
-Interface and union selections generate one struct per implementation named by
-an applicable fragment, plus an `OctoqlOther` catch-all holding the shared
-fields and `__typename`. The catch-all represents implementations not selected
-by a fragment as well as implementation names the generated schema did not
-declare:
+GraphQL enums generate a named `string` type and one constant per schema value.
+Interface and union selections generate a Go interface, one concrete struct per
+implementation referenced in a fragment spread, and an `OctoqlOther` catch-all
+struct holding the shared fields and `__typename`:
 
 ```go
 switch node := response.Node.(type) {
@@ -296,58 +259,20 @@ case *githubapi.GetNodeNodeOctoqlOther:
 }
 ```
 
-Abstract values are interfaces, so they are never wrapped in pointers: a nil
-interface already represents GraphQL null. Set
+By default, enum values and abstract implementations remain open at runtime so
+generated clients stay forward-compatible when GitHub adds new enum values or
+schema types. Unrecognized enum strings unmarshal without error, and
+unrecognized `__typename` values decode into `OctoqlOther` (unless
 [`omit_unreferenced_implementations`](docs/configuration.md#omit_unreferenced_implementations)
-to false to generate a struct for every implementation the schema allows; the
-`OctoqlOther` catch-all is then not generated, and an unrecognized
-`__typename` produces an error.
-
-Generated clients deliberately leave enum values and, with the default
-configuration, abstract implementation names open at runtime. GitHub can add a
-valid value after a client is generated, and accepting it keeps that client
-forward compatible. The consequence is that `encoding/json` accepts an enum
-string outside the generated constants, while an unrecognized `__typename`
-decodes as `OctoqlOther` without an error or log. Go does not check type switches
-or enum switches for exhaustiveness.
-
-For access control and other decisions that must fail closed, enumerate the
-known cases and deny the default. A concrete-type assertion alone can silently
-skip the decision when an unrecognized implementation becomes the catch-all:
-
-```go
-switch actor := response.Actor.(type) {
-case *githubapi.GetActorActorUser:
-	return !actor.IsSuspended
-case *githubapi.GetActorActorBot:
-	return false
-default:
-	return false
-}
-```
-
-Comparing an enum to a generated constant is safe as a positive check. Do not
-treat inequality or an `else` branch as proof that the value is another known
-constant:
-
-```go
-switch permission {
-case githubapi.RepositoryPermissionAdmin:
-	return true
-case githubapi.RepositoryPermissionMaintain,
-	githubapi.RepositoryPermissionRead,
-	githubapi.RepositoryPermissionTriage,
-	githubapi.RepositoryPermissionWrite:
-	return false
-default:
-	return false
-}
-```
+is set to `false`). When writing authorization or policy checks that must fail
+closed, match known values explicitly and deny the `default` case. See
+[schema evolution and authorization checks](docs/SECURITY.md#schema-evolution-and-authorization-checks)
+for examples.
 
 ## Pagination
 
-GitHub connections are cursor paginated. Select `pageInfo`, then pass the
-previous `endCursor` back as the `after` argument:
+GitHub connections use cursor pagination. Request `pageInfo { hasNextPage endCursor }`
+and pass `endCursor` as the next request's `after` variable:
 
 ```graphql
 query ListIssues($owner: String!, $name: String!, $after: String) {
@@ -366,8 +291,8 @@ query ListIssues($owner: String!, $name: String!, $after: String) {
 }
 ```
 
-`after` is nullable, so it generates as `*string`, as does the `endCursor` it is
-fed from. Leave it nil for the first page:
+Both `$after` and `endCursor` are nullable and generate as `*string`. Start with
+`after = nil` on the first page:
 
 ```go
 var after *string
@@ -399,14 +324,9 @@ for {
 }
 ```
 
-The client never retries or sleeps on its own, so pace loops yourself and check
-`client.RateLimit()` between pages when walking large result sets. `nodes` is
-`[Issue]` in GitHub's schema, so its elements are nullable and generate as
-pointers.
-
 ## Generated types and GitHub defaults
 
-GraphQL's built-in scalars map to ordinary Go values:
+Built-in GraphQL scalars map to standard Go types:
 
 | GraphQL        | Go        |
 | -------------- | --------- |
@@ -415,44 +335,29 @@ GraphQL's built-in scalars map to ordinary Go values:
 | `String`, `ID` | `string`  |
 | `Boolean`      | `bool`    |
 
-Nullable named values generate as pointers by default. Use
-`@octoqlgen(pointer: false)` on an argument or selected field when its zero
-value should represent GraphQL null. octoqlgen includes bindings for common
-GitHub scalars; add a binding for unknown custom scalars. See the
+Nullable fields, variables, and list elements generate as pointers by default.
+Attach `@octoqlgen(pointer: false)` to a variable or field when its Go zero
+value should represent `null`, or `@octoqlgenDefaults(pointer: false)` on an
+operation or fragment to change the default for its selections.
+
+`octoqlgen` includes built-in bindings for common GitHub scalars such as
+`DateTime`, `URI`, `HTML`, and `GitObjectID`. Custom scalars can be mapped in
+`octoqlgen.yaml` under `bindings`. See the
 [configuration reference](docs/configuration.md) and
-[directive reference](docs/directive.md) for scalar bindings,
-abstract types, and field options.
+[directive reference](docs/directive.md) for details.
 
 ## Typed test handlers
 
-Generate a typed `http.Handler` from the configured operations:
+`octoqlgen` can generate a typed `http.Handler` alongside the client:
 
 ```yaml
 generated: internal/githubapi/generated.go
 test_handler:
   generated: internal/githubapitest/generated.go
-  types: client
 ```
 
-`types: client` is the default and makes handler response values assignable to
-generated client types.
-
-Use `types: local` to generate separate handler types:
-
-```yaml
-test_handler:
-  generated: internal/githubapitest/generated.go
-  types: local
-```
-
-Local handler values are not assignable to client types. Test-handler
-configuration requires query and mutation names to begin with an uppercase
-letter.
-
-After `go generate ./...`, each handler operation has matching
-`Expect<Operation>`, `Default<Operation>`, and `Reset<Operation>` methods. In a
-`_test.go` file, import the generated client package as `githubapi` and the
-generated handler package as `githubapitest`:
+For each operation, the generated handler provides `Expect<Operation>`,
+`Default<Operation>`, and `Reset<Operation>` methods:
 
 ```go
 handler := githubapitest.NewTestHandler(t)
@@ -481,46 +386,17 @@ require.NotNil(t, response.Repository)
 require.Equal(t, "octo-org/octo-repo", response.Repository.NameWithOwner)
 ```
 
-`Repository` is a pointer because `Query.repository` is nullable in GitHub's
-schema, so check it before dereferencing.
+Each `Expect<Operation>` expects one matching call by default, or you can chain
+`Times(n)` or `MinTimes(n)`. `Default<Operation>` registers a fallback when no
+expectation matches, and `Reset<Operation>` or `handler.Reset()` clears
+registered expectations. The handler is safe for concurrent requests and
+verifies unmet expectations during `t.Cleanup`.
 
-An expectation defaults to one call. Pass `Times(n)` to require exactly `n`,
-`MinTimes(n)` to set a minimum, or `MinTimes(0)` to create an unlimited stub.
-`Default<Operation>` is an unlimited fallback used when no expectation matches.
-`Reset<Operation>` clears expectations for one operation, and `handler.Reset()`
-clears them all. Cleanup verifies unmet expectations, and expectation state is
-safe for concurrent requests.
-
-Each expectation offers several ways to answer a request:
-
-| Method                                | Purpose                                                                                                    |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `Respond(data, options...)`           | Return typed response data                                                                                 |
-| `RespondError(err, options...)`       | Return a single GraphQL error with no data                                                                 |
-| `RespondDataAndErrors(data, errs...)` | Return partial data alongside GraphQL errors                                                               |
-| `Handle(fn)`                          | Serve the request with a custom function                                                                   |
-| `WithOptions(options...)`             | Apply response options to this expectation's `Respond`, `RespondError`, and `RespondDataAndErrors` replies |
-
-`WithOptions` does not affect `Handle`. The function passed to `Handle` is
-responsible for writing its own status and headers.
-
-`Handle` receives the `http.ResponseWriter` and, for operations that declare
-variables, the decoded variables.
-
-Response options adjust the HTTP reply. They may be passed to `Respond`,
-`RespondError`, or `WithOptions`. `RespondDataAndErrors` takes no options
-directly, so use `WithOptions` with it:
-
-| Option                               | Effect                               |
-| ------------------------------------ | ------------------------------------ |
-| `WithStatus(code)`                   | Set the HTTP status code             |
-| `WithHeader(name, values...)`        | Set one response header              |
-| `WithHeaders(header)`                | Set several response headers at once |
-| `WithPrimaryRateLimit(rateLimit)`    | Emit primary `X-RateLimit-*` headers |
-| `WithSecondaryRateLimit(retryAfter)` | Set the `Retry-After` header         |
-
-Together these cover the error paths that are otherwise hard to reproduce, such
-as exercising a client's rate-limit handling:
+Expectations can return typed data with `Respond`, GraphQL errors with
+`RespondError`, partial data with `RespondDataAndErrors`, or run a custom
+handler function with `Handle`. Response options such as `WithStatus`,
+`WithHeader`, `WithPrimaryRateLimit`, and `WithSecondaryRateLimit` let tests
+exercise error and rate-limit paths directly:
 
 ```go
 handler.ExpectGetRepository(variables).
@@ -529,6 +405,9 @@ handler.ExpectGetRepository(variables).
 		githubapitest.WithSecondaryRateLimit(30*time.Second),
 	)
 ```
+
+See [`test_handler` in the configuration reference](docs/configuration.md#test_handler)
+for `types: local` and other handler configuration options.
 
 ## Reference
 
