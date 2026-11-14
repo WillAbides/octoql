@@ -339,10 +339,17 @@ type RateLimit struct {
 
 // RateLimitError describes a response rejected because of a GitHub rate limit.
 type RateLimitError struct {
-	Kind       RateLimitKind
-	RateLimit  *RateLimit
+	// Kind identifies whether a primary or secondary rate limit rejected the request.
+	Kind RateLimitKind
+	// RateLimit holds the primary rate-limit snapshot when valid X-RateLimit-Limit,
+	// X-RateLimit-Remaining, and X-RateLimit-Used headers are present, and is nil
+	// otherwise.
+	RateLimit *RateLimit
+	// RetryAfter is the parsed Retry-After delay for RateLimitSecondary responses,
+	// and is zero for RateLimitPrimary responses.
 	RetryAfter time.Duration
-	Err        error
+	// Err is the wrapped response failure.
+	Err error
 
 	retryAt time.Time
 }
