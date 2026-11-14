@@ -22,9 +22,6 @@ func (f rateLimitRoundTripFunc) RoundTrip(request *http.Request) (*http.Response
 }
 
 func TestRateLimitFromHeader(t *testing.T) {
-	now := time.Date(2026, time.July, 18, 19, 0, 0, 0, time.UTC)
-	retryAt := now.Add(2 * time.Minute)
-
 	tests := map[string]struct {
 		want   *RateLimit
 		header http.Header
@@ -36,38 +33,56 @@ func TestRateLimitFromHeader(t *testing.T) {
 				"X-RateLimit-Used":      {"5000"},
 				"X-RateLimit-Reset":     {"1784404800"},
 				"X-RateLimit-Resource":  {" graphql "},
-				"retry-after":           {"30"},
 			},
 			want: &RateLimit{
-				Limit:      5000,
-				Remaining:  0,
-				Used:       5000,
-				Reset:      time.Unix(1784404800, 0).UTC(),
-				Resource:   "graphql",
-				RetryAfter: 30 * time.Second,
-				RetryAt:    now.Add(30 * time.Second),
+				Limit:     5000,
+				Remaining: 0,
+				Used:      5000,
+				Reset:     time.Unix(1784404800, 0).UTC(),
+				Resource:  "graphql",
 			},
 		},
-		"retry after HTTP date": {
+		"maximum int headers": {
 			header: http.Header{
-				"Retry-After": {retryAt.Format(http.TimeFormat)},
+				"X-RateLimit-Limit":     {strconv.Itoa(math.MaxInt)},
+				"X-RateLimit-Remaining": {strconv.Itoa(math.MaxInt)},
+				"X-RateLimit-Used":      {strconv.Itoa(math.MaxInt)},
 			},
 			want: &RateLimit{
-				RetryAfter: 2 * time.Minute,
-				RetryAt:    retryAt,
+				Limit:     math.MaxInt,
+				Remaining: math.MaxInt,
+				Used:      math.MaxInt,
 			},
 		},
-		"past retry after HTTP date": {
+		"max int plus one limit": {
 			header: http.Header{
-				"Retry-After": {now.Add(-time.Minute).Format(http.TimeFormat)},
+				"X-RateLimit-Limit":     {strconv.FormatUint(uint64(math.MaxInt)+1, 10)},
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {"5000"},
 			},
-			want: &RateLimit{
-				RetryAt: now.Add(-time.Minute),
+		},
+		"max int plus one remaining": {
+			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
+				"X-RateLimit-Remaining": {strconv.FormatUint(uint64(math.MaxInt)+1, 10)},
+				"X-RateLimit-Used":      {"5000"},
+			},
+		},
+		"max int plus one used": {
+			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {strconv.FormatUint(uint64(math.MaxInt)+1, 10)},
+			},
+		},
+		"incomplete numeric headers": {
+			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
+				"X-RateLimit-Remaining": {"0"},
 			},
 		},
 		"missing headers": {
 			header: http.Header{},
-			want:   &RateLimit{},
 		},
 		"malformed headers": {
 			header: http.Header{
@@ -75,9 +90,7 @@ func TestRateLimitFromHeader(t *testing.T) {
 				"X-RateLimit-Remaining": {"-1"},
 				"X-RateLimit-Used":      {"+1"},
 				"X-RateLimit-Reset":     {"-1"},
-				"Retry-After":           {"-1"},
 			},
-			want: &RateLimit{},
 		},
 		"overflow headers": {
 			header: http.Header{
@@ -85,16 +98,72 @@ func TestRateLimitFromHeader(t *testing.T) {
 				"X-RateLimit-Remaining": {"999999999999999999999999999999"},
 				"X-RateLimit-Used":      {"999999999999999999999999999999"},
 				"X-RateLimit-Reset":     {"999999999999999999999999999999"},
-				"Retry-After":           {"999999999999999999999999999999"},
 			},
-			want: &RateLimit{},
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := _octoqlRateLimitFromHeader(test.header, now)
-			assert.Equal(t, *test.want, got.RateLimit)
+			got := _octoqlRateLimitFromHeader(test.header)
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestRetryAfterFromHeader(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 19, 0, 0, 0, time.UTC)
+	retryAt := now.Add(2 * time.Minute)
+
+	tests := map[string]struct {
+		wantRetryAt    time.Time
+		header         http.Header
+		wantRetryAfter time.Duration
+		wantValid      bool
+	}{
+		"delta seconds": {
+			header: http.Header{
+				"retry-after": {"30"},
+			},
+			wantRetryAfter: 30 * time.Second,
+			wantRetryAt:    now.Add(30 * time.Second),
+			wantValid:      true,
+		},
+		"HTTP date": {
+			header: http.Header{
+				"Retry-After": {retryAt.Format(http.TimeFormat)},
+			},
+			wantRetryAfter: 2 * time.Minute,
+			wantRetryAt:    retryAt,
+			wantValid:      true,
+		},
+		"past HTTP date": {
+			header: http.Header{
+				"Retry-After": {now.Add(-time.Minute).Format(http.TimeFormat)},
+			},
+			wantRetryAt: now.Add(-time.Minute),
+			wantValid:   true,
+		},
+		"missing header": {
+			header: http.Header{},
+		},
+		"malformed header": {
+			header: http.Header{
+				"Retry-After": {"-1"},
+			},
+		},
+		"overflow header": {
+			header: http.Header{
+				"Retry-After": {"999999999999999999999999999999"},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotRetryAfter, gotRetryAt, gotValid := _octoqlRetryAfterFromHeader(test.header, now)
+			assert.Equal(t, test.wantValid, gotValid)
+			assert.Equal(t, test.wantRetryAfter, gotRetryAfter)
+			assert.Equal(t, test.wantRetryAt, gotRetryAt)
 		})
 	}
 }
@@ -150,22 +219,30 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 
 	tests := map[string]struct {
 		wantReset         time.Time
+		wantRateLimit     *RateLimit
 		body              string
 		header            http.Header
 		statusCode        int
-		wantRemaining     int
 		wantData          bool
 		wantRate          bool
 		wantSecond        bool
 		wantResponseError bool
 	}{
 		"primary limit on partial GraphQL response": {
+			wantRateLimit: &RateLimit{
+				Limit:     5000,
+				Remaining: 0,
+				Used:      5000,
+				Resource:  "graphql",
+			},
 			body: `{
 				"data":{"value":"partial"},
 				"errors":[{"type":"RATE_LIMITED","message":"quota exhausted"}]
 			}`,
 			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
 				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {"5000"},
 				"X-RateLimit-Resource":  {"graphql"},
 			},
 			statusCode:        http.StatusOK,
@@ -175,44 +252,53 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 		},
 		"primary limit with remaining points": {
 			wantReset: reset,
-			body:      `{"errors":[{"type":"RATE_LIMITED","message":"query cost exceeds remaining points"}]}`,
+			wantRateLimit: &RateLimit{
+				Limit:     5000,
+				Remaining: 3,
+				Used:      4997,
+				Reset:     reset,
+				Resource:  "graphql",
+			},
+			body: `{"errors":[{"type":"RATE_LIMITED","message":"query cost exceeds remaining points"}]}`,
 			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
 				"X-RateLimit-Remaining": {"3"},
+				"X-RateLimit-Used":      {"4997"},
 				"X-RateLimit-Reset":     {"1784404800"},
 				"X-RateLimit-Resource":  {"graphql"},
 			},
 			statusCode:        http.StatusOK,
-			wantRemaining:     3,
 			wantRate:          true,
 			wantResponseError: true,
 		},
-		"primary limit without remaining header": {
-			wantReset: reset,
-			body:      `{"errors":[{"type":"RATE_LIMITED","message":"quota exhausted"}]}`,
-			header: http.Header{
-				"X-RateLimit-Reset":    {"1784404800"},
-				"X-RateLimit-Resource": {"graphql"},
-			},
+		"primary limit without primary quota headers": {
+			body:              `{"errors":[{"type":"RATE_LIMITED","message":"quota exhausted"}]}`,
+			header:            http.Header{},
 			statusCode:        http.StatusOK,
 			wantRate:          true,
 			wantResponseError: true,
 		},
 		"primary limit on too many requests": {
-			wantReset: reset,
-			body:      `{"errors":[{"message":"too many requests"}]}`,
-			header: http.Header{
-				"X-RateLimit-Reset":    {"1784404800"},
-				"X-RateLimit-Resource": {"graphql"},
-			},
+			body:              `{"errors":[{"message":"too many requests"}]}`,
+			header:            http.Header{},
 			statusCode:        http.StatusTooManyRequests,
 			wantRate:          true,
 			wantResponseError: true,
 		},
 		"primary limit on forbidden response with zero remaining": {
 			wantReset: reset,
-			body:      `{"errors":[{"message":"API rate limit exceeded"}]}`,
+			wantRateLimit: &RateLimit{
+				Limit:     5000,
+				Remaining: 0,
+				Used:      5000,
+				Reset:     reset,
+				Resource:  "graphql",
+			},
+			body: `{"errors":[{"message":"API rate limit exceeded"}]}`,
 			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
 				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {"5000"},
 				"X-RateLimit-Reset":     {"1784404800"},
 				"X-RateLimit-Resource":  {"graphql"},
 			},
@@ -220,10 +306,21 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 			wantRate:          true,
 			wantResponseError: true,
 		},
+		"forbidden response with incomplete rate limit headers is not primary": {
+			body: `{"errors":[{"message":"API rate limit exceeded"}]}`,
+			header: http.Header{
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Reset":     {"1784404800"},
+			},
+			statusCode:        http.StatusForbidden,
+			wantResponseError: true,
+		},
 		"forbidden response with remaining points is not primary": {
 			body: `{"errors":[{"message":"forbidden"}]}`,
 			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
 				"X-RateLimit-Remaining": {"3"},
+				"X-RateLimit-Used":      {"4997"},
 				"X-RateLimit-Reset":     {"1784404800"},
 			},
 			statusCode:        http.StatusForbidden,
@@ -256,10 +353,17 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 			wantResponseError: true,
 		},
 		"secondary limit takes precedence": {
+			wantRateLimit: &RateLimit{
+				Limit:     5000,
+				Remaining: 0,
+				Used:      5000,
+			},
 			body: `{"errors":[{"message":"slow down"}]}`,
 			header: http.Header{
 				"Retry-After":           {"30"},
+				"X-RateLimit-Limit":     {"5000"},
 				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {"5000"},
 			},
 			statusCode:        http.StatusForbidden,
 			wantRate:          true,
@@ -291,7 +395,9 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 		"successful response with zero remaining": {
 			body: `{"data":{"value":"complete"}}`,
 			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
 				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {"5000"},
 			},
 			statusCode: http.StatusOK,
 			wantData:   true,
@@ -299,7 +405,9 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 		"unrelated GraphQL error with zero remaining": {
 			body: `{"errors":[{"type":"FORBIDDEN","message":"field unavailable"}]}`,
 			header: http.Header{
+				"X-RateLimit-Limit":     {"5000"},
 				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Used":      {"5000"},
 			},
 			statusCode:        http.StatusOK,
 			wantResponseError: true,
@@ -342,17 +450,18 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 					wantKind = RateLimitSecondary
 				}
 				assert.Equal(t, wantKind, rateLimitError.Kind)
-				assert.Equal(t, test.wantRemaining, rateLimitError.RateLimit.Remaining)
-				assert.Equal(t, test.wantReset, rateLimitError.RateLimit.Reset)
+				assert.Equal(t, test.wantRateLimit, rateLimitError.RateLimit)
 				var facet rateLimitFacet
 				require.ErrorAs(t, err, &facet)
 				assert.Equal(t, string(wantKind), facet.RateLimitKind())
 				if test.wantSecond {
-					assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
-					assert.Equal(t, now.Add(30*time.Second), rateLimitError.RateLimit.RetryAt)
+					assert.Equal(t, 30*time.Second, rateLimitError.RetryAfter)
+					assert.Equal(t, now.Add(30*time.Second), rateLimitError.RetryAt())
 					assert.Equal(t, now.Add(30*time.Second), facet.RetryAt())
 				}
 				if !test.wantSecond {
+					assert.Zero(t, rateLimitError.RetryAfter)
+					assert.Equal(t, test.wantReset, rateLimitError.RetryAt())
 					assert.Equal(t, test.wantReset, facet.RetryAt())
 				}
 			}
@@ -374,11 +483,76 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 	}
 }
 
+type delayedReader struct {
+	reader  io.Reader
+	onRead  func()
+	started bool
+}
+
+func (r *delayedReader) Read(buffer []byte) (int, error) {
+	if !r.started {
+		r.started = true
+		r.onRead()
+	}
+	return r.reader.Read(buffer)
+}
+
+func TestDoAnchorsRetryAfterToResponseArrival(t *testing.T) {
+	arrival := time.Date(2026, time.July, 18, 19, 0, 0, 0, time.UTC)
+	currentNow := arrival
+	clockReads := 0
+	previousNow := _octoqlRateLimitNow
+	_octoqlRateLimitNow = func() time.Time {
+		clockReads++
+		return currentNow
+	}
+	t.Cleanup(func() {
+		_octoqlRateLimitNow = previousNow
+	})
+
+	successClient := rateLimitClient(
+		http.StatusOK,
+		http.Header{},
+		`{"data":{"value":"ok"}}`,
+	)
+	_, err := doRateLimitOperation[struct {
+		Value string `json:"value"`
+	}](t, successClient)
+	require.NoError(t, err)
+	assert.Zero(t, clockReads)
+
+	slowFailureClient := NewClient(
+		"https://api.github.com/graphql",
+		&http.Client{Transport: rateLimitRoundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header: http.Header{
+					"Retry-After": {"30"},
+				},
+				Body: io.NopCloser(&delayedReader{
+					reader: strings.NewReader(`{"errors":[{"message":"slow down"}]}`),
+					onRead: func() {
+						currentNow = currentNow.Add(5 * time.Second)
+					},
+				}),
+			}, nil
+		})},
+	)
+
+	_, err = doRateLimitOperation[struct{}](t, slowFailureClient)
+	rateLimitError, ok := errors.AsType[*RateLimitError](err)
+	require.True(t, ok)
+	assert.Equal(t, 30*time.Second, rateLimitError.RetryAfter)
+	assert.Equal(t, arrival.Add(30*time.Second), rateLimitError.RetryAt())
+}
+
 func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
 	transportHeader := http.Header{
 		"X-GitHub-Request-ID":   {"request-rate-limit"},
 		"Retry-After":           {"30"},
+		"X-RateLimit-Limit":     {"5000"},
 		"X-RateLimit-Remaining": {"0"},
+		"X-RateLimit-Used":      {"5000"},
 	}
 	client := rateLimitClient(
 		http.StatusForbidden,
@@ -390,29 +564,30 @@ func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
 	assert.Nil(t, response)
 	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)
+	require.NotNil(t, rateLimitError.RateLimit)
 	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
 
 	transportHeader.Set("Retry-After", "99")
-	assert.Equal(t, 30*time.Second, rateLimitError.RateLimit.RetryAfter)
+	rateLimitError.RateLimit.Remaining = 99
+	assert.Equal(t, 30*time.Second, rateLimitError.RetryAfter)
 	assert.Equal(t, "request-rate-limit", responseError.RequestID)
+	snapshot, known := client.RateLimit()
+	require.True(t, known)
+	assert.Zero(t, snapshot.Remaining)
 }
 
 func TestClientRateLimitNewestObservationWins(t *testing.T) {
 	client := &Client{}
-	client._octoqlObserveRateLimit(2, &_octoqlParsedRateLimit{
-		RateLimit: RateLimit{
-			Remaining: 20,
-			Used:      80,
-		},
-		remainingValid: true,
+	client._octoqlObserveRateLimit(2, &RateLimit{
+		Limit:     100,
+		Remaining: 20,
+		Used:      80,
 	})
-	client._octoqlObserveRateLimit(1, &_octoqlParsedRateLimit{
-		RateLimit: RateLimit{
-			Remaining: 90,
-			Used:      10,
-		},
-		remainingValid: true,
+	client._octoqlObserveRateLimit(1, &RateLimit{
+		Limit:     100,
+		Remaining: 90,
+		Used:      10,
 	})
 
 	rateLimit, known := client.RateLimit()
@@ -428,11 +603,10 @@ func TestClientRateLimitConcurrentAccess(t *testing.T) {
 		waitGroup.Add(2)
 		go func() {
 			defer waitGroup.Done()
-			client._octoqlObserveRateLimit(observation, &_octoqlParsedRateLimit{
-				RateLimit: RateLimit{
-					Remaining: int(observation),
-				},
-				remainingValid: true,
+			client._octoqlObserveRateLimit(observation, &RateLimit{
+				Limit:     100,
+				Remaining: int(observation),
+				Used:      100 - int(observation),
 			})
 		}()
 		go func() {

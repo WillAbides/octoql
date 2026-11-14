@@ -791,13 +791,11 @@ type Error struct {
 }
 
 type RateLimit struct {
-	Limit      int
-	Remaining  int
-	Used       int
-	Reset      time.Time
-	Resource   string
-	RetryAfter time.Duration
-	RetryAt    time.Time
+	Limit     int
+	Remaining int
+	Used      int
+	Reset     time.Time
+	Resource  string
 }
 
 type testTB interface {

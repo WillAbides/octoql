@@ -36,9 +36,12 @@ func (e *RateLimitError) RetryAt() {{ref "time.Time"}} {
 		return {{ref "time.Time"}}{}
 	}
 	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return {{ref "time.Time"}}{}
+		}
 		return e.RateLimit.Reset
 	}
-	return e.RateLimit.RetryAt
+	return e.retryAt
 }
 
 // GraphQLErrorCount returns the number of GraphQL errors.

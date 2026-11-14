@@ -300,32 +300,33 @@ const (
 	RateLimitSecondary RateLimitKind = "secondary"
 )
 
-// RateLimit describes the rate-limit headers returned by GitHub.
+// RateLimit describes GitHub's primary rate-limit response headers.
 //
-// Missing or malformed response headers leave their corresponding fields at
-// their zero values.
+// Missing or malformed Reset and Resource headers leave their corresponding
+// fields at their zero values.
 type RateLimit struct {
-	Limit      int
-	Remaining  int
-	Used       int
-	Reset      {{ ref "time.Time" }}
-	Resource   string
-	RetryAfter {{ ref "time.Duration" }}
-	RetryAt    {{ ref "time.Time" }}
-}
-
-type _octoqlParsedRateLimit struct {
-	RateLimit
-
-	remainingValid  bool
-	retryAfterValid bool
+	Limit     int
+	Remaining int
+	Used      int
+	Reset     {{ ref "time.Time" }}
+	Resource  string
 }
 
 // RateLimitError describes a response rejected because of a GitHub rate limit.
 type RateLimitError struct {
-	Kind      RateLimitKind
-	RateLimit RateLimit
-	Err       error
+	// Kind identifies whether a primary or secondary rate limit rejected the request.
+	Kind RateLimitKind
+	// RateLimit holds the primary rate-limit snapshot when valid X-RateLimit-Limit,
+	// X-RateLimit-Remaining, and X-RateLimit-Used headers are present, and is nil
+	// otherwise.
+	RateLimit *RateLimit
+	// RetryAfter is the parsed Retry-After delay for RateLimitSecondary responses,
+	// and is zero for RateLimitPrimary responses.
+	RetryAfter {{ ref "time.Duration" }}
+	// Err is the wrapped response failure.
+	Err error
+
+	retryAt {{ ref "time.Time" }}
 }
 
 // Error returns a summary of the rate-limit failure.
@@ -354,47 +355,31 @@ func _octoqlMaxUnixSeconds() uint64 {
 	return uint64({{ ref "math.MaxInt64" }} + firstUnixSecond)
 }
 
-func _octoqlRateLimitFromHeader(header {{ ref "net/http.Header" }}, now {{ ref "time.Time" }}) _octoqlParsedRateLimit {
-	rateLimit := _octoqlParsedRateLimit{}
-
-	limit, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Limit")
-	if valid {
-		rateLimit.Limit = limit
+func _octoqlRateLimitFromHeader(header {{ ref "net/http.Header" }}) *RateLimit {
+	limit, ok := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Limit")
+	if !ok {
+		return nil
 	}
-	remaining, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Remaining")
-	if valid {
-		rateLimit.Remaining = remaining
-		rateLimit.remainingValid = true
+	remaining, ok := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Remaining")
+	if !ok {
+		return nil
 	}
-	used, valid := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Used")
-	if valid {
-		rateLimit.Used = used
+	used, ok := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Used")
+	if !ok {
+		return nil
 	}
-	reset, valid := _octoqlNonnegativeHeaderUnix(header, "X-RateLimit-Reset")
-	if valid {
-		rateLimit.Reset = reset
+	reset, _ := _octoqlNonnegativeHeaderUnix(header, "X-RateLimit-Reset")
+	return &RateLimit{
+		Limit:     limit,
+		Remaining: remaining,
+		Used:      used,
+		Reset:     reset,
+		Resource:  {{ ref "strings.TrimSpace" }}(_octoqlHeaderValue(header, "X-RateLimit-Resource")),
 	}
-	rateLimit.Resource = {{ ref "strings.TrimSpace" }}(_octoqlHeaderValue(header, "X-RateLimit-Resource"))
-
-	retryAfter, retryAt, valid := _octoqlRetryAfterFromHeader(header, now)
-	if valid {
-		rateLimit.RetryAfter = retryAfter
-		rateLimit.RetryAt = retryAt
-		rateLimit.retryAfterValid = true
-	}
-
-	return rateLimit
-}
-
-func (r *_octoqlParsedRateLimit) _octoqlPrimarySnapshot() RateLimit {
-	snapshot := r.RateLimit
-	snapshot.RetryAfter = 0
-	snapshot.RetryAt = {{ ref "time.Time" }}{}
-	return snapshot
 }
 
 func _octoqlNonnegativeHeaderInt(header {{ ref "net/http.Header" }}, name string) (int, bool) {
-	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), {{ ref "strconv.IntSize" }})
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), {{ ref "strconv.IntSize" }}-1)
 	if !valid {
 		return 0, false
 	}
@@ -466,23 +451,37 @@ func _octoqlHeaderValue(header {{ ref "net/http.Header" }}, name string) string 
 	return ""
 }
 
-func _octoqlClassifyRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit, err error) error {
-	if err == nil || !_octoqlIsRateLimitStatus(statusCode) {
+func _octoqlClassifyRateLimit(
+	httpResponse *{{ ref "net/http.Response" }},
+	rateLimit *RateLimit,
+	retryAfterNow {{ ref "time.Time" }},
+	err error,
+) error {
+	if err == nil || httpResponse == nil || !_octoqlIsRateLimitStatus(httpResponse.StatusCode) {
 		return err
 	}
 
-	if rateLimit.retryAfterValid {
+	if retryAfterNow.IsZero() {
+		retryAfterNow = _octoqlRateLimitNow()
+	}
+	retryAfter, retryAt, retryAfterValid := _octoqlRetryAfterFromHeader(
+		httpResponse.Header,
+		retryAfterNow,
+	)
+	if retryAfterValid {
 		return &RateLimitError{
-			Kind:      RateLimitSecondary,
-			RateLimit: rateLimit.RateLimit,
-			Err:       err,
+			Kind:       RateLimitSecondary,
+			RateLimit:  rateLimit,
+			RetryAfter: retryAfter,
+			Err:        err,
+			retryAt:    retryAt,
 		}
 	}
 
-	if _octoqlIsPrimaryRateLimit(statusCode, rateLimit, err) {
+	if _octoqlIsPrimaryRateLimit(httpResponse.StatusCode, rateLimit, err) {
 		return &RateLimitError{
 			Kind:      RateLimitPrimary,
-			RateLimit: rateLimit.RateLimit,
+			RateLimit: rateLimit,
 			Err:       err,
 		}
 	}
@@ -498,12 +497,12 @@ func _octoqlIsRateLimitStatus(statusCode int) bool {
 	}
 }
 
-func _octoqlIsPrimaryRateLimit(statusCode int, rateLimit *_octoqlParsedRateLimit, err error) bool {
+func _octoqlIsPrimaryRateLimit(statusCode int, rateLimit *RateLimit, err error) bool {
 	switch statusCode {
 	case {{ ref "net/http.StatusTooManyRequests" }}:
 		return true
 	case {{ ref "net/http.StatusForbidden" }}:
-		if rateLimit.remainingValid && rateLimit.Remaining == 0 {
+		if rateLimit != nil && rateLimit.Remaining == 0 {
 			return true
 		}
 	}
@@ -666,8 +665,8 @@ func (c *Client) SetResponseSizeLimit(limit int64) error {
 }
 
 // RateLimit returns the latest valid primary rate-limit snapshot observed by
-// client. The boolean is false until a response includes a valid
-// X-RateLimit-Remaining header.
+// client. The boolean is false until a response includes valid
+// X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Used headers.
 //
 // The snapshot is advisory: other clients and processes can consume the same
 // GitHub rate-limit budget after it is observed.
@@ -738,9 +737,15 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 		return false, {{ ref "fmt.Errorf" }}("send graphql request: %w", sendErr)
 	}
 
+	var retryAfterNow {{ ref "time.Time" }}
+	if _octoqlIsRateLimitStatus(httpResponse.StatusCode) &&
+		{{ ref "strings.TrimSpace" }}(_octoqlHeaderValue(httpResponse.Header, "Retry-After")) != "" {
+		retryAfterNow = _octoqlRateLimitNow()
+	}
+
 	observation := c.responseObservation.Add(1)
-	rateLimit := _octoqlRateLimitFromHeader(httpResponse.Header, _octoqlRateLimitNow())
-	c._octoqlObserveRateLimit(observation, &rateLimit)
+	rateLimit := _octoqlRateLimitFromHeader(httpResponse.Header)
+	c._octoqlObserveRateLimit(observation, rateLimit)
 
 	statusCode := httpResponse.StatusCode
 	requestID := _octoqlRequestIDFromHeader(httpResponse.Header)
@@ -751,7 +756,7 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, retryAfterNow, responseError)
 	}
 
 	if httpResponse.Body == nil {
@@ -761,7 +766,7 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 			requestID:  requestID,
 			err:        cause,
 		})
-		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, retryAfterNow, responseError)
 	}
 
 	body, readErr, closeErr := _octoqlReadAndClose(
@@ -779,7 +784,7 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 			bodyTruncated: responseTooLarge,
 			err:           cause,
 		})
-		return false, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
+		return false, _octoqlClassifyRateLimit(httpResponse, rateLimit, retryAfterNow, responseError)
 	}
 
 	data, graphqlErrors, decodeErr := _octoqlDecodeResponse(body)
@@ -821,15 +826,15 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 		retainBody: retainBody,
 		err:        cause,
 	})
-	return hasUsableData, _octoqlClassifyRateLimit(statusCode, &rateLimit, responseError)
+	return hasUsableData, _octoqlClassifyRateLimit(httpResponse, rateLimit, retryAfterNow, responseError)
 }
 
-func (c *Client) _octoqlObserveRateLimit(observation uint64, parsed *_octoqlParsedRateLimit) {
-	if c == nil || parsed == nil || !parsed.remainingValid {
+func (c *Client) _octoqlObserveRateLimit(observation uint64, rateLimit *RateLimit) {
+	if c == nil || rateLimit == nil {
 		return
 	}
 
-	rateLimit := parsed._octoqlPrimarySnapshot()
+	copied := *rateLimit
 	c.rateLimitMu.Lock()
 	defer c.rateLimitMu.Unlock()
 
@@ -838,7 +843,7 @@ func (c *Client) _octoqlObserveRateLimit(observation uint64, parsed *_octoqlPars
 	if hasNewerObservation {
 		return
 	}
-	c.rateLimit = &rateLimit
+	c.rateLimit = &copied
 	c.rateLimitObservation = observation
 }
 

@@ -189,12 +189,12 @@ GraphQL errors, rate-limit metadata, and partial data are independent facets on
 the returned error chain. Inspect whichever facets your caller needs with
 `errors.AsType`:
 
-| Facet                          | Carries                                                                        | Present when                                                  |
-| ------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| `*ResponseError`               | `StatusCode`, `RequestID`, and a size-capped `RawBody`                         | Any failure after an HTTP response was received               |
-| `Errors`                       | A `[]*Error` with `Message`, `Path`, `Locations`, and `Extensions`             | The response contained GraphQL errors                         |
-| `*RateLimitError`              | `Kind` (`RateLimitPrimary` or `RateLimitSecondary`) and a `RateLimit` snapshot | The failing response carried rate-limit signals (see below)   |
-| `*<Operation>PartialDataError` | Typed `PartialData()` for that operation                                       | `data` was non-null and decoded successfully alongside errors |
+| Facet                          | Carries                                                                                                    | Present when                                                  |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `*ResponseError`               | `StatusCode`, `RequestID`, and a size-capped `RawBody`                                                     | Any failure after an HTTP response was received               |
+| `Errors`                       | A `[]*Error` with `Message`, `Path`, `Locations`, and `Extensions`                                         | The response contained GraphQL errors                         |
+| `*RateLimitError`              | `Kind` (`RateLimitPrimary` or `RateLimitSecondary`), optional `*RateLimit`, `RetryAfter`, and `RetryAt()` | The failing response carried rate-limit signals (see below)   |
+| `*<Operation>PartialDataError` | Typed `PartialData()` for that operation                                                                   | `data` was non-null and decoded successfully alongside errors |
 
 Transport errors that occur before an HTTP response is received do not include
 `*ResponseError`.
@@ -207,7 +207,14 @@ or secondary rate-limit signals:
 - **`RateLimitPrimary`** applies when `RateLimitSecondary` does not match and
   the response either contains a GraphQL error with `type == "RATE_LIMITED"`
   (on status `200`, `403`, or `429`), has HTTP status `429`, or has HTTP status
-  `403` with `X-RateLimit-Remaining: 0`.
+  `403` with valid `X-RateLimit-Limit`, `X-RateLimit-Used`, and
+  `X-RateLimit-Remaining: 0` headers.
+
+`Retry-After` is never set on `5xx` responses, so `octoql` surfaces
+`Retry-After` only on `*RateLimitError`. `RateLimitError.RateLimit` is non-nil
+only when the response includes valid `X-RateLimit-Limit`,
+`X-RateLimit-Remaining`, and `X-RateLimit-Used` headers, so `Remaining == 0` is
+distinct from missing rate-limit headers.
 
 Call `client.RateLimit()` at any time to read a concurrency-safe snapshot of the
 most recently observed primary rate-limit headers. The generated client never

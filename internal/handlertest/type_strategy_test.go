@@ -294,17 +294,41 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			name:      "secondary rate limit http 200",
 			operation: "GetNode",
 			variables: map[string]any{"id": "secondary-200"},
+			headers: []responseHeaderExpectation{
+				{
+					name:  "X-RateLimit-Limit",
+					value: "",
+				},
+				{
+					name:  "X-RateLimit-Remaining",
+					value: "",
+				},
+				{
+					name:  "X-RateLimit-Used",
+					value: "",
+				},
+				{
+					name:  "Retry-After",
+					value: "30",
+				},
+			},
 			configureClient: func(handler *clienttypes.TestHandler) {
 				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "secondary-200"}).
 					RespondError(
-						clienttypes.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
+						clienttypes.Error{
+							Type:    "ABUSE_DETECTED",
+							Message: "slow down",
+						},
 						clienttypes.WithSecondaryRateLimit(30*time.Second),
 					)
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
 				handler.ExpectGetNode(localtypes.GetNodeVariables{Id: "secondary-200"}).
 					RespondError(
-						localtypes.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
+						localtypes.Error{
+							Type:    "ABUSE_DETECTED",
+							Message: "slow down",
+						},
 						localtypes.WithSecondaryRateLimit(30*time.Second),
 					)
 			},
@@ -324,6 +348,11 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			assert.Equal(t, clientResponse.Code, localResponse.Code)
 			assert.Equal(t, clientResponse.Header(), localResponse.Header())
 			for _, header := range test.headers {
+				if header.value == "" {
+					assert.Empty(t, clientResponse.Header().Values(header.name))
+					assert.Empty(t, localResponse.Header().Values(header.name))
+					continue
+				}
 				assert.Equal(t, header.value, clientResponse.Header().Get(header.name))
 				assert.Equal(t, header.value, localResponse.Header().Get(header.name))
 			}

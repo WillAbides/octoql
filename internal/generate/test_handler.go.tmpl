@@ -30,13 +30,11 @@ type Error struct {
 }
 
 type RateLimit struct {
-	Limit      int
-	Remaining  int
-	Used       int
-	Reset      {{ref "time.Time"}}
-	Resource   string
-	RetryAfter {{ref "time.Duration"}}
-	RetryAt    {{ref "time.Time"}}
+	Limit     int
+	Remaining int
+	Used      int
+	Reset     {{ref "time.Time"}}
+	Resource  string
 }
 
 {{range .LocalAliases -}}
