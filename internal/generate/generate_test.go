@@ -222,6 +222,8 @@ func TestGenerateNormalizesConfig(t *testing.T) {
 	for name, content := range map[string]string{
 		"go.mod":                     "module example.com/app\n\ngo 1.27.3\n",
 		"client/existing.go":         "package api\n\nfunc unfinished(",
+		"client/gen.go":              "//go:build ignore\n\npackage main\n",
+		"client/_ignored.go":         "package scratch\n",
 		"client/api_test.go":         "package api_test\n",
 		"client/generated.go":        "not a package clause\n",
 		"githubapitest/generated.go": "",

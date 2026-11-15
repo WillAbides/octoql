@@ -3,6 +3,7 @@ package generate
 import (
 	"cmp"
 	"fmt"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"io"
@@ -90,6 +91,13 @@ func getPackageNameAndPath(filename, fallbackPackage string) (string, string, er
 			continue
 		}
 		if filepath.Join(dir, name) == abs {
+			continue
+		}
+		matched, matchErr := build.Default.MatchFile(dir, name)
+		if matchErr != nil {
+			return "", pkgPath, matchErr
+		}
+		if !matched {
 			continue
 		}
 		file, parseErr := parser.ParseFile(

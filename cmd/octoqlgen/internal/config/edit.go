@@ -77,6 +77,8 @@ func UpdatePin(content []byte, sha256, revision string) ([]byte, error) {
 	return []byte(strings.Join(lines, "")), nil
 }
 
+var errMissingMappingKey = errors.New("config is missing key")
+
 func mappingNode(parent *yaml.Node, key string) (*yaml.Node, error) {
 	val, err := lookupMappingKey(parent, key)
 	if err != nil {
@@ -84,6 +86,9 @@ func mappingNode(parent *yaml.Node, key string) (*yaml.Node, error) {
 	}
 	if val.Kind == yaml.AliasNode {
 		return nil, errors.New("config pin must not use a shared YAML alias")
+	}
+	if val.Anchor != "" {
+		return nil, errors.New("config pin must not define a YAML anchor; remove the anchor before updating")
 	}
 	if val.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("config value %q must be a mapping", key)
@@ -113,11 +118,50 @@ func lookupMappingKey(node *yaml.Node, key string) (*yaml.Node, error) {
 		return nil, fmt.Errorf("config value %q must be a mapping", key)
 	}
 	for index := 0; index+1 < len(node.Content); index += 2 {
-		if node.Content[index].Value == key {
+		if !isMergeKey(node.Content[index]) && node.Content[index].Value == key {
 			return node.Content[index+1], nil
 		}
 	}
-	return nil, fmt.Errorf("config is missing key %q", key)
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if !isMergeKey(node.Content[index]) {
+			continue
+		}
+		candidates := []*yaml.Node{node.Content[index+1]}
+		if node.Content[index+1].Kind == yaml.SequenceNode {
+			candidates = node.Content[index+1].Content
+		}
+		for _, candidate := range candidates {
+			if candidate.Kind == yaml.AliasNode {
+				_, aliasErr := lookupMappingKey(candidate.Alias, key)
+				if aliasErr == nil {
+					return nil, errors.New("config pin must not use a shared YAML alias")
+				}
+				if !errors.Is(aliasErr, errMissingMappingKey) {
+					return nil, aliasErr
+				}
+				continue
+			}
+			found, err := lookupMappingKey(candidate, key)
+			if errors.Is(err, errMissingMappingKey) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			if candidate.Anchor != "" {
+				return nil, errors.New("config pin must not define a YAML anchor; remove the anchor before updating")
+			}
+			return found, nil
+		}
+	}
+	return nil, fmt.Errorf("%w %q", errMissingMappingKey, key)
+}
+
+func isMergeKey(node *yaml.Node) bool {
+	if node.Kind != yaml.ScalarNode || node.Value != "<<" {
+		return false
+	}
+	return node.Tag == "!!merge" || (node.Tag == "" && node.Style == 0)
 }
 
 func replaceScalar(lines []string, node *yaml.Node, newValue string) error {

@@ -192,9 +192,20 @@ func writeFileExclusive(destination string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	_, writeErr := file.Write(data)
+	return writeAndCloseExclusive(destination, file, data)
+}
+
+func writeAndCloseExclusive(destination string, file io.WriteCloser, data []byte) error {
+	written, writeErr := file.Write(data)
+	if writeErr == nil && written < len(data) {
+		writeErr = io.ErrShortWrite
+	}
 	closeErr := file.Close()
-	return errors.Join(writeErr, closeErr)
+	err := errors.Join(writeErr, closeErr)
+	if err != nil {
+		return errors.Join(err, os.Remove(destination))
+	}
+	return nil
 }
 
 type schemaUpdateCommand struct {

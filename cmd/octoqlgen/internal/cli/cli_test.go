@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -245,7 +246,28 @@ func TestRunInit(t *testing.T) {
 		require.ErrorIs(t, statErr, os.ErrNotExist)
 		_, statErr = os.Stat(filepath.Join(failedDir, ".octoql", "schema.graphql"))
 		require.ErrorIs(t, statErr, os.ErrNotExist)
+
+		partialPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
+		createdFile, err := os.OpenFile(partialPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		require.NoError(t, err)
+		err = writeAndCloseExclusive(partialPath, &failingWriteCloser{file: createdFile}, []byte("data"))
+		require.ErrorContains(t, err, "disk full")
+		_, statErr = os.Stat(partialPath)
+		require.ErrorIs(t, statErr, os.ErrNotExist)
+		require.NoError(t, createFileNoReplace(partialPath, []byte("recovered\n")))
 	})
+}
+
+type failingWriteCloser struct {
+	file *os.File
+}
+
+func (w *failingWriteCloser) Write([]byte) (int, error) {
+	return 0, errors.New("disk full")
+}
+
+func (w *failingWriteCloser) Close() error {
+	return w.file.Close()
 }
 
 func TestRunSchema(t *testing.T) {
@@ -413,6 +435,30 @@ func TestRunSchema(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, internal.DirectiveFileContents, string(companion))
 
+		mergedDir := t.TempDir()
+		mergedConfig := filepath.Join(mergedDir, "octoqlgen.yaml")
+		require.NoError(t, os.WriteFile(mergedConfig, []byte(
+			"schema:\n"+
+				"  path: schema.graphql\n"+
+				"  <<: {sha256: "+cliSchemaSHA256+"}\n"+
+				"  source:\n"+
+				"    repository: github/docs\n"+
+				"    path: "+docPath+"\n"+
+				"    revision: "+cliRevision+"\n"+
+				"operations: []\n"+
+				"generated: generated.go\n",
+		), 0o600))
+		remote.expectDocsCommit(docPath, updatedRevision)
+		err = Run([]string{"schema", "update", "--config", mergedConfig}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: remote.materializer,
+		})
+		require.NoError(t, err)
+		updatedMerged, err := os.ReadFile(mergedConfig)
+		require.NoError(t, err)
+		assert.Contains(t, string(updatedMerged), "<<: {sha256: "+updatedSHA256+"}")
+		assert.Contains(t, string(updatedMerged), "revision: "+updatedRevision)
+
 		for name, badConfig := range map[string]struct {
 			yaml    string
 			wantErr string
@@ -427,6 +473,21 @@ func TestRunSchema(t *testing.T) {
 					"schema:\n  path: schema.graphql\n  sha256: *checksum\n  source:\n" +
 					"    repository: github/docs\n    path: " + docPath + "\n    revision: " + cliRevision + "\n" +
 					"generated: generated.go\n",
+				wantErr: "shared YAML alias",
+				needsGH: true,
+			},
+			"merged YAML alias": {
+				yaml: "schema:\n  path: schema.graphql\n  <<: &shared {sha256: " + cliSchemaSHA256 + "}\n  source:\n" +
+					"    repository: github/docs\n    path: " + docPath + "\n    revision: " + cliRevision + "\n" +
+					"operations: []\ngenerated: generated.go\n",
+				wantErr: "must not define a YAML anchor",
+				needsGH: true,
+			},
+			"merged shared alias reference": {
+				yaml: "bindings: &shared\n  sha256: " + cliSchemaSHA256 + "\n" +
+					"schema:\n  path: schema.graphql\n  <<: *shared\n  source:\n" +
+					"    repository: github/docs\n    path: " + docPath + "\n    revision: " + cliRevision + "\n" +
+					"operations: []\ngenerated: generated.go\n",
 				wantErr: "shared YAML alias",
 				needsGH: true,
 			},
