@@ -413,7 +413,7 @@ handler.ExpectGetRepository(variables).
 ```
 
 See [`test_handler` in the configuration reference](docs/configuration.md#test_handler)
-for `types: local` and other handler configuration options.
+for handler configuration details.
 
 ## Reference
 

@@ -116,6 +116,93 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `"fallback"`, string(fallbackResp.EchoProperty))
 
+	const largeInteger = int64(9_007_199_254_740_993)
+	updatedAt := time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC)
+
+	handler.ExpectCreateRepository(githubapi.CreateRepositoryVariables{
+		Input: githubapi.CreateRepositoryInput{
+			Name:             "created",
+			OwnerId:          new("O1"),
+			Visibility:       new(githubapi.RepositoryVisibilityPrivate),
+			ClientMutationId: new("mutation-1"),
+		},
+	}).Respond(githubapi.CreateRepositoryResponse{
+		CreateRepository: githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
+			Repository: new(githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+				Id:            "R2",
+				NameWithOwner: "octo-org/created",
+				UpdatedAt:     updatedAt,
+			}),
+			ClientMutationId: new("mutation-1"),
+		},
+	})
+	createResp, err := client.CreateRepository(t.Context(), githubapi.CreateRepositoryVariables{
+		Input: githubapi.CreateRepositoryInput{
+			Name:             "created",
+			OwnerId:          new("O1"),
+			Visibility:       new(githubapi.RepositoryVisibilityPrivate),
+			ClientMutationId: new("mutation-1"),
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResp.CreateRepository.Repository)
+	assert.Equal(t, "octo-org/created", createResp.CreateRepository.Repository.NameWithOwner)
+
+	handler.ExpectGetNode(githubapi.GetNodeVariables{Id: "user"}).
+		Respond(githubapi.GetNodeResponse{
+			Node: &githubapi.GetNodeNodeOctoqlOther{
+				Typename: "User",
+				Id:       "U1",
+			},
+		})
+	userNodeResp, err := client.GetNode(t.Context(), githubapi.GetNodeVariables{Id: "user"})
+	require.NoError(t, err)
+	otherNode, ok := userNodeResp.Node.(*githubapi.GetNodeNodeOctoqlOther)
+	require.True(t, ok)
+	assert.Equal(t, "User", otherNode.Typename)
+	assert.Equal(t, "U1", otherNode.Id)
+
+	handler.ExpectSearch(githubapi.SearchVariables{Query: "octo"}).
+		Respond(githubapi.SearchResponse{
+			Search: []githubapi.SearchSearchSearchResultItem{
+				&githubapi.SearchSearchRepository{
+					Id:            "R1",
+					NameWithOwner: "octo-org/octo-repo",
+				},
+				&githubapi.SearchSearchIssue{Id: "I1", Title: "bug"},
+				&githubapi.SearchSearchSearchResultItemOctoqlOther{
+					Typename: "User",
+				},
+			},
+		})
+	searchResp, err := client.Search(t.Context(), githubapi.SearchVariables{Query: "octo"})
+	require.NoError(t, err)
+	require.Len(t, searchResp.Search, 3)
+	searchRepo, ok := searchResp.Search[0].(*githubapi.SearchSearchRepository)
+	require.True(t, ok)
+	assert.Equal(t, "octo-org/octo-repo", searchRepo.NameWithOwner)
+	searchOther, ok := searchResp.Search[2].(*githubapi.SearchSearchSearchResultItemOctoqlOther)
+	require.True(t, ok)
+	assert.Equal(t, "User", searchOther.Typename)
+
+	handler.ExpectEchoAt(githubapi.EchoAtVariables{Value: updatedAt}).
+		Respond(githubapi.EchoAtResponse{EchoAt: updatedAt})
+	echoAtResp, err := client.EchoAt(t.Context(), githubapi.EchoAtVariables{Value: updatedAt})
+	require.NoError(t, err)
+	assert.Equal(t, updatedAt, echoAtResp.EchoAt)
+
+	handler.ExpectEchoAny(githubapi.EchoAnyVariables{Value: largeInteger}).
+		Respond(githubapi.EchoAnyResponse{EchoAny: map[string]any{
+			"count": 42,
+			"items": []any{"one", true},
+		}})
+	echoAnyResp, err := client.EchoAny(t.Context(), githubapi.EchoAnyVariables{Value: largeInteger})
+	require.NoError(t, err)
+	arbitrary, ok := echoAnyResp.EchoAny.(map[string]any)
+	require.True(t, ok)
+	assert.InDelta(t, 42.0, arbitrary["count"], 0)
+	assert.Equal(t, []any{"one", true}, arbitrary["items"])
+
 	resetVars := githubapi.GetNodeVariables{Id: "reset"}
 	handler.ExpectGetNode(resetVars, githubapitest.Times(2)).Respond(githubapi.GetNodeResponse{})
 	handler.ResetGetNode(resetVars)
@@ -268,10 +355,4 @@ func repositoryData() githubapi.GetRepositoryResponse {
 			},
 		}),
 	}
-}
-
-func requirePtrValue[T any](t *testing.T, value *T) T {
-	t.Helper()
-	require.NotNil(t, value)
-	return *value
 }

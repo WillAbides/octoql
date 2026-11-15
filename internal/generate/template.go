@@ -20,10 +20,10 @@ type renderer struct {
 	templateCache map[string]*template.Template
 }
 
-func newRenderer(pkgName, pkgPath, forbiddenPkgPath string) *renderer {
+func newRenderer(pkgName, pkgPath string) *renderer {
 	return &renderer{
 		pkgName:       pkgName,
-		imports:       newImportScope(pkgPath, forbiddenPkgPath),
+		imports:       newImportScope(pkgPath),
 		templateCache: map[string]*template.Template{},
 	}
 }

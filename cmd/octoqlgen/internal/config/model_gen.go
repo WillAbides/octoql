@@ -15,8 +15,7 @@ type Schema struct {
 }
 
 type TestHandler struct {
-	Generated string  `json:"generated" yaml:"generated"`
-	Types     *string `json:"types" yaml:"types"`
+	Generated string `json:"generated" yaml:"generated"`
 }
 
 type Config struct {

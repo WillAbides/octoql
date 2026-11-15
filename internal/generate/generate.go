@@ -432,7 +432,7 @@ func reserveClientDeclarations(plan *generationPlan, scope *importScope) {
 }
 
 func renderClient(plan *generationPlan) ([]byte, error) {
-	r := newRenderer(plan.config.Package, plan.config.pkgPath, "")
+	r := newRenderer(plan.config.Package, plan.config.pkgPath)
 	reserveClientDeclarations(plan, r.imports)
 	err := registerBoundTypeImports(plan.typeMap, r.imports)
 	if err != nil {

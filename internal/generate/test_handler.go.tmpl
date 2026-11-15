@@ -1,37 +1,3 @@
-{{if .LocalTypes -}}
-{{.LocalTypeDefinitions}}
-type ErrorType string
-
-type _octoqlNoUnmarshalJSON struct{}
-
-func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
-}
-
-type Path []any
-
-type Location struct {
-	Line   int `json:"line,omitempty"`
-	Column int `json:"column,omitempty"`
-}
-
-type Error struct {
-	Type       ErrorType      `json:"type,omitempty"`
-	Message    string         `json:"message"`
-	Path       Path           `json:"path,omitempty"`
-	Locations  []Location     `json:"locations,omitempty"`
-	Extensions map[string]any `json:"extensions,omitempty"`
-}
-
-type RateLimit struct {
-	Limit     int
-	Remaining int
-	Used      int
-	Reset     {{ref "time.Time"}}
-	Resource  string
-}
-{{end -}}
-
 type testTB interface {
 	Cleanup(func())
 	Errorf(string, ...any)

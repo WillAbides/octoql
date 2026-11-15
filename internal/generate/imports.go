@@ -81,18 +81,7 @@ func (r goRef) isNilable() bool {
 }
 
 func (r goRef) render(scope *importScope) (string, error) {
-	if r.pkgPath == "" {
-		return r.prefix + r.localName, nil
-	}
-	if r.pkgPath == scope.forbiddenPkgPath {
-		return "", errorf(
-			nil,
-			"test_handler.types local cannot use %q because it is owned by the generated client package %q",
-			r.qualified(),
-			r.pkgPath,
-		)
-	}
-	if r.pkgPath == scope.pkgPath {
+	if r.pkgPath == "" || r.pkgPath == scope.pkgPath {
 		return r.prefix + r.localName, nil
 	}
 	alias := scope.importPackage(r.pkgPath)
@@ -147,18 +136,16 @@ func parseRef(fullyQualifiedName string) (goRef, error) {
 
 // importScope tracks imports and alias collisions for one generated Go file.
 type importScope struct {
-	pkgPath          string
-	forbiddenPkgPath string
-	imports          map[string]string
-	usedAliases      map[string]bool
+	pkgPath     string
+	imports     map[string]string
+	usedAliases map[string]bool
 }
 
-func newImportScope(pkgPath, forbiddenPkgPath string) *importScope {
+func newImportScope(pkgPath string) *importScope {
 	return &importScope{
-		pkgPath:          pkgPath,
-		forbiddenPkgPath: forbiddenPkgPath,
-		imports:          map[string]string{},
-		usedAliases:      map[string]bool{},
+		pkgPath:     pkgPath,
+		imports:     map[string]string{},
+		usedAliases: map[string]bool{},
 	}
 }
 

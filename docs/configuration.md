@@ -214,10 +214,11 @@ Generate an optional typed GraphQL test handler from the same parsed
 operation plan used for the client.
 
 The handler package is inferred independently from its destination,
-including when the destination directory is new and empty.
+including when the destination directory is new and empty. It imports the
+generated client package and uses its operation, `Error`, and `RateLimit`
+types directly.
 
 Every test-handler operation name must begin with an uppercase letter.
-This applies to both type strategies; `local` does not relax it.
 
 Omitting `test_handler` generates only the client and performs no handler
 package work.
@@ -230,21 +231,3 @@ The file to write the generated test handler to, relative to
 `octoqlgen.yaml`. Required whenever `test_handler` is present.
 
 Example: `githubapitest/generated.go`
-
-### `test_handler.types`
-
-Type: `string` · Optional · Default: `client` · Values: `client`, `local`
-
-Where the handler's operation types come from.
-
-`client`, the default, imports the generated client package and uses
-its response, variables, `Error`, and `RateLimit` types directly.
-Because another package references the generated client operation
-types, this also requires exported operation names.
-
-`local` emits distinct but wire-equivalent operation types directly in
-the handler package, without importing the client. Local values are
-not directly assignable to client types. In this mode reachable
-binding types and marshal helpers may be external or owned by the
-handler package, but may not be owned by the generated client
-package, because that would reintroduce the client dependency.

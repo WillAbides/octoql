@@ -69,8 +69,7 @@ func TestRunGenerate(t *testing.T) {
 				"  CustomID: string\n"+
 				"  URI: net/url.URL\n"+
 				"test_handler:\n"+
-				"  generated: githubapitest/generated.go\n"+
-				"  types: local\n",
+				"  generated: githubapitest/generated.go\n",
 		), 0o600))
 
 		remote := newGitHubStubServer(t, map[string][]byte{
@@ -98,7 +97,7 @@ func TestRunGenerate(t *testing.T) {
 		handlerSource, err := os.ReadFile(filepath.Join(directory, "githubapitest", "generated.go"))
 		require.NoError(t, err)
 		assert.Contains(t, string(handlerSource), "package githubapitest")
-		assert.Contains(t, string(handlerSource), "type ViewerResponse struct")
+		assert.Contains(t, string(handlerSource), "func (h *TestHandler) ExpectViewer(")
 
 		companion, err := os.ReadFile(filepath.Join(directory, ".octoql", internal.DirectiveFilename))
 		require.NoError(t, err)
@@ -380,11 +379,6 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			name:    "empty binding value",
 			yaml:    baseYAML + "bindings:\n  DateTime: \"\"\n",
 			wantErr: "bindings.DateTime must not be empty",
-		},
-		{
-			name:    "invalid test handler strategy",
-			yaml:    baseYAML + "test_handler:\n  generated: h/generated.go\n  types: invalid\n",
-			wantErr: `test_handler.types must be one of "client" or "local"`,
 		},
 		{
 			name:    "multiple yaml documents",
