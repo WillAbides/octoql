@@ -86,11 +86,12 @@ package generate
 // [issue #12]: https://github.com/Khan/genqlient/issues/12
 //
 // To implement all of the above, as we traverse the operation (and schema) in
-// convert.go, we keep track of a list of parts to prefix to our type-names.
-// The list always ends with a field, not a type; and we extend it when
-// traversing fields, to allow for correct handling of the interface case
-// discussed above.  This file implements the actual maintenance of that
-// prefix, and the code to compute the actual type-name from it.
+// convert.go, we keep an immutable namePrefix value containing the joined
+// prefix and whether it is still a single operation or explicit type name.
+// After traversing a field, the prefix ends with that field, not a type.
+// Extending the prefix creates a new value, so separate traversal branches
+// remain independent. This file maintains that prefix and computes the actual
+// type-name from it.
 //
 // Note that input objects and enums are handled separately (inline in
 // convertDefinition) since the same considerations don't apply and their names
@@ -98,76 +99,63 @@ package generate
 // response object (inline in convertOperation).
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// Yes, a linked list!  Of name-prefixes in *reverse* order, i.e. from end to
-// start.
-//
-// We could use a stack -- it would probably be marginally
-// more efficient -- but then the caller would have to know more about how to
-// manage it safely.  Using a list, and treating it as immutable, makes it
-// easy.
-type prefixList struct {
-	head string // the list goes back-to-front, so this is the *last* prefix
-	tail *prefixList
+// namePrefix holds an immutable joined prefix. Its zero value is empty.
+type namePrefix struct {
+	text   string
+	single bool
 }
 
-// creates a new one-element list
-func newPrefixList(item string) *prefixList {
-	return &prefixList{head: item}
-}
-
-func joinPrefixList(prefix *prefixList) string {
-	var reversed []string
-	for ; prefix != nil; prefix = prefix.tail {
-		reversed = append(reversed, prefix.head)
+func newNamePrefix(part string) namePrefix {
+	return namePrefix{
+		text:   part,
+		single: true,
 	}
-	l := len(reversed)
-	for i := 0; i < l/2; i++ {
-		reversed[i], reversed[l-1-i] = reversed[l-1-i], reversed[i]
-	}
-	return strings.Join(reversed, "")
 }
 
-// Given a prefix-list, and the next type-name, compute the prefix-list with
+func (p namePrefix) isSingle(name string) bool {
+	return p.single && p.text == name
+}
+
+// Given a prefix, and the next type-name, compute the prefix with
 // that type-name added (if applicable).  The returned value is not a valid
-// prefix-list, since it ends with a type, not a field (see top-of-file
+// field prefix, since it ends with a type, not a field (see top-of-file
 // comment), but it's used to construct both the type-names from the input and
-// the next prefix-list.
-func typeNameParts(prefix *prefixList, typeName string, algorithm CasingAlgorithm) *prefixList {
-	// Apply the specified casing algorithm with uppercase first letter
-	typeName = ApplyCasing(typeName, algorithm, true)
+// the next prefix.
+func typeNameParts(prefix namePrefix, typeName string) namePrefix {
+	typeName = upperFirst(typeName)
 
 	// If the prefix has just one part, that's the operation-name.  There's no
-	// need to add "Query" or "Mutation".  (Zero should never happen.)
-	if prefix == nil || prefix.tail == nil ||
-		// If the name-so-far ends with this type's name, omit the
-		// type-name (see the "shortened" case in the top-of-file comment).
-		strings.HasSuffix(joinPrefixList(prefix), typeName) {
+	// need to add "Query" or "Mutation". An empty prefix is unused.
+	if prefix.text == "" || prefix.single {
 		return prefix
 	}
-	return &prefixList{typeName, prefix}
+	// If the name-so-far ends with this type's name, omit the type-name
+	// (see the "shortened" case in the top-of-file comment).
+	if strings.HasSuffix(prefix.text, typeName) {
+		return prefix
+	}
+	return namePrefix{text: prefix.text + typeName}
 }
 
-// Given a prefix-list, and a field, compute the next prefix-list, which will
+// Given a prefix, and a field, compute the next prefix, which will
 // be used for that field's selections.
-func nextPrefix(prefix *prefixList, field *ast.Field, algorithm CasingAlgorithm) *prefixList {
+func nextPrefix(prefix namePrefix, field *ast.Field) namePrefix {
 	// Add the type.
-	prefix = typeNameParts(prefix, field.ObjectDefinition.Name, algorithm)
+	prefix = typeNameParts(prefix, field.ObjectDefinition.Name)
 	// Add the field (there's no shortening here, see top-of-file comment).
-	fieldAlias := ApplyCasing(field.Alias, algorithm, true)
-	prefix = &prefixList{fieldAlias, prefix}
-	return prefix
+	fieldAlias := upperFirst(field.Alias)
+	return namePrefix{text: prefix.text + fieldAlias}
 }
 
-// Given a prefix-list, and the GraphQL of the current type, compute the name
+// Given a prefix, and the GraphQL of the current type, compute the name
 // we should give it in Go.
-func makeTypeName(prefix *prefixList, typeName string, algorithm CasingAlgorithm) string {
-	return joinPrefixList(typeNameParts(prefix, typeName, algorithm))
+func makeTypeName(prefix namePrefix, typeName string) string {
+	return typeNameParts(prefix, typeName).text
 }
 
 // Like makeTypeName, but append typeName unconditionally.
@@ -175,21 +163,6 @@ func makeTypeName(prefix *prefixList, typeName string, algorithm CasingAlgorithm
 // This is used for when you specify a type-name for a field of interface
 // type; we use YourName for the interface, but need to do YourNameImplName for
 // the implementations.
-func makeLongTypeName(prefix *prefixList, typeName string, algorithm CasingAlgorithm) string {
-	typeName = ApplyCasing(typeName, algorithm, true)
-	return joinPrefixList(&prefixList{typeName, prefix})
-}
-
-func (c *Casing) enumValueName(goTypeName string, enum *ast.Definition, val *ast.EnumValueDefinition) string {
-	switch algo := c.forEnum(enum.Name); algo {
-	case CasingDefault:
-		return goTypeName + goConstName(val.Name)
-	case CasingRaw:
-		return goTypeName + "_" + val.Name
-	case CasingAutoCamelCase:
-		return goTypeName + ApplyCasing(val.Name, algo, true)
-	default:
-		// Should already be caught by validation.
-		panic(fmt.Sprintf("unknown casing algorithm %s", algo))
-	}
+func makeLongTypeName(prefix namePrefix, typeName string) string {
+	return prefix.text + upperFirst(typeName)
 }

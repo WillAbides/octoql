@@ -25,12 +25,11 @@ endpoint directly so credentials are never sent in cleartext.
 
 ## Schema evolution and authorization checks
 
-Generated clients accept enum strings outside the generated constants.
-With the default `omit_unreferenced_implementations: true`, they also decode an
-unrecognized abstract `__typename` into the generated `OctoqlOther` catch-all.
-This is a deliberate forward-compatibility policy: a client continues decoding
-when GitHub adds a valid enum value or interface implementation after
-generation.
+Generated clients accept enum strings outside the generated constants and decode
+unreferenced or unrecognized abstract `__typename` values into the generated
+`OctoqlOther` catch-all. This is a deliberate forward-compatibility policy: a
+client continues decoding when GitHub adds a valid enum value or interface
+implementation after generation.
 
 Treat both sets as open when writing authorization or policy checks. Permit
 specific known enum constants and concrete types, and use an explicit denying

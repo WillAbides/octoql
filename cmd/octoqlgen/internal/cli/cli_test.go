@@ -2,222 +2,648 @@ package cli
 
 import (
 	"bytes"
-	"context"
+	"crypto/sha256"
 	"errors"
-	"io"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/gkampitakis/go-snaps/snaps"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
+	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi/githubapitest"
 	"github.com/willabides/octoql/internal"
 )
 
 const (
 	cliRevision      = "45d83f459620340069df7c375a8867be62616d61"
-	cliSHA256        = "c98cb9edeedd1fb56c8678c19a8ad540c8d0739dd94579dfedbe044192e4ab18"
-	cliSchema        = "type Query { viewer: String }\n"
-	cliSchemaSHA256  = "76d5d8240ac50f1721905f16acfb5674556feab2da90eff33e82755bcf701dfb"
+	cliSchema        = "# preserved comment\ntype Query { viewer: String }\n"
 	updatedRevision  = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	updatedSchema    = "type Query { repository: String }\n"
-	updatedSHA256    = "b082461f59dcec42fd647c52ea85b373f052a824814813d78b71d48c3fc47bc4"
 	releaseSchemaURL = "https://github.com/WillAbides/octoql/releases/download/v1.2.3/octoqlgen.schema.yaml"
 )
 
-func TestSchemaCommandRunConfiguredStdout(t *testing.T) {
-	t.Parallel()
+var (
+	cliSchemaSHA256 = sha256Hex(cliSchema)
+	updatedSHA256   = sha256Hex(updatedSchema)
+)
 
-	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
-	var stdout bytes.Buffer
-	command := schemaFetchCommand{
-		Config:  "custom.yaml",
-		context: t.Context(),
-		loadConfig: func(filename string) (*config.Config, error) {
-			assert.Equal(t, "custom.yaml", filename)
-			return &config.Config{
-				Schema: config.Schema{
-					Path:   ".octoql/schema.graphql",
-					Sha256: new(cliSHA256),
-					Source: &config.Source{
-						Repository: "octo-org/octo-repo",
-						Path:       "schema.graphql",
-						Revision:   cliRevision,
+func sha256Hex(value string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(value)))
+}
+
+type gitHubStubServer struct {
+	graphql      *githubapitest.TestHandler
+	materializer *schema.Materializer
+	contents     map[string][]byte
+	requests     atomic.Int32
+}
+
+func newGitHubStubServer(t *testing.T, contents map[string][]byte) *gitHubStubServer {
+	graphql := githubapitest.NewTestHandler(t)
+	stub := &gitHubStubServer{
+		graphql:  graphql,
+		contents: contents,
+	}
+	mux := http.NewServeMux()
+	mux.Handle("/graphql", http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		stub.requests.Add(1)
+		graphql.ServeHTTP(writer, request)
+	}))
+	mux.HandleFunc("/repos/", func(writer http.ResponseWriter, request *http.Request) {
+		stub.requests.Add(1)
+		key := request.URL.EscapedPath() + "?" + request.URL.RawQuery
+		body, ok := stub.contents[key]
+		if !ok {
+			http.NotFound(writer, request)
+			return
+		}
+		_, _ = writer.Write(body)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	mat := schema.NewMaterializer()
+	mat.HTTPClient = server.Client()
+	mat.LookupEnvironment = func(name string) (string, bool) {
+		if name == "GH_TOKEN" {
+			return "github_pat_test", true
+		}
+		return "", false
+	}
+	mat.GitHubAPIBaseURL = func(string) string {
+		return server.URL
+	}
+	mat.GitHubGraphQLEndpoint = func(string) string {
+		return server.URL + "/graphql"
+	}
+	stub.materializer = mat
+	return stub
+}
+
+func (s *gitHubStubServer) expectDocsCommit(path, oid string) {
+	s.graphql.ExpectLatestCommit(githubapitest.LatestCommitVariables{
+		Owner: "github",
+		Name:  "docs",
+		Path:  path,
+	}).Respond(githubapitest.LatestCommitResponse{
+		Repository: &githubapitest.LatestCommitRepository{
+			DefaultBranchRef: &githubapitest.LatestCommitRepositoryDefaultBranchRef{
+				Target: &githubapitest.LatestCommitRepositoryDefaultBranchRefTargetCommit{
+					History: githubapitest.LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection{
+						Nodes: []*githubapitest.LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit{
+							{Oid: oid},
+						},
 					},
 				},
-			}, nil
-		},
-		materializer: materializer,
-		outputWriter: &stubOutputWriter{},
-		stdout:       &stdout,
-	}
-
-	err := command.Run()
-	require.NoError(t, err)
-	assert.Equal(t, "exact schema bytes\n", stdout.String())
-	assert.Equal(t, ".octoql/schema.graphql", materializer.request.Path)
-	assert.Equal(t, cliSHA256, materializer.request.SHA256)
-}
-
-func TestSchemaCommandRunConfiguredOutput(t *testing.T) {
-	t.Parallel()
-
-	materializer := &stubMaterializer{data: []byte("exact schema bytes\n")}
-	outputWriter := &stubOutputWriter{}
-	var stdout bytes.Buffer
-	command := schemaFetchCommand{
-		Output:  "schema.graphql",
-		context: t.Context(),
-		loadConfig: func(string) (*config.Config, error) {
-			return &config.Config{
-				Schema: config.Schema{
-					Path:   ".octoql/schema.graphql",
-					Sha256: new(cliSHA256),
-					Source: &config.Source{
-						Repository: "github/docs",
-						Path:       "src/graphql/data/ghec/schema.docs.graphql",
-						Revision:   cliRevision,
-					},
-				},
-			}, nil
-		},
-		materializer: materializer,
-		outputWriter: outputWriter,
-		stdout:       &stdout,
-	}
-
-	err := command.Run()
-	require.NoError(t, err)
-	assert.Empty(t, stdout.String())
-	assert.Equal(t, "schema.graphql", outputWriter.path)
-	assert.Equal(t, []byte("exact schema bytes\n"), outputWriter.data)
-	companion, ok := outputWriter.writtenTo(internal.DirectiveFilename)
-	require.True(t, ok)
-	assert.Contains(t, string(companion), "directive @octoqlgen(")
-	assert.Equal(t, "github/docs", materializer.request.Source.Repository)
-	assert.Equal(t, "src/graphql/data/ghec/schema.docs.graphql", materializer.request.Source.Path)
-	assert.Equal(t, cliRevision, materializer.request.Source.Revision)
-}
-
-func TestSchemaCommandFetchFailureDoesNotWriteOutput(t *testing.T) {
-	t.Parallel()
-
-	expectedErr := errors.New("fetch failed")
-	outputWriter := &stubOutputWriter{}
-	command := schemaFetchCommand{
-		Output:  "schema.graphql",
-		context: t.Context(),
-		loadConfig: func(string) (*config.Config, error) {
-			return &config.Config{Schema: config.Schema{Path: "configured.graphql"}}, nil
-		},
-		materializer: &stubMaterializer{err: expectedErr},
-		outputWriter: outputWriter,
-		stdout:       bytes.NewBuffer(nil),
-	}
-
-	err := command.Run()
-	require.ErrorIs(t, err, expectedErr)
-	assert.Empty(t, outputWriter.path)
-}
-
-func TestRunSchemaDefaultsToFetch(t *testing.T) {
-	t.Parallel()
-
-	var stdout bytes.Buffer
-	materializer := &stubMaterializer{data: []byte("schema")}
-	err := Run(
-		[]string{"schema"},
-		"test",
-		&Dependencies{
-			Context: t.Context(),
-			LoadConfig: func(filename string) (*config.Config, error) {
-				assert.Empty(t, filename)
-				return &config.Config{Schema: config.Schema{Path: "schema.graphql"}}, nil
 			},
-			Materializer: materializer,
-			Stdout:       &stdout,
 		},
-	)
-	require.NoError(t, err)
-	assert.Equal(t, "schema", stdout.String())
-	assert.Equal(t, "schema.graphql", materializer.request.Path)
+	})
 }
 
-func TestAtomicOutputWriter(t *testing.T) {
+func TestRunInit(t *testing.T) {
 	t.Parallel()
 
-	destination := filepath.Join(t.TempDir(), "nested", "schema.graphql")
-	writer := atomicOutputWriter{}
-	err := writer.Write(destination, []byte("first"))
-	require.NoError(t, err)
-	err = writer.Write(destination, []byte("second"))
-	require.NoError(t, err)
+	t.Run("creates config schema and gitignore for default and enterprise versions", func(t *testing.T) {
+		t.Parallel()
 
-	data, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	assert.Equal(t, []byte("second"), data)
-	tempFiles, err := filepath.Glob(filepath.Join(filepath.Dir(destination), ".schema.graphql.tmp-*"))
-	require.NoError(t, err)
-	assert.Empty(t, tempFiles)
+		for _, test := range []struct {
+			name       string
+			extraArgs  []string
+			schemaPath string
+			gitignore  string
+		}{
+			{
+				name:       "default fpt",
+				schemaPath: "src/graphql/data/fpt/schema.docs.graphql",
+			},
+			{
+				name:       "ghes preserves existing gitignore",
+				extraArgs:  []string{"--schema-version", "ghes-3.21"},
+				schemaPath: "src/graphql/data/ghes-3.21/schema.docs-enterprise.graphql",
+				gitignore:  "keep\n",
+			},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
+
+				directory := t.TempDir()
+				configPath := filepath.Join(directory, "octoqlgen.yaml")
+				gitignorePath := filepath.Join(directory, ".octoql", ".gitignore")
+				if test.gitignore != "" {
+					require.NoError(t, os.MkdirAll(filepath.Dir(gitignorePath), 0o755))
+					require.NoError(t, os.WriteFile(gitignorePath, []byte(test.gitignore), 0o600))
+				}
+
+				remote := newGitHubStubServer(t, map[string][]byte{
+					"/repos/github/docs/contents/" + test.schemaPath + "?ref=" + cliRevision: []byte(cliSchema),
+				})
+				remote.expectDocsCommit(test.schemaPath, cliRevision)
+
+				var stdout bytes.Buffer
+				args := append([]string{"init", "--config", configPath}, test.extraArgs...)
+				err := Run(args, "v1.2.3", &Dependencies{
+					Context:      t.Context(),
+					Materializer: remote.materializer,
+					Stdout:       &stdout,
+				})
+				require.NoError(t, err)
+
+				configContent, err := os.ReadFile(configPath)
+				require.NoError(t, err)
+				assert.Equal(
+					t,
+					"# yaml-language-server: $schema="+releaseSchemaURL+"\n\n"+
+						"schema:\n"+
+						"  path: .octoql/schema.graphql\n"+
+						"  sha256: "+cliSchemaSHA256+"\n"+
+						"  source:\n"+
+						"    repository: github/docs\n"+
+						"    path: "+test.schemaPath+"\n"+
+						"    revision: "+cliRevision+"\n"+
+						"operations:\n"+
+						"  - graphql/**/*.graphql\n"+
+						"generated: internal/githubapi/generated.go\n",
+					string(configContent),
+				)
+				localSchemaPath := filepath.Join(directory, ".octoql", "schema.graphql")
+				writtenSchema, err := os.ReadFile(localSchemaPath)
+				require.NoError(t, err)
+				assert.Equal(t, cliSchema, string(writtenSchema))
+
+				wantGitignore := "*\n!.gitignore\n"
+				if test.gitignore != "" {
+					wantGitignore = test.gitignore
+				}
+				writtenGitignore, err := os.ReadFile(gitignorePath)
+				require.NoError(t, err)
+				assert.Equal(t, wantGitignore, string(writtenGitignore))
+				assert.Equal(t, fmt.Sprintf("created %s, %s, and %s\n", configPath, localSchemaPath, gitignorePath), stdout.String())
+
+				if len(test.extraArgs) == 0 {
+					require.NoError(t, os.WriteFile(filepath.Join(directory, "go.mod"), []byte("module example.com/app\n\ngo 1.27.3\n"), 0o600))
+					require.NoError(t, os.MkdirAll(filepath.Join(directory, "graphql"), 0o755))
+					require.NoError(t, os.WriteFile(filepath.Join(directory, "graphql", "viewer.graphql"), []byte("query Viewer { viewer }\n"), 0o600))
+					require.NoError(t, Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{Context: t.Context()}))
+					generated, readErr := os.ReadFile(filepath.Join(directory, "internal", "githubapi", "generated.go"))
+					require.NoError(t, readErr)
+					assert.Contains(t, string(generated), "func (c *Client) Viewer(")
+				}
+			})
+		}
+	})
+
+	t.Run("refuses overwrites and rolls back on remote failure", func(t *testing.T) {
+		t.Parallel()
+
+		existingDir := t.TempDir()
+		existingConfig := filepath.Join(existingDir, "octoqlgen.yaml")
+		require.NoError(t, os.WriteFile(existingConfig, []byte("existing\n"), 0o600))
+		remote := newGitHubStubServer(t, nil)
+		err := Run([]string{"init", "--config", existingConfig}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: remote.materializer,
+		})
+		require.ErrorContains(t, err, "refusing to overwrite")
+		assert.Zero(t, remote.requests.Load())
+
+		conflictDir := t.TempDir()
+		conflictSchema := filepath.Join(conflictDir, ".octoql", "schema.graphql")
+		require.NoError(t, os.MkdirAll(filepath.Dir(conflictSchema), 0o755))
+		require.NoError(t, os.WriteFile(conflictSchema, []byte("different\n"), 0o600))
+		conflictPath := "src/graphql/data/fpt/schema.docs.graphql"
+		conflictRemote := newGitHubStubServer(t, map[string][]byte{
+			"/repos/github/docs/contents/" + conflictPath + "?ref=" + cliRevision: []byte(cliSchema),
+		})
+		conflictRemote.expectDocsCommit(conflictPath, cliRevision)
+		conflictConfig := filepath.Join(conflictDir, "octoqlgen.yaml")
+		err = Run([]string{"init", "--config", conflictConfig}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: conflictRemote.materializer,
+		})
+		require.ErrorContains(t, err, "refusing to overwrite existing schema")
+		_, statErr := os.Stat(conflictConfig)
+		require.ErrorIs(t, statErr, os.ErrNotExist)
+
+		failedDir := t.TempDir()
+		failedRemote := newGitHubStubServer(t, nil)
+		failedRemote.expectDocsCommit(conflictPath, cliRevision)
+		failedConfig := filepath.Join(failedDir, "octoqlgen.yaml")
+		err = Run([]string{"init", "--config", failedConfig}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: failedRemote.materializer,
+		})
+		require.Error(t, err)
+		_, statErr = os.Stat(failedConfig)
+		require.ErrorIs(t, statErr, os.ErrNotExist)
+		_, statErr = os.Stat(filepath.Join(failedDir, ".octoql", "schema.graphql"))
+		require.ErrorIs(t, statErr, os.ErrNotExist)
+
+		partialPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
+		createdFile, err := os.OpenFile(partialPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		require.NoError(t, err)
+		err = writeAndCloseExclusive(partialPath, &failingWriteCloser{file: createdFile}, []byte("data"))
+		require.ErrorContains(t, err, "disk full")
+		_, statErr = os.Stat(partialPath)
+		require.ErrorIs(t, statErr, os.ErrNotExist)
+		require.NoError(t, createFileNoReplace(partialPath, []byte("recovered\n")))
+	})
 }
 
-func TestInitCommandRun(t *testing.T) {
+type failingWriteCloser struct {
+	file *os.File
+}
+
+func (w *failingWriteCloser) Write([]byte) (int, error) {
+	return 0, errors.New("disk full")
+}
+
+func (w *failingWriteCloser) Close() error {
+	return w.file.Close()
+}
+
+func TestRunSchema(t *testing.T) {
 	t.Parallel()
 
-	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
-	var stdout bytes.Buffer
-	resolver := &stubRemoteResolver{
-		result: schema.RemoteResult{
-			Revision: cliRevision,
-			SHA256:   cliSchemaSHA256,
-			Data:     []byte(cliSchema),
-		},
-	}
-	command := initCommand{
-		ConfigPath:      configPath,
-		SchemaVersion:   "fpt",
-		configSchemaURL: releaseSchemaURL,
-		context:         t.Context(),
-		resolver:        resolver,
-		stdout:          &stdout,
-	}
+	t.Run("defaults to fetch on local schema and writes output file from remote", func(t *testing.T) {
+		t.Parallel()
 
-	err := command.Run()
-	require.NoError(t, err)
-	assert.Equal(t, "github/docs", resolver.source.Repository)
-	assert.Equal(t, "src/graphql/data/fpt/schema.docs.graphql", resolver.source.Path)
-	assert.Empty(t, resolver.source.Revision)
-	content, err := os.ReadFile(configPath)
-	require.NoError(t, err)
-	assert.Equal(
-		t,
-		"# yaml-language-server: $schema="+releaseSchemaURL+"\n\n"+
+		localDir := t.TempDir()
+		localSchema := filepath.Join(localDir, "schema.graphql")
+		localConfig := filepath.Join(localDir, "octoqlgen.yaml")
+		require.NoError(t, os.WriteFile(localSchema, []byte(cliSchema), 0o600))
+		require.NoError(t, os.WriteFile(localConfig, []byte(
 			"schema:\n"+
-			"  path: .octoql/schema.graphql\n"+
-			"  sha256: "+cliSchemaSHA256+"\n"+
-			"  source:\n"+
-			"    repository: github/docs\n"+
-			"    path: src/graphql/data/fpt/schema.docs.graphql\n"+
-			"    revision: "+cliRevision+"\n"+
-			"operations:\n"+
-			"  - graphql/**/*.graphql\n"+
-			"generated: internal/githubapi/generated.go\n",
-		string(content),
-	)
-	gitignorePath := filepath.Join(filepath.Dir(configPath), ".octoql", ".gitignore")
-	gitignore, err := os.ReadFile(gitignorePath)
-	require.NoError(t, err)
-	assert.Equal(t, "*\n!.gitignore\n", string(gitignore))
-	schemaPath := filepath.Join(filepath.Dir(configPath), ".octoql", "schema.graphql")
-	schemaContent, err := os.ReadFile(schemaPath)
-	require.NoError(t, err)
-	assert.Equal(t, cliSchema, string(schemaContent))
-	assert.Equal(t, "created "+configPath+", "+schemaPath+", and "+gitignorePath+"\n", stdout.String())
+				"  <<: &defaults\n"+
+				"    sha256: "+cliSchemaSHA256+"\n"+
+				"  path: schema.graphql\n"+
+				"operations: []\n"+
+				"generated: generated.go\n",
+		), 0o600))
+
+		var stdout bytes.Buffer
+		err := Run([]string{"schema", "--config", localConfig}, "v1.2.3", &Dependencies{
+			Context: t.Context(),
+			Stdout:  &stdout,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, cliSchema, stdout.String())
+
+		mismatchConfig := filepath.Join(localDir, "mismatch.yaml")
+		wrongSHA := sha256Hex("different")
+		require.NoError(t, os.WriteFile(mismatchConfig, []byte(
+			"schema:\n  path: schema.graphql\n  sha256: "+wrongSHA+"\noperations: []\ngenerated: generated.go\n",
+		), 0o600))
+		err = Run([]string{"schema", "--config", mismatchConfig}, "v1.2.3", &Dependencies{
+			Context: t.Context(),
+		})
+		require.ErrorContains(t, err, "expected "+wrongSHA)
+		require.ErrorContains(t, err, "actual "+cliSchemaSHA256)
+		unchangedLocal, err := os.ReadFile(localSchema)
+		require.NoError(t, err)
+		assert.Equal(t, cliSchema, string(unchangedLocal))
+
+		remoteDir := t.TempDir()
+		remoteConfig := filepath.Join(remoteDir, "octoqlgen.yaml")
+		outputPath := filepath.Join(remoteDir, "out", "schema.graphql")
+		require.NoError(t, os.WriteFile(remoteConfig, []byte(
+			"schema:\n"+
+				"  path: .octoql/schema.graphql\n"+
+				"  sha256: "+cliSchemaSHA256+"\n"+
+				"  source:\n"+
+				"    repository: octo-org/octo.repo\n"+
+				"    path: schema dir/schema#one.graphql\n"+
+				"    revision: "+cliRevision+"\n"+
+				"operations: []\n"+
+				"generated: generated.go\n",
+		), 0o600))
+
+		missingOutput := filepath.Join(remoteDir, "failed.graphql")
+		failingRemote := newGitHubStubServer(t, nil)
+		err = Run([]string{"schema", "fetch", "--config", remoteConfig, "-o", missingOutput}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: failingRemote.materializer,
+		})
+		require.ErrorContains(t, err, "http status 404")
+		_, statErr := os.Stat(missingOutput)
+		require.ErrorIs(t, statErr, os.ErrNotExist)
+
+		remote := newGitHubStubServer(t, map[string][]byte{
+			"/repos/octo-org/octo.repo/contents/schema%20dir/schema%23one.graphql?ref=" + cliRevision: []byte(cliSchema),
+		})
+		err = Run([]string{"schema", "fetch", "--config", remoteConfig, "-o", outputPath}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: remote.materializer,
+		})
+		require.NoError(t, err)
+		written, err := os.ReadFile(outputPath)
+		require.NoError(t, err)
+		assert.Equal(t, cliSchema, string(written))
+		companion, err := os.ReadFile(filepath.Join(filepath.Dir(outputPath), internal.DirectiveFilename))
+		require.NoError(t, err)
+		assert.Equal(t, internal.DirectiveFileContents, string(companion))
+	})
+
+	t.Run("updates remote pin refreshes unchanged directives and rejects local source", func(t *testing.T) {
+		t.Parallel()
+
+		directory := t.TempDir()
+		configPath := filepath.Join(directory, "octoqlgen.yaml")
+		schemaPath := filepath.Join(directory, "schema.graphql")
+		require.NoError(t, os.WriteFile(schemaPath, []byte(cliSchema), 0o600))
+		require.NoError(t, os.WriteFile(configPath, []byte(
+			"# keep top comment\r\n"+
+				"schema:\r\n"+
+				"  path: 'schema.graphql'\r\n"+
+				"  sha256: \""+cliSchemaSHA256+"\" # keep comment\r\n"+
+				"  source:\r\n"+
+				"    repository: github/docs\r\n"+
+				"    path: src/graphql/data/fpt/schema.docs.graphql\r\n"+
+				"    revision: '"+cliRevision+"'\r\n"+
+				"operations: [graphql/**/*.graphql]\r\n"+
+				"generated: generated.go\r\n",
+		), 0o600))
+
+		docPath := "src/graphql/data/fpt/schema.docs.graphql"
+		remote := newGitHubStubServer(t, map[string][]byte{
+			"/repos/github/docs/contents/" + docPath + "?ref=" + updatedRevision: []byte(updatedSchema),
+		})
+		remote.expectDocsCommit(docPath, updatedRevision)
+
+		var stdout bytes.Buffer
+		err := Run([]string{"schema", "update", "--config", configPath}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: remote.materializer,
+			Stdout:       &stdout,
+		})
+		require.NoError(t, err)
+		assert.Contains(t, stdout.String(), cliRevision+" -> "+updatedRevision)
+
+		configText, err := os.ReadFile(configPath)
+		require.NoError(t, err)
+		assert.Equal(
+			t,
+			"# yaml-language-server: $schema="+releaseSchemaURL+"\r\n\r\n"+
+				"# keep top comment\r\n"+
+				"schema:\r\n"+
+				"  path: 'schema.graphql'\r\n"+
+				"  sha256: \""+updatedSHA256+"\" # keep comment\r\n"+
+				"  source:\r\n"+
+				"    repository: github/docs\r\n"+
+				"    path: src/graphql/data/fpt/schema.docs.graphql\r\n"+
+				"    revision: '"+updatedRevision+"'\r\n"+
+				"operations: [graphql/**/*.graphql]\r\n"+
+				"generated: generated.go\r\n",
+			string(configText),
+		)
+		writtenSchema, err := os.ReadFile(schemaPath)
+		require.NoError(t, err)
+		assert.Equal(t, updatedSchema, string(writtenSchema))
+
+		// Second update with unchanged remote pin still refreshes $schema and companion directive.
+		require.NoError(t, os.WriteFile(
+			configPath,
+			bytes.ReplaceAll(
+				bytes.ReplaceAll(configText, []byte(releaseSchemaURL), []byte("https://example.com/stale.yaml")),
+				[]byte("sha256: \""+updatedSHA256+"\""),
+				[]byte("sha256: &checksum \""+updatedSHA256+"\""),
+			),
+			0o600,
+		))
+		_ = os.Remove(filepath.Join(directory, internal.DirectiveFilename))
+		remote.expectDocsCommit(docPath, updatedRevision)
+		stdout.Reset()
+		err = Run([]string{"schema", "update", "--config", configPath}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: remote.materializer,
+			Stdout:       &stdout,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "schema is unchanged\n", stdout.String())
+		refreshedConfig, err := os.ReadFile(configPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(refreshedConfig), releaseSchemaURL)
+		companion, err := os.ReadFile(filepath.Join(directory, internal.DirectiveFilename))
+		require.NoError(t, err)
+		assert.Equal(t, internal.DirectiveFileContents, string(companion))
+
+		mergedDir := t.TempDir()
+		mergedConfig := filepath.Join(mergedDir, "octoqlgen.yaml")
+		require.NoError(t, os.WriteFile(mergedConfig, []byte(
+			"schema:\n"+
+				"  path: schema.graphql\n"+
+				"  <<: {sha256: "+cliSchemaSHA256+"}\n"+
+				"  source:\n"+
+				"    repository: github/docs\n"+
+				"    path: "+docPath+"\n"+
+				"    revision: "+cliRevision+"\n"+
+				"operations: []\n"+
+				"generated: generated.go\n",
+		), 0o600))
+		remote.expectDocsCommit(docPath, updatedRevision)
+		err = Run([]string{"schema", "update", "--config", mergedConfig}, "v1.2.3", &Dependencies{
+			Context:      t.Context(),
+			Materializer: remote.materializer,
+		})
+		require.NoError(t, err)
+		updatedMerged, err := os.ReadFile(mergedConfig)
+		require.NoError(t, err)
+		assert.Contains(t, string(updatedMerged), "<<: {sha256: "+updatedSHA256+"}")
+		assert.Contains(t, string(updatedMerged), "revision: "+updatedRevision)
+
+		for name, badConfig := range map[string]struct {
+			yaml    string
+			wantErr string
+			needsGH bool
+		}{
+			"local source": {
+				yaml:    "schema:\n  path: schema.graphql\noperations: []\ngenerated: generated.go\n",
+				wantErr: "requires a configured remote",
+			},
+			"shared YAML alias": {
+				yaml: "operations: [&checksum " + cliSchemaSHA256 + "]\n" +
+					"schema:\n  path: schema.graphql\n  sha256: *checksum\n  source:\n" +
+					"    repository: github/docs\n    path: " + docPath + "\n    revision: " + cliRevision + "\n" +
+					"generated: generated.go\n",
+				wantErr: "shared YAML alias",
+				needsGH: true,
+			},
+			"merged YAML alias": {
+				yaml: "schema:\n  path: schema.graphql\n  <<: &shared {sha256: " + cliSchemaSHA256 + "}\n  source:\n" +
+					"    repository: github/docs\n    path: " + docPath + "\n    revision: " + cliRevision + "\n" +
+					"operations: []\ngenerated: generated.go\n",
+				wantErr: "must not define a YAML anchor",
+				needsGH: true,
+			},
+			"merged shared alias reference": {
+				yaml: "bindings: &shared\n  sha256: " + cliSchemaSHA256 + "\n" +
+					"schema:\n  path: schema.graphql\n  <<: *shared\n  source:\n" +
+					"    repository: github/docs\n    path: " + docPath + "\n    revision: " + cliRevision + "\n" +
+					"operations: []\ngenerated: generated.go\n",
+				wantErr: "shared YAML alias",
+				needsGH: true,
+			},
+			"anchored pin": {
+				yaml: "schema:\n  path: schema.graphql\n  sha256: &checksum " + cliSchemaSHA256 + "\n  source:\n" +
+					"    repository: github/docs\n    path: " + docPath + "\n    revision: " + cliRevision + "\n" +
+					"operations: []\ngenerated: *checksum\n",
+				wantErr: "must not define a YAML anchor",
+				needsGH: true,
+			},
+		} {
+			badPath := filepath.Join(t.TempDir(), name+".yaml")
+			require.NoError(t, os.WriteFile(badPath, []byte(badConfig.yaml), 0o600))
+			if badConfig.needsGH {
+				remote.expectDocsCommit(docPath, updatedRevision)
+			}
+			err = Run([]string{"schema", "update", "--config", badPath}, "v1.2.3", &Dependencies{
+				Context:      t.Context(),
+				Materializer: remote.materializer,
+			})
+			require.ErrorContains(t, err, badConfig.wantErr)
+		}
+	})
+
+	t.Run("rejects remote fetch failures and sanitizes rejected token", func(t *testing.T) {
+		t.Parallel()
+
+		for _, test := range []struct {
+			handler  http.HandlerFunc
+			name     string
+			repo     string
+			sha256   string
+			wantErr  string
+			token    string
+			maxBytes int64
+			timeout  time.Duration
+		}{
+			{
+				name:    "missing sha256",
+				repo:    "octo-org/octo-repo",
+				handler: http.NotFound,
+				wantErr: "sha256 is required for remote sources",
+			},
+			{
+				name:    "invalid repository",
+				repo:    "invalid",
+				sha256:  cliSchemaSHA256,
+				handler: http.NotFound,
+				wantErr: "owner/name",
+			},
+			{
+				name:   "checksum mismatch",
+				repo:   "octo-org/octo-repo",
+				sha256: sha256Hex("different"),
+				handler: func(writer http.ResponseWriter, _ *http.Request) {
+					_, _ = writer.Write([]byte(cliSchema))
+				},
+				wantErr: "schema checksum mismatch",
+			},
+			{
+				name:   "invalid sdl",
+				repo:   "octo-org/octo-repo",
+				sha256: sha256Hex("not graphql"),
+				handler: func(writer http.ResponseWriter, _ *http.Request) {
+					_, _ = writer.Write([]byte("not graphql"))
+				},
+				wantErr: "invalid graphql schema",
+			},
+			{
+				name:     "oversized response",
+				repo:     "octo-org/octo-repo",
+				sha256:   cliSchemaSHA256,
+				maxBytes: 64,
+				handler: func(writer http.ResponseWriter, _ *http.Request) {
+					_, _ = writer.Write([]byte(strings.Repeat("x", 65)))
+				},
+				wantErr: "response exceeds 64-byte limit",
+			},
+			{
+				name:    "timeout",
+				repo:    "octo-org/octo-repo",
+				sha256:  cliSchemaSHA256,
+				timeout: 10 * time.Millisecond,
+				handler: func(_ http.ResponseWriter, request *http.Request) {
+					<-request.Context().Done()
+				},
+				wantErr: "context deadline exceeded",
+			},
+			{
+				name:   "rejected token does not retry or leak",
+				repo:   "octo-org/private-repo",
+				sha256: cliSchemaSHA256,
+				token:  "secret-token",
+				handler: func(writer http.ResponseWriter, request *http.Request) {
+					assert.Equal(t, "Bearer secret-token", request.Header.Get("Authorization"))
+					http.Error(writer, "unauthorized", http.StatusUnauthorized)
+				},
+				wantErr: "http status 401",
+			},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
+
+				var calls atomic.Int32
+				server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+					calls.Add(1)
+					test.handler(writer, request)
+				}))
+				t.Cleanup(server.Close)
+
+				mat := schema.NewMaterializer()
+				mat.HTTPClient = server.Client()
+				mat.GitHubAPIBaseURL = func(string) string { return server.URL }
+				token := test.token
+				if token == "" {
+					token = "github_pat_test"
+				}
+				mat.LookupEnvironment = func(name string) (string, bool) {
+					if name == "GH_TOKEN" {
+						return token, true
+					}
+					return "", false
+				}
+				if test.maxBytes > 0 {
+					mat.MaxResponseBytes = test.maxBytes
+				}
+				if test.timeout > 0 {
+					mat.Timeout = test.timeout
+				}
+
+				dir := t.TempDir()
+				configPath := filepath.Join(dir, "octoqlgen.yaml")
+				shaLine := ""
+				if test.sha256 != "" {
+					shaLine = "  sha256: " + test.sha256 + "\n"
+				}
+				require.NoError(t, os.WriteFile(configPath, []byte(
+					"schema:\n  path: schema.graphql\n"+shaLine+
+						"  source:\n    repository: "+test.repo+"\n    path: schema.graphql\n    revision: "+cliRevision+"\n"+
+						"operations: []\ngenerated: generated.go\n",
+				), 0o600))
+
+				err := Run([]string{"schema", "fetch", "--config", configPath}, "v1.2.3", &Dependencies{
+					Context:      t.Context(),
+					Materializer: mat,
+				})
+				require.ErrorContains(t, err, test.wantErr)
+				if test.token != "" {
+					assert.Equal(t, int32(1), calls.Load())
+					assert.NotContains(t, err.Error(), test.token)
+				}
+				_, statErr := os.Stat(filepath.Join(dir, "schema.graphql"))
+				require.ErrorIs(t, statErr, os.ErrNotExist)
+			})
+		}
+	})
 }
 
 func TestConfigSchemaURL(t *testing.T) {
@@ -256,300 +682,6 @@ func TestConfigSchemaURL(t *testing.T) {
 	}
 }
 
-func TestRunInitSchemaVersion(t *testing.T) {
-	tests := []struct {
-		name         string
-		args         []string
-		expectedPath string
-	}{
-		{
-			name:         "default",
-			expectedPath: "src/graphql/data/fpt/schema.docs.graphql",
-		},
-		{
-			name:         "explicit",
-			args:         []string{"--schema-version", "ghes-3.21"},
-			expectedPath: "src/graphql/data/ghes-3.21/schema.docs-enterprise.graphql",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
-			resolver := &stubRemoteResolver{
-				result: schema.RemoteResult{
-					Revision: cliRevision,
-					SHA256:   cliSchemaSHA256,
-					Data:     []byte(cliSchema),
-				},
-			}
-			args := []string{"init", "--config", configPath}
-			args = append(args, test.args...)
-			err := Run(
-				args,
-				"test",
-				&Dependencies{
-					Context:        t.Context(),
-					RemoteResolver: resolver,
-				},
-			)
-			require.NoError(t, err)
-			assert.Equal(t, "github/docs", resolver.source.Repository)
-			assert.Equal(t, test.expectedPath, resolver.source.Path)
-			assert.Empty(t, resolver.source.Revision)
-		})
-	}
-}
-
-func TestInitCommandPreservesExistingGitignore(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	gitignorePath := filepath.Join(directory, ".octoql", ".gitignore")
-	err := os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
-	require.NoError(t, err)
-	err = os.WriteFile(gitignorePath, []byte("keep\n"), 0o600)
-	require.NoError(t, err)
-	command := initCommand{
-		ConfigPath:    filepath.Join(directory, "octoqlgen.yaml"),
-		SchemaVersion: "fpt",
-		context:       t.Context(),
-		resolver: &stubRemoteResolver{
-			result: schema.RemoteResult{
-				Revision: cliRevision,
-				SHA256:   cliSchemaSHA256,
-				Data:     []byte(cliSchema),
-			},
-		},
-		stdout: io.Discard,
-	}
-
-	err = command.Run()
-	require.NoError(t, err)
-	gitignore, err := os.ReadFile(gitignorePath)
-	require.NoError(t, err)
-	assert.Equal(t, "keep\n", string(gitignore))
-}
-
-func TestInitCommandRefusesExistingConfig(t *testing.T) {
-	t.Parallel()
-
-	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
-	err := os.WriteFile(configPath, []byte("existing\n"), 0o600)
-	require.NoError(t, err)
-	command := initCommand{
-		ConfigPath:    configPath,
-		SchemaVersion: "fpt",
-		context:       t.Context(),
-		resolver: &stubRemoteResolver{
-			err: errors.New("resolver should not be called"),
-		},
-		stdout: io.Discard,
-	}
-
-	err = command.Run()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "refusing to overwrite")
-}
-
-func TestInitCommandResolverFailureDoesNotCreateFiles(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	expectedErr := errors.New("resolve failed")
-	command := initCommand{
-		ConfigPath:    filepath.Join(directory, "octoqlgen.yaml"),
-		SchemaVersion: "fpt",
-		context:       t.Context(),
-		resolver:      &stubRemoteResolver{err: expectedErr},
-		stdout:        io.Discard,
-	}
-
-	err := command.Run()
-	require.ErrorIs(t, err, expectedErr)
-	_, configErr := os.Stat(command.ConfigPath)
-	require.ErrorIs(t, configErr, os.ErrNotExist)
-	_, schemaErr := os.Stat(filepath.Join(directory, ".octoql", "schema.graphql"))
-	require.ErrorIs(t, schemaErr, os.ErrNotExist)
-}
-
-func TestInitCommandRefusesExistingDifferentSchema(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	schemaPath := filepath.Join(directory, ".octoql", "schema.graphql")
-	err := os.MkdirAll(filepath.Dir(schemaPath), 0o755)
-	require.NoError(t, err)
-	err = os.WriteFile(schemaPath, []byte("existing\n"), 0o600)
-	require.NoError(t, err)
-	configPath := filepath.Join(directory, "octoqlgen.yaml")
-	command := initCommand{
-		ConfigPath:    configPath,
-		SchemaVersion: "fpt",
-		context:       t.Context(),
-		resolver: &stubRemoteResolver{
-			result: schema.RemoteResult{
-				Revision: cliRevision,
-				SHA256:   cliSchemaSHA256,
-				Data:     []byte(cliSchema),
-			},
-		},
-		stdout: io.Discard,
-	}
-
-	err = command.Run()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "refusing to overwrite existing schema")
-	_, configErr := os.Stat(configPath)
-	require.ErrorIs(t, configErr, os.ErrNotExist)
-	content, readErr := os.ReadFile(schemaPath)
-	require.NoError(t, readErr)
-	assert.Equal(t, "existing\n", string(content))
-}
-
-func TestSchemaUpdateCommandRejectsLocalSource(t *testing.T) {
-	t.Parallel()
-
-	configPath := filepath.Join(t.TempDir(), "octoqlgen.yaml")
-	err := os.WriteFile(
-		configPath,
-		[]byte(
-			"schema:\n"+
-				"  path: schema.graphql\n"+
-				"operations: []\n"+
-				"generated: generated.go\n",
-		),
-		0o600,
-	)
-	require.NoError(t, err)
-	command := schemaUpdateCommand{
-		Config:     configPath,
-		context:    t.Context(),
-		loadConfig: config.Load,
-		stdout:     io.Discard,
-	}
-
-	err = command.Run()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "requires a configured remote")
-}
-
-func TestSchemaUpdateCommandRefreshesRepositoryPin(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	configPath := filepath.Join(directory, "octoqlgen.yaml")
-	schemaPath := filepath.Join(directory, "schema.graphql")
-	err := os.WriteFile(schemaPath, []byte(cliSchema), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(
-		configPath,
-		[]byte(
-			"# yaml-language-server: $schema=https://example.com/old.yaml\n\n"+
-				"schema:\n"+
-				"  path: schema.graphql\n"+
-				"  sha256: "+cliSchemaSHA256+"\n"+
-				"  source:\n"+
-				"    repository: github/docs\n"+
-				"    path: src/graphql/data/fpt/schema.docs.graphql\n"+
-				"    revision: "+cliRevision+"\n"+
-				"operations: []\n"+
-				"generated: generated.go\n",
-		),
-		0o600,
-	)
-	require.NoError(t, err)
-	resolver := &stubRemoteResolver{
-		result: schema.RemoteResult{
-			Revision: updatedRevision,
-			SHA256:   updatedSHA256,
-			Data:     []byte(updatedSchema),
-		},
-	}
-	command := schemaUpdateCommand{
-		Config:          configPath,
-		configSchemaURL: releaseSchemaURL,
-		context:         t.Context(),
-		loadConfig:      config.Load,
-		resolver:        resolver,
-		outputWriter:    atomicOutputWriter{},
-		stdout:          io.Discard,
-	}
-
-	err = command.Run()
-	require.NoError(t, err)
-	assert.Equal(t, "github/docs", resolver.source.Repository)
-	assert.Equal(t, "src/graphql/data/fpt/schema.docs.graphql", resolver.source.Path)
-	assert.Equal(t, cliRevision, resolver.source.Revision)
-	updated, err := config.Load(configPath)
-	require.NoError(t, err)
-	assert.Equal(t, updatedSHA256, updated.Schema.SHA256Value())
-	assert.Equal(t, updatedRevision, updated.Schema.Source.Revision)
-	schemaContent, err := os.ReadFile(schemaPath)
-	require.NoError(t, err)
-	assert.Equal(t, updatedSchema, string(schemaContent))
-	configContent, err := os.ReadFile(configPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
-}
-
-func TestSchemaUpdateRefreshesBothDirectivesWhenSchemaIsUnchanged(t *testing.T) {
-	t.Parallel()
-
-	directory := t.TempDir()
-	configPath := filepath.Join(directory, "octoqlgen.yaml")
-	schemaPath := filepath.Join(directory, "schema.graphql")
-	err := os.WriteFile(schemaPath, []byte(cliSchema), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(
-		configPath,
-		[]byte(
-			"# yaml-language-server: $schema=https://example.com/old.yaml\n\n"+
-				"schema:\n"+
-				"  path: schema.graphql\n"+
-				"  sha256: &checksum "+cliSchemaSHA256+"\n"+
-				"  source:\n"+
-				"    repository: github/docs\n"+
-				"    path: src/graphql/data/fpt/schema.docs.graphql\n"+
-				"    revision: &revision "+cliRevision+"\n"+
-				"operations: []\n"+
-				"generated: generated.go\n",
-		),
-		0o600,
-	)
-	require.NoError(t, err)
-	var stdout bytes.Buffer
-	command := schemaUpdateCommand{
-		Config:          configPath,
-		configSchemaURL: releaseSchemaURL,
-		context:         t.Context(),
-		loadConfig:      config.Load,
-		resolver: &stubRemoteResolver{
-			result: schema.RemoteResult{
-				Revision: cliRevision,
-				SHA256:   cliSchemaSHA256,
-				Data:     []byte(cliSchema),
-			},
-		},
-		outputWriter: atomicOutputWriter{},
-		stdout:       &stdout,
-	}
-
-	err = command.Run()
-	require.NoError(t, err)
-	configContent, err := os.ReadFile(configPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(configContent), "# yaml-language-server: $schema="+releaseSchemaURL+"\n")
-	assert.Equal(t, "schema is unchanged\n", stdout.String())
-	companion, err := os.ReadFile(filepath.Join(directory, internal.DirectiveFilename))
-	require.NoError(t, err)
-	assert.Equal(t, internal.DirectiveFileContents, string(companion))
-	schemaContent, err := os.ReadFile(schemaPath)
-	require.NoError(t, err)
-	assert.Equal(t, cliSchema, string(schemaContent), "the schema itself must be untouched")
-}
-
 func TestHelpSnapshots(t *testing.T) {
 	tests := []struct {
 		name string
@@ -565,28 +697,7 @@ func TestHelpSnapshots(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var stdout bytes.Buffer
-			var stderr bytes.Buffer
-			dependencies := &Dependencies{
-				Context: t.Context(),
-				Stdout:  &stdout,
-				Stderr:  &stderr,
-			}
-			dependencies.setDefaults()
-			command := newCommandTree(dependencies)
-			parser, err := newParser(
-				command,
-				"test",
-				kong.Writers(&stdout, &stderr),
-				kong.Exit(func(code int) {
-					panic(exitCode(code))
-				}),
-			)
-			require.NoError(t, err)
-			assertExitCode(t, 0, func() {
-				_, _ = parser.Parse(test.args)
-			})
-			output := strings.TrimRight(stdout.String()+stderr.String(), "\n")
+			output := strings.TrimRight(parseCLIExit(t, "test", test.args), "\n")
 			switch test.name {
 			case "root":
 				snaps.MatchInlineSnapshot(t, output, snaps.Inline(`Usage: octoqlgen <command> [flags]
@@ -682,29 +793,35 @@ Flags:
 func TestVersion(t *testing.T) {
 	t.Parallel()
 
+	assert.Equal(t, "v1.2.3\n", parseCLIExit(t, "v1.2.3", []string{"--version"}))
+}
+
+type exitCode int
+
+func parseCLIExit(t *testing.T, version string, args []string) string {
 	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 	dependencies := &Dependencies{
 		Context: t.Context(),
 		Stdout:  &stdout,
+		Stderr:  &stderr,
 	}
 	dependencies.setDefaults()
 	command := newCommandTree(dependencies)
 	parser, err := newParser(
 		command,
-		"v1.2.3",
-		kong.Writers(&stdout, io.Discard),
+		version,
+		kong.Writers(&stdout, &stderr),
 		kong.Exit(func(code int) {
 			panic(exitCode(code))
 		}),
 	)
 	require.NoError(t, err)
 	assertExitCode(t, 0, func() {
-		_, _ = parser.Parse([]string{"--version"})
+		_, _ = parser.Parse(args)
 	})
-	assert.Equal(t, "v1.2.3\n", stdout.String())
+	return stdout.String() + stderr.String()
 }
-
-type exitCode int
 
 func assertExitCode(t *testing.T, expected int, function func()) {
 	t.Helper()
@@ -717,56 +834,4 @@ func assertExitCode(t *testing.T, expected int, function func()) {
 	}()
 	function()
 	t.Fatal("expected parser exit")
-}
-
-type stubMaterializer struct {
-	err     error
-	request schema.Request
-	data    []byte
-}
-
-func (m *stubMaterializer) Materialize(
-	_ context.Context,
-	request *schema.Request,
-) ([]byte, error) {
-	m.request = *request
-	return m.data, m.err
-}
-
-type stubOutputWriter struct {
-	err     error
-	path    string
-	data    []byte
-	written map[string][]byte
-}
-
-func (w *stubOutputWriter) writtenTo(path string) ([]byte, bool) {
-	data, ok := w.written[path]
-	return data, ok
-}
-
-type stubRemoteResolver struct {
-	err    error
-	result schema.RemoteResult
-	source config.Source
-}
-
-func (r *stubRemoteResolver) Resolve(_ context.Context, source config.Source) (schema.RemoteResult, error) {
-	r.source = source
-	return r.result, r.err
-}
-
-func (w *stubOutputWriter) Write(path string, data []byte) error {
-	if w.err != nil {
-		return w.err
-	}
-	if w.written == nil {
-		w.written = map[string][]byte{}
-	}
-	w.written[path] = append([]byte{}, data...)
-	if filepath.Base(path) != internal.DirectiveFilename {
-		w.path = path
-		w.data = append([]byte{}, data...)
-	}
-	return nil
 }

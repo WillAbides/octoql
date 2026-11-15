@@ -2,12 +2,9 @@ package generate
 
 import (
 	"bytes"
-	"go/format"
 	"go/token"
 	"sort"
 	"strconv"
-
-	"golang.org/x/tools/imports"
 )
 
 type testHandlerType struct {
@@ -26,8 +23,6 @@ type testHandlerOperation struct {
 }
 
 type testHandlerTemplateData struct {
-	Generator            *generator
-	Package              string
 	ClientPackage        string
 	LocalTypes           bool
 	LocalTypeDefinitions string
@@ -65,9 +60,23 @@ var testHandlerReservedNames = []string{
 	"writeRequestError",
 }
 
-func validateTestHandlerNames(plan *generationPlan) error {
-	if plan.config.TestHandlerGenerated == "" {
-		return nil
+func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplateData, error) {
+	localTypes := plan.config.TestHandlerTypes == TestHandlerTypesLocal
+	forbiddenPkgPath := ""
+	if localTypes {
+		forbiddenPkgPath = plan.config.pkgPath
+	}
+	r := newRenderer(
+		plan.config.testHandlerPackage,
+		plan.config.testHandlerPkgPath,
+		forbiddenPkgPath,
+	)
+
+	data := testHandlerTemplateData{
+		LocalTypes:   localTypes,
+		LocalAliases: make([]testHandlerType, 0, len(plan.operations)),
+		Types:        make([]testHandlerType, 0, len(plan.typeMap)),
+		Operations:   make([]testHandlerOperation, 0, len(plan.operations)),
 	}
 
 	identifiers := make(map[string]string)
@@ -83,242 +92,147 @@ func validateTestHandlerNames(plan *generationPlan) error {
 			)
 		}
 		identifiers[name] = source
+		r.imports.usedAliases[name] = true
 		return nil
 	}
-
 	for _, name := range testHandlerReservedNames {
 		err := addIdentifier(name, "test handler runtime")
 		if err != nil {
-			return err
+			return nil, testHandlerTemplateData{}, err
 		}
 	}
-
 	typeNames := make([]string, 0, len(plan.typeMap))
-	for name := range plan.typeMap {
+	for name, typ := range plan.typeMap {
 		if token.IsExported(name) {
 			typeNames = append(typeNames, name)
+			continue
+		}
+		if localTypes {
+			r.imports.usedAliases[name] = true
+			enumType, ok := typ.(*goEnumType)
+			if ok {
+				r.imports.usedAliases["All"+enumType.GoName] = true
+				for _, enumValue := range enumType.Values {
+					r.imports.usedAliases[enumValue.GoName] = true
+				}
+			}
 		}
 	}
 	sort.Strings(typeNames)
 	for _, name := range typeNames {
 		err := addIdentifier(name, "client type alias")
 		if err != nil {
-			return err
+			return nil, testHandlerTemplateData{}, err
+		}
+		handlerType := testHandlerType{
+			Name:       name,
+			ClientName: name,
 		}
 		enumType, ok := plan.typeMap[name].(*goEnumType)
-		if !ok {
-			continue
-		}
-		for _, enumValue := range enumType.Values {
-			err = addIdentifier(enumValue.GoName, "client enum value alias")
-			if err != nil {
-				return err
+		if ok {
+			if localTypes {
+				r.imports.usedAliases["All"+enumType.GoName] = true
+			}
+			handlerType.EnumValues = enumType.Values
+			for _, enumValue := range enumType.Values {
+				err = addIdentifier(enumValue.GoName, "client enum value alias")
+				if err != nil {
+					return nil, testHandlerTemplateData{}, err
+				}
 			}
 		}
+		if !localTypes {
+			data.Types = append(data.Types, handlerType)
+		}
 	}
 
-	for _, operation := range plan.operations {
-		if !token.IsExported(operation.Name) {
-			return errorf(
-				nil,
-				"test handler operation %q must begin with an uppercase letter",
-				operation.Name,
+	for index, op := range plan.operations {
+		if !token.IsExported(op.Name) {
+			return nil, testHandlerTemplateData{}, errorf(
+				nil, "test handler operation %q must begin with an uppercase letter", op.Name,
 			)
 		}
-		if !token.IsExported(operation.ResponseName) {
-			return errorf(
-				nil,
-				"test handler response type %q must be exported",
-				operation.ResponseName,
+		if !token.IsExported(op.ResponseName) {
+			return nil, testHandlerTemplateData{}, errorf(
+				nil, "test handler response type %q must be exported", op.ResponseName,
 			)
 		}
-
-		expectationName := operation.Name + "Expectation"
-		err := addIdentifier(expectationName, operation.Name+" expectation")
-		if err != nil {
-			return err
-		}
-
-		responseName := operation.Name + "Response"
-		if responseName != operation.ResponseName {
-			err = addIdentifier(responseName, operation.Name+" response alias")
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func newTestHandlerRenderer(plan *generationPlan) (*generator, testHandlerTemplateData, error) {
-	config := plan.config
-	config.Generated = config.TestHandlerGenerated
-	config.Package = config.testHandlerPackage
-	config.pkgPath = config.testHandlerPkgPath
-
-	localTypes := config.TestHandlerTypes == TestHandlerTypesLocal
-	forbiddenImportPath := ""
-	if localTypes {
-		forbiddenImportPath = plan.config.pkgPath
-	}
-	handlerGenerator, err := plan.newRenderer(
-		&config,
-		false,
-		forbiddenImportPath,
-	)
-	if err != nil {
-		return nil, testHandlerTemplateData{}, err
-	}
-	data := testHandlerTemplateData{
-		Generator:  handlerGenerator,
-		Package:    config.Package,
-		LocalTypes: localTypes,
-		LocalAliases: make(
-			[]testHandlerType,
-			0,
-			len(plan.operations),
-		),
-		Types:      make([]testHandlerType, 0, len(plan.typeMap)),
-		Operations: make([]testHandlerOperation, 0, len(plan.operations)),
-	}
-
-	switch {
-	case localTypes:
-		typeDefinitions, err := renderTypeDefinitions(handlerGenerator)
+		err := addIdentifier(op.Name+"Expectation", op.Name+" expectation")
 		if err != nil {
 			return nil, testHandlerTemplateData{}, err
 		}
-		data.LocalTypeDefinitions = string(typeDefinitions)
-	default:
-		typeNames := make([]string, 0, len(plan.typeMap))
-		for name := range plan.typeMap {
-			if token.IsExported(name) {
-				typeNames = append(typeNames, name)
+		responseName := op.Name + "Response"
+		if responseName != op.ResponseName {
+			err = addIdentifier(responseName, op.Name+" response alias")
+			if err != nil {
+				return nil, testHandlerTemplateData{}, err
 			}
-		}
-		sort.Strings(typeNames)
-		for _, name := range typeNames {
-			handlerType := testHandlerType{Name: name, ClientName: name}
-			enumType, ok := plan.typeMap[name].(*goEnumType)
-			if ok {
-				handlerType.EnumValues = enumType.Values
-				for _, enumValue := range enumType.Values {
-					handlerGenerator.usedAliases[enumValue.GoName] = true
-				}
-			}
-			data.Types = append(data.Types, handlerType)
-			handlerGenerator.usedAliases[name] = true
-		}
-	}
-
-	for index, operation := range plan.operations {
-		responseName := operation.Name + "Response"
-		if responseName != operation.ResponseName {
 			responseAlias := testHandlerType{
 				Name:       responseName,
-				ClientName: operation.ResponseName,
+				ClientName: op.ResponseName,
 			}
 			switch {
 			case localTypes:
 				data.LocalAliases = append(data.LocalAliases, responseAlias)
-			case !containsTestHandlerType(data.Types, responseName):
+			default:
 				data.Types = append(data.Types, responseAlias)
 			}
-			handlerGenerator.usedAliases[responseName] = true
 		}
 		handlerOperation := testHandlerOperation{
-			Name:          operation.Name,
-			FieldName:     operationFieldName(index),
-			VariablesName: operation.Name + "Variables",
+			Name:          op.Name,
+			FieldName:     "operation" + strconv.Itoa(index),
+			VariablesName: op.Name + "Variables",
 			VariablesType: "struct{}",
 			ResponseName:  responseName,
-			HasVariables:  operation.Input != nil,
+			HasVariables:  op.Input != nil,
 		}
 		if handlerOperation.HasVariables {
 			handlerOperation.VariablesType = handlerOperation.VariablesName
 		}
 		data.Operations = append(data.Operations, handlerOperation)
-		if handlerOperation.HasVariables {
-			handlerGenerator.usedAliases[handlerOperation.VariablesName] = true
-		}
-		handlerGenerator.usedAliases[operation.Name+"Expectation"] = true
 		for _, prefix := range []string{"Expect", "Default", "Reset"} {
-			handlerGenerator.usedAliases[prefix+operation.Name] = true
+			r.imports.usedAliases[prefix+op.Name] = true
 		}
 	}
 	sort.Slice(data.Types, func(i, j int) bool {
 		return data.Types[i].Name < data.Types[j].Name
 	})
 
-	for _, name := range testHandlerReservedNames {
-		handlerGenerator.usedAliases[name] = true
-	}
-
-	if !localTypes {
-		clientPackage := allocateIdentifier(plan.config.Package, handlerGenerator.usedAliases)
-		handlerGenerator.imports[plan.config.pkgPath] = clientPackage
-		data.ClientPackage = clientPackage
-	}
-
-	for _, reference := range []string{
-		"bytes.NewReader",
-		"encoding/json.Decoder",
-		"errors.Is",
-		"fmt.Errorf",
-		"io.EOF",
-		"net/http.Handler",
-		"strconv.Itoa",
-		"sync.Mutex",
-		"testing.TB",
-		"time.Duration",
-	} {
-		_, err := handlerGenerator.ref(reference)
+	if localTypes {
+		err := registerBoundTypeImports(plan.typeMap, r.imports)
 		if err != nil {
 			return nil, testHandlerTemplateData{}, err
 		}
-	}
-
-	return handlerGenerator, data, nil
-}
-
-func containsTestHandlerType(types []testHandlerType, name string) bool {
-	for _, handlerType := range types {
-		if handlerType.Name == name {
-			return true
+		typeDefinitions, err := renderTypeDefinitions(r, plan.typeMap)
+		if err != nil {
+			return nil, testHandlerTemplateData{}, err
 		}
+		data.LocalTypeDefinitions = string(typeDefinitions)
 	}
-	return false
-}
+	if !localTypes {
+		clientPackage := allocateIdentifier(plan.config.Package, r.imports.usedAliases)
+		r.imports.imports[plan.config.pkgPath] = clientPackage
+		data.ClientPackage = clientPackage
+	}
 
-func operationFieldName(index int) string {
-	return "operation" + strconv.Itoa(index)
+	return r, data, nil
 }
 
 func renderTestHandler(plan *generationPlan) ([]byte, error) {
-	handlerGenerator, data, err := newTestHandlerRenderer(plan)
+	r, data, err := newTestHandlerRenderer(plan)
 	if err != nil {
 		return nil, err
 	}
 
 	var buffer bytes.Buffer
-	err = handlerGenerator.render("test_handler.go.tmpl", &buffer, data)
+	err = r.render("test_handler.go.tmpl", &buffer, data)
 	if err != nil {
 		return nil, err
 	}
 
-	unformatted := buffer.Bytes()
-	formatted, err := format.Source(unformatted)
-	if err != nil {
-		return nil, goSourceError("gofmt test handler", unformatted, err)
-	}
-	imported, err := imports.Process(
-		plan.config.TestHandlerGenerated,
-		formatted,
-		nil,
+	return r.formatGoFile(
+		"// Code generated by octoqlgen. DO NOT EDIT.",
+		" test handler",
+		buffer.Bytes(),
 	)
-	if err != nil {
-		return nil, goSourceError("goimports test handler", formatted, err)
-	}
-	return imported, nil
 }

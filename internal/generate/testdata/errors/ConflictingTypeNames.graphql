@@ -1,9 +1,0 @@
-query ConflictingTypeNames {
-  f @octoqlgen(typename: "T") {
-    g
-  }
-  otherF: f @octoqlgen(typename: "T") {
-    g
-    h
-  }
-}

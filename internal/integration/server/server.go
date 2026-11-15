@@ -12,8 +12,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 )
 
-func strptr(v string) *string { return &v }
-func intptr(v int) *int       { return &v }
+//go:generate go run github.com/99designs/gqlgen
 
 var repositories = []*Repository{
 	{
@@ -28,14 +27,14 @@ var repositories = []*Repository{
 
 var users = []*User{
 	{
-		ID: "1", Login: "octocat", Name: strptr("Mona Octocat"), ContributionCount: intptr(17),
-		CreatedAt:   strptr("2025-01-01"),
-		Status:      &UserStatus{Emoji: strptr(":octocat:")},
-		GreatScalar: strptr("cool value"),
+		ID: "1", Login: "octocat", Name: new("Mona Octocat"), ContributionCount: new(17),
+		CreatedAt:   new("2025-01-01"),
+		Status:      &UserStatus{Emoji: new(":octocat:")},
+		GreatScalar: new("cool value"),
 	},
 	{
-		ID: "2", Login: "raven", Name: strptr("Raven"), ContributionCount: intptr(-1),
-		Status: nil, GreatScalar: strptr("cool value"),
+		ID: "2", Login: "raven", Name: new("Raven"), ContributionCount: new(-1),
+		Status: nil, GreatScalar: new("cool value"),
 	},
 }
 
@@ -48,12 +47,12 @@ func init() {
 
 var organizations = []*Organization{
 	{
-		ID: "3", Login: "octo-org", Name: strptr("Octo Org"),
+		ID: "3", Login: "octo-org", Name: new("Octo Org"),
 		Plan: &Plan{Name: PlanNameTeam}, TopContributor: users[0],
 		Repositories: []*Repository{repositories[0]},
 	},
 	{
-		ID: "4", Login: "octo-legacy-org", Name: strptr("Octo Legacy Org"),
+		ID: "4", Login: "octo-legacy-org", Name: new("Octo Legacy Org"),
 		Plan: &Plan{Name: PlanNameFree}, TopContributor: nil,
 		Repositories: []*Repository{},
 	},
@@ -285,5 +284,3 @@ func (r *resolver) Mutation() MutationResolver {
 }
 
 func (r *resolver) Query() QueryResolver { return &queryResolver{} }
-
-//go:generate go run github.com/99designs/gqlgen@v0.17.94

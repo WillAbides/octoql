@@ -136,10 +136,9 @@ Type: `string` · Required
 The file to write the generated client to, relative to `octoqlgen.yaml`.
 
 The generated client is self-contained. It uses only the standard library
-by default; external types named by `bindings`, `package_bindings`, a
-custom `context_type`, or an operation's `@octoqlgen(bind: ...)`
-directive can add imports for the packages they name. Application code
-never imports `github.com/willabides/octoql`.
+by default. External types named by `bindings` or an operation's
+`@octoqlgen(bind: ...)` directive can add imports for the packages they
+name. Application code never imports `github.com/willabides/octoql`.
 
 Example: `githubapi/generated.go`
 
@@ -148,50 +147,14 @@ Example: `githubapi/generated.go`
 Type: `string` · Optional
 
 The package name for the generated code. Defaults to the package name
-corresponding to the directory of `generated`.
+corresponding to the directory of `generated`, discovered from
+default-build Go files in that directory (`build.Default`, without
+consulting `GOFLAGS`) or the directory and module path when none exist.
 
-This is rarely needed: only when the package name must differ from the
-suffix of the package path, and there are no other Go files in the
-package already.
+This is rarely needed, mainly when the package name differs from the
+directory name and the directory has no default-build Go files.
 
 Example: `githubapi`
-
-## `export_operations`
-
-Type: `string` · Optional
-
-When set, a file at this path (relative to `octoqlgen.yaml`) is generated
-containing the exact operations octoql sends to the server.
-
-This is useful for servers that require operations to be explicitly
-safelisted, especially for cases like operations involving fragments
-where the sent document may not exactly match the input, and for other
-static analysis. The JSON is an object of the form:
-
-```json
-{"operations": [{
-  "operationName": "operationname",
-  "query": "query operationName { ... }",
-  "sourceLocation": "myqueriesfile.graphql"
-}]}
-```
-
-Keys may be added in the future. By default no such file is written.
-
-Example: `operations.json`
-
-## `context_type`
-
-Type: `string` · Optional
-
-The fully qualified name of a Go type that generated helpers accept and
-use as the `context.Context` for HTTP requests.
-
-Defaults to `context.Context`. Set it to `-` to omit the context argument
-entirely, in which case generated helpers use `context.Background()`. Any
-other value must be a type that implements `context.Context`.
-
-Example: `context.Context`
 
 ## `bindings`
 
@@ -213,6 +176,20 @@ may return either a string or an array of strings. `Base64String`,
 `URI`, and `X509Certificate` map to `string`. This setting extends or
 overrides all of those mappings.
 
+Each value is the fully qualified Go type expression to bind to, such as
+`time.Time`, `map[string]interface{}`, or
+`github.com/you/yourpkg/subpkg.MyType`:
+
+```yaml
+bindings:
+  URI: github.com/you/yourpkg.URI
+```
+
+Values may be any named type qualified by its full package path, any
+predeclared basic type (such as `string` or `int`), `interface{}`, or
+`*T`, `[]T`, `[N]T`, and `map[string]T` of those. Inline struct or
+interface types and maps with non-`string` keys are not supported.
+
 When a binding is used, octoqlgen checks that its type name is a supported
 type expression, but it does not check the type's JSON behavior. Bound
 types must define whatever logic is needed, such as
@@ -228,220 +205,6 @@ To get equivalent behavior for a single operation, use
 `@octoqlgen(bind: ...)`. See the directive reference. See also
 `@octoqlgen(typename: ...)`, which maps a builtin scalar to a nonstandard
 type that octoqlgen defines for you.
-
-### `bindings.<name>`
-
-A single entry in `bindings`, describing the Go type to use for one
-GraphQL type and how to convert it to and from JSON.
-
-#### `bindings.<name>.type`
-
-Type: `string` · Optional
-
-The fully qualified name of the Go type to bind to, for example
-`time.Time`, `map[string]interface{}`, or
-`github.com/you/yourpkg/subpkg.MyType`.
-
-This may be any of the following expressions:
-
-- any named type, qualified by the full package path
-- any predeclared basic type, such as `string` or `int`
-- `interface{}`
-- for any allowed type `T`: `*T`, `[]T`, `[N]T`, and `map[string]T`
-
-It may not be an inline (unnamed) struct or interface type, a map
-whose key type is not `string`, or a nonstandard spelling of those,
-such as `interface {/* hi */}` or `map[  string      ]T`.
-
-Example: `time.Time`
-
-#### `bindings.<name>.expect_exact_fields`
-
-Type: `string` · Optional
-
-A GraphQL selection that must exactly match the fields requested
-wherever this type is used. Only applies when the GraphQL type is a
-composite output type: an object, interface, or union.
-
-This is useful when the bound type is a struct whose `UnmarshalJSON`
-or other methods expect that certain fields were requested. For
-example, with `expect_exact_fields: "{ id name }"`, octoqlgen rejects
-the selection `{ fieldOfMyType { id title } }`.
-
-Fields must match exactly, including ordering, so `{ name id }` is
-also rejected. Arguments and directives, if any, need not match.
-
-Example: `{ id name }`
-
-#### `bindings.<name>.marshaler`
-
-Type: `string` · Optional
-
-The fully qualified name of the function to use when marshaling this
-type.
-
-This is useful when binding to a standard type but using nonstandard
-marshaling, for example when making requests to a server that is not
-compatible with Go's default time format. It is only used for values
-passed as arguments: input types, scalars, and enums.
-
-The function should have a signature similar to `json.Marshal`. It is
-passed one argument, a pointer to a value of the given type, and
-returns the JSON as a `[]byte` and an error:
-
-```go
-func MarshalMyType(v *MyType) ([]byte, error)
-```
-
-The `omitempty` option is ignored for types with custom marshalers. A
-custom marshaler can encode `"null"`, but that sends an explicit
-GraphQL null rather than omitting the variable.
-
-The default is ordinary JSON marshaling.
-
-Example: `github.com/you/yourpkg.MarshalMyType`
-
-#### `bindings.<name>.unmarshaler`
-
-Type: `string` · Optional
-
-The fully qualified name of the function to use when unmarshaling this
-type.
-
-The function should have a signature similar to `json.Unmarshal`. It
-is passed a `[]byte` of JSON and a pointer to a value of the given
-type, and returns an error:
-
-```go
-func UnmarshalMyType(b []byte, v *MyType) error
-```
-
-The default is ordinary JSON unmarshaling.
-
-Example: `github.com/you/yourpkg.UnmarshalMyType`
-
-## `package_bindings`
-
-Type: `array` · Optional
-
-A list of packages for which octoqlgen automatically generates bindings.
-
-This is equivalent to adding an entry to `bindings` mapping each exported
-type in the package to its own name:
-
-```yaml
-bindings:
-  TypeName:
-    type: github.com/you/yourpkg/models.TypeName
-```
-
-Multiple packages may be specified. When more than one package exports the
-same type name, the earlier package wins. Explicit entries in `bindings`
-take precedence over all package bindings.
-
-Take care that this is not the package holding the generated code, or the
-result is circular.
-
-### `package_bindings[]`
-
-A single entry in `package_bindings`.
-
-#### `package_bindings[].package`
-
-Type: `string` · Required
-
-The import path of the package whose exported types become bindings.
-
-Example: `github.com/you/yourpkg/models`
-
-## `casing`
-
-Type: `object` · Optional
-
-By default octoqlgen converts GraphQL names to Go style automatically.
-Sometimes that does not produce the desired result; these options
-configure the algorithm for a given schema.
-
-Each option accepts one of the following values:
-
-- `default`: use octoqlgen's default algorithm, which converts GraphQL
-  names to exported Go names. This is usually best for schemas using
-  idiomatic GraphQL naming.
-- `raw`: keep the GraphQL spelling, without converting it to Go style.
-  octoqlgen still uppercases the first character of generated identifiers.
-  This is usually best for schemas with casing conflicts, such as enums
-  whose values differ only in casing.
-- `auto_camel_case`: convert `snake_case` to `camelCase` before standard
-  processing. This applies to field names, type names, and enum values.
-
-### `casing.default`
-
-Type: `string` · Optional
-
-The casing algorithm to use for all GraphQL names, including fields
-and types.
-
-Example: `auto_camel_case`
-
-### `casing.all_enums`
-
-Type: `string` · Optional
-
-The casing algorithm to use for all GraphQL enum values.
-
-Example: `raw`
-
-### `casing.enums`
-
-Type: `object` · Optional
-
-The casing algorithm to use for the values of specific GraphQL enum
-types. These entries take precedence over `all_enums`.
-
-Keys are GraphQL enum type names and values are casing algorithms:
-
-```yaml
-casing:
-  enums:
-    PullRequestState: raw
-```
-
-## `use_struct_references`
-
-Type: `boolean` · Optional
-
-When true, fields with a struct type default to `pointer: true` and
-`omitempty: true`.
-
-This is useful for schemas where it would be burdensome to set those
-options manually on a large number of fields. Defaults to false.
-
-Example: `true`
-
-## `omit_unreferenced_implementations`
-
-Type: `boolean` · Optional
-
-Generate concrete Go structs only for the abstract GraphQL
-implementations named by applicable inline or named fragments.
-
-Each abstract selection also gets an `OctoqlOther` catch-all containing
-the shared fields and `__typename`. It handles implementations not
-selected by a fragment as well as any implementation name unrecognized by
-the schema used to generate the client. Decoding those names succeeds
-without an error or log, which keeps generated clients usable when GitHub
-adds an implementation.
-
-A Go type switch or assertion against a concrete generated type does not
-match the catch-all. Code that must fail closed should enumerate allowed
-concrete types and use an explicit denying `default`.
-
-Defaults to true. Set it to false when migrating code that relies on a
-generated Go struct for every implementation allowed by the schema. No
-catch-all is generated in that mode, so an unrecognized `__typename`
-produces an error instead.
-
-Example: `true`
 
 ## `test_handler`
 

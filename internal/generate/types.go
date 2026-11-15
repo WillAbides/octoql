@@ -1,9 +1,7 @@
 package generate
 
 // This file defines the data structures from which octoqlgen generates types,
-// and the code to write them out as actual Go code.  The main entrypoint is
-// goType, which represents such a type, but convert.go also constructs each
-// of the implementing types, by traversing the GraphQL operation and schema.
+// and the code to write them out as actual Go code.
 
 import (
 	"fmt"
@@ -13,43 +11,32 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// goType represents a type for which we'll generate code.
+// goType represents a destination-neutral Go type in the generation plan.
 type goType interface {
-	// WriteDefinition writes the code for this type into the given io.Writer.
-	//
-	// TODO(benkraft): Some of the implementations might now benefit from being
-	// converted to templates.
-	WriteDefinition(io.Writer, *generator) error
+	WriteDefinition(io.Writer, *renderer) error
 
-	// Reference returns the Go name of this type, e.g. []*MyStruct, and may be
-	// used to refer to it in Go code.
-	Reference() string
+	// QualifiedRef returns the canonical destination-neutral spelling of this
+	// type, such as []*MyStruct or []github.com/pkg.Type.
+	QualifiedRef() string
+
+	// renderRef formats this type relative to scope, registering any external
+	// imports needed by bound types.
+	renderRef(*importScope) (string, error)
 
 	// GraphQLTypeName returns the name of the GraphQL type to which this Go type
 	// corresponds.
 	GraphQLTypeName() string
 
-	// SelectionSet returns the selection-set of the GraphQL field from which
-	// this type was generated, or nil if none is applicable (for GraphQL
-	// scalar, enum, and input types, as well as any opaque
-	// (non-octoqlgen-generated) type since those are validated upon creation).
-	SelectionSet() ast.SelectionSet
-
-	// Remove slice/pointer wrappers, and return the underlying (named (or
-	// builtin)) type.  For example, given []*MyStruct, return MyStruct.
+	// Unwrap removes slice/pointer wrappers and returns the underlying type.
 	Unwrap() goType
 
-	// Count the number of times Unwrap() will unwrap a slice type.  For
-	// example, given [][][]*MyStruct (or []**[][]*MyStruct, but we never
-	// currently generate that), return 3.
+	// SliceDepth counts the outer slice wrappers on this type.
 	SliceDepth() int
-
-	// True if Unwrap() will unwrap a pointer at least once.
-	IsPointer() bool
 }
 
 var (
 	_ goType = (*goOpaqueType)(nil)
+	_ goType = (*goTypenameForBuiltinType)(nil)
 	_ goType = (*goSliceType)(nil)
 	_ goType = (*goPointerType)(nil)
 	_ goType = (*goEnumType)(nil)
@@ -58,59 +45,73 @@ var (
 )
 
 type (
-	// goOpaqueType represents a user-defined or builtin type, often used to
-	// represent a GraphQL scalar.  (See Config.Bindings for more context.)
+	// goOpaqueType represents a user-defined or builtin type bound to a GraphQL type.
 	goOpaqueType struct {
-		GoRef                  string
-		QualifiedGoRef         string
-		GraphQLName            string
-		Marshaler, Unmarshaler string
+		Ref         goRef
+		GraphQLName string
 	}
-	// goTypenameForBuiltinType represents a builtin type that was
-	// given a different name due to a `typename` directive.  We
-	// create a type like `type MyString string` for it.
+	// goTypenameForBuiltinType represents a builtin type given a distinct Go
+	// type declaration via @octoqlgen(typename: ...).
 	goTypenameForBuiltinType struct {
 		GoTypeName    string
 		GoBuiltinName string
 		GraphQLName   string
 	}
-	// goSliceType represents the Go type []Elem, used to represent GraphQL
-	// list types.
-	goSliceType struct{ Elem goType }
-	// goSliceType represents the Go type *Elem, used when requested by the
-	// user (perhaps to handle nulls explicitly, or to avoid copying large
-	// structures).
-	goPointerType struct{ Elem goType }
+	// goSliceType represents []Elem for a GraphQL list type.
+	goSliceType struct {
+		Elem goType
+	}
+	// goPointerType represents *Elem.
+	goPointerType struct {
+		Elem goType
+	}
 )
 
-// Opaque types are defined by the user; pointers and slices need no definition
-func (t *goOpaqueType) WriteDefinition(io.Writer, *generator) error { return nil }
+func (t *goOpaqueType) WriteDefinition(io.Writer, *renderer) error { return nil }
 
-func (t *goTypenameForBuiltinType) WriteDefinition(w io.Writer, g *generator) error {
+func (t *goTypenameForBuiltinType) WriteDefinition(w io.Writer, _ *renderer) error {
 	fmt.Fprintf(w, "type %s %s", t.GoTypeName, t.GoBuiltinName)
 	return nil
 }
-func (t *goSliceType) WriteDefinition(io.Writer, *generator) error   { return nil }
-func (t *goPointerType) WriteDefinition(io.Writer, *generator) error { return nil }
 
-func (t *goOpaqueType) Reference() string             { return t.GoRef }
-func (t *goTypenameForBuiltinType) Reference() string { return t.GoTypeName }
-func (t *goSliceType) Reference() string              { return "[]" + t.Elem.Reference() }
-func (t *goPointerType) Reference() string            { return "*" + t.Elem.Reference() }
+func (t *goSliceType) WriteDefinition(io.Writer, *renderer) error   { return nil }
+func (t *goPointerType) WriteDefinition(io.Writer, *renderer) error { return nil }
 
-func (t *goOpaqueType) SelectionSet() ast.SelectionSet             { return nil }
-func (t *goTypenameForBuiltinType) SelectionSet() ast.SelectionSet { return nil }
-func (t *goSliceType) SelectionSet() ast.SelectionSet              { return t.Elem.SelectionSet() }
-func (t *goPointerType) SelectionSet() ast.SelectionSet            { return t.Elem.SelectionSet() }
+func (t *goOpaqueType) QualifiedRef() string             { return t.Ref.qualified() }
+func (t *goTypenameForBuiltinType) QualifiedRef() string { return t.GoTypeName }
+func (t *goSliceType) QualifiedRef() string              { return "[]" + t.Elem.QualifiedRef() }
+func (t *goPointerType) QualifiedRef() string            { return "*" + t.Elem.QualifiedRef() }
+
+func (t *goOpaqueType) renderRef(scope *importScope) (string, error) {
+	return t.Ref.render(scope)
+}
+
+func (t *goTypenameForBuiltinType) renderRef(*importScope) (string, error) {
+	return t.GoTypeName, nil
+}
+
+func (t *goSliceType) renderRef(scope *importScope) (string, error) {
+	elem, err := t.Elem.renderRef(scope)
+	if err != nil {
+		return "", err
+	}
+	return "[]" + elem, nil
+}
+
+func (t *goPointerType) renderRef(scope *importScope) (string, error) {
+	elem, err := t.Elem.renderRef(scope)
+	if err != nil {
+		return "", err
+	}
+	return "*" + elem, nil
+}
 
 func (t *goOpaqueType) GraphQLTypeName() string             { return t.GraphQLName }
 func (t *goTypenameForBuiltinType) GraphQLTypeName() string { return t.GraphQLName }
 func (t *goSliceType) GraphQLTypeName() string              { return t.Elem.GraphQLTypeName() }
 func (t *goPointerType) GraphQLTypeName() string            { return t.Elem.GraphQLTypeName() }
 
-// goEnumType represents a Go named-string type used to represent a GraphQL
-// enum.  In this case, we generate both the type (`type T string`) and also a
-// list of consts representing the values.
+// goEnumType represents a Go named-string type for a GraphQL enum.
 type goEnumType struct {
 	GoName      string
 	GraphQLName string
@@ -124,19 +125,16 @@ type goEnumValue struct {
 	Description string
 }
 
-func (t *goEnumType) WriteDefinition(w io.Writer, g *generator) error {
-	// All GraphQL enums have underlying type string (in the Go sense).
+func (t *goEnumType) WriteDefinition(w io.Writer, _ *renderer) error {
 	writeDescription(w, t.Description)
 	fmt.Fprintf(w, "type %s string\n", t.GoName)
 	fmt.Fprintf(w, "const (\n")
 	for _, val := range t.Values {
 		writeDescription(w, val.Description)
-		fmt.Fprintf(w, "%s %s = \"%s\"\n",
-			val.GoName, t.GoName, val.GraphQLName)
+		fmt.Fprintf(w, "%s %s = %q\n", val.GoName, t.GoName, val.GraphQLName)
 	}
 	fmt.Fprintf(w, ")\n")
 
-	// Add slice with all enums.
 	fmt.Fprintf(w, "var All%s = []%s{\n", t.GoName, t.GoName)
 	for _, val := range t.Values {
 		fmt.Fprintf(w, "%s,\n", val.GoName)
@@ -145,124 +143,49 @@ func (t *goEnumType) WriteDefinition(w io.Writer, g *generator) error {
 	return nil
 }
 
-func (t *goEnumType) Reference() string              { return t.GoName }
-func (t *goEnumType) SelectionSet() ast.SelectionSet { return nil }
-func (t *goEnumType) GraphQLTypeName() string        { return t.GraphQLName }
+func (t *goEnumType) QualifiedRef() string                   { return t.GoName }
+func (t *goEnumType) renderRef(*importScope) (string, error) { return t.GoName, nil }
+func (t *goEnumType) GraphQLTypeName() string                { return t.GraphQLName }
 
-// goStructType represents a Go struct type used to represent a GraphQL object
-// or input-object type.
+// goStructType represents a Go struct type for a GraphQL object or input-object.
 type goStructType struct {
-	GoName    string
-	Fields    []*goStructField
-	IsInput   bool
-	Selection ast.SelectionSet
+	GoName  string
+	Fields  []*goStructField
+	IsInput bool
 	descriptionInfo
 }
 
 type goStructField struct {
 	GoName      string
 	GoType      goType
-	JSONName    string // i.e. the field's alias in this query
-	GraphQLName string // i.e. the field's name in its type-def
-	Omitempty   bool   // only used on input types
+	JSONName    string
+	GraphQLName string
+	Omitempty   bool
 	Description string
-	// Position points at the GraphQL source (field selection, input-field
-	// definition, or fragment spread) that produced this field, and is used to
-	// report identifier collisions against the code the user actually wrote.
-	Position *ast.Position
+	Position    *ast.Position
 }
 
-// IsAbstract returns true if this field is of abstract type (i.e. GraphQL
-// union or interface; equivalently, represented by an interface in Go).
-func (f *goStructField) IsAbstract() bool {
-	_, ok := f.GoType.Unwrap().(*goInterfaceType)
-	return ok
-}
-
-// IsEmbedded returns true if this field is embedded (a.k.a. anonymous), which
-// is in practice true if it corresponds to a named fragment spread in GraphQL.
 func (f *goStructField) IsEmbedded() bool {
 	return f.GoName == ""
 }
 
-// Selector returns the field's name, which is unqualified type-name if it's
-// embedded.
 func (f *goStructField) Selector() string {
 	if f.GoName != "" {
 		return f.GoName
 	}
-	// TODO(benkraft): This assumes the type is package-local, which is always
-	// true for embedded types for us, but isn't the most robust assumption.
-	return f.GoType.Unwrap().Reference()
+	return f.GoType.Unwrap().QualifiedRef()
 }
 
-// unmarshaler returns:
-//   - the name of the function to use to unmarshal this field
-//   - true if this is a fully-qualified name (false if it is a package-local
-//     unqualified name)
-//   - true if we need to generate an unmarshaler at all, false if the default
-//     behavior will suffice
-func (f *goStructField) unmarshaler() (qualifiedName string, needsImport, needsUnmarshaler bool) {
-	switch typ := f.GoType.Unwrap().(type) {
-	case *goOpaqueType:
-		if typ.Unmarshaler != "" {
-			return typ.Unmarshaler, true, true
-		}
-	case *goInterfaceType:
-		return "_octoqlUnmarshal" + typ.Reference(), false, true
-	}
-	return "encoding/json.Unmarshal", true, f.IsEmbedded()
-}
-
-// Unmarshaler returns the Go name of the function to use to unmarshal this
-// field (which may be "json.Unmarshal" if there's not a special one).
-func (f *goStructField) Unmarshaler(g *generator) (string, error) {
-	name, needsImport, _ := f.unmarshaler()
-	if needsImport {
-		return g.ref(name)
-	}
-	return name, nil
-}
-
-// marshaler returns:
-//   - the fully-qualified name of the function to use to marshal this field
-//   - true if we need to generate a marshaler at all, false if the default
-//     behavior will suffice
-func (f *goStructField) marshaler() (qualifiedName string, needsImport, needsMarshaler bool) {
-	switch typ := f.GoType.Unwrap().(type) {
-	case *goOpaqueType:
-		if typ.Marshaler != "" {
-			return typ.Marshaler, true, true
-		}
-	case *goInterfaceType:
-		return "_octoqlMarshal" + typ.Reference(), false, true
-	}
-	return "encoding/json.Marshal", true, f.IsEmbedded()
-}
-
-// Marshaler returns the Go name of the function to use to marshal this
-// field (which may be "json.Marshal" if there's not a special one).
-func (f *goStructField) Marshaler(g *generator) (string, error) {
-	name, needsImport, _ := f.marshaler()
-	if needsImport {
-		return g.ref(name)
-	}
-	return name, nil
-}
-
-// NeedsMarshaling returns true if this field needs special handling when
-// marshaling and unmarshaling, e.g. if it has a user-specified custom
-// (un)marshaler.  Note if it needs one, it needs the other: even if the user
-// only specified an unmarshaler, we need to add `json:"-"` to the field, which
-// means we need to specially handling it when marshaling.
+// NeedsMarshaling reports whether this field requires custom JSON
+// marshaling/unmarshaling (embedded fragments or abstract interface fields).
 func (f *goStructField) NeedsMarshaling() bool {
-	_, _, ok1 := f.marshaler()
-	_, _, ok2 := f.unmarshaler()
-	return ok1 || ok2
+	if f.IsEmbedded() {
+		return true
+	}
+	_, isInterface := f.GoType.Unwrap().(*goInterfaceType)
+	return isInterface
 }
 
-// NeedsMarshaler returns true if any fields of this type need special
-// handling when (un)marshaling (see goStructField.NeedsMarshaling).
 func (t *goStructType) NeedsMarshaling() bool {
 	for _, f := range t.Fields {
 		if f.NeedsMarshaling() {
@@ -272,110 +195,57 @@ func (t *goStructType) NeedsMarshaling() bool {
 	return false
 }
 
-// selector represents a field and the path to get there from the type in
-// question, and is used in FlattenedFields, below.
 type selector struct {
 	*goStructField
-	// e.g. "OuterEmbed.InnerEmbed.LeafField"
 	Selector string
 }
 
-// FlattenedFields returns the fields of this type and its recursive embeds,
-// and the paths to reach them (via those embeds), but with different
-// visibility rules for conflicting fields than Go.
-//
-// (Before you read further, now's a good time to review [Go's rules].
-// Done?  Good.)
-//
-// To illustrate the need, consider the following query:
-//
-//	fragment A on T { id }
-//	fragment B on T { id }
-//	query Q { t { ...A ...B } }
-//
-// We generate types:
-//
-//	type A struct { Id string `json:"id"` }
-//	type B struct { Id string `json:"id"` }
-//	type QT struct { A; B }
-//
-// According to Go's embedding rules, QT has no field Id: since QT.A.Id and
-// QT.B.Id are at equal depth, neither wins and gets promoted.  (Go's JSON
-// library uses similar logic to decide which field to write to JSON, except
-// with the additional rule that a field with a JSON tag wins over a field
-// without; in our case both have such a field.)
-//
-// Those rules don't work for us.  When unmarshaling, we want to fill in all
-// the potentially-matching fields (QT.A.Id and QT.B.Id in this case), and when
-// marshaling, we want to always marshal exactly one potentially-conflicting
-// field; we're happy to use the Go visibility rules when they apply but we
-// need to always marshal one field, even if there's not a clear best choice.
-// For unmarshaling, our QT.UnmarshalJSON ends up unmarshaling the same JSON
-// object into QT, QT.A, and QT.B, which gives us the behavior we want.  But
-// for marshaling, we need to resolve the conflicts: if we simply marshaled QT,
-// QT.A, and QT.B, we'd have to do some JSON-surgery to join them, and we'd
-// probably end up with duplicate fields, which leads to unpredictable behavior
-// based on the reader.  That's no good.
-//
-// So: instead, we have our own rules, which work like the Go rules, except
-// that if there's a tie we choose the first field (in source order).  (In
-// practice, hopefully, they all match, but validating that is even more work
-// for a fairly rare case.)  This function returns, for each JSON-name, the Go
-// field we want to use.  In the example above, it would return:
-//
-//	[]selector{{<goStructField for QT.A.Id>, "A.Id"}}
-//
-// [Go's rules]: https://golang.org/ref/spec#Selectors
+// FlattenedFields returns the breadth-first deduplicated fields of this struct
+// and its embedded fragment structs, picking the shallowest (then earliest)
+// field for each JSON key.
 func (t *goStructType) FlattenedFields() ([]*selector, error) {
 	seenJSONNames := map[string]bool{}
 	retval := make([]*selector, 0, len(t.Fields))
 
 	queue := make([]*selector, len(t.Fields))
 	for i, field := range t.Fields {
-		queue[i] = &selector{field, field.Selector()}
+		queue[i] = &selector{
+			goStructField: field,
+			Selector:      field.Selector(),
+		}
 	}
 
-	// Since our (non-embedded) fields always have JSON tags, the logic we want
-	// is simply: do a breadth-first search through the recursively embedded
-	// fields, and take the first one we see with a given JSON tag.
 	for len(queue) > 0 {
 		field := queue[0]
 		queue = queue[1:]
 		if field.IsEmbedded() {
 			structField, ok := field.GoType.(*goStructType)
 			if !ok {
-				// Should never happen: embeds correspond to named fragments,
-				// and even if the fragment is of interface type in GraphQL,
-				// either it's spread into a concrete type, or we are writing
-				// one of the implementations of the interface into which it's
-				// spread; either way we embed the corresponding implementation
-				// of the fragment.
 				return nil, errorf(nil,
 					"octoqlgen internal error: embedded field %s.%s was not a struct",
 					t.GoName, field.GoName)
 			}
 
-			// Enqueue the embedded fields for our BFS.
 			for _, subField := range structField.Fields {
-				queue = append(queue,
-					&selector{subField, field.Selector + "." + subField.Selector()})
+				queue = append(queue, &selector{
+					goStructField: subField,
+					Selector:      field.Selector + "." + subField.Selector(),
+				})
 			}
 			continue
 		}
 
 		if seenJSONNames[field.JSONName] {
-			// We already chose a selector for this JSON field.  Skip it.
 			continue
 		}
 
-		// Else, we are the selector we are looking for.
 		seenJSONNames[field.JSONName] = true
 		retval = append(retval, field)
 	}
 	return retval, nil
 }
 
-func (t *goStructType) WriteDefinition(w io.Writer, g *generator) error {
+func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 	writeDescription(w, structDescription(t))
 
 	fmt.Fprintf(w, "type %s struct {\n", t.GoName)
@@ -387,78 +257,42 @@ func (t *goStructType) WriteDefinition(w io.Writer, g *generator) error {
 		}
 		jsonTag += `"`
 		if field.NeedsMarshaling() {
-			// certain types are handled in our (Un)MarshalJSON (see below)
 			jsonTag = `"-"`
 		}
-		// Note for embedded types field.GoName is "", which produces the code
-		// we want!
-		fmt.Fprintf(w, "\t%s %s `json:%s`\n",
-			field.GoName, field.GoType.Reference(), jsonTag)
+		typeRef, err := r.typeRef(field.GoType)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "\t%s %s `json:%s`\n", field.GoName, typeRef, jsonTag)
 	}
 	fmt.Fprintf(w, "}\n")
 
 	if !t.IsInput {
-		// Write out getter methods for each field. These are most useful for
-		// shared fields of an interface -- the methods will be included in the
-		// interface. But they can be useful in other cases, for example where you
-		// have a union several of whose members have a shared field (and can
-		// thereby be handled together).
-		//
-		// Note we use the *flattened* fields here, which ensures we avoid
-		// conflicts in the case where multiple embedded types include the same
-		// field.
 		flattened, err := t.FlattenedFields()
 		if err != nil {
 			return err
 		}
 		for _, field := range flattened {
+			typeRef, refErr := r.typeRef(field.GoType)
+			if refErr != nil {
+				return refErr
+			}
 			description := fmt.Sprintf(
 				"Get%s returns %s.%s, and is useful for accessing the field via an interface.",
-				field.GoName, t.GoName, field.GoName)
+				field.GoName, t.GoName, field.GoName,
+			)
 			writeDescription(w, description)
 			fmt.Fprintf(w, "func (v *%s) Get%s() %s { return v.%s }\n",
-				t.GoName, field.GoName, field.GoType.Reference(), field.Selector)
+				t.GoName, field.GoName, typeRef, field.Selector)
 		}
 	}
 
-	// Now, if needed, write the marshaler/unmarshaler.  We need one if we have
-	// any interface-typed fields, or any embedded fields.
-	//
-	// For interface-typed fields, ideally we'd write an UnmarshalJSON method
-	// on the field, but you can't add a method to an interface.  So we write a
-	// per-interface-type helper, but we have to call it (with a little
-	// boilerplate) everywhere the type is referenced.
-	//
-	// For embedded fields (from fragments), mostly the JSON library would just
-	// do what we want, but there are two problems.  First, if the embedded
-	// type has its own UnmarshalJSON, naively that would be promoted to
-	// become our UnmarshalJSON, which is no good.  But we don't want to just
-	// hide that method and inline its fields, either; we need to call its
-	// UnmarshalJSON (on the same object we unmarshal into this struct).
-	// Second, if the embedded type duplicates any fields of the embedding type
-	// -- maybe both the fragment and the selection into which it's spread
-	// select the same field, or several fragments select the same field -- the
-	// JSON library will only fill one of those (the least-nested one); we want
-	// to fill them all.
-	//
-	// For fields with a custom marshaler or unmarshaler, we do basically the
-	// same thing as interface-typed fields, except the user has defined the
-	// helper.
-	//
-	// Note that octoqlgen itself only uses unmarshalers for output types, and
-	// marshalers for input types.  But we write both in case you want to write
-	// your data to JSON for some reason (say to put it in a cache).  (And we
-	// need to write both if we need to write either, because in such cases we
-	// write a `json:"-"` tag on the field.)
-	//
-	// TODO(benkraft): If/when proposal #5901 is implemented (Go 1.18 at the
-	// earliest), we may be able to do some of this a simpler way.
 	if t.NeedsMarshaling() {
-		err := g.render("unmarshal.go.tmpl", w, t)
+		err := r.render("unmarshal.go.tmpl", w, t)
 		if err != nil {
 			return err
 		}
-		err = g.render("marshal.go.tmpl", w, t)
+		err = r.render("marshal.go.tmpl", w, t)
 		if err != nil {
 			return err
 		}
@@ -466,140 +300,76 @@ func (t *goStructType) WriteDefinition(w io.Writer, g *generator) error {
 	return nil
 }
 
-func (t *goStructType) Reference() string              { return t.GoName }
-func (t *goStructType) SelectionSet() ast.SelectionSet { return t.Selection }
-func (t *goStructType) GraphQLTypeName() string        { return t.GraphQLName }
+func (t *goStructType) QualifiedRef() string                   { return t.GoName }
+func (t *goStructType) renderRef(*importScope) (string, error) { return t.GoName, nil }
+func (t *goStructType) GraphQLTypeName() string                { return t.GraphQLName }
 
-// goInterfaceType represents a Go interface type, used to represent a GraphQL
-// interface or union type.
+// goInterfaceType represents a Go interface type for a GraphQL interface or union.
 type goInterfaceType struct {
-	GoName string
-	// Fields shared by all the interface's implementations;
-	// we'll generate getter methods for each.
+	GoName              string
 	SharedFields        []*goStructField
 	Implementations     []*goStructType
 	OtherImplementation *goStructType
-	Selection           ast.SelectionSet
 	descriptionInfo
-}
-
-// interfaceMemberKind classifies a member octoqlgen declares directly on a
-// generated Go interface.
-type interfaceMemberKind int
-
-const (
-	interfaceMarkerMember interfaceMemberKind = iota
-	interfaceGetterMember
-	interfaceEmbeddedMember
-)
-
-// interfaceMember is one member octoqlgen writes directly into a generated Go
-// interface: the implements-marker method, a Get<Field> getter, or an embedded
-// interface element.  WriteDefinition emits these and checkInterfaceIdentifiers
-// validates the resulting method set from the same list, so the identifiers
-// that are emitted and the identifiers that are checked cannot drift apart.
-type interfaceMember struct {
-	kind interfaceMemberKind
-	// methodName is set for the marker and getter members.
-	methodName string
-	// resultRef is the getter's result type reference (getters only).
-	resultRef string
-	// field is the shared field a getter or embedded member came from; it is
-	// nil for the marker, and for an embedded member it carries the embedded
-	// type.
-	field *goStructField
 }
 
 func (t *goInterfaceType) markerMethodName() string {
 	return "implementsGraphQLInterface" + t.GoName
 }
 
-// members returns the members octoqlgen declares directly on the interface t.
-// It is the single source of truth for the marker-method spelling, the getter
-// spelling and signature, and the embedded elements, shared by WriteDefinition
-// (which emits them) and the identifier check (which validates the resulting
-// method set).
-func (t *goInterfaceType) members() []interfaceMember {
-	members := make([]interfaceMember, 0, len(t.SharedFields)+1)
-	members = append(members, interfaceMember{
-		kind:       interfaceMarkerMember,
-		methodName: t.markerMethodName(),
-	})
-	for _, sharedField := range t.SharedFields {
-		if sharedField.GoName == "" { // embedded type
-			members = append(members, interfaceMember{
-				kind:  interfaceEmbeddedMember,
-				field: sharedField,
-			})
-			continue
-		}
-		members = append(members, interfaceMember{
-			kind:       interfaceGetterMember,
-			methodName: "Get" + sharedField.GoName,
-			resultRef:  sharedField.GoType.Reference(),
-			field:      sharedField,
-		})
-	}
-	return members
-}
-
-func (t *goInterfaceType) WriteDefinition(w io.Writer, g *generator) error {
+func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 	writeDescription(w, interfaceDescription(t))
 
-	// Write the interface.
 	fmt.Fprintf(w, "type %s interface {\n", t.GoName)
-	for _, member := range t.members() {
-		switch member.kind {
-		case interfaceMarkerMember:
-			fmt.Fprintf(w, "\t%s()\n", member.methodName)
-		case interfaceEmbeddedMember:
-			fmt.Fprintf(w, "\t%s\n", member.field.GoType.Reference())
-		case interfaceGetterMember:
-			sharedField := member.field
-			description := fmt.Sprintf(
-				`%s returns the interface-field %q from its implementation.`,
-				member.methodName, sharedField.GraphQLName)
-			if sharedField.Description != "" {
-				description = fmt.Sprintf(
-					"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
-					description, sharedField.Description)
-			}
-			if sharedField.GraphQLName == "__typename" {
-				description = fmt.Sprintf(
-					"%s returns the receiver's concrete GraphQL type-name "+
-						"(see interface doc for possible values).", member.methodName)
-			}
-
-			writeDescription(w, description)
-			fmt.Fprintf(w, "\t%s() %s\n", member.methodName, member.resultRef)
+	fmt.Fprintf(w, "\t%s()\n", t.markerMethodName())
+	for _, field := range t.SharedFields {
+		ref, err := r.typeRef(field.GoType)
+		if err != nil {
+			return err
 		}
+		if field.IsEmbedded() {
+			fmt.Fprintf(w, "\t%s\n", ref)
+			continue
+		}
+		methodName := "Get" + field.GoName
+		description := fmt.Sprintf(
+			`%s returns the interface-field %q from its implementation.`,
+			methodName, field.GraphQLName,
+		)
+		if field.Description != "" {
+			description = fmt.Sprintf(
+				"%s\nThe GraphQL interface field's documentation follows.\n\n%s",
+				description, field.Description,
+			)
+		}
+		if field.GraphQLName == "__typename" {
+			description = fmt.Sprintf(
+				"%s returns the receiver's concrete GraphQL type-name "+
+					"(see interface doc for possible values).", methodName,
+			)
+		}
+
+		writeDescription(w, description)
+		fmt.Fprintf(w, "\t%s() %s\n", methodName, ref)
 	}
 	fmt.Fprintf(w, "}\n")
 
-	// Now, write out the implementations.
 	implementsMethodName := t.markerMethodName()
 	for _, impl := range t.Implementations {
-		fmt.Fprintf(w, "func (v *%s) %s() {}\n",
-			impl.Reference(), implementsMethodName)
+		fmt.Fprintf(w, "func (v *%s) %s() {}\n", impl.GoName, implementsMethodName)
 	}
-	if t.OtherImplementation != nil {
-		fmt.Fprintf(w, "func (v *%s) %s() {}\n",
-			t.OtherImplementation.Reference(), implementsMethodName)
-	}
+	fmt.Fprintf(w, "func (v *%s) %s() {}\n", t.OtherImplementation.GoName, implementsMethodName)
 
-	// Finally, write the marshal- and unmarshal-helpers, which
-	// will be called by struct fields referencing this type (see
-	// goStructType.WriteDefinition).
-	err := g.render("unmarshal_helper.go.tmpl", w, t)
+	err := r.render("unmarshal_helper.go.tmpl", w, t)
 	if err != nil {
 		return err
 	}
-	return g.render("marshal_helper.go.tmpl", w, t)
+	return r.render("marshal_helper.go.tmpl", w, t)
 }
 
-func (t *goInterfaceType) Reference() string              { return t.GoName }
-func (t *goInterfaceType) SelectionSet() ast.SelectionSet { return t.Selection }
-func (t *goInterfaceType) GraphQLTypeName() string        { return t.GraphQLName }
+func (t *goInterfaceType) QualifiedRef() string                   { return t.GoName }
+func (t *goInterfaceType) renderRef(*importScope) (string, error) { return t.GoName, nil }
+func (t *goInterfaceType) GraphQLTypeName() string                { return t.GraphQLName }
 
 func (t *goOpaqueType) Unwrap() goType             { return t }
 func (t *goTypenameForBuiltinType) Unwrap() goType { return t }
@@ -617,17 +387,9 @@ func (t *goEnumType) SliceDepth() int               { return 0 }
 func (t *goStructType) SliceDepth() int             { return 0 }
 func (t *goInterfaceType) SliceDepth() int          { return 0 }
 
-func (t *goOpaqueType) IsPointer() bool             { return false }
-func (t *goTypenameForBuiltinType) IsPointer() bool { return false }
-func (t *goSliceType) IsPointer() bool              { return t.Elem.IsPointer() }
-func (t *goPointerType) IsPointer() bool            { return true }
-func (t *goEnumType) IsPointer() bool               { return false }
-func (t *goStructType) IsPointer() bool             { return false }
-func (t *goInterfaceType) IsPointer() bool          { return false }
-
 func writeDescription(w io.Writer, desc string) {
 	if desc != "" {
-		for _, line := range strings.Split(desc, "\n") {
+		for line := range strings.SplitSeq(desc, "\n") {
 			fmt.Fprintf(w, "// %s\n", strings.TrimLeft(line, " \t"))
 		}
 	}

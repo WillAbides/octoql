@@ -156,8 +156,7 @@ A nil pointer omits `arg` from the variables object, while a pointer to `""`
 includes the empty string. Add `pointer: false` to generate a string field that
 omits `""` instead.
 
-Only applicable to arguments of nullable types. Ignored for types with custom
-marshalers; see [`bindings.<name>.marshaler`](configuration.md).
+Only applicable to optional arguments and input fields.
 
 ## `pointer`
 

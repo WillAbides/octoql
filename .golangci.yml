@@ -11,26 +11,29 @@ linters:
     - gocritic
     - govet
     - ineffassign
+    - modernize
     - nakedret
+    - noinlineerr
+    - revive
     - staticcheck
+    - testifylint
     - unconvert
     - unparam
     - unused
+    - usetesting
     - whitespace
   settings:
     errcheck:
       check-type-assertions: true
     errorlint:
-      errorf: false
+      errorf: true
     forbidigo:
       forbid:
         - pattern: ^print(|f|ln)$
         - pattern: ^fmt\.Print(|f|ln)$
     gocritic:
       disabled-checks:
-        - builtinShadow
         - commentedOutCode
-        - importShadow
         - paramTypeCombine
         - sprintfQuotedString
         - unnamedResult
@@ -48,6 +51,18 @@ linters:
       enable-all: true
       disable:
         - fieldalignment
+      settings:
+        shadow:
+          strict: true
+    revive:
+      enable-all-rules: false
+      rules:
+        - name: argument-limit
+          arguments:
+            - 4
+        - name: early-return
+        - name: indent-error-flow
+        - name: superfluous-else
   exclusions:
     generated: lax
     presets:
@@ -58,7 +73,7 @@ linters:
     rules:
       - linters:
           - forbidigo
-        path: ^example/|^internal/generate/main\.go$|^cmd/octoqlgen/
+        path: ^example/|^cmd/octoqlgen/
       - linters:
           - errcheck
         path: _test\.go$
@@ -74,6 +89,10 @@ linters:
           - staticcheck
         path: ^internal/integration/integration_test\.go$
         text: 'QF1008: could remove embedded field'
+      - linters:
+          - usetesting
+        path: ^internal/generate/generate_test\.go$
+        text: 'os\.MkdirTemp\(\) could be replaced by t\.TempDir\(\)'
     paths:
       - third_party$
       - builtin$
@@ -81,6 +100,11 @@ linters:
 formatters:
   enable:
     - gofumpt
+  settings:
+    gofumpt:
+      extra:
+        group-params: true
+        clothe-returns: true
   exclusions:
     generated: lax
     paths:

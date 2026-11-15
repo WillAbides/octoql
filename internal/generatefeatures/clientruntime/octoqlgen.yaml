@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../../octoqlgen.schema.yaml
+
+schema:
+  path: schema.graphql
+operations:
+  - operation.graphql
+generated: generated.go
+bindings:
+  Account: github.com/willabides/octoql/internal/testutil.Account
+  CustomPropertyValue: string
+  Date: github.com/willabides/octoql/internal/testutil.Date
+  DateTime: string

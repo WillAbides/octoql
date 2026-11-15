@@ -6,7 +6,6 @@
 package integration
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -15,15 +14,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gqlserver "github.com/willabides/octoql/internal/integration/server"
+	"github.com/willabides/octoql/internal/testutil"
 )
 
-func TestGetRepository(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml
 
-	response, err := client.getRepository(ctx, getRepositoryVariables{
+func newTestClient(t *testing.T) *Client {
+	server := gqlserver.RunServer()
+	t.Cleanup(server.Close)
+	return NewClient(server.URL, http.DefaultClient)
+}
+
+func TestGetRepository(t *testing.T) {
+	client := newTestClient(t)
+
+	response, err := client.getRepository(t.Context(), getRepositoryVariables{
 		Owner: "octocat",
 		Name:  "octo-repo",
 	})
@@ -38,12 +43,9 @@ func TestGetRepository(t *testing.T) {
 }
 
 func TestMutation(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.addComment(ctx, addCommentVariables{
+	response, err := client.addComment(t.Context(), addCommentVariables{
 		Input: gqlserver.AddCommentInput{
 			SubjectID: "20",
 			Body:      "Thanks for reporting!",
@@ -57,12 +59,9 @@ func TestMutation(t *testing.T) {
 }
 
 func TestStarMutations(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	starResponse, err := client.addStar(ctx, addStarVariables{
+	starResponse, err := client.addStar(t.Context(), addStarVariables{
 		Input: gqlserver.AddStarInput{StarrableID: "10"},
 	})
 
@@ -72,7 +71,7 @@ func TestStarMutations(t *testing.T) {
 	assert.True(t, starResponse.AddStar.Starrable.GetViewerHasStarred())
 	assert.Equal(t, 43, starResponse.AddStar.Starrable.GetStargazerCount())
 
-	unstarResponse, err := client.removeStar(ctx, removeStarVariables{
+	unstarResponse, err := client.removeStar(t.Context(), removeStarVariables{
 		Input: gqlserver.RemoveStarInput{StarrableID: "10"},
 	})
 
@@ -84,18 +83,14 @@ func TestStarMutations(t *testing.T) {
 }
 
 func TestServerError(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.failingQuery(ctx)
-	assert.Error(t, err)
+	response, err := client.failingQuery(t.Context())
+	require.Error(t, err)
 	var gqlErrors Errors
-	if assert.True(t, errors.As(err, &gqlErrors), "error should contain Errors") {
-		assert.Len(t, gqlErrors, 1, "Expected one GraphQL error")
-		assert.Equal(t, "oh no", gqlErrors[0].Message)
-	}
+	require.ErrorAs(t, err, &gqlErrors, "error should contain Errors")
+	require.Len(t, gqlErrors, 1, "Expected one GraphQL error")
+	assert.Equal(t, "oh no", gqlErrors[0].Message)
 	assert.Nil(t, response)
 	partialErr, ok := errors.AsType[*failingQueryPartialDataError](err)
 	require.True(t, ok)
@@ -104,12 +99,9 @@ func TestServerError(t *testing.T) {
 }
 
 func TestVariables(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithVariables(ctx, queryWithVariablesVariables{
+	response, err := client.queryWithVariables(t.Context(), queryWithVariablesVariables{
 		Login: "raven",
 	})
 
@@ -120,7 +112,7 @@ func TestVariables(t *testing.T) {
 	assert.Equal(t, "raven", response.User.Login)
 	assert.Equal(t, -1, requirePtrValue(t, response.User.ContributionCount))
 
-	response, err = client.queryWithVariables(ctx, queryWithVariablesVariables{
+	response, err = client.queryWithVariables(t.Context(), queryWithVariablesVariables{
 		Login: "definitely-not-a-real-login",
 	})
 
@@ -129,13 +121,10 @@ func TestVariables(t *testing.T) {
 }
 
 func TestOmitempty(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithOmitempty(ctx, queryWithOmitemptyVariables{
-		Login: ptr("raven"),
+	response, err := client.queryWithOmitempty(t.Context(), queryWithOmitemptyVariables{
+		Login: new("raven"),
 	})
 
 	require.NoError(t, err)
@@ -146,7 +135,7 @@ func TestOmitempty(t *testing.T) {
 	assert.Equal(t, -1, requirePtrValue(t, response.User.ContributionCount))
 
 	// should return the default viewer-like user, not the user with login ""
-	response, err = client.queryWithOmitempty(ctx, queryWithOmitemptyVariables{})
+	response, err = client.queryWithOmitempty(t.Context(), queryWithOmitemptyVariables{})
 	require.NoError(t, err)
 	require.NotNil(t, response.User)
 
@@ -155,105 +144,56 @@ func TestOmitempty(t *testing.T) {
 	assert.Equal(t, 17, requirePtrValue(t, response.User.ContributionCount))
 }
 
-func TestCustomMarshal(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+func TestBoundScalar(t *testing.T) {
+	client := newTestClient(t)
 
-	response, err := client.queryWithCustomMarshal(ctx, queryWithCustomMarshalVariables{
-		Date: time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC),
+	matchedDate := testutil.Date(time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))
+	unmatchedDate := testutil.Date(time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC))
+	expectedMidnight := testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC))
+
+	response, err := client.queryWithBoundScalar(t.Context(), queryWithBoundScalarVariables{
+		Date:         matchedDate,
+		Dates:        []testutil.Date{matchedDate},
+		OptionalDate: &matchedDate,
 	})
-
 	require.NoError(t, err)
 
-	assert.Len(t, response.UsersCreatedOn, 1)
-	user := response.UsersCreatedOn[0]
-	assert.Equal(t, "1", user.Id)
-	assert.Equal(t, "octocat", user.Login)
-	assert.Equal(t,
-		time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
-		requirePtrValue(t, user.CreatedAt))
+	require.Len(t, response.ByDate, 1)
+	assert.Equal(t, "1", response.ByDate[0].Id)
+	assert.Equal(t, "octocat", response.ByDate[0].Login)
+	assert.Equal(t, expectedMidnight, requirePtrValue(t, response.ByDate[0].CreatedAt))
 
-	response, err = client.queryWithCustomMarshal(ctx, queryWithCustomMarshalVariables{
-		Date: time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC),
-	})
+	require.Len(t, response.ByDates, 1)
+	assert.Equal(t, "1", response.ByDates[0].Id)
+	assert.Equal(t, "octocat", response.ByDates[0].Login)
+	assert.Equal(t, expectedMidnight, requirePtrValue(t, response.ByDates[0].CreatedAt))
 
-	require.NoError(t, err)
-	assert.Empty(t, response.UsersCreatedOn)
-}
-
-func TestCustomMarshalSlice(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
-
-	response, err := client.queryWithCustomMarshalSlice(ctx, queryWithCustomMarshalSliceVariables{
-		Dates: []time.Time{time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)},
-	})
-
-	require.NoError(t, err)
-
-	assert.Len(t, response.UsersCreatedOnDates, 1)
-	user := response.UsersCreatedOnDates[0]
-	assert.Equal(t, "1", user.Id)
-	assert.Equal(t, "octocat", user.Login)
-	assert.Equal(t,
-		time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
-		requirePtrValue(t, user.CreatedAt))
-
-	response, err = client.queryWithCustomMarshalSlice(ctx, queryWithCustomMarshalSliceVariables{
-		Dates: []time.Time{time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)},
-	})
-
-	require.NoError(t, err)
-	assert.Empty(t, response.UsersCreatedOnDates)
-}
-
-func TestCustomMarshalOptional(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
-
-	date := time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)
-	response, err := client.queryWithCustomMarshalOptional(ctx, queryWithCustomMarshalOptionalVariables{
-		Date: &date,
-	})
-
-	require.NoError(t, err)
-
-	assert.Len(t, response.UserSearch, 1)
-	user := response.UserSearch[0]
-	require.NotNil(t, user)
-	assert.Equal(t, "1", user.Id)
-	assert.Equal(t, "octocat", user.Login)
-	assert.Equal(t,
-		time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
-		requirePtrValue(t, user.CreatedAt))
+	require.Len(t, response.BySearch, 1)
+	require.NotNil(t, response.BySearch[0])
+	assert.Equal(t, "1", response.BySearch[0].Id)
+	assert.Equal(t, "octocat", response.BySearch[0].Login)
+	assert.Equal(t, expectedMidnight, requirePtrValue(t, response.BySearch[0].CreatedAt))
 
 	login := "raven"
-	response, err = client.queryWithCustomMarshalOptional(ctx, queryWithCustomMarshalOptionalVariables{
+	response, err = client.queryWithBoundScalar(t.Context(), queryWithBoundScalarVariables{
+		Date:  unmatchedDate,
+		Dates: []testutil.Date{unmatchedDate},
 		Login: &login,
 	})
-
 	require.NoError(t, err)
-	assert.Len(t, response.UserSearch, 1)
-	user = response.UserSearch[0]
-	require.NotNil(t, user)
-	assert.Equal(t, "2", user.Id)
-	assert.Equal(t, "raven", user.Login)
-	assert.Nil(t, user.CreatedAt)
+	assert.Empty(t, response.ByDate)
+	assert.Empty(t, response.ByDates)
+	require.Len(t, response.BySearch, 1)
+	require.NotNil(t, response.BySearch[0])
+	assert.Equal(t, "2", response.BySearch[0].Id)
+	assert.Equal(t, "raven", response.BySearch[0].Login)
+	assert.Nil(t, response.BySearch[0].CreatedAt)
 }
 
 func TestInterfaceNoFragments(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithInterfaceNoFragments(ctx, queryWithInterfaceNoFragmentsVariables{
+	response, err := client.queryWithInterfaceNoFragments(t.Context(), queryWithInterfaceNoFragmentsVariables{
 		Id: "1",
 	})
 
@@ -268,12 +208,12 @@ func TestInterfaceNoFragments(t *testing.T) {
 	assert.Equal(t, "1", actor.GetId())
 	assert.Equal(t, "octocat", actor.GetLogin())
 
-	user, ok := actor.(*queryWithInterfaceNoFragmentsActorUser)
-	require.Truef(t, ok, "got %T, not User", actor)
+	user, ok := actor.(*queryWithInterfaceNoFragmentsActorOctoqlOther)
+	require.Truef(t, ok, "got %T, not OctoqlOther", actor)
 	assert.Equal(t, "1", user.Id)
 	assert.Equal(t, "octocat", user.Login)
 
-	response, err = client.queryWithInterfaceNoFragments(ctx, queryWithInterfaceNoFragmentsVariables{
+	response, err = client.queryWithInterfaceNoFragments(t.Context(), queryWithInterfaceNoFragmentsVariables{
 		Id: "3",
 	})
 
@@ -288,12 +228,12 @@ func TestInterfaceNoFragments(t *testing.T) {
 	assert.Equal(t, "3", actor.GetId())
 	assert.Equal(t, "octo-org", actor.GetLogin())
 
-	org, ok := actor.(*queryWithInterfaceNoFragmentsActorOrganization)
-	require.Truef(t, ok, "got %T, not Organization", actor)
+	org, ok := actor.(*queryWithInterfaceNoFragmentsActorOctoqlOther)
+	require.Truef(t, ok, "got %T, not OctoqlOther", actor)
 	assert.Equal(t, "3", org.Id)
 	assert.Equal(t, "octo-org", org.Login)
 
-	response, err = client.queryWithInterfaceNoFragments(ctx, queryWithInterfaceNoFragmentsVariables{
+	response, err = client.queryWithInterfaceNoFragments(t.Context(), queryWithInterfaceNoFragmentsVariables{
 		Id: "4757233945723",
 	})
 
@@ -305,12 +245,9 @@ func TestInterfaceNoFragments(t *testing.T) {
 }
 
 func TestInterfaceListField(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithInterfaceListField(ctx, queryWithInterfaceListFieldVariables{
+	response, err := client.queryWithInterfaceListField(t.Context(), queryWithInterfaceListFieldVariables{
 		Ids: []string{"1", "3", "12847394823"},
 	})
 
@@ -323,8 +260,8 @@ func TestInterfaceListField(t *testing.T) {
 	assert.Equal(t, "1", response.Actors[0].GetId())
 	assert.Equal(t, "octocat", response.Actors[0].GetLogin())
 
-	user, ok := response.Actors[0].(*queryWithInterfaceListFieldActorsUser)
-	require.Truef(t, ok, "got %T, not User", response.Actors[0])
+	user, ok := response.Actors[0].(*queryWithInterfaceListFieldActorsActorOctoqlOther)
+	require.Truef(t, ok, "got %T, not OctoqlOther", response.Actors[0])
 	assert.Equal(t, "1", user.Id)
 	assert.Equal(t, "octocat", user.Login)
 
@@ -333,8 +270,8 @@ func TestInterfaceListField(t *testing.T) {
 	assert.Equal(t, "3", response.Actors[1].GetId())
 	assert.Equal(t, "octo-org", response.Actors[1].GetLogin())
 
-	org, ok := response.Actors[1].(*queryWithInterfaceListFieldActorsOrganization)
-	require.Truef(t, ok, "got %T, not Organization", response.Actors[1])
+	org, ok := response.Actors[1].(*queryWithInterfaceListFieldActorsActorOctoqlOther)
+	require.Truef(t, ok, "got %T, not OctoqlOther", response.Actors[1])
 	assert.Equal(t, "3", org.Id)
 	assert.Equal(t, "octo-org", org.Login)
 
@@ -342,12 +279,9 @@ func TestInterfaceListField(t *testing.T) {
 }
 
 func TestFragments(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithFragments(ctx, queryWithFragmentsVariables{
+	response, err := client.queryWithFragments(t.Context(), queryWithFragmentsVariables{
 		Ids: []string{"1", "3", "12847394823"},
 	})
 
@@ -392,12 +326,9 @@ func TestFragments(t *testing.T) {
 }
 
 func TestNamedFragments(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithNamedFragments(ctx, queryWithNamedFragmentsVariables{
+	response, err := client.queryWithNamedFragments(t.Context(), queryWithNamedFragmentsVariables{
 		Ids: []string{"1", "3", "12847394823"},
 	})
 
@@ -462,12 +393,9 @@ func TestNamedFragments(t *testing.T) {
 }
 
 func TestFlatten(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithFlatten(ctx, queryWithFlattenVariables{
+	response, err := client.queryWithFlatten(t.Context(), queryWithFlattenVariables{
 		Ids: []string{"1", "3", "12847394823"},
 	})
 
@@ -482,7 +410,7 @@ func TestFlatten(t *testing.T) {
 	user, ok := response.Actors[0].(*queryFragmentActorsUser)
 	require.Truef(t, ok, "got %T, not User", response.Actors[0])
 	assert.Equal(t, "1", user.Id)
-	assert.Equal(t, 17, requirePtrValue(t, user.innerRepositoryOwnerFieldsUser.ContributionCount))
+	assert.Equal(t, 17, requirePtrValue(t, user.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount))
 
 	require.NotNil(t, response.Actors[1])
 	assert.Equal(t, "Organization", response.Actors[1].GetTypename())
@@ -519,12 +447,9 @@ func requireFlattenedTypeShape(
 }
 
 func TestSearch(t *testing.T) {
-	ctx := context.Background()
-	server := gqlserver.RunServer()
-	defer server.Close()
-	client := NewClient(server.URL, http.DefaultClient)
+	client := newTestClient(t)
 
-	response, err := client.queryWithSearch(ctx, queryWithSearchVariables{
+	response, err := client.queryWithSearch(t.Context(), queryWithSearchVariables{
 		Query:      "octo",
 		SearchType: gqlserver.SearchTypeRepository,
 	})
@@ -537,7 +462,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, "octo-repo", repo.Name)
 	assert.Equal(t, 42, repo.StargazerCount)
 
-	response, err = client.queryWithSearch(ctx, queryWithSearchVariables{
+	response, err = client.queryWithSearch(t.Context(), queryWithSearchVariables{
 		Query:      "bug",
 		SearchType: gqlserver.SearchTypeIssue,
 	})
@@ -555,7 +480,7 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, "Fix bug", pr.Title)
 	assert.Equal(t, gqlserver.PullRequestStateMerged, pr.PullRequestState)
 
-	response, err = client.queryWithSearch(ctx, queryWithSearchVariables{
+	response, err = client.queryWithSearch(t.Context(), queryWithSearchVariables{
 		Query:      "dependabot",
 		SearchType: gqlserver.SearchTypeUser,
 	})
@@ -568,8 +493,68 @@ func TestSearch(t *testing.T) {
 	assert.Equal(t, "dependabot", bot.Login)
 }
 
-func ptr[T any](value T) *T {
-	return &value
+func TestDirectivesNullabilityAndSkipInclude(t *testing.T) {
+	client := newTestClient(t)
+	queryDate := testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC))
+
+	skipped, err := client.queryWithDirectivesAndSkipInclude(
+		t.Context(),
+		queryWithDirectivesAndSkipIncludeVariables{
+			Hide:          true,
+			Show:          false,
+			OptionalLogin: "octocat",
+			Dates:         []testutil.Date{queryDate},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, skipped.User)
+	assert.Equal(t, "octocat", skipped.User.Login)
+	assert.Equal(t, "Mona Octocat", skipped.User.PlainName)
+	assert.Equal(t, "octocat", requirePtrValue(t, skipped.User.ForcedPtrLogin))
+	assert.Nil(t, skipped.User.Typename)
+	assert.Nil(t, skipped.User.SkippedLogin)
+	assert.Nil(t, skipped.User.IncludedLogin)
+	assert.Nil(t, skipped.User.CreatedAt)
+	assert.Nil(t, skipped.User.Status)
+	assert.Empty(t, skipped.User.Repositories)
+	assert.Nil(t, skipped.User.BoundPtr)
+	assert.Nil(t, skipped.User.BoundAny)
+	require.NotNil(t, skipped.Actor)
+	assert.Equal(t, "1", skipped.Actor.GetId())
+	assert.Empty(t, skipped.Actors)
+	assert.Empty(t, skipped.UsersCreatedOnDates)
+	require.NotNil(t, skipped.StructActor)
+	assert.Equal(t, "octocat", skipped.StructActor.Login)
+
+	included, err := client.queryWithDirectivesAndSkipInclude(
+		t.Context(),
+		queryWithDirectivesAndSkipIncludeVariables{
+			Hide:          false,
+			Show:          true,
+			DefaultedId:   new("3"),
+			OptionalLogin: "octocat",
+			Dates:         []testutil.Date{queryDate},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, included.User)
+	assert.Equal(t, "User", requirePtrValue(t, included.User.Typename))
+	assert.Equal(t, "octocat", requirePtrValue(t, included.User.SkippedLogin))
+	assert.Equal(t, "octocat", requirePtrValue(t, included.User.IncludedLogin))
+	assert.Equal(t, queryDate, requirePtrValue(t, included.User.CreatedAt))
+	require.NotNil(t, included.User.Status)
+	assert.Equal(t, ":octocat:", requirePtrValue(t, included.User.Status.Emoji))
+	require.Len(t, included.User.Repositories, 1)
+	assert.Equal(t, "octo-repo", included.User.Repositories[0].Name)
+	assert.Equal(t, "octocat", requirePtrValue(t, included.User.BoundPtr))
+	assert.Equal(t, "octocat", included.User.BoundAny)
+	require.NotNil(t, included.Actor)
+	org, ok := included.Actor.(*directivesResponseActorOrganization)
+	require.True(t, ok)
+	assert.Equal(t, "3", org.Id)
+	assert.Equal(t, "Octo Org", org.Name)
+	require.Len(t, included.Actors, 1)
+	require.Len(t, included.UsersCreatedOnDates, 1)
 }
 
 func requirePtrValue[T any](t *testing.T, value *T) T {
@@ -577,5 +562,3 @@ func requirePtrValue[T any](t *testing.T, value *T) T {
 	require.NotNil(t, value)
 	return *value
 }
-
-//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml

@@ -1,133 +1,196 @@
 package config
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"strings"
 
-	yamlv3 "gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 const schemaDirectivePrefix = "# yaml-language-server: $schema="
 
 // SetSchemaDirective adds or replaces the yaml-language-server schema directive.
 func SetSchemaDirective(content []byte, schemaURL string) []byte {
-	directive := []byte(schemaDirectivePrefix + schemaURL)
-	lines := bytes.SplitAfter(content, []byte("\n"))
+	directive := schemaDirectivePrefix + schemaURL
+	text := string(content)
+	lines := strings.SplitAfter(text, "\n")
 	for index, line := range lines {
-		trimmed := strings.TrimSpace(string(line))
-		if !strings.HasPrefix(trimmed, schemaDirectivePrefix) {
+		if !strings.HasPrefix(strings.TrimSpace(line), schemaDirectivePrefix) {
 			continue
 		}
-		lineEnding := line[len(bytes.TrimRight(line, "\r\n")):]
-		lines[index] = append(append([]byte{}, directive...), lineEnding...)
-		return bytes.Join(lines, nil)
+		lineEnding := line[len(strings.TrimRight(line, "\r\n")):]
+		lines[index] = directive + lineEnding
+		return []byte(strings.Join(lines, ""))
 	}
 
-	lineEnding := firstLineEnding(content)
-	prefix := append(append(append([]byte{}, directive...), lineEnding...), lineEnding...)
-	return append(prefix, content...)
-}
-
-func firstLineEnding(content []byte) []byte {
-	newline := bytes.IndexByte(content, '\n')
-	if newline > 0 && content[newline-1] == '\r' {
-		return []byte("\r\n")
+	lineEnding := "\n"
+	newline := strings.IndexByte(text, '\n')
+	if newline > 0 && text[newline-1] == '\r' {
+		lineEnding = "\r\n"
 	}
-	return []byte("\n")
+	return []byte(directive + lineEnding + lineEnding + text)
 }
 
 // UpdatePin preserves the original YAML while replacing only schema checksum
 // and an applicable remote revision.
 func UpdatePin(content []byte, sha256, revision string) ([]byte, error) {
-	var document yamlv3.Node
-	err := yamlv3.Unmarshal(content, &document)
+	var document yaml.Node
+	err := yaml.Load(content, &document)
 	if err != nil {
 		return nil, fmt.Errorf("decoding config for update: %w", err)
 	}
 	if len(document.Content) != 1 {
 		return nil, errors.New("config must contain one YAML document")
 	}
-	root := dereference(document.Content[0])
-	schemaNode, err := mappingValue(root, "schema")
+
+	schemaNode, err := mappingNode(document.Content[0], "schema")
 	if err != nil {
 		return nil, err
 	}
-	schemaNode = dereference(schemaNode)
-	shaNode, err := mappingValue(schemaNode, "sha256")
+	shaNode, err := pinScalarNode(schemaNode, "sha256")
 	if err != nil {
 		return nil, err
 	}
-	err = ensureUnanchoredPin(shaNode)
+
+	lines := strings.SplitAfter(string(content), "\n")
+	err = replaceScalar(lines, shaNode, sha256)
 	if err != nil {
 		return nil, err
 	}
-	replacements := []scalarReplacement{{node: shaNode, value: sha256}}
+
 	if revision != "" {
-		sourceNode, sourceErr := mappingValue(schemaNode, "source")
+		sourceNode, sourceErr := mappingNode(schemaNode, "source")
 		if sourceErr != nil {
 			return nil, sourceErr
 		}
-		sourceNode = dereference(sourceNode)
-		revisionNode, sourceErr := mappingValue(sourceNode, "revision")
-		if sourceErr != nil {
-			return nil, sourceErr
+		revisionNode, revErr := pinScalarNode(sourceNode, "revision")
+		if revErr != nil {
+			return nil, revErr
 		}
-		sourceErr = ensureUnanchoredPin(revisionNode)
-		if sourceErr != nil {
-			return nil, sourceErr
+		err = replaceScalar(lines, revisionNode, revision)
+		if err != nil {
+			return nil, err
 		}
-		replacements = append(replacements, scalarReplacement{node: revisionNode, value: revision})
 	}
-	return replaceScalars(content, replacements)
+
+	return []byte(strings.Join(lines, "")), nil
 }
 
-func ensureUnanchoredPin(node *yamlv3.Node) error {
-	if node.Kind == yamlv3.AliasNode {
-		return errors.New("config pin must not use a shared YAML alias")
+var errMissingMappingKey = errors.New("config is missing key")
+
+func mappingNode(parent *yaml.Node, key string) (*yaml.Node, error) {
+	val, err := lookupMappingKey(parent, key)
+	if err != nil {
+		return nil, err
+	}
+	if val.Kind == yaml.AliasNode {
+		return nil, errors.New("config pin must not use a shared YAML alias")
+	}
+	if val.Anchor != "" {
+		return nil, errors.New("config pin must not define a YAML anchor; remove the anchor before updating")
+	}
+	if val.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("config value %q must be a mapping", key)
+	}
+	return val, nil
+}
+
+func pinScalarNode(parent *yaml.Node, key string) (*yaml.Node, error) {
+	node, err := lookupMappingKey(parent, key)
+	if err != nil {
+		return nil, err
+	}
+	if node.Kind == yaml.AliasNode {
+		return nil, errors.New("config pin must not use a shared YAML alias")
 	}
 	if node.Anchor != "" {
-		return errors.New("config pin must not define a YAML anchor; remove the anchor before updating")
+		return nil, errors.New("config pin must not define a YAML anchor; remove the anchor before updating")
 	}
-	if node.Style == yamlv3.LiteralStyle || node.Style == yamlv3.FoldedStyle {
-		return errors.New("config pin must not use a block scalar")
+	if node.Kind != yaml.ScalarNode || node.Style == yaml.LiteralStyle || node.Style == yaml.FoldedStyle {
+		return nil, errors.New("config pin must be a plain or quoted scalar")
 	}
+	return node, nil
+}
+
+func lookupMappingKey(node *yaml.Node, key string) (*yaml.Node, error) {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("config value %q must be a mapping", key)
+	}
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if !isMergeKey(node.Content[index]) && node.Content[index].Value == key {
+			return node.Content[index+1], nil
+		}
+	}
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if !isMergeKey(node.Content[index]) {
+			continue
+		}
+		candidates := []*yaml.Node{node.Content[index+1]}
+		if node.Content[index+1].Kind == yaml.SequenceNode {
+			candidates = node.Content[index+1].Content
+		}
+		for _, candidate := range candidates {
+			if candidate.Kind == yaml.AliasNode {
+				_, aliasErr := lookupMappingKey(candidate.Alias, key)
+				if aliasErr == nil {
+					return nil, errors.New("config pin must not use a shared YAML alias")
+				}
+				if !errors.Is(aliasErr, errMissingMappingKey) {
+					return nil, aliasErr
+				}
+				continue
+			}
+			found, err := lookupMappingKey(candidate, key)
+			if errors.Is(err, errMissingMappingKey) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			if candidate.Anchor != "" {
+				return nil, errors.New("config pin must not define a YAML anchor; remove the anchor before updating")
+			}
+			return found, nil
+		}
+	}
+	return nil, fmt.Errorf("%w %q", errMissingMappingKey, key)
+}
+
+func isMergeKey(node *yaml.Node) bool {
+	if node.Kind != yaml.ScalarNode || node.Value != "<<" {
+		return false
+	}
+	return node.Tag == "!!merge" || (node.Tag == "" && node.Style == 0)
+}
+
+func replaceScalar(lines []string, node *yaml.Node, newValue string) error {
+	if node.Line < 1 || node.Line > len(lines) {
+		return errors.New("config pin must be a scalar value")
+	}
+	line := lines[node.Line-1]
+	start := node.Column - 1
+	if start < 0 || start >= len(line) {
+		return errors.New("config pin has an invalid scalar position")
+	}
+	end := scalarEnd(line, start, node.Style)
+	if end <= start {
+		return errors.New("config pin has an unsupported scalar style")
+	}
+
+	formatted := newValue
+	switch node.Style {
+	case yaml.SingleQuotedStyle:
+		formatted = "'" + strings.ReplaceAll(newValue, "'", "''") + "'"
+	case yaml.DoubleQuotedStyle:
+		formatted = `"` + newValue + `"`
+	}
+	lines[node.Line-1] = line[:start] + formatted + line[end:]
 	return nil
 }
 
-type scalarReplacement struct {
-	node  *yamlv3.Node
-	value string
-}
-
-func replaceScalars(content []byte, replacements []scalarReplacement) ([]byte, error) {
-	lines := bytes.SplitAfter(content, []byte("\n"))
-	for _, replacement := range replacements {
-		if replacement.node.Kind == yamlv3.AliasNode {
-			return nil, errors.New("config pin must not use a shared YAML alias")
-		}
-		node := dereference(replacement.node)
-		if node.Kind != yamlv3.ScalarNode || node.Line < 1 || node.Line > len(lines) {
-			return nil, errors.New("config pin must be a scalar value")
-		}
-		line := lines[node.Line-1]
-		start := node.Column - 1
-		if start < 0 || start >= len(line) {
-			return nil, errors.New("config pin has an invalid scalar position")
-		}
-		end := scalarEnd(line, start, node.Style)
-		if end <= start {
-			return nil, errors.New("config pin has an unsupported scalar style")
-		}
-		value := formatScalar(replacement.value, node.Style)
-		lines[node.Line-1] = append(append(append([]byte{}, line[:start]...), value...), line[end:]...)
-	}
-	return bytes.Join(lines, nil), nil
-}
-
-func scalarEnd(line []byte, start int, style yamlv3.Style) int {
-	if style == yamlv3.SingleQuotedStyle || style == yamlv3.DoubleQuotedStyle {
+func scalarEnd(line string, start int, style yaml.Style) int {
+	if style == yaml.SingleQuotedStyle || style == yaml.DoubleQuotedStyle {
 		quote := line[start]
 		for index := start + 1; index < len(line); index++ {
 			if line[index] == quote && line[index-1] != '\\' {
@@ -137,83 +200,8 @@ func scalarEnd(line []byte, start int, style yamlv3.Style) int {
 		return 0
 	}
 	end := start
-	for end < len(line) &&
-		line[end] != '#' &&
-		line[end] != '\n' &&
-		line[end] != '\r' &&
-		line[end] != ' ' &&
-		line[end] != '\t' &&
-		line[end] != ',' &&
-		line[end] != '}' &&
-		line[end] != ']' {
+	for end < len(line) && !strings.ContainsRune("#\n\r \t,}]", rune(line[end])) {
 		end++
 	}
 	return end
-}
-
-func formatScalar(value string, style yamlv3.Style) []byte {
-	if style == yamlv3.SingleQuotedStyle {
-		return []byte("'" + strings.ReplaceAll(value, "'", "''") + "'")
-	}
-	if style == yamlv3.DoubleQuotedStyle {
-		return []byte(`"` + value + `"`)
-	}
-	return []byte(value)
-}
-
-func dereference(node *yamlv3.Node) *yamlv3.Node {
-	for node != nil && node.Kind == yamlv3.AliasNode {
-		node = node.Alias
-	}
-	return node
-}
-
-func mappingValue(node *yamlv3.Node, key string) (*yamlv3.Node, error) {
-	if node == nil || node.Kind != yamlv3.MappingNode {
-		return nil, fmt.Errorf("config value %q must be a mapping", key)
-	}
-	var value *yamlv3.Node
-	for index := 0; index < len(node.Content); index += 2 {
-		if node.Content[index].Value != key {
-			continue
-		}
-		if value != nil {
-			return nil, fmt.Errorf("config contains duplicate key %q", key)
-		}
-		value = node.Content[index+1]
-	}
-	if value != nil {
-		return value, nil
-	}
-	for index := 0; index < len(node.Content); index += 2 {
-		if node.Content[index].Value != "<<" {
-			continue
-		}
-		merged := dereference(node.Content[index+1])
-		if merged.Kind == yamlv3.SequenceNode {
-			for _, entry := range merged.Content {
-				candidate, candidateErr := mappingValue(dereference(entry), key)
-				if candidateErr != nil {
-					continue
-				}
-				if value != nil {
-					return nil, fmt.Errorf("config has conflicting merged key %q", key)
-				}
-				value = candidate
-			}
-			continue
-		}
-		candidate, candidateErr := mappingValue(merged, key)
-		if candidateErr != nil {
-			continue
-		}
-		if value != nil {
-			return nil, fmt.Errorf("config has conflicting merged key %q", key)
-		}
-		value = candidate
-	}
-	if value != nil {
-		return value, nil
-	}
-	return nil, fmt.Errorf("config is missing key %q", key)
 }

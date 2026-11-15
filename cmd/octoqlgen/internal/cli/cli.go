@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,11 +16,10 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
-	"github.com/willabides/octoql/internal"
 	"github.com/willabides/octoql/internal/generate"
+	"go.yaml.in/yaml/v4"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
-	yamlv3 "gopkg.in/yaml.v3"
 )
 
 const (
@@ -77,8 +77,8 @@ func githubDocsSource(version, revision string) config.Source {
 	}
 }
 
-func (cmd *initCommand) Run() (err error) {
-	_, err = os.Lstat(cmd.ConfigPath)
+func (cmd *initCommand) Run() (errOut error) {
+	_, err := os.Lstat(cmd.ConfigPath)
 	if err == nil || !errors.Is(err, os.ErrNotExist) {
 		if err != nil {
 			return fmt.Errorf("checking config path %q: %w", cmd.ConfigPath, err)
@@ -90,16 +90,8 @@ func (cmd *initCommand) Run() (err error) {
 	if err != nil {
 		return fmt.Errorf("resolving GitHub Docs schema: %w", err)
 	}
-	model := config.Config{
-		Schema: config.Schema{
-			Path:   ".octoql/schema.graphql",
-			Sha256: new(result.SHA256),
-			Source: new(githubDocsSource(cmd.SchemaVersion, result.Revision)),
-		},
-		Operations: []string{"graphql/**/*.graphql"},
-		Generated:  "internal/githubapi/generated.go",
-	}
-	configBytes, err := minimalConfigBytes(&model)
+	pinnedSource := githubDocsSource(cmd.SchemaVersion, result.Revision)
+	configBytes, err := minimalConfigBytes(pinnedSource, result.SHA256)
 	if err != nil {
 		return fmt.Errorf("encoding generated config: %w", err)
 	}
@@ -109,7 +101,7 @@ func (cmd *initCommand) Run() (err error) {
 		return fmt.Errorf("validating generated config: %w", err)
 	}
 	configDir := filepath.Dir(cmd.ConfigPath)
-	schemaPath := filepath.Join(configDir, model.Schema.Path)
+	schemaPath := filepath.Join(configDir, defaultInitSchemaPath)
 	schemaCreated := false
 	existingSchema, err := os.ReadFile(schemaPath)
 	if err == nil && !bytes.Equal(existingSchema, result.Data) {
@@ -128,21 +120,12 @@ func (cmd *initCommand) Run() (err error) {
 	initializationComplete := false
 	defer func() {
 		if schemaCreated && !initializationComplete {
-			err = errors.Join(err, os.Remove(schemaPath))
+			errOut = errors.Join(errOut, os.Remove(schemaPath))
 		}
 	}()
 	gitignorePath := filepath.Join(configDir, ".octoql", ".gitignore")
-	err = os.MkdirAll(filepath.Dir(gitignorePath), 0o755)
-	if err != nil {
-		return fmt.Errorf("creating schema directory: %w", err)
-	}
-	gitignore, err := os.OpenFile(gitignorePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err == nil {
-		_, err = gitignore.WriteString("*\n!.gitignore\n")
-		closeErr := gitignore.Close()
-		err = errors.Join(err, closeErr)
-	}
-	if err != nil && !errors.Is(err, os.ErrExist) {
+	err = writeFileExclusive(gitignorePath, []byte("*\n!.gitignore\n"))
+	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("creating schema gitignore: %w", err)
 	}
 	err = createFileNoReplace(cmd.ConfigPath, configBytes)
@@ -154,93 +137,73 @@ func (cmd *initCommand) Run() (err error) {
 	return err
 }
 
-func minimalConfigBytes(model *config.Config) ([]byte, error) {
-	document := yamlv3.Node{
-		Kind: yamlv3.DocumentNode,
-		Content: []*yamlv3.Node{{
-			Kind: yamlv3.MappingNode,
-			Content: []*yamlv3.Node{
-				{Kind: yamlv3.ScalarNode, Value: "schema"},
-				{
-					Kind: yamlv3.MappingNode,
-					Content: []*yamlv3.Node{
-						{Kind: yamlv3.ScalarNode, Value: "path"},
-						{Kind: yamlv3.ScalarNode, Value: model.Schema.Path},
-						{Kind: yamlv3.ScalarNode, Value: "sha256"},
-						{Kind: yamlv3.ScalarNode, Value: model.Schema.SHA256Value()},
-						{Kind: yamlv3.ScalarNode, Value: "source"},
-						{
-							Kind: yamlv3.MappingNode,
-							Content: []*yamlv3.Node{
-								{Kind: yamlv3.ScalarNode, Value: "repository"},
-								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Repository},
-								{Kind: yamlv3.ScalarNode, Value: "path"},
-								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Path},
-								{Kind: yamlv3.ScalarNode, Value: "revision"},
-								{Kind: yamlv3.ScalarNode, Value: model.Schema.Source.Revision},
-							},
-						},
-					},
-				},
-				{Kind: yamlv3.ScalarNode, Value: "operations"},
-				{
-					Kind: yamlv3.SequenceNode,
-					Content: []*yamlv3.Node{
-						{Kind: yamlv3.ScalarNode, Value: model.Operations[0]},
-					},
-				},
-				{Kind: yamlv3.ScalarNode, Value: "generated"},
-				{Kind: yamlv3.ScalarNode, Value: model.Generated},
-			},
-		}},
-	}
-	var buffer bytes.Buffer
-	encoder := yamlv3.NewEncoder(&buffer)
-	encoder.SetIndent(2)
-	err := encoder.Encode(&document)
-	closeErr := encoder.Close()
-	err = errors.Join(err, closeErr)
-	if err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
+const defaultInitSchemaPath = ".octoql/schema.graphql"
+
+type minimalConfig struct {
+	Schema     minimalSchema `yaml:"schema"`
+	Operations []string      `yaml:"operations"`
+	Generated  string        `yaml:"generated"`
 }
 
-func createFileNoReplace(destination string, data []byte) (err error) {
-	directory := filepath.Dir(destination)
-	err = os.MkdirAll(directory, 0o755)
-	if err != nil {
-		return fmt.Errorf("creating config directory: %w", err)
+type minimalSchema struct {
+	Path   string        `yaml:"path"`
+	SHA256 string        `yaml:"sha256"`
+	Source minimalSource `yaml:"source"`
+}
+
+type minimalSource struct {
+	Repository string `yaml:"repository"`
+	Path       string `yaml:"path"`
+	Revision   string `yaml:"revision"`
+}
+
+func minimalConfigBytes(source config.Source, sha256Sum string) ([]byte, error) {
+	doc := minimalConfig{
+		Schema: minimalSchema{
+			Path:   defaultInitSchemaPath,
+			SHA256: sha256Sum,
+			Source: minimalSource{
+				Repository: source.Repository,
+				Path:       source.Path,
+				Revision:   source.Revision,
+			},
+		},
+		Operations: []string{"graphql/**/*.graphql"},
+		Generated:  "internal/githubapi/generated.go",
 	}
-	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary config file: %w", err)
-	}
-	defer func() {
-		err = errors.Join(err, os.Remove(temp.Name()))
-	}()
-	_, err = temp.Write(data)
-	if err != nil {
-		return fmt.Errorf("writing temporary config file: %w", err)
-	}
-	err = temp.Chmod(0o644)
-	if err != nil {
-		return fmt.Errorf("setting config permissions: %w", err)
-	}
-	err = temp.Sync()
-	if err != nil {
-		return fmt.Errorf("syncing temporary config file: %w", err)
-	}
-	err = temp.Close()
-	if err != nil {
-		return fmt.Errorf("closing temporary config file: %w", err)
-	}
-	err = os.Link(temp.Name(), destination)
-	if errors.Is(err, os.ErrExist) {
+	return yaml.Dump(doc, yaml.WithCompactSeqIndent(false), yaml.WithLineWidth(-1))
+}
+
+func createFileNoReplace(destination string, data []byte) error {
+	err := writeFileExclusive(destination, data)
+	if errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("refusing to overwrite existing config %q", destination)
 	}
+	return err
+}
+
+func writeFileExclusive(destination string, data []byte) error {
+	directory := filepath.Dir(destination)
+	err := os.MkdirAll(directory, 0o755)
 	if err != nil {
-		return fmt.Errorf("publishing config file: %w", err)
+		return fmt.Errorf("creating directory %q: %w", directory, err)
+	}
+	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return err
+	}
+	return writeAndCloseExclusive(destination, file, data)
+}
+
+func writeAndCloseExclusive(destination string, file io.WriteCloser, data []byte) error {
+	written, writeErr := file.Write(data)
+	if writeErr == nil && written < len(data) {
+		writeErr = io.ErrShortWrite
+	}
+	closeErr := file.Close()
+	err := errors.Join(writeErr, closeErr)
+	if err != nil {
+		return errors.Join(err, os.Remove(destination))
 	}
 	return nil
 }
@@ -313,7 +276,7 @@ func (cmd *schemaUpdateCommand) Run() error {
 				return fmt.Errorf("validating published config: %w", loadErr)
 			}
 		}
-		err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+		err = schema.WriteDirectiveFile(cmd.outputWriter.Write, loaded.SchemaPath())
 		if err != nil {
 			return err
 		}
@@ -344,7 +307,7 @@ func (cmd *schemaUpdateCommand) Run() error {
 	if err != nil {
 		return fmt.Errorf("publishing updated schema: %w", err)
 	}
-	err = writeDirectiveFile(cmd.outputWriter, loaded.SchemaPath())
+	err = schema.WriteDirectiveFile(cmd.outputWriter.Write, loaded.SchemaPath())
 	if err != nil {
 		return err
 	}
@@ -445,7 +408,7 @@ func (cmd *schemaFetchCommand) Run() error {
 		if err != nil {
 			return fmt.Errorf("writing schema output %q: %w", cmd.Output, err)
 		}
-		return writeDirectiveFile(cmd.outputWriter, cmd.Output)
+		return schema.WriteDirectiveFile(cmd.outputWriter.Write, cmd.Output)
 	}
 
 	_, err = cmd.stdout.Write(data)
@@ -473,15 +436,6 @@ type materializer interface {
 
 type outputWriter interface {
 	Write(string, []byte) error
-}
-
-func writeDirectiveFile(writer outputWriter, schemaPath string) error {
-	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
-	err := writer.Write(path, []byte(internal.DirectiveFileContents))
-	if err != nil {
-		return fmt.Errorf("writing directive file %q: %w", path, err)
-	}
-	return nil
 }
 
 type Dependencies struct {
@@ -543,6 +497,7 @@ func newCommandTree(dependencies *Dependencies) *commandTree {
 			materializer: dependencies.Materializer,
 			generate:     dependencies.Generate,
 			outputWriter: dependencies.OutputWriter,
+			stderr:       dependencies.Stderr,
 		},
 		Init: initCommand{
 			context:         dependencies.Context,
@@ -617,62 +572,12 @@ func (d *Dependencies) setDefaults() {
 		d.RemoteResolver = resolver
 	}
 	if d.OutputWriter == nil {
-		d.OutputWriter = atomicOutputWriter{}
+		d.OutputWriter = fileOutputWriter{}
 	}
 }
 
-type atomicOutputWriter struct{}
+type fileOutputWriter struct{}
 
-func (atomicOutputWriter) Write(destination string, data []byte) (err error) {
-	directory := filepath.Dir(destination)
-	err = os.MkdirAll(directory, 0o755)
-	if err != nil {
-		return fmt.Errorf("creating output directory: %w", err)
-	}
-	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary output file: %w", err)
-	}
-	isClosed := false
-	shouldRemove := true
-	defer func() {
-		if !isClosed {
-			err = errors.Join(err, temp.Close())
-		}
-		if shouldRemove {
-			err = errors.Join(err, os.Remove(temp.Name()))
-		}
-	}()
-
-	_, err = io.Copy(temp, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("writing temporary output file: %w", err)
-	}
-	mode := os.FileMode(0o644)
-	info, statErr := os.Stat(destination)
-	if statErr == nil {
-		mode = info.Mode()
-	}
-	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
-		return fmt.Errorf("reading output permissions: %w", statErr)
-	}
-	err = temp.Chmod(mode)
-	if err != nil {
-		return fmt.Errorf("setting temporary output permissions: %w", err)
-	}
-	err = temp.Sync()
-	if err != nil {
-		return fmt.Errorf("syncing temporary output file: %w", err)
-	}
-	err = temp.Close()
-	isClosed = true
-	if err != nil {
-		return fmt.Errorf("closing temporary output file: %w", err)
-	}
-	err = os.Rename(temp.Name(), destination)
-	if err != nil {
-		return fmt.Errorf("publishing output file: %w", err)
-	}
-	shouldRemove = false
-	return nil
+func (fileOutputWriter) Write(destination string, data []byte) error {
+	return schema.WriteFile(destination, data)
 }

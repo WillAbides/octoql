@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
+	"maps"
 	"path/filepath"
 	"sort"
 
@@ -17,6 +19,7 @@ type generateCommand struct {
 	materializer materializer
 	generate     func(*generate.Config) (map[string][]byte, error)
 	outputWriter outputWriter
+	stderr       io.Writer
 
 	Config string `kong:"name='config',type='path',default='octoqlgen.yaml',placeholder='PATH',help='Path to an octoqlgen configuration file.'"`
 }
@@ -38,6 +41,7 @@ func (cmd *generateCommand) Run() error {
 
 	generatorConfig := generateConfig(loaded)
 	generatorConfig.ConfigFile = configPath
+	generatorConfig.Warnings = cmd.stderr
 	err = generatorConfig.ValidateAndFillDefaults(filepath.Dir(configPath))
 	if err != nil {
 		return fmt.Errorf("validating generation config: %w", err)
@@ -75,58 +79,19 @@ func (cmd *generateCommand) Run() error {
 }
 
 func generateConfig(source *config.Config) *generate.Config {
-	bindings := map[string]*generate.TypeBinding{}
+	var bindings map[string]string
 	if source.Bindings != nil {
-		for name, binding := range *source.Bindings {
-			if binding == nil {
-				bindings[name] = &generate.TypeBinding{}
-				continue
-			}
-			bindings[name] = &generate.TypeBinding{
-				Type:              stringValue(binding.Type),
-				ExpectExactFields: stringValue(binding.ExpectExactFields),
-				Marshaler:         stringValue(binding.Marshaler),
-				Unmarshaler:       stringValue(binding.Unmarshaler),
-			}
-		}
-	}
-
-	packageBindings := make([]*generate.PackageBinding, 0, len(source.PackageBindings))
-	for _, binding := range source.PackageBindings {
-		packageBindings = append(packageBindings, &generate.PackageBinding{
-			Package: binding.Package,
-		})
-	}
-
-	var casing generate.Casing
-	if source.Casing != nil {
-		casing.Default = generate.CasingAlgorithm(stringValue(source.Casing.Default))
-		casing.AllEnums = generate.CasingAlgorithm(stringValue(source.Casing.AllEnums))
-		if source.Casing.Enums != nil {
-			casing.Enums = make(
-				map[string]generate.CasingAlgorithm,
-				len(*source.Casing.Enums),
-			)
-			for name, algorithm := range *source.Casing.Enums {
-				casing.Enums[name] = generate.CasingAlgorithm(algorithm)
-			}
-		}
+		bindings = maps.Clone(*source.Bindings)
 	}
 
 	return &generate.Config{
-		Schema:                          generate.StringList{source.SchemaPath()},
-		Operations:                      generate.StringList(source.OperationPaths()),
-		Generated:                       source.GeneratedPath(),
-		TestHandlerGenerated:            source.TestHandlerGeneratedPath(),
-		TestHandlerTypes:                generate.TestHandlerTypeStrategy(source.TestHandlerTypesValue()),
-		Package:                         stringValue(source.Package),
-		ExportOperations:                source.ExportOperationsPath(),
-		ContextType:                     stringValue(source.ContextType),
-		Bindings:                        bindings,
-		PackageBindings:                 packageBindings,
-		Casing:                          casing,
-		StructReferences:                boolValue(source.UseStructReferences),
-		OmitUnreferencedImplementations: source.OmitUnreferencedImplementations,
+		Schema:               source.SchemaPath(),
+		Operations:           source.OperationPaths(),
+		Generated:            source.GeneratedPath(),
+		TestHandlerGenerated: source.TestHandlerGeneratedPath(),
+		TestHandlerTypes:     generate.TestHandlerTypeStrategy(source.TestHandlerTypesValue()),
+		Package:              stringValue(source.Package),
+		Bindings:             bindings,
 	}
 }
 
@@ -135,8 +100,4 @@ func stringValue(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func boolValue(value *bool) bool {
-	return value != nil && *value
 }

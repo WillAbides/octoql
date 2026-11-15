@@ -48,33 +48,12 @@ func (f *fakeTB) errorMessages() []string {
 	return append([]string{}, f.errors...)
 }
 
-func TestExpectationCountsDefaultsAndFIFO(t *testing.T) {
-	t.Run("fifo and exact counts", func(t *testing.T) {
-		fake := &fakeTB{}
-		handler := newTestHandler(fake)
-		variables := EchoPropertyVariables{Value: json.RawMessage(`"fifo"`)}
-		handler.ExpectEchoProperty(variables).Respond(EchoPropertyResponse{
-			EchoProperty: json.RawMessage(`"first"`),
-		})
-		handler.ExpectEchoProperty(variables).Respond(EchoPropertyResponse{
-			EchoProperty: json.RawMessage(`"second"`),
-		})
-
-		first := postOperation(t, handler, "EchoProperty", variables)
-		second := postOperation(t, handler, "EchoProperty", variables)
-		assert.Contains(t, first.Body.String(), `"first"`)
-		assert.Contains(t, second.Body.String(), `"second"`)
-		fake.runCleanups()
-		assert.Empty(t, fake.errorMessages())
-	})
-
-	t.Run("minimum and stub", func(t *testing.T) {
+func TestCleanupAndUnexpectedOperationFailures(t *testing.T) {
+	t.Run("unmet minimum count", func(t *testing.T) {
 		fake := &fakeTB{}
 		handler := newTestHandler(fake)
 		required := EchoPropertyVariables{Value: json.RawMessage(`"required"`)}
-		stub := EchoPropertyVariables{Value: json.RawMessage(`"stub"`)}
 		handler.ExpectEchoProperty(required, MinTimes(2)).Respond(EchoPropertyResponse{})
-		handler.ExpectEchoProperty(stub, MinTimes(0)).Respond(EchoPropertyResponse{})
 
 		postOperation(t, handler, "EchoProperty", required)
 		fake.runCleanups()
@@ -82,58 +61,23 @@ func TestExpectationCountsDefaultsAndFIFO(t *testing.T) {
 		assert.Contains(t, fake.errorMessages()[0], "1 call(s) remaining")
 	})
 
-	t.Run("default fallback and concrete precedence", func(t *testing.T) {
+	t.Run("unexpected variables unknown operation and unmet expectation", func(t *testing.T) {
 		fake := &fakeTB{}
 		handler := newTestHandler(fake)
-		concrete := EchoPropertyVariables{Value: json.RawMessage(`"concrete"`)}
-		fallback := EchoPropertyVariables{Value: json.RawMessage(`"fallback"`)}
-		handler.DefaultEchoProperty().Handle(func(
-			variables EchoPropertyVariables,
-			writer http.ResponseWriter,
-		) {
-			_, err := writer.Write(append([]byte{}, variables.Value...))
-			assert.NoError(t, err)
-		})
-		handler.ExpectEchoProperty(concrete).Respond(EchoPropertyResponse{
-			EchoProperty: json.RawMessage(`"expected"`),
-		})
+		handler.ExpectGetNode(GetNodeVariables{Id: "expected"}).Respond(GetNodeResponse{})
 
-		concreteResponse := postOperation(t, handler, "EchoProperty", concrete)
-		fallbackResponse := postOperation(t, handler, "EchoProperty", fallback)
-		assert.Contains(t, concreteResponse.Body.String(), `"expected"`)
-		assert.JSONEq(t, `"fallback"`, fallbackResponse.Body.String())
+		known := postOperation(t, handler, "GetNode", GetNodeVariables{Id: "different"})
+		assert.Contains(t, known.Body.String(), "no expectation found")
+		require.Len(t, fake.errorMessages(), 1)
+
+		unknown := postOperation(t, handler, "UnknownOperation", map[string]any{})
+		assert.Contains(t, unknown.Body.String(), "unknown operation")
+		assert.Len(t, fake.errorMessages(), 1)
+
 		fake.runCleanups()
-		assert.Empty(t, fake.errorMessages())
+		require.Len(t, fake.errorMessages(), 2)
+		assert.Contains(t, fake.errorMessages()[1], "unmet GetNode expectation")
 	})
-}
-
-func TestUnexpectedKnownUnknownAndUnmetExpectations(t *testing.T) {
-	fake := &fakeTB{}
-	handler := newTestHandler(fake)
-	handler.ExpectGetNode(GetNodeVariables{Id: "expected"}).Respond(GetNodeResponse{})
-
-	known := postOperation(t, handler, "GetNode", GetNodeVariables{Id: "different"})
-	assert.Contains(t, known.Body.String(), "no expectation found")
-	require.Len(t, fake.errorMessages(), 1)
-
-	unknown := postOperation(t, handler, "UnknownOperation", map[string]any{})
-	assert.Contains(t, unknown.Body.String(), "unknown operation")
-	assert.Len(t, fake.errorMessages(), 1)
-
-	fake.runCleanups()
-	require.Len(t, fake.errorMessages(), 2)
-	assert.Contains(t, fake.errorMessages()[1], "unmet GetNode expectation")
-}
-
-func TestResetDisarmsExpectations(t *testing.T) {
-	fake := &fakeTB{}
-	handler := newTestHandler(fake)
-	variables := GetNodeVariables{Id: "reset"}
-	handler.ExpectGetNode(variables, Times(2)).Respond(GetNodeResponse{})
-	handler.ResetGetNode(variables)
-
-	fake.runCleanups()
-	assert.Empty(t, fake.errorMessages())
 }
 
 func TestWithPrimaryRateLimitRejectsNegativeValues(t *testing.T) {

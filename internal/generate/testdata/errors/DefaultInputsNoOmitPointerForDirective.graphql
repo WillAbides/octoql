@@ -1,7 +1,0 @@
-# Non-nullable input field with default cannot be pointer without omitempty - as that
-# would send `null`, which is invalid value.
-query DefaultInputs(
-  $input: InputWithDefaults!
-) @octoqlgenFor(field: "InputWithDefaults.field", pointer: true) {
-  default(input: $input)
-}

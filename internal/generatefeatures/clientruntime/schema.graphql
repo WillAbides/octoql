@@ -1,0 +1,25 @@
+schema {
+  query: Query
+}
+
+scalar CustomPropertyValue
+scalar Date
+scalar DateTime
+
+type Account {
+  id: ID!
+  login: String!
+}
+
+type Query {
+  repository(owner: String!, name: String!): Repository
+  date: Date
+  dates: [[[Date]]]
+  account: Account
+  rawCreatedAt: DateTime
+  rawProperty: CustomPropertyValue
+}
+
+type Repository {
+  nameWithOwner: String!
+}

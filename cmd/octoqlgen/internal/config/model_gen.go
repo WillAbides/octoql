@@ -2,51 +2,28 @@
 
 package config
 
-type Binding struct {
-	ExpectExactFields *string `json:"expect_exact_fields"`
-	Marshaler         *string `json:"marshaler"`
-	Type              *string `json:"type"`
-	Unmarshaler       *string `json:"unmarshaler"`
-}
-
-type Casing struct {
-	AllEnums *string            `json:"all_enums"`
-	Default  *string            `json:"default"`
-	Enums    *map[string]string `json:"enums"`
-}
-
-type PackageBinding struct {
-	Package string `json:"package"`
-}
-
 type Source struct {
-	Path       string `json:"path"`
-	Repository string `json:"repository"`
-	Revision   string `json:"revision"`
+	Path       string `json:"path" yaml:"path"`
+	Repository string `json:"repository" yaml:"repository"`
+	Revision   string `json:"revision" yaml:"revision"`
 }
 
 type Schema struct {
-	Path   string  `json:"path"`
-	Sha256 *string `json:"sha256"`
-	Source *Source `json:"source"`
+	Path   string  `json:"path" yaml:"path"`
+	Sha256 *string `json:"sha256" yaml:"sha256"`
+	Source *Source `json:"source" yaml:"source"`
 }
 
 type TestHandler struct {
-	Generated string  `json:"generated"`
-	Types     *string `json:"types"`
+	Generated string  `json:"generated" yaml:"generated"`
+	Types     *string `json:"types" yaml:"types"`
 }
 
 type Config struct {
-	Bindings                        *map[string]*Binding `json:"bindings"`
-	Casing                          *Casing              `json:"casing"`
-	ContextType                     *string              `json:"context_type"`
-	ExportOperations                *string              `json:"export_operations"`
-	Generated                       string               `json:"generated"`
-	OmitUnreferencedImplementations *bool                `json:"omit_unreferenced_implementations"`
-	Operations                      []string             `json:"operations"`
-	Package                         *string              `json:"package"`
-	PackageBindings                 []PackageBinding     `json:"package_bindings"`
-	Schema                          Schema               `json:"schema"`
-	TestHandler                     *TestHandler         `json:"test_handler"`
-	UseStructReferences             *bool                `json:"use_struct_references"`
+	Bindings    *map[string]string `json:"bindings" yaml:"bindings"`
+	Generated   string             `json:"generated" yaml:"generated"`
+	Operations  []string           `json:"operations" yaml:"operations"`
+	Package     *string            `json:"package" yaml:"package"`
+	Schema      Schema             `json:"schema" yaml:"schema"`
+	TestHandler *TestHandler       `json:"test_handler" yaml:"test_handler"`
 }

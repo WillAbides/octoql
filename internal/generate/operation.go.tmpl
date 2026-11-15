@@ -35,16 +35,14 @@ func (e *{{.Name}}PartialDataError) PartialDataValue() any {
 
 {{.Doc}}
 func (c *Client) {{.Name}}(
-    {{if ne .Config.ContextType "-" -}}
-    ctx {{ref .Config.ContextType}},
-    {{end}}
-    {{- if .Input -}}
+    ctx {{ref "context.Context"}},
+    {{if .Input -}}
     vars {{.Input.GoName}},
     {{end -}}
 ) (*{{.ResponseName}}, error) {
     var response {{.ResponseName}}
     hasData, err := c._octoqlExecute(
-        {{if ne .Config.ContextType "-"}}ctx{{else}}{{ref "context.Background"}}(){{end}},
+        ctx,
         _octoqlPayload{
             OperationName: "{{.Name}}",
             Query: {{.Name}}_Operation,

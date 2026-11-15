@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -53,6 +52,9 @@ func NewMaterializer() *Materializer {
 	}
 }
 
+// Materialize returns verified schema bytes for request, fetching and writing
+// missing remote schemas directly with WriteFile without cross-process staging
+// or link-based publication.
 func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byte, error) {
 	if isRemote(request.Source) && request.SHA256 == "" {
 		return nil, errors.New("schema sha256 is required for remote sources")
@@ -110,11 +112,7 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 		return data, nil
 	}
 
-	err = publish(
-		request.Path,
-		data,
-		request.SHA256,
-	)
+	err = WriteFile(request.Path, data)
 	if err != nil {
 		return nil, err
 	}
@@ -125,25 +123,57 @@ func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byt
 	return data, nil
 }
 
+// WriteFile creates destination's parent directory if needed and writes data.
+func WriteFile(destination string, data []byte) error {
+	directory := filepath.Dir(destination)
+	err := os.MkdirAll(directory, 0o755)
+	if err != nil {
+		return fmt.Errorf("creating directory %q: %w", directory, err)
+	}
+	err = os.WriteFile(destination, data, 0o644)
+	if err != nil {
+		return fmt.Errorf("writing file %q: %w", destination, err)
+	}
+	return nil
+}
+
+// WriteDirectiveFile writes octoqlgen's companion directive declaration beside
+// schemaPath using write, unlinking any existing entry first so symlinks or
+// hard links cannot overwrite linked files.
+func WriteDirectiveFile(write func(string, []byte) error, schemaPath string) error {
+	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
+	removeErr := os.Remove(path)
+	if removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+		return fmt.Errorf("removing directive file %q: %w", path, removeErr)
+	}
+	err := write(path, []byte(internal.DirectiveFileContents))
+	if err != nil {
+		return fmt.Errorf("writing directive file %q: %w", path, err)
+	}
+	return nil
+}
+
 func publishDirectiveFile(schemaPath string) error {
 	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
 	wanted := []byte(internal.DirectiveFileContents)
-
-	existing, err := os.ReadFile(path)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		return publish(path, wanted, "")
-	case err != nil:
-		return fmt.Errorf("reading directive file %q: %w", path, err)
-	}
-	if bytes.Equal(existing, wanted) {
-		return nil
-	}
-	err = os.Remove(path)
+	info, err := os.Lstat(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("replacing directive file %q: %w", path, err)
+		return fmt.Errorf("checking directive file %q: %w", path, err)
 	}
-	return publish(path, wanted, "")
+	if err == nil && info.Mode().IsRegular() {
+		schemaInfo, statErr := os.Stat(schemaPath)
+		sameAsSchema := statErr == nil && os.SameFile(info, schemaInfo)
+		if !sameAsSchema {
+			existing, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return fmt.Errorf("reading existing file %q: %w", path, readErr)
+			}
+			if bytes.Equal(existing, wanted) {
+				return nil
+			}
+		}
+	}
+	return WriteDirectiveFile(WriteFile, schemaPath)
 }
 
 type dependencies struct {
@@ -207,59 +237,4 @@ func validateSDL(data []byte) error {
 
 func isRemote(source config.Source) bool {
 	return source.Repository != "" || source.Path != "" || source.Revision != ""
-}
-
-func publish(destination string, data []byte, expectedSHA256 string) (err error) {
-	directory := filepath.Dir(destination)
-	err = os.MkdirAll(directory, 0o755)
-	if err != nil {
-		return fmt.Errorf("creating schema directory %q: %w", directory, err)
-	}
-
-	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary schema file: %w", err)
-	}
-	isClosed := false
-	defer func() {
-		if !isClosed {
-			err = errors.Join(err, temp.Close())
-		}
-		err = errors.Join(err, os.Remove(temp.Name()))
-	}()
-
-	_, err = io.Copy(temp, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("writing temporary schema file: %w", err)
-	}
-	err = temp.Sync()
-	if err != nil {
-		return fmt.Errorf("syncing temporary schema file: %w", err)
-	}
-	err = temp.Close()
-	isClosed = true
-	if err != nil {
-		return fmt.Errorf("closing temporary schema file: %w", err)
-	}
-
-	err = os.Link(temp.Name(), destination)
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, fs.ErrExist) {
-		return fmt.Errorf("publishing schema file %q: %w", destination, err)
-	}
-
-	winner, readErr := os.ReadFile(destination)
-	if readErr != nil {
-		return fmt.Errorf("reading concurrently materialized schema file %q: %w", destination, readErr)
-	}
-	checksumErr := verifyChecksum(winner, expectedSHA256)
-	if checksumErr != nil {
-		return checksumErr
-	}
-	if !bytes.Equal(winner, data) {
-		return errors.New("concurrently materialized schema has different bytes")
-	}
-	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"go/scanner"
-	"math"
 	"strconv"
 	"strings"
 
@@ -42,7 +41,7 @@ func (e *octoqlgenError) Unwrap() error {
 	return e.wrapped
 }
 
-func errorf(pos *ast.Position, msg string, args ...interface{}) error {
+func errorf(pos *ast.Position, msg string, args ...any) error {
 	// TODO: alternately accept a filename only, or maybe even a go-parser pos
 
 	// We do all our own wrapping, because if the wrapped error already has a
@@ -52,12 +51,11 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 	var wrapped error
 	var wrapIndex int
 	for i, arg := range args {
-		if wrapped == nil {
-			var ok bool
-			wrapped, ok = arg.(error)
-			if ok {
-				wrapIndex = i
-			}
+		var ok bool
+		wrapped, ok = arg.(error)
+		if ok {
+			wrapIndex = i
+			break
 		}
 	}
 
@@ -76,7 +74,7 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 
 	var errPos *errorPos
 	switch {
-	case pos != nil:
+	case pos != nil && pos.Src != nil:
 		errPos = &errorPos{
 			filename: pos.Src.Name,
 			line:     pos.Line,
@@ -107,10 +105,10 @@ func errorf(pos *ast.Position, msg string, args ...interface{}) error {
 		case isGraphQL:
 			errText = wrappedGraphQL.Message
 		}
-		args[wrapIndex] = errText
+		args[wrapIndex] = errors.New(errText)
 	}
 
-	msg = fmt.Sprintf(msg, args...)
+	msg = fmt.Errorf(msg, args...).Error()
 
 	return &octoqlgenError{
 		msg:     msg,
@@ -131,29 +129,27 @@ func goSourceError(
 ) error {
 	var errTexts []string
 	var scanErrs scanner.ErrorList
-	var scanErr *scanner.Error
-	var badLines map[int]bool
+	var singleScanErr *scanner.Error
 
 	switch {
 	case errors.As(err, &scanErrs):
-		errTexts = make([]string, len(scanErrs))
-		badLines = make(map[int]bool, len(scanErrs))
-		for i, scanErr := range scanErrs {
-			errTexts[i] = err.Error()
-			badLines[scanErr.Pos.Line] = true
-		}
-	case errors.As(err, &scanErr):
-		errTexts = []string{scanErr.Error()}
-		badLines = map[int]bool{scanErr.Pos.Line: true}
+	case errors.As(err, &singleScanErr):
+		scanErrs = scanner.ErrorList{singleScanErr}
 	default:
 		errTexts = []string{err.Error()}
 	}
 
+	badLines := make(map[int]bool, len(scanErrs))
+	for _, scanErr := range scanErrs {
+		errTexts = append(errTexts, scanErr.Error())
+		badLines[scanErr.Pos.Line] = true
+	}
+
 	lines := bytes.SplitAfter(source, []byte("\n"))
-	lineNoWidth := int(math.Ceil(math.Log10(float64(len(lines) + 1))))
+	lineNoWidth := len(strconv.Itoa(len(lines)))
 	for i, line := range lines {
 		prefix := "  "
-		if badLines[i] {
+		if badLines[i+1] {
 			prefix = "> "
 		}
 		lineNo := strconv.Itoa(i + 1)

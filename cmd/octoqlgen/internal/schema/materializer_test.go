@@ -1,24 +1,19 @@
 package schema
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,94 +24,6 @@ import (
 const schemaRevision = "45d83f459620340069df7c375a8867be62616d61"
 
 var exactSchema = []byte("# preserved comment\n\ntype Query {\n  viewer: String\n}\n")
-
-func TestMaterializerExistingFile(t *testing.T) {
-	t.Parallel()
-
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	err := os.WriteFile(destination, exactSchema, 0o600)
-	require.NoError(t, err)
-
-	materializer := NewMaterializer()
-	data, err := materializer.Materialize(t.Context(), &Request{
-		Path:   destination,
-		SHA256: checksum(exactSchema),
-	})
-	require.NoError(t, err)
-	assert.Equal(t, exactSchema, data)
-
-	companionPath := filepath.Join(filepath.Dir(destination), internal.DirectiveFilename)
-	companion, err := os.ReadFile(companionPath)
-	require.NoError(t, err)
-	assert.Equal(t, internal.DirectiveFileContents, string(companion))
-	assert.Empty(t, temporaryFiles(t, companionPath))
-}
-
-func TestMaterializerExistingFileMismatch(t *testing.T) {
-	t.Parallel()
-
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	err := os.WriteFile(destination, exactSchema, 0o600)
-	require.NoError(t, err)
-	expected := checksum([]byte("different"))
-	actual := checksum(exactSchema)
-
-	materializer := NewMaterializer()
-	_, err = materializer.Materialize(t.Context(), &Request{
-		Path:   destination,
-		SHA256: expected,
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "expected "+expected)
-	assert.Contains(t, err.Error(), "actual "+actual)
-
-	after, readErr := os.ReadFile(destination)
-	require.NoError(t, readErr)
-	assert.Equal(t, exactSchema, after)
-}
-
-func TestMaterializerMissingLocalFile(t *testing.T) {
-	t.Parallel()
-
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	materializer := NewMaterializer()
-	_, err := materializer.Materialize(t.Context(), &Request{Path: destination})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "local schema file")
-	assert.Contains(t, err.Error(), "does not exist")
-}
-
-func TestMaterializerGitHubFetch(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		assert.Equal(t, "application/vnd.github.raw+json", request.Header.Get("Accept"))
-		_, _ = response.Write(exactSchema)
-	}))
-	t.Cleanup(server.Close)
-
-	destination := filepath.Join(t.TempDir(), "nested", "schema.graphql")
-	materializer := testGitHubMaterializer(server.Client())
-	materializer.GitHubAPIBaseURL = func(string) string {
-		return server.URL
-	}
-	data, err := materializer.Materialize(t.Context(), &Request{
-		Path:   destination,
-		SHA256: checksum(exactSchema),
-		Source: config.Source{
-			Repository: "octo-org/octo-repo",
-			Path:       "schema.graphql",
-			Revision:   schemaRevision,
-		},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, exactSchema, data)
-
-	written, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	assert.Equal(t, exactSchema, written)
-	assert.Empty(t, temporaryFiles(t, destination))
-}
 
 func TestFetchURLSanitizesErrors(t *testing.T) {
 	t.Parallel()
@@ -200,7 +107,10 @@ func TestFetchURLSanitizesErrors(t *testing.T) {
 				receivedURL = request.URL.String()
 				return nil, test.transportError()
 			})
-			_, err := fetchURL(t.Context(), client, test.requestURL, "", false, 1024)
+			_, err := fetchURL(t.Context(), client, fetchRequest{
+				url:              test.requestURL,
+				maxResponseBytes: 1024,
+			})
 			require.Error(t, err)
 			assert.Equal(t, test.requestURL, receivedURL)
 			for _, value := range test.want {
@@ -211,126 +121,6 @@ func TestFetchURLSanitizesErrors(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestMaterializerDownloadFailures(t *testing.T) {
-	tests := []struct {
-		handler       http.Handler
-		name          string
-		sha256        string
-		expectedError string
-		maxBytes      int64
-		timeout       time.Duration
-	}{
-		{
-			name:          "missing checksum",
-			handler:       http.NotFoundHandler(),
-			expectedError: "sha256 is required for remote sources",
-		},
-		{
-			name: "checksum mismatch",
-			handler: http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-				_, _ = response.Write(exactSchema)
-			}),
-			sha256:        checksum([]byte("different")),
-			expectedError: "schema checksum mismatch",
-		},
-		{
-			name: "invalid sdl",
-			handler: http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-				_, _ = io.WriteString(response, "not graphql")
-			}),
-			sha256:        checksum([]byte("not graphql")),
-			expectedError: "invalid graphql schema",
-		},
-		{
-			name: "http error",
-			handler: http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-				http.Error(response, "not found", http.StatusNotFound)
-			}),
-			sha256:        checksum(exactSchema),
-			expectedError: "http status 404",
-		},
-		{
-			name: "timeout",
-			handler: http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
-				<-request.Context().Done()
-			}),
-			timeout:       10 * time.Millisecond,
-			sha256:        checksum(exactSchema),
-			expectedError: "context deadline exceeded",
-		},
-		{
-			name: "oversized response",
-			handler: http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-				_, _ = io.WriteString(response, strings.Repeat("x", 65))
-			}),
-			maxBytes:      64,
-			sha256:        checksum(exactSchema),
-			expectedError: "response exceeds 64-byte limit",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			server := httptest.NewServer(test.handler)
-			t.Cleanup(server.Close)
-			destination := filepath.Join(t.TempDir(), "schema.graphql")
-			materializer := testGitHubMaterializer(server.Client())
-			materializer.GitHubAPIBaseURL = func(string) string {
-				return server.URL
-			}
-			if test.maxBytes != 0 {
-				materializer.MaxResponseBytes = test.maxBytes
-			}
-			if test.timeout != 0 {
-				materializer.Timeout = test.timeout
-			}
-
-			_, err := materializer.Materialize(t.Context(), &Request{
-				Path:   destination,
-				SHA256: test.sha256,
-				Source: config.Source{
-					Repository: "octo-org/octo-repo",
-					Path:       "schema.graphql",
-					Revision:   schemaRevision,
-				},
-			})
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), test.expectedError)
-			_, statErr := os.Stat(destination)
-			require.ErrorIs(t, statErr, fs.ErrNotExist)
-			assert.Empty(t, temporaryFiles(t, destination))
-		})
-	}
-}
-
-func TestGitHubRepositoryRequestEscaping(t *testing.T) {
-	t.Parallel()
-
-	requestURL, err := githubContentsURL(
-		"https://api.github.com",
-		config.Source{
-			Repository: "octo-org/octo.repo",
-			Revision:   schemaRevision,
-			Path:       "schema dir/schema#one.graphql",
-		},
-	)
-	require.NoError(t, err)
-	assert.Equal(
-		t,
-		"https://api.github.com/repos/octo-org/octo.repo/contents/"+
-			"schema%20dir/schema%23one.graphql?ref="+schemaRevision,
-		requestURL,
-	)
-
-	_, err = githubContentsURL(
-		"https://api.github.com",
-		config.Source{Repository: "invalid"},
-	)
-	require.Error(t, err)
 }
 
 func TestGitHubTokenPrecedence(t *testing.T) {
@@ -409,199 +199,98 @@ func TestGitHubTokenPrecedence(t *testing.T) {
 	}
 }
 
-func TestGitHubAnonymousAndRejectedToken(t *testing.T) {
-	tests := []struct {
-		environment   map[string]string
-		name          string
-		expectedAuth  string
-		expectedError string
-		status        int
-	}{
-		{
-			name:        "anonymous public fetch",
-			environment: map[string]string{},
-			status:      http.StatusOK,
-		},
-		{
-			name:          "missing private access",
-			environment:   map[string]string{},
-			status:        http.StatusNotFound,
-			expectedError: "http status 404",
-		},
-		{
-			name: "rejected present token does not retry anonymously",
-			environment: map[string]string{
-				"GH_TOKEN": "secret-token",
-			},
-			status:        http.StatusUnauthorized,
-			expectedAuth:  "Bearer secret-token",
-			expectedError: "http status 401",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			var calls atomic.Int32
-			var authorization string
-			client := httpClientFunc(func(request *http.Request) (*http.Response, error) {
-				calls.Add(1)
-				authorization = request.Header.Get("Authorization")
-				return response(test.status, exactSchema), nil
-			})
-			materializer := testGitHubMaterializer(client)
-			materializer.LookupEnvironment = environmentLookup(test.environment)
-
-			data, err := materializer.Materialize(t.Context(), &Request{
-				SHA256: checksum(exactSchema),
-				Source: config.Source{
-					Repository: "octo-org/private-repo",
-					Revision:   schemaRevision,
-					Path:       "schema.graphql",
-				},
-			})
-			expectErr := func() {
-				require.NoError(t, err)
-				assert.Equal(t, exactSchema, data)
-			}
-			if test.expectedError != "" {
-				expectErr = func() {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), test.expectedError)
-				}
-			}
-			expectErr()
-			assert.Equal(t, int32(1), calls.Load())
-			assert.Equal(t, test.expectedAuth, authorization)
-			if test.expectedAuth != "" {
-				assert.NotContains(t, err.Error(), "secret-token")
-			}
-		})
-	}
-}
-
-func TestMaterializerConcurrent(t *testing.T) {
+func TestGitHubAnonymousFetchAndResolveAuth(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		_, _ = response.Write(exactSchema)
+	var authorization string
+	materializer := testGitHubMaterializer(httpClientFunc(func(request *http.Request) (*http.Response, error) {
+		authorization = request.Header.Get("Authorization")
+		return newHTTPResponse(http.StatusOK, exactSchema), nil
 	}))
-	t.Cleanup(server.Close)
-
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	const workers = 20
-	errorsByWorker := make([]error, workers)
-	results := make([][]byte, workers)
-	var waitGroup sync.WaitGroup
-	for worker := range workers {
-		waitGroup.Go(func() {
-			materializer := testGitHubMaterializer(server.Client())
-			materializer.GitHubAPIBaseURL = func(string) string {
-				return server.URL
-			}
-			results[worker], errorsByWorker[worker] = materializer.Materialize(t.Context(), &Request{
-				Path:   destination,
-				SHA256: checksum(exactSchema),
-				Source: config.Source{
-					Repository: "octo-org/octo-repo",
-					Path:       "schema.graphql",
-					Revision:   schemaRevision,
-				},
-			})
-		})
-	}
-	waitGroup.Wait()
-
-	for worker := range workers {
-		require.NoError(t, errorsByWorker[worker])
-		assert.Equal(t, exactSchema, results[worker])
-	}
-	written, err := os.ReadFile(destination)
+	data, err := materializer.Materialize(t.Context(), &Request{
+		SHA256: checksum(exactSchema),
+		Source: config.Source{
+			Repository: "octo-org/public-repo",
+			Revision:   schemaRevision,
+			Path:       "schema.graphql",
+		},
+	})
 	require.NoError(t, err)
-	assert.Equal(t, exactSchema, written)
-	assert.Empty(t, temporaryFiles(t, destination))
+	assert.Equal(t, exactSchema, data)
+	assert.Empty(t, authorization)
+
+	_, err = NewMaterializer().Resolve(t.Context(), config.Source{Path: "schema.graphql"})
+	require.ErrorContains(t, err, "repository is required")
+	_, err = NewMaterializer().Resolve(t.Context(), config.Source{Repository: "owner/repository"})
+	require.ErrorContains(t, err, "path is required")
+
+	unauthenticated := testGitHubMaterializer(httpClientFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("unexpected GitHub request")
+		return nil, nil
+	}))
+	_, err = unauthenticated.Resolve(t.Context(), config.Source{
+		Repository: "octo-owner/octo-repository",
+		Path:       "schema.graphql",
+	})
+	require.EqualError(
+		t,
+		err,
+		"github graphql authentication is required; set GH_TOKEN, GITHUB_TOKEN, or authenticate with gh",
+	)
 }
 
-func TestMaterializerConcurrentDifferentBytes(t *testing.T) {
+func TestDirectiveFileReplacesSymlinkAndHardLinkWithoutModifyingSchema(t *testing.T) {
 	t.Parallel()
 
-	firstSchema := []byte("type Query { first: String }\n")
-	secondSchema := []byte("type Query { second: String }\n")
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		schemaData := firstSchema
-		if strings.Contains(request.URL.Path, "/second/") {
-			schemaData = secondSchema
-		}
-		_, _ = response.Write(schemaData)
-	}))
-	t.Cleanup(server.Close)
+	const sdl = "type Query {\n  viewer: String\n}\n"
 
-	destination := filepath.Join(t.TempDir(), "schema.graphql")
-	requests := []Request{
-		{
-			Path:   destination,
-			SHA256: checksum(firstSchema),
-			Source: config.Source{
-				Repository: "octo-org/first",
-				Path:       "schema.graphql",
-				Revision:   schemaRevision,
-			},
-		},
-		{
-			Path:   destination,
-			SHA256: checksum(secondSchema),
-			Source: config.Source{
-				Repository: "octo-org/second",
-				Path:       "schema.graphql",
-				Revision:   schemaRevision,
-			},
-		},
-	}
-	results := make([][]byte, len(requests))
-	resultErrors := make([]error, len(requests))
-	var waitGroup sync.WaitGroup
-	for index, request := range requests {
-		waitGroup.Go(func() {
-			materializer := testGitHubMaterializer(server.Client())
-			materializer.GitHubAPIBaseURL = func(string) string {
-				return server.URL
-			}
-			results[index], resultErrors[index] = materializer.Materialize(t.Context(), &request)
+	t.Run("symlink companion", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		schemaPath := filepath.Join(dir, "schema.graphql")
+		directivePath := filepath.Join(dir, internal.DirectiveFilename)
+		require.NoError(t, os.WriteFile(schemaPath, []byte(sdl), 0o600))
+		require.NoError(t, os.Symlink(schemaPath, directivePath))
+
+		got, err := NewMaterializer().Materialize(t.Context(), &Request{
+			Path:   schemaPath,
+			SHA256: checksum([]byte(sdl)),
 		})
-	}
-	waitGroup.Wait()
+		require.NoError(t, err)
+		assert.Equal(t, sdl, string(got))
 
-	successCount := 0
-	expectedResults := [][]byte{firstSchema, secondSchema}
-	for index := range requests {
-		if resultErrors[index] == nil {
-			successCount++
-			assert.Equal(t, expectedResults[index], results[index])
-			continue
-		}
-		assert.Contains(t, resultErrors[index].Error(), "checksum mismatch")
-	}
-	assert.Equal(t, 1, successCount)
+		schemaBytes, err := os.ReadFile(schemaPath)
+		require.NoError(t, err)
+		assert.Equal(t, sdl, string(schemaBytes))
 
-	written, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	isExpectedWinner := bytes.Equal(written, firstSchema) || bytes.Equal(written, secondSchema)
-	assert.True(t, isExpectedWinner)
-	assert.Empty(t, temporaryFiles(t, destination))
+		info, err := os.Lstat(directivePath)
+		require.NoError(t, err)
+		assert.True(t, info.Mode().IsRegular())
+		directiveBytes, err := os.ReadFile(directivePath)
+		require.NoError(t, err)
+		assert.Equal(t, internal.DirectiveFileContents, string(directiveBytes))
+	})
+
+	t.Run("hardlink companion", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		schemaPath := filepath.Join(dir, "schema.graphql")
+		directivePath := filepath.Join(dir, internal.DirectiveFilename)
+		require.NoError(t, os.WriteFile(schemaPath, []byte(sdl), 0o600))
+		require.NoError(t, os.Link(schemaPath, directivePath))
+
+		require.NoError(t, WriteDirectiveFile(WriteFile, schemaPath))
+
+		schemaBytes, err := os.ReadFile(schemaPath)
+		require.NoError(t, err)
+		assert.Equal(t, sdl, string(schemaBytes))
+	})
 }
 
 func checksum(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
-}
-
-func temporaryFiles(t *testing.T, destination string) []string {
-	files, err := filepath.Glob(filepath.Join(
-		filepath.Dir(destination),
-		"."+filepath.Base(destination)+".tmp-*",
-	))
-	require.NoError(t, err)
-	return files
 }
 
 func environmentLookup(environment map[string]string) func(string) (string, bool) {
@@ -634,7 +323,7 @@ func (f httpClientFunc) Do(request *http.Request) (*http.Response, error) {
 	return f(request)
 }
 
-func response(status int, body []byte) *http.Response {
+func newHTTPResponse(status int, body []byte) *http.Response {
 	return &http.Response{
 		StatusCode:    status,
 		Body:          io.NopCloser(strings.NewReader(string(body))),

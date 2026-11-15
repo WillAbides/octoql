@@ -9,5 +9,4 @@ package: githubapi
 test_handler:
   generated: githubapitest/generated.go
 bindings:
-  ArbitraryJSON:
-    type: any
+  ArbitraryJSON: any

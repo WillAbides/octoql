@@ -1,19 +1,16 @@
 // Package config loads octoqlgen configuration files.
 package config
 
-//go:generate ../../../../script/jsonschematogo --package config --output model_gen.go ../../../../octoqlgen.schema.yaml
+//go:generate ../../../../script/jsonschematogo --yaml-tags --package config --output model_gen.go ../../../../octoqlgen.schema.yaml
 //go:generate go run ../../../../internal/configdocgen --schema ../../../../octoqlgen.schema.yaml --output ../../../../docs/configuration.md
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
-	yamlv3 "gopkg.in/yaml.v3"
-	"sigs.k8s.io/yaml"
+	"go.yaml.in/yaml/v4"
 )
 
 const DefaultFilename = "octoqlgen.yaml"
@@ -48,38 +45,8 @@ func Load(filename string) (*Config, error) {
 
 // Parse decodes one octoqlgen configuration document without resolving paths.
 func Parse(content []byte) (*Config, error) {
-	err := requireSingleYAMLDocument(content)
-	if err != nil {
-		return nil, err
-	}
-	return decodeConfig(content)
-}
-
-func requireSingleYAMLDocument(content []byte) error {
-	decoder := yamlv3.NewDecoder(bytes.NewReader(content))
-	var document yamlv3.Node
-	err := decoder.Decode(&document)
-	if errors.Is(err, io.EOF) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	var extra yamlv3.Node
-	err = decoder.Decode(&extra)
-	if errors.Is(err, io.EOF) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return errors.New("multiple YAML documents are not allowed")
-}
-
-func decodeConfig(content []byte) (*Config, error) {
 	loaded := &Config{}
-	err := yaml.UnmarshalStrict(content, loaded)
+	err := yaml.Load(content, loaded, yaml.WithKnownFields())
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +70,7 @@ func decodeConfig(content []byte) (*Config, error) {
 
 func validateRequiredFields(content []byte, loaded *Config) error {
 	var fields map[string]any
-	err := yaml.Unmarshal(content, &fields)
+	err := yaml.Load(content, &fields)
 	if err != nil {
 		return err
 	}
@@ -123,9 +90,11 @@ func validateRequiredFields(content []byte, loaded *Config) error {
 	if loaded.TestHandler != nil && loaded.TestHandler.Generated == "" {
 		return errors.New("test_handler.generated is required")
 	}
-	for index, binding := range loaded.PackageBindings {
-		if binding.Package == "" {
-			return fmt.Errorf("package_bindings[%d].package is required", index)
+	if loaded.Bindings != nil {
+		for name, goType := range *loaded.Bindings {
+			if goType == "" {
+				return fmt.Errorf("bindings.%s must not be empty", name)
+			}
 		}
 	}
 	source := loaded.Schema.Source
@@ -164,10 +133,6 @@ func (c *Config) resolvePaths(baseDir string) {
 		c.Operations[index] = resolvePath(baseDir, operation)
 	}
 	c.Generated = resolvePath(baseDir, c.Generated)
-	if c.ExportOperations != nil {
-		resolved := resolvePath(baseDir, *c.ExportOperations)
-		c.ExportOperations = &resolved
-	}
 	if c.TestHandler != nil {
 		c.TestHandler.Generated = resolvePath(baseDir, c.TestHandler.Generated)
 	}
@@ -183,13 +148,6 @@ func (c *Config) OperationPaths() []string {
 
 func (c *Config) GeneratedPath() string {
 	return filepath.Clean(c.Generated)
-}
-
-func (c *Config) ExportOperationsPath() string {
-	if c.ExportOperations == nil || *c.ExportOperations == "" {
-		return ""
-	}
-	return filepath.Clean(*c.ExportOperations)
 }
 
 func (c *Config) TestHandlerGeneratedPath() string {

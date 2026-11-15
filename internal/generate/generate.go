@@ -1,306 +1,94 @@
 package generate
 
-// This file implements the main entrypoint and framework for the octoqlgen
-// code-generation process.  See comments in Generate for the high-level
-// overview.
-
 import (
 	"bytes"
-	"encoding/json"
-	"go/format"
-	"io"
-	"maps"
+	"fmt"
 	"sort"
 	"strings"
-	"text/template"
 
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/formatter"
 	"github.com/vektah/gqlparser/v2/validator"
-	"golang.org/x/tools/imports"
 )
 
-// generator is the context for the codegen process (and ends up getting passed
-// to the template).
-type generator struct {
-	// The config for which we are generating code.
-	Config *Config
-	// The list of operations for which to generate code.
-	Operations []*operation
-	// The types needed for these operations.
-	typeMap map[string]goType
-	// The source position at which each Go type name was first registered, so
-	// a conflict error can point at the earlier construct as well as the new
-	// one.
+// planState holds mutable conversion state while building an immutable
+// generationPlan.
+type planState struct {
+	config        *Config
+	operations    []*plannedOperation
+	typeMap       map[string]goType
 	typePositions map[string]*ast.Position
-	// Imports needed for these operations, path -> alias and alias -> true
-	imports     map[string]string
-	usedAliases map[string]bool
-	// True if we've already written out the imports (in which case they can't
-	// be modified).
-	importsLocked bool
-	// Cache of loaded templates.
-	templateCache map[string]*template.Template
-	// Schema we are generating code against
-	schema *ast.Schema
-	// Named fragments (map by name), so we can look them up from spreads.
-	// TODO(benkraft): In theory we shouldn't need this, we can just use
-	// ast.FragmentSpread.Definition, but for some reason it doesn't seem to be
-	// set consistently, even post-validation.
-	fragments map[string]*ast.FragmentDefinition
-
-	directives      map[any]*octoqlgenDirective
-	forDeclarations map[fieldKey]*octoqlgenDirective
-
-	forbiddenImportPath string
+	schema        *ast.Schema
+	directives    *directiveSet
 }
 
-// JSON tags in operation are for ExportOperations (see Config for details).
-type operation struct {
-	// The type of the operation (query or mutation).
-	Type ast.Operation `json:"-"`
-	// The name of the operation, from GraphQL.
-	Name string `json:"operationName"`
-	// The documentation for the operation, from GraphQL.
-	Doc string `json:"-"`
-	// The body of the operation to send.
-	Body string `json:"query"`
-	// The type of the argument to the operation, which we use both internally
-	// and to construct the arguments.  We do it this way so we can use the
-	// machinery we have for handling (and, specifically, json-marshaling)
-	// types.
-	Input *goStructType `json:"-"`
-	// The type-name for the operation's response type.
-	ResponseName string `json:"-"`
-	// The original filename from which we got this query.
-	SourceFilename string `json:"sourceLocation"`
-	// The config within which we are generating code.
-	Config *Config `json:"-"`
+type plannedOperation struct {
+	Type         ast.Operation
+	Name         string
+	Doc          string
+	Body         string
+	Input        *goStructType
+	ResponseName string
 }
 
-type exportedOperations struct {
-	Operations []*operation `json:"operations"`
-}
-
+// generationPlan is the destination-neutral, read-only plan shared by client
+// and test-handler renderers.
 type generationPlan struct {
-	config      Config
-	operations  []*operation
-	typeMap     map[string]goType
-	imports     map[string]string
-	usedAliases map[string]bool
+	config     Config
+	operations []*plannedOperation
+	typeMap    map[string]goType
 }
 
-type planBuilder func(*Config) (*generationPlan, error)
-
-type outputRenderer func(*generationPlan) ([]byte, error)
-
-func freezeGenerationPlan(g *generator) *generationPlan {
-	config := cloneConfig(g.Config)
-	return &generationPlan{
-		config:      config,
-		operations:  cloneOperations(g.Operations, nil),
-		typeMap:     maps.Clone(g.typeMap),
-		imports:     maps.Clone(g.imports),
-		usedAliases: maps.Clone(g.usedAliases),
-	}
-}
-
-func cloneConfig(config *Config) Config {
-	cloned := *config
-	cloned.Schema = append(StringList{}, config.Schema...)
-	cloned.Operations = append(StringList{}, config.Operations...)
-	cloned.Bindings = make(map[string]*TypeBinding, len(config.Bindings))
-	for name, binding := range config.Bindings {
-		if binding == nil {
-			cloned.Bindings[name] = nil
-			continue
-		}
-		bindingCopy := *binding
-		cloned.Bindings[name] = &bindingCopy
-	}
-	cloned.PackageBindings = make([]*PackageBinding, 0, len(config.PackageBindings))
-	for _, binding := range config.PackageBindings {
-		if binding == nil {
-			cloned.PackageBindings = append(cloned.PackageBindings, nil)
-			continue
-		}
-		bindingCopy := *binding
-		cloned.PackageBindings = append(cloned.PackageBindings, &bindingCopy)
-	}
-	cloned.Casing.Enums = maps.Clone(config.Casing.Enums)
-	if config.OmitUnreferencedImplementations != nil {
-		omit := *config.OmitUnreferencedImplementations
-		cloned.OmitUnreferencedImplementations = &omit
-	}
-	return cloned
-}
-
-func cloneOperations(operations []*operation, config *Config) []*operation {
-	cloned := make([]*operation, 0, len(operations))
-	for _, source := range operations {
-		operationCopy := *source
-		operationCopy.Config = config
-		cloned = append(cloned, &operationCopy)
-	}
-	return cloned
-}
-
-func (p *generationPlan) newRenderer(
-	config *Config,
-	includePlanImports bool,
-	forbiddenImportPath string,
-) (*generator, error) {
-	renderConfig := cloneConfig(config)
-	typeMap, clonedTypes, err := cloneTypeMap(p.typeMap)
-	if err != nil {
-		return nil, err
-	}
-	renderer := &generator{
-		Config:              &renderConfig,
-		Operations:          cloneOperations(p.operations, &renderConfig),
-		typeMap:             typeMap,
-		imports:             map[string]string{},
-		usedAliases:         map[string]bool{},
-		templateCache:       map[string]*template.Template{},
-		fragments:           map[string]*ast.FragmentDefinition{},
-		forbiddenImportPath: forbiddenImportPath,
-	}
-	if includePlanImports {
-		renderer.imports = maps.Clone(p.imports)
-		renderer.usedAliases = maps.Clone(p.usedAliases)
-	}
-	for _, operation := range renderer.Operations {
-		if operation.Input == nil {
-			continue
-		}
-		clonedInput, ok := clonedTypes[operation.Input].(*goStructType)
-		if !ok {
-			return nil, errorf(
-				nil,
-				"internal error: cloned operation input was %T",
-				clonedTypes[operation.Input],
-			)
-		}
-		operation.Input = clonedInput
-	}
-	err = resolveRendererReferences(renderer)
-	if err != nil {
-		return nil, err
-	}
-	return renderer, nil
-}
-
-func newGenerator(
-	config *Config,
-	schema *ast.Schema,
-	fragments ast.FragmentDefinitionList,
-) *generator {
-	g := generator{
-		Config:          config,
-		typeMap:         map[string]goType{},
-		typePositions:   map[string]*ast.Position{},
-		imports:         map[string]string{},
-		usedAliases:     map[string]bool{},
-		templateCache:   map[string]*template.Template{},
-		schema:          schema,
-		fragments:       make(map[string]*ast.FragmentDefinition, len(fragments)),
-		directives:      map[any]*octoqlgenDirective{},
-		forDeclarations: map[fieldKey]*octoqlgenDirective{},
-	}
-
-	for _, fragment := range fragments {
-		g.fragments[fragment.Name] = fragment
-	}
-
-	return &g
-}
-
-func (g *generator) WriteTypes(w io.Writer) error {
-	names := make([]string, 0, len(g.typeMap))
-	for name := range g.typeMap {
+func renderTypeDefinitions(r *renderer, typeMap map[string]goType) ([]byte, error) {
+	names := make([]string, 0, len(typeMap))
+	for name := range typeMap {
 		names = append(names, name)
 	}
-	// Sort alphabetically by type-name.  Sorting somehow deterministically is
-	// important to ensure generated code is deterministic.  Alphabetical is
-	// nice because it's easy, and in the current naming scheme, it's even
-	// vaguely aligned to the structure of the queries.
 	sort.Strings(names)
 
-	for _, name := range names {
-		err := g.typeMap[name].WriteDefinition(w, g)
-		if err != nil {
-			return err
-		}
-		// Make sure we have blank lines between types (and between the last
-		// type and the first operation)
-		_, err = io.WriteString(w, "\n\n")
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func renderTypeDefinitions(g *generator) ([]byte, error) {
 	var buffer bytes.Buffer
-	err := g.WriteTypes(&buffer)
-	if err != nil {
-		return nil, err
+	for _, name := range names {
+		err := typeMap[name].WriteDefinition(&buffer, r)
+		if err != nil {
+			return nil, err
+		}
+		buffer.WriteString("\n\n")
 	}
 	return buffer.Bytes(), nil
 }
 
-// usedFragmentNames returns the named-fragments used by (i.e. spread into)
-// this operation.
-func (g *generator) usedFragments(op *ast.OperationDefinition) ast.FragmentDefinitionList {
-	var retval, queue ast.FragmentDefinitionList
+// usedFragments returns the named fragments transitively spread into op.
+func usedFragments(op *ast.OperationDefinition) ast.FragmentDefinitionList {
+	var retval ast.FragmentDefinitionList
 	seen := map[string]bool{}
 
-	var observers validator.Events
-	// Fragment-spreads are easy to find; just ask for them!
-	observers.OnFragmentSpread(func(_ *validator.Walker, fragmentSpread *ast.FragmentSpread) {
-		if seen[fragmentSpread.Name] {
-			return
+	var visit func(ast.SelectionSet)
+	visit = func(selectionSet ast.SelectionSet) {
+		for _, selection := range selectionSet {
+			switch sel := selection.(type) {
+			case *ast.Field:
+				visit(sel.SelectionSet)
+			case *ast.InlineFragment:
+				visit(sel.SelectionSet)
+			case *ast.FragmentSpread:
+				if sel.Definition == nil || seen[sel.Name] {
+					continue
+				}
+				seen[sel.Name] = true
+				retval = append(retval, sel.Definition)
+				visit(sel.Definition.SelectionSet)
+			}
 		}
-		def := g.fragments[fragmentSpread.Name]
-		seen[fragmentSpread.Name] = true
-		retval = append(retval, def)
-		queue = append(queue, def)
-	})
-
-	doc := ast.QueryDocument{Operations: ast.OperationList{op}}
-	validator.Walk(g.schema, &doc, &observers)
-	// Well, easy-ish: we also have to look recursively.
-	// Note GraphQL guarantees there are no cycles among fragments:
-	// https://spec.graphql.org/draft/#sec-Fragment-spreads-must-not-form-cycles
-	for len(queue) > 0 {
-		doc = ast.QueryDocument{Fragments: ast.FragmentDefinitionList{queue[0]}}
-		validator.Walk(g.schema, &doc, &observers) // traversal is the same
-		queue = queue[1:]
 	}
 
+	visit(op.SelectionSet)
 	return retval
 }
 
-// Preprocess each query to make any changes that octoqlgen needs.
-//
-// At present, we normalize __typename to its specified non-null type and add it,
-// if not already requested, to each field of interface type so we can use the
-// right types when unmarshaling.
-func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
+// preprocessQueryDocument normalizes __typename to non-null String! and injects
+// __typename onto abstract field selections when missing.
+func preprocessQueryDocument(schema *ast.Schema, doc *ast.QueryDocument) {
 	var observers validator.Events
-	// We want to ensure that everywhere you ask for some list of fields (a
-	// selection-set) from an interface (or union) type, you ask for its
-	// __typename field.  There are four places we might find a selection-set:
-	// at the toplevel of a query, on a field, or in an inline or named
-	// fragment.  The toplevel of a query must be an object type, so we don't
-	// need to consider that.  And fragments must (if used at all) be spread
-	// into some parent selection-set, so we'll add __typename there (if
-	// needed).  Note this does mean abstract-typed fragments spread into
-	// object-typed scope will *not* have access to `__typename`, but they
-	// indeed don't need it, since we do know the type in that context.
-	// TODO(benkraft): We should omit __typename if you asked for
-	// `@octoqlgen(struct: true)`.
 	observers.OnField(func(_ *validator.Walker, field *ast.Field) {
 		if field.Name == "__typename" {
 			definition := *field.Definition
@@ -312,59 +100,34 @@ func (g *generator) preprocessQueryDocument(doc *ast.QueryDocument) {
 			return
 		}
 
-		// We are interested in a field from the query like
-		//	field { subField ... }
-		// where the schema looks like
-		//	type ... {       # or interface/union
-		//		field: FieldType    # or [FieldType!]! etc.
-		//	}
-		//	interface FieldType {   # or union
-		//		subField: ...
-		//	}
-		// If FieldType is an interface/union, and none of the subFields is
-		// __typename, we want to change the query to
-		//	field { __typename subField ... }
-
-		fieldType := g.schema.Types[field.Definition.Type.Name()]
+		fieldType := schema.Types[field.Definition.Type.Name()]
 		if fieldType.Kind != ast.Interface && fieldType.Kind != ast.Union {
-			return // a concrete type
+			return
 		}
 
-		hasTypename := false
 		for _, selection := range field.SelectionSet {
-			// Check if we already selected __typename. We ignore fragments,
-			// because we want __typename as a toplevel field.
 			subField, ok := selection.(*ast.Field)
 			if ok && subField.Name == "__typename" {
-				hasTypename = true
+				return
 			}
 		}
-		if !hasTypename {
-			// Ok, we need to add the field!
-			field.SelectionSet = append(ast.SelectionSet{
-				&ast.Field{
-					Alias: "__typename", Name: "__typename",
-					// Fake definition for the magic field __typename cribbed
-					// from gqlparser's validator/walk.go, equivalent to
-					//	__typename: String!
-					Definition: &ast.FieldDefinition{
-						Name: "__typename",
-						Type: ast.NonNullNamedType("String", nil /* pos */),
-					},
-					// Definition of the object that contains this field, i.e.
-					// FieldType.
-					ObjectDefinition: fieldType,
+
+		field.SelectionSet = append(ast.SelectionSet{
+			&ast.Field{
+				Alias: "__typename",
+				Name:  "__typename",
+				Definition: &ast.FieldDefinition{
+					Name: "__typename",
+					Type: ast.NonNullNamedType("String", nil),
 				},
-			}, field.SelectionSet...)
-		}
+				ObjectDefinition: fieldType,
+			},
+		}, field.SelectionSet...)
 	})
-	validator.Walk(g.schema, doc, &observers)
+	validator.Walk(schema, doc, &observers)
 }
 
-// validateOperation checks for a few classes of operations that gqlparser
-// considers valid but we don't allow, and returns an error if this operation
-// is invalid for octoqlgen's purposes.
-func (g *generator) validateOperation(op *ast.OperationDefinition) error {
+func (g *planState) validateOperation(op *ast.OperationDefinition) error {
 	if op.Operation == ast.Subscription {
 		return errorf(op.Position, "subscriptions are not supported by octoql")
 	}
@@ -380,42 +143,33 @@ func (g *generator) validateOperation(op *ast.OperationDefinition) error {
 	if goKeywords[op.Name] {
 		return errorf(op.Position, "operation name must not be a go keyword")
 	}
-
 	return nil
 }
 
-// addOperation adds to g.Operations the information needed to generate a
-// octoqlgen entrypoint function for the given operation. It also adds to
-// g.typeMap any types referenced by the operation, except for types belonging
-// to named fragments, which are added separately by Generate via
-// convertFragment.
-func (g *generator) addOperation(op *ast.OperationDefinition) error {
-	if err := g.validateOperation(op); err != nil {
+func (g *planState) addOperation(op *ast.OperationDefinition) error {
+	err := g.validateOperation(op)
+	if err != nil {
 		return err
 	}
 
 	queryDoc := &ast.QueryDocument{
 		Operations: ast.OperationList{op},
-		Fragments:  g.usedFragments(op),
+		Fragments:  usedFragments(op),
 	}
-	g.preprocessQueryDocument(queryDoc)
+	preprocessQueryDocument(g.schema, queryDoc)
 
 	var builder strings.Builder
-	f := formatter.NewFormatter(&builder)
-	f.FormatQueryDocument(queryDoc)
+	formatter.NewFormatter(&builder).FormatQueryDocument(queryDoc)
 
-	directive, err := g.directiveFor(op, nil, op.Position, nil)
-	if err != nil {
-		return err
-	}
+	opOptions := g.directives.forOperation(op)
 	commentLines := precedingComment(op.Position)
 
-	inputType, err := g.convertArguments(op, directive)
+	inputType, err := g.convertArguments(op, opOptions)
 	if err != nil {
 		return err
 	}
 
-	responseType, err := g.convertOperation(op, directive)
+	responseType, err := g.convertOperation(op, opOptions)
 	if err != nil {
 		return err
 	}
@@ -425,144 +179,91 @@ func (g *generator) addOperation(op *ast.OperationDefinition) error {
 		docComment = "// " + strings.ReplaceAll(commentLines, "\n", "\n// ")
 	}
 
-	sourceFilename := op.Position.Src.Name
-
-	g.Operations = append(g.Operations, &operation{
-		Type: op.Operation,
-		Name: op.Name,
-		Doc:  docComment,
-		// The newline just makes it format a little nicer.  We add it here
-		// rather than in the template so exported operations will match
-		// *exactly* what we send to the server.
-		Body:           "\n" + builder.String(),
-		Input:          inputType,
-		ResponseName:   responseType.Reference(),
-		SourceFilename: sourceFilename,
-		Config:         g.Config, // for the convenience of the template
+	g.operations = append(g.operations, &plannedOperation{
+		Type:         op.Operation,
+		Name:         op.Name,
+		Doc:          docComment,
+		Body:         "\n" + builder.String(),
+		Input:        inputType,
+		ResponseName: responseType.QualifiedRef(),
 	})
-
 	return nil
 }
 
-func buildGenerationPlan(config *Config) (*generationPlan, error) {
-	err := config.validateInputPaths()
-	if err != nil {
-		return nil, err
+var clientRuntimeDeclarations = []string{
+	"Client",
+	"DefaultResponseSizeLimit",
+	"Error",
+	"Errors",
+	"ErrorType",
+	"Location",
+	"NewClient",
+	"Path",
+	"RateLimit",
+	"RateLimitError",
+	"RateLimitKind",
+	"RateLimitPrimary",
+	"RateLimitSecondary",
+	"ResponseError",
+	"ResponseSizeLimitError",
+}
+
+var clientRuntimeMethods = map[string]bool{
+	"AllowRedirects":       true,
+	"RateLimit":            true,
+	"ResponseSizeLimit":    true,
+	"SetAllowRedirects":    true,
+	"SetBearerToken":       true,
+	"SetResponseSizeLimit": true,
+}
+
+func validateClientNames(typeMap map[string]goType, operations []*plannedOperation) error {
+	const reservedRuntimePrefix = "_octoql"
+
+	type symbol struct {
+		declaration string
+		isOperation bool
 	}
-
-	// Step 1: Read in the schema and operations from the files defined by the
-	// config (and validate the operations against the schema).  This is all
-	// defined in parse.go.
-	schema, schemaFilenames, err := getSchema(config.Schema)
-	if err != nil {
-		return nil, err
+	packageSymbols := make(map[string]symbol, len(typeMap)+len(operations))
+	for name := range typeMap {
+		packageSymbols[name] = symbol{declaration: "a generated GraphQL type"}
 	}
-
-	document, err := getAndValidateQueries(
-		config.baseDir,
-		config.Operations,
-		schemaFilenames,
-		schema,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(benkraft): we could also allow this, and generate an empty file
-	// with just the package-name, if it turns out to be more convenient that
-	// way.  (As-is, we generate a broken file, with just (unused) imports.)
-	if len(document.Operations) == 0 {
-		// Hard to have a position when there are no operations :(
-		return nil, errorf(nil,
-			"no queries found, looked in: %v (configure this in octoqlgen.yaml)",
-			strings.Join(config.Operations, ", "))
-	}
-
-	// Step 2: For each operation and fragment, convert it into data structures
-	// representing Go types (defined in types.go).  The bulk of this logic is
-	// in convert.go, and it additionally updates g.typeMap to include all the
-	// types it needs.
-	g := newGenerator(config, schema, document.Fragments)
-
-	if err = g.collectDirectives(document); err != nil {
-		return nil, err
-	}
-
-	for _, op := range document.Operations {
-		if err = g.addOperation(op); err != nil {
-			return nil, err
+	for _, op := range operations {
+		entry := packageSymbols[op.Name]
+		entry.isOperation = true
+		packageSymbols[op.Name] = entry
+		if op.Input != nil {
+			entry = packageSymbols[op.Input.GoName]
+			entry.declaration = ""
+			packageSymbols[op.Input.GoName] = entry
 		}
 	}
-	if err = g.checkGeneratedIdentifiers(); err != nil {
-		return nil, err
-	}
-	operationNames := make(map[string]bool, len(g.Operations))
-	for _, operation := range g.Operations {
-		operationNames[operation.Name] = true
-	}
-	enumValueNames := make(map[string]bool)
-	enumValuesVariableNames := make(map[string]bool)
-	for _, typ := range g.typeMap {
+	for _, typ := range typeMap {
 		enumType, ok := typ.(*goEnumType)
 		if !ok {
 			continue
 		}
-		enumValuesVariableNames["All"+enumType.GoName] = true
+		name := "All" + enumType.GoName
+		entry := packageSymbols[name]
+		entry.declaration = "a generated enum values variable"
+		packageSymbols[name] = entry
 		for _, value := range enumType.Values {
-			enumValueNames[value.GoName] = true
+			entry = packageSymbols[value.GoName]
+			if entry.declaration != "a generated enum values variable" {
+				entry.declaration = "a generated enum value"
+			}
+			packageSymbols[value.GoName] = entry
 		}
 	}
-	runtimeNames := []string{
-		"Client",
-		"DefaultResponseSizeLimit",
-		"Error",
-		"Errors",
-		"ErrorType",
-		"Location",
-		"NewClient",
-		"Path",
-		"RateLimit",
-		"RateLimitError",
-		"RateLimitKind",
-		"RateLimitPrimary",
-		"RateLimitSecondary",
-		"ResponseError",
-		"ResponseSizeLimitError",
+
+	names := make([]string, 0, len(packageSymbols))
+	for name := range packageSymbols {
+		names = append(names, name)
 	}
-	for _, name := range runtimeNames {
-		if g.typeMap[name] != nil {
-			return nil, errorf(
-				nil,
-				"generated runtime declaration %q conflicts with a generated GraphQL type",
-				name,
-			)
-		}
-		if enumValueNames[name] || enumValuesVariableNames[name] {
-			return nil, errorf(
-				nil,
-				"generated runtime declaration %q conflicts with a generated enum declaration",
-				name,
-			)
-		}
-	}
-	const reservedRuntimePrefix = "_octoql"
-	generatedNames := make([]string, 0, len(g.typeMap)+len(enumValueNames)+len(enumValuesVariableNames)+len(operationNames))
-	for name := range g.typeMap {
-		generatedNames = append(generatedNames, name)
-	}
-	for name := range enumValueNames {
-		generatedNames = append(generatedNames, name)
-	}
-	for name := range enumValuesVariableNames {
-		generatedNames = append(generatedNames, name)
-	}
-	for name := range operationNames {
-		generatedNames = append(generatedNames, name)
-	}
-	sort.Strings(generatedNames)
-	for _, name := range generatedNames {
+	sort.Strings(names)
+	for _, name := range names {
 		if strings.HasPrefix(name, reservedRuntimePrefix) {
-			return nil, errorf(
+			return errorf(
 				nil,
 				"generated identifier %q uses reserved prefix %q",
 				name,
@@ -570,187 +271,220 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 			)
 		}
 	}
-	runtimeMethodNames := map[string]bool{
-		"RateLimit":            true,
-		"ResponseSizeLimit":    true,
-		"SetBearerToken":       true,
-		"SetResponseSizeLimit": true,
+
+	for _, name := range clientRuntimeDeclarations {
+		if typeMap[name] != nil {
+			return errorf(
+				nil,
+				"generated runtime declaration %q conflicts with a generated GraphQL type",
+				name,
+			)
+		}
+		entry := packageSymbols[name]
+		if entry.declaration == "a generated enum value" || entry.declaration == "a generated enum values variable" {
+			return errorf(
+				nil,
+				"generated runtime declaration %q conflicts with a generated enum declaration",
+				name,
+			)
+		}
+		entry.declaration = fmt.Sprintf("runtime declaration %q", name)
+		packageSymbols[name] = entry
 	}
-	for _, operation := range g.Operations {
-		if runtimeMethodNames[operation.Name] {
-			return nil, errorf(
+
+	for _, op := range operations {
+		if clientRuntimeMethods[op.Name] {
+			return errorf(
 				nil,
 				"generated Client method %q conflicts with operation %q",
-				operation.Name,
-				operation.Name,
+				op.Name,
+				op.Name,
 			)
 		}
-	}
-	for _, operation := range g.Operations {
-		name := operation.Name + "PartialDataError"
-		if g.typeMap[name] != nil {
-			return nil, errorf(
+
+		partialErrName := op.Name + "PartialDataError"
+		entry := packageSymbols[partialErrName]
+		if entry.declaration != "" {
+			return errorf(
 				nil,
-				"generated partial data error %q conflicts with a generated GraphQL type",
-				name,
+				"generated partial data error %q conflicts with %s",
+				partialErrName,
+				entry.declaration,
 			)
 		}
-		if operationNames[name] {
-			return nil, errorf(
+		if entry.isOperation {
+			return errorf(
 				nil,
 				"generated partial data error %q conflicts with operation %q",
-				name,
-				name,
+				partialErrName,
+				partialErrName,
 			)
 		}
-		if enumValueNames[name] {
-			return nil, errorf(
-				nil,
-				"generated partial data error %q conflicts with a generated enum value",
-				name,
-			)
-		}
-		if operation.Input == nil {
+		entry.declaration = fmt.Sprintf("partial data error %q", partialErrName)
+		packageSymbols[partialErrName] = entry
+
+		if op.Input == nil {
 			continue
 		}
-
-		name = operation.Input.GoName
-		if operationNames[name] {
-			return nil, errorf(
+		varsName := op.Input.GoName
+		entry = packageSymbols[varsName]
+		if entry.isOperation {
+			return errorf(
 				nil,
 				"generated variables type %q conflicts with operation %q",
-				name,
-				name,
+				varsName,
+				varsName,
 			)
 		}
-		if enumValueNames[name] {
-			return nil, errorf(
+		if entry.declaration != "" {
+			return errorf(
 				nil,
-				"generated variables type %q conflicts with a generated enum value",
-				name,
+				"generated variables type %q conflicts with %s",
+				varsName,
+				entry.declaration,
 			)
 		}
-		if enumValuesVariableNames[name] {
-			return nil, errorf(
-				nil,
-				"generated variables type %q conflicts with a generated enum values variable",
-				name,
-			)
+		entry.declaration = fmt.Sprintf("variables type %q", varsName)
+		packageSymbols[varsName] = entry
+	}
+
+	return nil
+}
+
+func buildGenerationPlan(config *Config) (*generationPlan, error) {
+	operationFiles, err := config.resolveOperationFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	schema, err := getSchema(config.Schema)
+	if err != nil {
+		return nil, err
+	}
+
+	document, err := getAndValidateQueries(
+		config.baseDir,
+		operationFiles,
+		schema,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(document.Operations) == 0 {
+		return nil, errorf(nil,
+			"no queries found, looked in: %v (configure this in octoqlgen.yaml)",
+			strings.Join(config.Operations, ", "))
+	}
+
+	directives, err := collectDirectives(document, schema)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &planState{
+		config:        config,
+		typeMap:       map[string]goType{},
+		typePositions: map[string]*ast.Position{},
+		schema:        schema,
+		directives:    directives,
+	}
+
+	for _, op := range document.Operations {
+		err = state.addOperation(op)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	sort.Slice(g.Operations, func(i, j int) bool {
-		return g.Operations[i].Name < g.Operations[j].Name
-	})
-
-	plan := freezeGenerationPlan(g)
-	err = validateTestHandlerNames(plan)
+	err = checkGeneratedIdentifiers(state.typeMap, config.pkgPath)
 	if err != nil {
 		return nil, err
+	}
+	err = validateClientNames(state.typeMap, state.operations)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(state.operations, func(i, j int) bool {
+		return state.operations[i].Name < state.operations[j].Name
+	})
+
+	plan := &generationPlan{
+		config:     *config,
+		operations: state.operations,
+		typeMap:    state.typeMap,
 	}
 	return plan, nil
 }
 
+func reserveClientDeclarations(plan *generationPlan, scope *importScope) {
+	for _, name := range clientRuntimeDeclarations {
+		scope.usedAliases[name] = true
+	}
+	for name, typ := range plan.typeMap {
+		scope.usedAliases[name] = true
+		enumType, ok := typ.(*goEnumType)
+		if !ok {
+			continue
+		}
+		scope.usedAliases["All"+enumType.GoName] = true
+		for _, val := range enumType.Values {
+			scope.usedAliases[val.GoName] = true
+		}
+	}
+	for _, op := range plan.operations {
+		scope.usedAliases[op.Name+"_Operation"] = true
+		scope.usedAliases[op.Name+"PartialDataError"] = true
+	}
+}
+
 func renderClient(plan *generationPlan) ([]byte, error) {
-	g, err := plan.newRenderer(&plan.config, true, "")
+	r := newRenderer(plan.config.Package, plan.config.pkgPath, "")
+	reserveClientDeclarations(plan, r.imports)
+	err := registerBoundTypeImports(plan.typeMap, r.imports)
 	if err != nil {
 		return nil, err
 	}
-	return renderClientGenerator(g)
-}
 
-func renderClientGenerator(g *generator) ([]byte, error) {
-	typeDefinitions, err := renderTypeDefinitions(g)
+	typeDefinitions, err := renderTypeDefinitions(r, plan.typeMap)
 	if err != nil {
 		return nil, err
 	}
+
 	var bodyBuf bytes.Buffer
-	err = g.render("runtime.go.tmpl", &bodyBuf, g)
+	err = r.render("runtime.go.tmpl", &bodyBuf, nil)
 	if err != nil {
 		return nil, err
 	}
-	_, err = bodyBuf.WriteString("\n")
-	if err != nil {
-		return nil, err
-	}
-	err = g.render("runtime_facets.go.tmpl", &bodyBuf, g)
-	if err != nil {
-		return nil, err
-	}
-	_, err = bodyBuf.Write(typeDefinitions)
-	if err != nil {
-		return nil, err
-	}
-	for _, operation := range g.Operations {
-		err = g.render("operation.go.tmpl", &bodyBuf, operation)
+	bodyBuf.Write(typeDefinitions)
+
+	for _, op := range plan.operations {
+		err = r.render("operation.go.tmpl", &bodyBuf, op)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// The header also needs to reference some context types, which it does
-	// after it writes the imports, so we need to preregister those imports.
-	if g.Config.ContextType != "-" {
-		_, err = g.ref("context.Context")
-		if err != nil {
-			return nil, err
-		}
-		if g.Config.ContextType != "context.Context" {
-			_, err = g.ref(g.Config.ContextType)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// Now really glue it all together, and format.
-	var buf bytes.Buffer
-	err = g.render("header.go.tmpl", &buf, g)
-	if err != nil {
-		return nil, err
-	}
-	_, err = io.Copy(&buf, &bodyBuf)
-	if err != nil {
-		return nil, err
-	}
-
-	unformatted := buf.Bytes()
-	formatted, err := format.Source(unformatted)
-	if err != nil {
-		return nil, goSourceError("gofmt", unformatted, err)
-	}
-	importsed, err := imports.Process(g.Config.Generated, formatted, nil)
-	if err != nil {
-		return nil, goSourceError("goimports", formatted, err)
-	}
-
-	return importsed, nil
-}
-
-func renderExportedOperations(plan *generationPlan) ([]byte, error) {
-	content, err := json.MarshalIndent(
-		exportedOperations{Operations: plan.operations},
+	return r.formatGoFile(
+		"// Code generated by octoqlgen, DO NOT EDIT.",
 		"",
-		"  ",
+		bodyBuf.Bytes(),
 	)
-	if err != nil {
-		return nil, errorf(nil, "unable to export queries: %v", err)
-	}
-	return content, nil
 }
 
-func generateWith(
-	config *Config,
-	buildPlan planBuilder,
-	clientRenderer outputRenderer,
-	handlerRenderer outputRenderer,
-) (map[string][]byte, error) {
-	plan, err := buildPlan(config)
+// Generate renders every configured output from one shared generation plan.
+func Generate(config *Config) (map[string][]byte, error) {
+	err := config.ValidateAndFillDefaults(".")
+	if err != nil {
+		return nil, err
+	}
+	plan, err := buildGenerationPlan(config)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := clientRenderer(plan)
+	client, err := renderClient(plan)
 	if err != nil {
 		return nil, err
 	}
@@ -758,33 +492,12 @@ func generateWith(
 	outputs := map[string][]byte{
 		config.Generated: client,
 	}
-	if config.ExportOperations != "" {
-		// We use MarshalIndent so that the file is human-readable and
-		// slightly more likely to be git-mergeable (if you check it in).  In
-		// general it's never going to be used anywhere where space is an
-		// issue -- it doesn't go in your binary or anything.
-		outputs[config.ExportOperations], err = renderExportedOperations(plan)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if config.TestHandlerGenerated != "" {
-		outputs[config.TestHandlerGenerated], err = handlerRenderer(plan)
+		outputs[config.TestHandlerGenerated], err = renderTestHandler(plan)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return outputs, nil
-}
-
-// Generate renders every configured output from one shared generation plan.
-func Generate(config *Config) (map[string][]byte, error) {
-	return generateWith(
-		config,
-		buildGenerationPlan,
-		renderClient,
-		renderTestHandler,
-	)
 }

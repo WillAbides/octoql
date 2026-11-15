@@ -1,10 +1,6 @@
 package generate
 
 import (
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,11 +17,9 @@ func TestGenerateCollisionCompileCorpus(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                string
-		schema              string
-		operations          string
-		casing              Casing
-		keepImplementations bool
+		name       string
+		schema     string
+		operations string
 		// wantGenerationErr, when set, is a substring the generation error must
 		// contain.  Each collision case names its offending identifier so an
 		// unrelated failure cannot satisfy it.  When empty, generation must
@@ -144,35 +138,17 @@ query F {
   }
 }
 fragment F on I {
-  login
+  ... on Impl {
+    login
+  }
 }
 `,
-			keepImplementations: true,
 			wantGenerationErr: "conflicting definition for the Go type FImpl: " +
 				"it is generated from both the selection of GraphQL type Impl",
 			wantGenerationErrAlso: []string{
 				"the fragment F on GraphQL type Impl",
 				"give one of them a distinct name with an @octoqlgen(typename:) directive",
 			},
-		},
-		{
-			// With auto-camel casing, foo_bar and fooBar both normalize to the
-			// Go identifier FooBar.
-			name: "underscore and camel fields",
-			schema: `
-type Query {
-  foo_bar: String!
-  fooBar: String!
-}
-`,
-			operations: `
-query Fields {
-  foo_bar
-  fooBar
-}
-`,
-			casing:            Casing{Default: CasingAutoCamelCase},
-			wantGenerationErr: "Go identifier FooBar for both field FooBar (GraphQL foo_bar) and field FooBar (GraphQL fooBar)",
 		},
 		{
 			// A fragment named the same as a GraphQL type is fine as long as it
@@ -306,8 +282,7 @@ query Q($p: Profile) {
 			// same Go name, so the generated interface would declare Get<Name>
 			// twice.  With no concrete implementations there is no struct in
 			// the type map, so this is only caught by the interface pass.
-			name:                "interface fields with same getter",
-			keepImplementations: true,
+			name: "interface fields with same getter",
 			schema: `
 interface HasName {
   name: String!
@@ -340,8 +315,7 @@ query Q {
 			// treats the embedded type reference as a method identifier would
 			// reject this working input, so generation must succeed and the
 			// output must compile.
-			name:                "interface field getter and embedded fragment name",
-			keepImplementations: true,
+			name: "interface field getter and embedded fragment name",
 			schema: `
 interface HasName {
   name: String!
@@ -376,8 +350,7 @@ fragment GetName on HasName {
 			// methods would miss the conflict on the interface and emit
 			// uncompilable Go; the assertion pins the interface-pass diagnostic
 			// specifically, which only the method-set check produces.
-			name:                "interface getter and promoted method disagree",
-			keepImplementations: true,
+			name: "interface getter and promoted method disagree",
 			schema: `
 interface HasFoo {
   foo: Int!
@@ -427,15 +400,78 @@ query Q($foo: String, $Foo: String) {
 `,
 			wantGenerationErr: "generated type QVariables would emit the Go identifier Foo " +
 				"for both field Foo (GraphQL foo) and field Foo (GraphQL Foo); " +
-				"rename the variable or input field, or change the casing configuration",
+				"rename the variable or input field",
+		},
+		{
+			name: "typename reuse with equivalent inline selections",
+			schema: `
+type Query { a: Item! b: Item! }
+type Item { id: String! }
+`,
+			operations: `
+query Q {
+  a @octoqlgen(typename: "Shared") { id }
+  b @octoqlgen(typename: "Shared") { ... on Item { id } }
+}
+`,
+		},
+		{
+			name: "typename reuse with equivalent abstract shared fields",
+			schema: `
+interface Node { id: String! }
+type User implements Node { id: String! }
+type Query { a: Node! b: Node! }
+`,
+			operations: `
+query Q {
+  a @octoqlgen(typename: "Shared") { id }
+  b @octoqlgen(typename: "Shared") { id }
+}
+`,
+		},
+		{
+			name: "typename reuse with conflicting abstract shared fields",
+			schema: `
+interface Node { id: String! name: String! }
+type User implements Node { id: String! name: String! }
+type Query { a: Node! b: Node! }
+`,
+			operations: `
+query Q {
+  a @octoqlgen(typename: "Shared") { id }
+  b @octoqlgen(typename: "Shared") { name }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type Shared:",
+			wantGenerationErrAlso: []string{
+				`"Id" vs "Name"`,
+			},
+		},
+		{
+			name: "typename reuse with different abstract implementations",
+			schema: `
+interface Node { id: String! }
+type User implements Node { id: String! }
+type Admin implements Node { id: String! }
+type Query { a: Node! b: Node! }
+`,
+			operations: `
+query Q {
+  a @octoqlgen(typename: "Shared") { ... on User { id } }
+  b @octoqlgen(typename: "Shared") { ... on Admin { id } }
+}
+`,
+			wantGenerationErr: "conflicting definition for the Go type Shared:",
+			wantGenerationErrAlso: []string{
+				"implementation 0 changed: SharedUser vs SharedAdmin",
+			},
 		},
 		{
 			// Two sibling fields both carry @octoqlgen(typename:"Shared"), but
 			// the first names its id sub-field "NodeId" via
 			// @octoqlgen(alias:"nodeId") while the second uses the plain name
-			// "Id".  selectionsMatch sees identical AST (field "id" in both)
-			// and passes; only the structural Go field comparison in addType
-			// catches that NodeId ≠ Id and rejects the conflicting registration.
+			// "Id". The generated field names must agree despite the identical
+			// GraphQL field selections.
 			name: "typename reuse with distinct aliases",
 			schema: `
 type Query {
@@ -467,14 +503,8 @@ query Q {
 		{
 			// Two sibling fields both carry @octoqlgen(typename:"Shared"), but
 			// one applies @skip to the flag sub-field, which forces a pointer
-			// on that field.  selectionsMatch sees identical field names and
-			// passes; the structural comparison catches *bool ≠ bool and
-			// rejects the conflicting registration.
-			//
-			// This covers the live bypass on main: without this fix, a
-			// typename-reused conditional field keeps its value type from the
-			// first registration, so a skipped Boolean! decodes to false
-			// instead of being absent.
+			// on that field. Reusing the value type from the other selection
+			// would decode a skipped Boolean! as false instead of absent.
 			name: "typename reuse with distinct conditional directives",
 			schema: `
 type Query {
@@ -502,16 +532,9 @@ query Q($hide: Boolean!) {
 			// A direct selection with @octoqlgen(typename:"F") is processed
 			// before a spread of fragment F on the same interface type.  The
 			// fragment carries @octoqlgen(alias:"userId") on an id sub-field
-			// inside an inline fragment — invisible to selectionsMatch, which
-			// compares field names and aliases and not the options attached to
-			// them.  The outer SelectionSets are structurally identical
-			// (explicit __typename in both), so selectionsMatch passes and
-			// generatedTypeFieldsMatch on the interface's SharedFields passes
-			// (the inline-fragment field is implementation-specific, not
-			// shared).  The conflict is only detectable by building the
-			// per-implementation candidate type FUser and routing it through
-			// addType, which is what the implementations loop in
-			// convertNamedFragment now does even on the reuse path.
+			// inside an inline fragment. SharedFields alone cannot detect this
+			// implementation-specific difference, so reused interfaces must
+			// still build and check each implementation.
 			name: "typename reuse with distinct implementation-level aliases (direct selection first, fragment second)",
 			schema: `
 interface Node {
@@ -555,13 +578,15 @@ query Q {
 		},
 	}
 
-	compileDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(compileDir, "go.mod"), []byte("module probe\n\ngo 1.27.3\n"), 0o600))
-	hasCompileCases := false
+	filesToBuild := make(map[string][]byte)
 
-	for index, test := range tests {
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			source, err := probeGenerated(t, test.schema, test.operations, test.casing, test.keepImplementations)
+			source, err := generateTestSource(t, &testGenerateSpec{
+				schema:      test.schema,
+				operations:  test.operations,
+				packageName: "probe",
+			})
 			if test.wantGenerationErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.wantGenerationErr)
@@ -571,63 +596,9 @@ query Q {
 				return
 			}
 			require.NoError(t, err)
-
-			caseDir := filepath.Join(compileDir, fmt.Sprintf("case_%02d", index))
-			require.NoError(t, os.MkdirAll(caseDir, 0o755))
-			require.NoError(t, os.WriteFile(filepath.Join(caseDir, "generated.go"), source, 0o600))
-			hasCompileCases = true
+			filesToBuild[test.name] = []byte(source)
 		})
 	}
 
-	if hasCompileCases {
-		output, compileErr := probeCompile(t, compileDir)
-		require.NoError(t, compileErr, output)
-	}
-}
-
-// probeGenerated intentionally does not configure bindings: compile probes must
-// only import the standard library, since user bindings are unavailable outside
-// their source module.
-func probeGenerated(
-	t *testing.T,
-	schema, operations string,
-	casing Casing,
-	keepImplementations bool,
-) ([]byte, error) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module probe\n\ngo 1.27.3\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "generated.go"), []byte("package probe\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "operations.graphql"), []byte(operations), 0o600))
-
-	var omitUnreferencedImplementations *bool
-	if keepImplementations {
-		omit := false
-		omitUnreferencedImplementations = &omit
-	}
-	config := &Config{
-		Schema:                          StringList{"schema.graphql"},
-		Operations:                      StringList{"operations.graphql"},
-		Generated:                       "generated.go",
-		Package:                         "probe",
-		ContextType:                     "-",
-		Casing:                          casing,
-		OmitUnreferencedImplementations: omitUnreferencedImplementations,
-	}
-	err := config.ValidateAndFillDefaults(dir)
-	if err != nil {
-		return nil, err
-	}
-	outputs, err := Generate(config)
-	if err != nil {
-		return nil, err
-	}
-	return outputs[config.Generated], nil
-}
-
-func probeCompile(t *testing.T, dir string) (string, error) {
-	cmd := exec.CommandContext(t.Context(), "go", "build", "./...")
-	cmd.Dir = dir
-	output, err := cmd.CombinedOutput()
-	return string(output), err
+	compileStandaloneGo(t, filesToBuild)
 }

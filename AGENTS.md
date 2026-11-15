@@ -8,8 +8,8 @@
 - Generated clients are self-contained and do not import the root `octoql`
   package. `internal/generate/runtime.go.tmpl` is the canonical HTTP runtime; do
   not maintain a second handwritten implementation or create a public runtime
-  package. Generated private JSON guards prevent method promotion while
-  preserving `encoding/json` semantics.
+  package. A generated private JSON guard prevents UnmarshalJSON method promotion
+  while preserving `encoding/json` semantics.
   Generator implementation belongs in `internal/generate`; users invoke
   `cmd/octoqlgen`. Do not recreate a public `generate` package.
 - The root `README.md` is the primary user guide. Keep `docs/` for specialized
@@ -86,6 +86,11 @@
 - Validate required config fields before defaults or path resolution. Generation
   outputs must not alias `octoqlgen.yaml`, schema inputs, or expanded operation
   inputs, and manifest source paths remain relative to the config directory.
+- Package discovery inspects default-build Go files (`build.Default.MatchFile`)
+  and `go.mod` without consulting `GOFLAGS` or invoking `go/packages`, keeping
+  generated package declarations deterministic across environments. Directories
+  with only custom-tagged Go files and a non-default package name must set
+  `package` explicitly in `octoqlgen.yaml`.
 - Typed test-handler generation is an optional renderer over the same immutable
   parsed and converted operation plan as client generation. Do not add a second
   config load, schema parse, operation parser, abstract-type analysis, or
@@ -98,9 +103,17 @@
   operation parser, type conversion, or abstract-type analysis.
 - Preserve destination-neutral binding and marshal-helper references in the
   shared plan, then resolve imports per renderer. Local handlers reject
-  reachable references owned by the generated client package.
+  reachable references owned by the generated client package. Field equivalence
+  in `generatedTypeFieldsMatch` compares destination-neutral `QualifiedRef()`
+  strings directly because `bind` targets handwritten types rather than
+  generated types and collapsing client-qualified bindings with local generated
+  types would make `types: local` validation depend on operation order.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
+  Generated outputs, config updates, and materialized schemas write directly
+  with `os.WriteFile` (`O_CREATE|O_EXCL` is used only when `octoqlgen init`
+  creates new files) rather than temp-file staging, `fsync`, or hard-link
+  publication.
 - Keep the generator in the root module. Generated application packages compile
   without a dependency on `github.com/willabides/octoql`; users pin the command
   as a Go tool dependency and regenerate to receive runtime fixes.

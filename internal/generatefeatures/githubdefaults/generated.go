@@ -33,18 +33,6 @@ func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
 	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
-// _octoqlNoMarshalJSON is for generated code only.
-//
-// Embedding _octoqlNoMarshalJSON alongside a type with a MarshalJSON method prevents
-// that sibling method from being promoted.
-type _octoqlNoMarshalJSON struct{}
-
-// MarshalJSON should never be called. It exists only to prevent a sibling
-// MarshalJSON method from being promoted.
-func (_octoqlNoMarshalJSON) MarshalJSON() ([]byte, error) {
-	panic("_octoqlNoMarshalJSON.MarshalJSON should never be called!")
-}
-
 const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
@@ -1077,6 +1065,15 @@ func (v *getReviewResponse) GetReview() getReviewReview { return v.Review }
 type getReviewReview struct {
 	FullDatabaseId string                      `json:"fullDatabaseId"`
 	CreatedAt      time.Time                   `json:"createdAt"`
+	PublishedOn    string                      `json:"publishedOn"`
+	UpdatedAt      time.Time                   `json:"updatedAt"`
+	PushedAt       time.Time                   `json:"pushedAt"`
+	Oid            string                      `json:"oid"`
+	Refname        string                      `json:"refname"`
+	SshRemote      string                      `json:"sshRemote"`
+	BodyHTML       string                      `json:"bodyHTML"`
+	Encoded        string                      `json:"encoded"`
+	Certificate    string                      `json:"certificate"`
 	PropertyValue  *json.RawMessage            `json:"propertyValue"`
 	Author         *getReviewReviewAuthorActor `json:"author"`
 	Editor         *getReviewReviewEditorActor `json:"editor"`
@@ -1087,6 +1084,33 @@ func (v *getReviewReview) GetFullDatabaseId() string { return v.FullDatabaseId }
 
 // GetCreatedAt returns getReviewReview.CreatedAt, and is useful for accessing the field via an interface.
 func (v *getReviewReview) GetCreatedAt() time.Time { return v.CreatedAt }
+
+// GetPublishedOn returns getReviewReview.PublishedOn, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetPublishedOn() string { return v.PublishedOn }
+
+// GetUpdatedAt returns getReviewReview.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetUpdatedAt() time.Time { return v.UpdatedAt }
+
+// GetPushedAt returns getReviewReview.PushedAt, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetPushedAt() time.Time { return v.PushedAt }
+
+// GetOid returns getReviewReview.Oid, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetOid() string { return v.Oid }
+
+// GetRefname returns getReviewReview.Refname, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetRefname() string { return v.Refname }
+
+// GetSshRemote returns getReviewReview.SshRemote, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetSshRemote() string { return v.SshRemote }
+
+// GetBodyHTML returns getReviewReview.BodyHTML, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetBodyHTML() string { return v.BodyHTML }
+
+// GetEncoded returns getReviewReview.Encoded, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetEncoded() string { return v.Encoded }
+
+// GetCertificate returns getReviewReview.Certificate, and is useful for accessing the field via an interface.
+func (v *getReviewReview) GetCertificate() string { return v.Certificate }
 
 // GetPropertyValue returns getReviewReview.PropertyValue, and is useful for accessing the field via an interface.
 func (v *getReviewReview) GetPropertyValue() *json.RawMessage { return v.PropertyValue }
@@ -1129,10 +1153,196 @@ func (v *getReviewReviewEditorActor) GetLogin() string { return v.Login }
 // GetUrl returns getReviewReviewEditorActor.Url, and is useful for accessing the field via an interface.
 func (v *getReviewReviewEditorActor) GetUrl() string { return v.Url }
 
+// namingShapesNamingActor includes the requested fields of the GraphQL interface Actor.
+//
+// namingShapesNamingActor is implemented by the following types:
+// namingShapesNamingActorOctoqlOther
+type namingShapesNamingActor interface {
+	implementsGraphQLInterfacenamingShapesNamingActor()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetLogin returns the interface-field "login" from its implementation.
+	GetLogin() string
+}
+
+func (v *namingShapesNamingActorOctoqlOther) implementsGraphQLInterfacenamingShapesNamingActor() {}
+
+func _octoqlUnmarshalnamingShapesNamingActor(b []byte, v *namingShapesNamingActor) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "":
+		return fmt.Errorf(
+			"response was missing Actor.__typename")
+	default:
+		*v = new(namingShapesNamingActorOctoqlOther)
+		return json.Unmarshal(b, *v)
+	}
+}
+
+func _octoqlMarshalnamingShapesNamingActor(v *namingShapesNamingActor) ([]byte, error) {
+
+	switch vv := (*v).(type) {
+	case *namingShapesNamingActorOctoqlOther:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		return json.Marshal(vv)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for namingShapesNamingActor: "%T"`, vv)
+	}
+}
+
+// namingShapesNamingActorOctoqlOther represents namingShapesNamingActor implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
+type namingShapesNamingActorOctoqlOther struct {
+	Typename string `json:"__typename"`
+	Login    string `json:"login"`
+}
+
+// GetTypename returns namingShapesNamingActorOctoqlOther.Typename, and is useful for accessing the field via an interface.
+func (v *namingShapesNamingActorOctoqlOther) GetTypename() string { return v.Typename }
+
+// GetLogin returns namingShapesNamingActorOctoqlOther.Login, and is useful for accessing the field via an interface.
+func (v *namingShapesNamingActorOctoqlOther) GetLogin() string { return v.Login }
+
+// namingShapesNamingUser includes the requested fields of the GraphQL type NamingUser.
+type namingShapesNamingUser struct {
+	Id string `json:"id"`
+}
+
+// GetId returns namingShapesNamingUser.Id, and is useful for accessing the field via an interface.
+func (v *namingShapesNamingUser) GetId() string { return v.Id }
+
+// namingShapesQueryNamingUser includes the requested fields of the GraphQL type NamingUser.
+type namingShapesQueryNamingUser struct {
+	Id string `json:"id"`
+}
+
+// GetId returns namingShapesQueryNamingUser.Id, and is useful for accessing the field via an interface.
+func (v *namingShapesQueryNamingUser) GetId() string { return v.Id }
+
+// namingShapesQueryTypedNamingUserQueryNamingUser includes the requested fields of the GraphQL type QueryNamingUser.
+type namingShapesQueryTypedNamingUserQueryNamingUser struct {
+	Id string `json:"id"`
+}
+
+// GetId returns namingShapesQueryTypedNamingUserQueryNamingUser.Id, and is useful for accessing the field via an interface.
+func (v *namingShapesQueryTypedNamingUserQueryNamingUser) GetId() string { return v.Id }
+
+// namingShapesResponse is returned by namingShapes on success.
+type namingShapesResponse struct {
+	NamingUser           namingShapesNamingUser                          `json:"namingUser"`
+	QueryNamingUser      namingShapesQueryNamingUser                     `json:"queryNamingUser"`
+	NamingActor          namingShapesNamingActor                         `json:"-"`
+	QueryTypedNamingUser namingShapesQueryTypedNamingUserQueryNamingUser `json:"queryTypedNamingUser"`
+}
+
+// GetNamingUser returns namingShapesResponse.NamingUser, and is useful for accessing the field via an interface.
+func (v *namingShapesResponse) GetNamingUser() namingShapesNamingUser { return v.NamingUser }
+
+// GetQueryNamingUser returns namingShapesResponse.QueryNamingUser, and is useful for accessing the field via an interface.
+func (v *namingShapesResponse) GetQueryNamingUser() namingShapesQueryNamingUser {
+	return v.QueryNamingUser
+}
+
+// GetNamingActor returns namingShapesResponse.NamingActor, and is useful for accessing the field via an interface.
+func (v *namingShapesResponse) GetNamingActor() namingShapesNamingActor { return v.NamingActor }
+
+// GetQueryTypedNamingUser returns namingShapesResponse.QueryTypedNamingUser, and is useful for accessing the field via an interface.
+func (v *namingShapesResponse) GetQueryTypedNamingUser() namingShapesQueryTypedNamingUserQueryNamingUser {
+	return v.QueryTypedNamingUser
+}
+
+func (v *namingShapesResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*namingShapesResponse
+		NamingActor json.RawMessage `json:"namingActor"`
+		_octoqlNoUnmarshalJSON
+	}
+	firstPass.namingShapesResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.NamingActor
+		src := firstPass.NamingActor
+		if len(src) != 0 && string(src) == "null" {
+			*dst = nil
+		}
+		if len(src) != 0 && string(src) != "null" {
+			err = _octoqlUnmarshalnamingShapesNamingActor(src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal namingShapesResponse.NamingActor: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type _octoqlPremarshalnamingShapesResponse struct {
+	NamingUser namingShapesNamingUser `json:"namingUser"`
+
+	QueryNamingUser namingShapesQueryNamingUser `json:"queryNamingUser"`
+
+	NamingActor json.RawMessage `json:"namingActor"`
+
+	QueryTypedNamingUser namingShapesQueryTypedNamingUserQueryNamingUser `json:"queryTypedNamingUser"`
+}
+
+func (v *namingShapesResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v._octoqlPremarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *namingShapesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalnamingShapesResponse, error) {
+	var retval _octoqlPremarshalnamingShapesResponse
+
+	retval.NamingUser = v.NamingUser
+	retval.QueryNamingUser = v.QueryNamingUser
+	{
+		dst := &retval.NamingActor
+		src := v.NamingActor
+		var err error
+		*dst, err = _octoqlMarshalnamingShapesNamingActor(&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal namingShapesResponse.NamingActor: %w", err)
+		}
+	}
+	retval.QueryTypedNamingUser = v.QueryTypedNamingUser
+	return &retval, nil
+}
+
 // runtimeAbstractsActorNode includes the requested fields of the GraphQL interface Node.
 //
 // runtimeAbstractsActorNode is implemented by the following types:
 // runtimeAbstractsActorNodeBot
+// runtimeAbstractsActorNodeNamingUser
 // runtimeAbstractsActorNodeOrganization
 // runtimeAbstractsActorNodeOctoqlOther
 type runtimeAbstractsActorNode interface {
@@ -1141,7 +1351,8 @@ type runtimeAbstractsActorNode interface {
 	GetTypename() string
 }
 
-func (v *runtimeAbstractsActorNodeBot) implementsGraphQLInterfaceruntimeAbstractsActorNode() {}
+func (v *runtimeAbstractsActorNodeBot) implementsGraphQLInterfaceruntimeAbstractsActorNode()        {}
+func (v *runtimeAbstractsActorNodeNamingUser) implementsGraphQLInterfaceruntimeAbstractsActorNode() {}
 func (v *runtimeAbstractsActorNodeOrganization) implementsGraphQLInterfaceruntimeAbstractsActorNode() {
 }
 func (v *runtimeAbstractsActorNodeOctoqlOther) implementsGraphQLInterfaceruntimeAbstractsActorNode() {
@@ -1163,6 +1374,9 @@ func _octoqlUnmarshalruntimeAbstractsActorNode(b []byte, v *runtimeAbstractsActo
 	switch tn.TypeName {
 	case "Bot":
 		*v = new(runtimeAbstractsActorNodeBot)
+		return json.Unmarshal(b, *v)
+	case "NamingUser":
+		*v = new(runtimeAbstractsActorNodeNamingUser)
 		return json.Unmarshal(b, *v)
 	case "Organization":
 		*v = new(runtimeAbstractsActorNodeOrganization)
@@ -1192,6 +1406,20 @@ func _octoqlMarshalruntimeAbstractsActorNode(v *runtimeAbstractsActorNode) ([]by
 		}{
 			TypeName:                     typename,
 			runtimeAbstractsActorNodeBot: vv,
+		}
+		return json.Marshal(result)
+	case *runtimeAbstractsActorNodeNamingUser:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "NamingUser"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*runtimeAbstractsActorNodeNamingUser
+		}{
+			TypeName:                            typename,
+			runtimeAbstractsActorNodeNamingUser: vv,
 		}
 		return json.Marshal(result)
 	case *runtimeAbstractsActorNodeOrganization:
@@ -1232,6 +1460,18 @@ func (v *runtimeAbstractsActorNodeBot) GetTypename() string { return v.Typename 
 
 // GetLogin returns runtimeAbstractsActorNodeBot.Login, and is useful for accessing the field via an interface.
 func (v *runtimeAbstractsActorNodeBot) GetLogin() string { return v.Login }
+
+// runtimeAbstractsActorNodeNamingUser includes the requested fields of the GraphQL type NamingUser.
+type runtimeAbstractsActorNodeNamingUser struct {
+	Typename string `json:"__typename"`
+	Login    string `json:"login"`
+}
+
+// GetTypename returns runtimeAbstractsActorNodeNamingUser.Typename, and is useful for accessing the field via an interface.
+func (v *runtimeAbstractsActorNodeNamingUser) GetTypename() string { return v.Typename }
+
+// GetLogin returns runtimeAbstractsActorNodeNamingUser.Login, and is useful for accessing the field via an interface.
+func (v *runtimeAbstractsActorNodeNamingUser) GetLogin() string { return v.Login }
 
 // runtimeAbstractsActorNodeOctoqlOther represents runtimeAbstractsActorNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
 type runtimeAbstractsActorNodeOctoqlOther struct {
@@ -1328,8 +1568,9 @@ func (v *runtimeAbstractsNestedNodesNodeOctoqlOther) GetUrl() string { return v.
 // runtimeAbstractsNode includes the requested fields of the GraphQL interface Node.
 //
 // runtimeAbstractsNode is implemented by the following types:
-// runtimeAbstractsNodeRepository
 // runtimeAbstractsNodeOctoqlOther
+// runtimeAbstractsNodeRepository
+// runtimeAbstractsNode2OctoqlOther
 type runtimeAbstractsNode interface {
 	implementsGraphQLInterfaceruntimeAbstractsNode()
 	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
@@ -1340,8 +1581,9 @@ type runtimeAbstractsNode interface {
 	GetUrl() string
 }
 
-func (v *runtimeAbstractsNodeRepository) implementsGraphQLInterfaceruntimeAbstractsNode()  {}
-func (v *runtimeAbstractsNodeOctoqlOther) implementsGraphQLInterfaceruntimeAbstractsNode() {}
+func (v *runtimeAbstractsNodeOctoqlOther) implementsGraphQLInterfaceruntimeAbstractsNode()  {}
+func (v *runtimeAbstractsNodeRepository) implementsGraphQLInterfaceruntimeAbstractsNode()   {}
+func (v *runtimeAbstractsNode2OctoqlOther) implementsGraphQLInterfaceruntimeAbstractsNode() {}
 
 func _octoqlUnmarshalruntimeAbstractsNode(b []byte, v *runtimeAbstractsNode) error {
 	if string(b) == "null" {
@@ -1357,6 +1599,9 @@ func _octoqlUnmarshalruntimeAbstractsNode(b []byte, v *runtimeAbstractsNode) err
 	}
 
 	switch tn.TypeName {
+	case "OctoqlOther":
+		*v = new(runtimeAbstractsNodeOctoqlOther)
+		return json.Unmarshal(b, *v)
 	case "Repository":
 		*v = new(runtimeAbstractsNodeRepository)
 		return json.Unmarshal(b, *v)
@@ -1364,7 +1609,7 @@ func _octoqlUnmarshalruntimeAbstractsNode(b []byte, v *runtimeAbstractsNode) err
 		return fmt.Errorf(
 			"response was missing Node.__typename")
 	default:
-		*v = new(runtimeAbstractsNodeOctoqlOther)
+		*v = new(runtimeAbstractsNode2OctoqlOther)
 		return json.Unmarshal(b, *v)
 	}
 }
@@ -1373,6 +1618,20 @@ func _octoqlMarshalruntimeAbstractsNode(v *runtimeAbstractsNode) ([]byte, error)
 
 	var typename string
 	switch vv := (*v).(type) {
+	case *runtimeAbstractsNodeOctoqlOther:
+		if vv == nil {
+			return []byte("null"), nil
+		}
+		typename = "OctoqlOther"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*runtimeAbstractsNodeOctoqlOther
+		}{
+			TypeName:                        typename,
+			runtimeAbstractsNodeOctoqlOther: vv,
+		}
+		return json.Marshal(result)
 	case *runtimeAbstractsNodeRepository:
 		if vv == nil {
 			return []byte("null"), nil
@@ -1387,7 +1646,7 @@ func _octoqlMarshalruntimeAbstractsNode(v *runtimeAbstractsNode) ([]byte, error)
 			runtimeAbstractsNodeRepository: vv,
 		}
 		return json.Marshal(result)
-	case *runtimeAbstractsNodeOctoqlOther:
+	case *runtimeAbstractsNode2OctoqlOther:
 		if vv == nil {
 			return []byte("null"), nil
 		}
@@ -1401,10 +1660,27 @@ func _octoqlMarshalruntimeAbstractsNode(v *runtimeAbstractsNode) ([]byte, error)
 }
 
 // runtimeAbstractsNodeOctoqlOther represents runtimeAbstractsNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
+type runtimeAbstractsNode2OctoqlOther struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+	Url      string `json:"url"`
+}
+
+// GetTypename returns runtimeAbstractsNode2OctoqlOther.Typename, and is useful for accessing the field via an interface.
+func (v *runtimeAbstractsNode2OctoqlOther) GetTypename() string { return v.Typename }
+
+// GetId returns runtimeAbstractsNode2OctoqlOther.Id, and is useful for accessing the field via an interface.
+func (v *runtimeAbstractsNode2OctoqlOther) GetId() string { return v.Id }
+
+// GetUrl returns runtimeAbstractsNode2OctoqlOther.Url, and is useful for accessing the field via an interface.
+func (v *runtimeAbstractsNode2OctoqlOther) GetUrl() string { return v.Url }
+
+// runtimeAbstractsNodeOctoqlOther includes the requested fields of the GraphQL type OctoqlOther.
 type runtimeAbstractsNodeOctoqlOther struct {
 	Typename string `json:"__typename"`
 	Id       string `json:"id"`
 	Url      string `json:"url"`
+	Value    string `json:"value"`
 }
 
 // GetTypename returns runtimeAbstractsNodeOctoqlOther.Typename, and is useful for accessing the field via an interface.
@@ -1415,6 +1691,9 @@ func (v *runtimeAbstractsNodeOctoqlOther) GetId() string { return v.Id }
 
 // GetUrl returns runtimeAbstractsNodeOctoqlOther.Url, and is useful for accessing the field via an interface.
 func (v *runtimeAbstractsNodeOctoqlOther) GetUrl() string { return v.Url }
+
+// GetValue returns runtimeAbstractsNodeOctoqlOther.Value, and is useful for accessing the field via an interface.
+func (v *runtimeAbstractsNodeOctoqlOther) GetValue() string { return v.Value }
 
 // runtimeAbstractsNodeRepository includes the requested fields of the GraphQL type Repository.
 type runtimeAbstractsNodeRepository struct {
@@ -1481,15 +1760,13 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalruntimeAbstractsNode(
-				src, dst)
+			err = _octoqlUnmarshalruntimeAbstractsNode(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal runtimeAbstractsResponse.Node: %w", err)
 			}
 		}
 	}
-
 	{
 		dst := &v.NestedNodes
 		raw := firstPass.NestedNodes
@@ -1523,8 +1800,7 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 									for i, src := range src {
 										dst := &(*dst)[i]
 										if len(src) != 0 && string(src) != "null" {
-											err = _octoqlUnmarshalruntimeAbstractsNestedNodesNode(
-												src, dst)
+											err = _octoqlUnmarshalruntimeAbstractsNestedNodesNode(src, dst)
 											if err != nil {
 												return fmt.Errorf(
 													"unable to unmarshal runtimeAbstractsResponse.NestedNodes: %w", err)
@@ -1539,7 +1815,6 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 			}
 		}
 	}
-
 	{
 		dst := &v.ActorNode
 		src := firstPass.ActorNode
@@ -1547,8 +1822,7 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalruntimeAbstractsActorNode(
-				src, dst)
+			err = _octoqlUnmarshalruntimeAbstractsActorNode(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal runtimeAbstractsResponse.ActorNode: %w", err)
@@ -1578,19 +1852,16 @@ func (v *runtimeAbstractsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalru
 	var retval _octoqlPremarshalruntimeAbstractsResponse
 
 	{
-
 		dst := &retval.Node
 		src := v.Node
 		var err error
-		*dst, err = _octoqlMarshalruntimeAbstractsNode(
-			&src)
+		*dst, err = _octoqlMarshalruntimeAbstractsNode(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal runtimeAbstractsResponse.Node: %w", err)
 		}
 	}
 	{
-
 		dst := &retval.NestedNodes
 		src := v.NestedNodes
 		if src != nil {
@@ -1612,8 +1883,7 @@ func (v *runtimeAbstractsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalru
 							for i, src := range src {
 								dst := &(*dst)[i]
 								var err error
-								*dst, err = _octoqlMarshalruntimeAbstractsNestedNodesNode(
-									&src)
+								*dst, err = _octoqlMarshalruntimeAbstractsNestedNodesNode(&src)
 								if err != nil {
 									return nil, fmt.Errorf(
 										"unable to marshal runtimeAbstractsResponse.NestedNodes: %w", err)
@@ -1626,12 +1896,10 @@ func (v *runtimeAbstractsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalru
 		}
 	}
 	{
-
 		dst := &retval.ActorNode
 		src := v.ActorNode
 		var err error
-		*dst, err = _octoqlMarshalruntimeAbstractsActorNode(
-			&src)
+		*dst, err = _octoqlMarshalruntimeAbstractsActorNode(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal runtimeAbstractsResponse.ActorNode: %w", err)
@@ -1645,8 +1913,26 @@ type runtimeAbstractsVariables struct {
 	Id string `json:"id"`
 }
 
+// variableCollisionsResponse is returned by variableCollisions on success.
+type variableCollisionsResponse struct {
+	EchoCollision string `json:"echoCollision"`
+}
+
+// GetEchoCollision returns variableCollisionsResponse.EchoCollision, and is useful for accessing the field via an interface.
+func (v *variableCollisionsResponse) GetEchoCollision() string { return v.EchoCollision }
+
+// variableCollisionsVariables contains the variables accepted by variableCollisions.
+type variableCollisionsVariables struct {
+	Ctx      string `json:"ctx"`
+	Client   string `json:"client"`
+	Err      string `json:"err"`
+	Vars     string `json:"vars"`
+	Response string `json:"response"`
+	HasData  string `json:"hasData"`
+}
+
 // The query executed by getReview.
-const getReview_Operation = "\nquery getReview {\n\treview {\n\t\tfullDatabaseId\n\t\tcreatedAt\n\t\tpropertyValue\n\t\tauthor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t\teditor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t}\n}\n"
+const getReview_Operation = "\nquery getReview {\n\treview {\n\t\tfullDatabaseId\n\t\tcreatedAt\n\t\tpublishedOn\n\t\tupdatedAt\n\t\tpushedAt\n\t\toid\n\t\trefname\n\t\tsshRemote\n\t\tbodyHTML\n\t\tencoded\n\t\tcertificate\n\t\tpropertyValue\n\t\tauthor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t\teditor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t}\n}\n"
 
 // getReviewPartialDataError contains partial data returned by getReview.
 type getReviewPartialDataError struct {
@@ -1705,8 +1991,68 @@ func (c *Client) getReview(
 	return &response, nil
 }
 
+// The query executed by namingShapes.
+const namingShapes_Operation = "\nquery namingShapes {\n\tnamingUser {\n\t\tid\n\t}\n\tqueryNamingUser {\n\t\tid\n\t}\n\tnamingActor {\n\t\t__typename\n\t\tlogin\n\t}\n\tqueryTypedNamingUser {\n\t\tid\n\t}\n}\n"
+
+// namingShapesPartialDataError contains partial data returned by namingShapes.
+type namingShapesPartialDataError struct {
+	data *namingShapesResponse
+	err  error
+}
+
+func (e *namingShapesPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *namingShapesPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *namingShapesPartialDataError) PartialData() *namingShapesResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
+}
+
+// PartialDataValue returns the partial response as an untyped value.
+func (e *namingShapesPartialDataError) PartialDataValue() any {
+	return e.PartialData()
+}
+
+func (c *Client) namingShapes(
+	ctx context.Context,
+) (*namingShapesResponse, error) {
+	var response namingShapesResponse
+	hasData, err := c._octoqlExecute(
+		ctx,
+		_octoqlPayload{
+			OperationName: "namingShapes",
+			Query:         namingShapes_Operation,
+			Variables:     nil,
+		},
+		&response,
+	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &namingShapesPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
+}
+
 // The query executed by runtimeAbstracts.
-const runtimeAbstracts_Operation = "\nquery runtimeAbstracts ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\turl\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t}\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t\turl\n\t}\n\tactorNode: node(id: $id) {\n\t\t__typename\n\t\t... on Actor {\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
+const runtimeAbstracts_Operation = "\nquery runtimeAbstracts ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\turl\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on OctoqlOther {\n\t\t\tvalue\n\t\t}\n\t}\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t\turl\n\t}\n\tactorNode: node(id: $id) {\n\t\t__typename\n\t\t... on Actor {\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
 
 // runtimeAbstractsPartialDataError contains partial data returned by runtimeAbstracts.
 type runtimeAbstractsPartialDataError struct {
@@ -1759,6 +2105,67 @@ func (c *Client) runtimeAbstracts(
 	}
 	if err != nil {
 		return nil, &runtimeAbstractsPartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
+}
+
+// The query executed by variableCollisions.
+const variableCollisions_Operation = "\nquery variableCollisions ($ctx: String!, $client: String!, $err: String!, $vars: String!, $response: String!, $hasData: String!) {\n\techoCollision(ctx: $ctx, client: $client, err: $err, vars: $vars, response: $response, hasData: $hasData)\n}\n"
+
+// variableCollisionsPartialDataError contains partial data returned by variableCollisions.
+type variableCollisionsPartialDataError struct {
+	data *variableCollisionsResponse
+	err  error
+}
+
+func (e *variableCollisionsPartialDataError) Error() string {
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
+}
+
+func (e *variableCollisionsPartialDataError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *variableCollisionsPartialDataError) PartialData() *variableCollisionsResponse {
+	if e == nil {
+		return nil
+	}
+	return e.data
+}
+
+// PartialDataValue returns the partial response as an untyped value.
+func (e *variableCollisionsPartialDataError) PartialDataValue() any {
+	return e.PartialData()
+}
+
+func (c *Client) variableCollisions(
+	ctx context.Context,
+	vars variableCollisionsVariables,
+) (*variableCollisionsResponse, error) {
+	var response variableCollisionsResponse
+	hasData, err := c._octoqlExecute(
+		ctx,
+		_octoqlPayload{
+			OperationName: "variableCollisions",
+			Query:         variableCollisions_Operation,
+			Variables:     &vars,
+		},
+		&response,
+	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &variableCollisionsPartialDataError{
 			data: &response,
 			err:  err,
 		}

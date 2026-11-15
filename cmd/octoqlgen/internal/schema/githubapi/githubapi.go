@@ -33,18 +33,6 @@ func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
 	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
 }
 
-// _octoqlNoMarshalJSON is for generated code only.
-//
-// Embedding _octoqlNoMarshalJSON alongside a type with a MarshalJSON method prevents
-// that sibling method from being promoted.
-type _octoqlNoMarshalJSON struct{}
-
-// MarshalJSON should never be called. It exists only to prevent a sibling
-// MarshalJSON method from being promoted.
-func (_octoqlNoMarshalJSON) MarshalJSON() ([]byte, error) {
-	panic("_octoqlNoMarshalJSON.MarshalJSON should never be called!")
-}
-
 const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
@@ -1118,8 +1106,7 @@ func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(
-				src, dst)
+			err = _octoqlUnmarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal LatestCommitRepositoryDefaultBranchRef.Target: %w", err)
@@ -1145,12 +1132,10 @@ func (v *LatestCommitRepositoryDefaultBranchRef) _octoqlPremarshalJSON() (*_octo
 	var retval _octoqlPremarshalLatestCommitRepositoryDefaultBranchRef
 
 	{
-
 		dst := &retval.Target
 		src := v.Target
 		var err error
-		*dst, err = _octoqlMarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(
-			&src)
+		*dst, err = _octoqlMarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal LatestCommitRepositoryDefaultBranchRef.Target: %w", err)

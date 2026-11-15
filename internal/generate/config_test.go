@@ -12,12 +12,12 @@ import (
 func TestValidateOutputPathsFilesystemAliases(t *testing.T) {
 	tempDir := t.TempDir()
 	realDir := filepath.Join(tempDir, "real")
-	err := os.Mkdir(realDir, 0o755)
-	require.NoError(t, err)
+	setupErr := os.Mkdir(realDir, 0o755)
+	require.NoError(t, setupErr)
 	aliasDir := filepath.Join(tempDir, "alias")
-	err = os.Symlink(realDir, aliasDir)
-	if err != nil {
-		t.Skipf("symlinks are unavailable: %v", err)
+	setupErr = os.Symlink(realDir, aliasDir)
+	if setupErr != nil {
+		t.Skipf("symlinks are unavailable: %v", setupErr)
 	}
 
 	t.Run("symlinked parent", func(t *testing.T) {
@@ -66,6 +66,35 @@ func TestValidateOutputPathsFilesystemAliases(t *testing.T) {
 		assert.Contains(t, err.Error(), "output paths must be different")
 	})
 
+	t.Run("dangling parent with relative target", func(t *testing.T) {
+		aliasParent := filepath.Join(tempDir, "future-parent")
+		err := os.Symlink(filepath.Join("real", "future"), aliasParent)
+		require.NoError(t, err)
+		config := Config{
+			Generated:            filepath.Join(realDir, "future", "nested", "generated.go"),
+			TestHandlerGenerated: filepath.Join(aliasParent, "nested", "generated.go"),
+		}
+
+		err = config.validateOutputPaths()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "output paths must be different")
+	})
+
+	t.Run("symlink cycle through missing parent", func(t *testing.T) {
+		aliasFile := filepath.Join(tempDir, "cycle")
+		err := os.Symlink("missing/../cycle", aliasFile)
+		require.NoError(t, err)
+		config := Config{
+			Generated: filepath.Join(aliasFile, "generated.go"),
+		}
+
+		err = config.validateOutputPaths()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "too many symlinks")
+	})
+
 	t.Run("hard-linked file", func(t *testing.T) {
 		realFile := filepath.Join(realDir, "hardlink-target.go")
 		err := os.WriteFile(realFile, []byte("package real\n"), 0o600)
@@ -110,15 +139,15 @@ func TestValidateOutputPathsProtectsInputs(t *testing.T) {
 	configPath := filepath.Join(directory, "octoqlgen.yaml")
 	schemaPath := filepath.Join(directory, "schema.graphql")
 	operationPath := filepath.Join(directory, "graphql", "viewer.graphql")
-	err := os.Mkdir(filepath.Dir(operationPath), 0o755)
-	require.NoError(t, err)
+	setupErr := os.Mkdir(filepath.Dir(operationPath), 0o755)
+	require.NoError(t, setupErr)
 	for path, content := range map[string]string{
 		configPath:    "schema: {}\n",
 		schemaPath:    "type Query { viewer: String! }\n",
 		operationPath: "query Viewer { viewer }\n",
 	} {
-		err = os.WriteFile(path, []byte(content), 0o600)
-		require.NoError(t, err)
+		setupErr = os.WriteFile(path, []byte(content), 0o600)
+		require.NoError(t, setupErr)
 	}
 
 	tests := []struct {
@@ -135,18 +164,17 @@ func TestValidateOutputPathsProtectsInputs(t *testing.T) {
 			wantError: "generated output path",
 		},
 		{
-			name: "operation manifest collides with schema",
+			name: "generated collides with schema",
 			config: Config{
-				Schema:           StringList{schemaPath},
-				Generated:        filepath.Join(directory, "generated.go"),
-				ExportOperations: schemaPath,
+				Schema:    schemaPath,
+				Generated: schemaPath,
 			},
-			wantError: "export_operations output path",
+			wantError: "generated output path",
 		},
 		{
 			name: "test handler collides with expanded operation",
 			config: Config{
-				Operations:           StringList{filepath.Join(directory, "graphql", "*.graphql")},
+				Operations:           []string{filepath.Join(directory, "graphql", "*.graphql")},
 				Generated:            filepath.Join(directory, "generated.go"),
 				TestHandlerGenerated: operationPath,
 			},
@@ -160,87 +188,32 @@ func TestValidateOutputPathsProtectsInputs(t *testing.T) {
 
 			err := test.config.validateOutputPaths()
 			if err == nil {
-				err = test.config.validateInputPaths()
+				_, err = test.config.resolveOperationFiles()
 			}
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.wantError)
 		})
 	}
-}
-
-func TestConfigValidateAndFillDefaults(t *testing.T) {
-	t.Parallel()
-
-	baseDir := filepath.Join("testdata", "queries", "subpackage")
-	config := &Config{
-		Schema:     StringList{"schema.graphql"},
-		Operations: StringList{"operations.graphql"},
-	}
-
-	err := config.ValidateAndFillDefaults(baseDir)
-	require.NoError(t, err)
-
-	assert.Equal(t, StringList{filepath.Join(baseDir, "schema.graphql")}, config.Schema)
-	assert.Equal(t, StringList{filepath.Join(baseDir, "operations.graphql")}, config.Operations)
-	assert.Equal(t, filepath.Join(baseDir, "generated.go"), config.Generated)
-	assert.Equal(t, "subpackage", config.Package)
-	assert.Equal(t, "context.Context", config.ContextType)
-	assert.Equal(t, TestHandlerTypesClient, config.TestHandlerTypes)
-	require.NotNil(t, config.OmitUnreferencedImplementations)
-	assert.True(t, *config.OmitUnreferencedImplementations)
-
-	t.Run("parses go.mod module declarations with comments", func(t *testing.T) {
+	t.Run("hard-linked schema alias excluded from operation glob", func(t *testing.T) {
 		t.Parallel()
 
-		moduleDir := t.TempDir()
-		err := os.WriteFile(
-			filepath.Join(moduleDir, "go.mod"),
-			[]byte("module example.com/app // application module\n\ngo 1.26.0\n"),
-			0o600,
-		)
+		dir := t.TempDir()
+		schemaFile := filepath.Join(dir, "schema.graphql")
+		require.NoError(t, os.WriteFile(schemaFile, []byte("type Query { viewer: String! }\n"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "viewer.graphql"), []byte("query Viewer { viewer }\n"), 0o600))
+		linkErr := os.Link(schemaFile, filepath.Join(dir, "schema-alias.graphql"))
+		if linkErr != nil {
+			t.Skipf("hard links are unavailable: %v", linkErr)
+		}
+		cfg := Config{
+			Schema:     schemaFile,
+			Operations: []string{filepath.Join(dir, "*.graphql")},
+			Generated:  filepath.Join(dir, "generated.go"),
+		}
+		require.NoError(t, cfg.validateOutputPaths())
+		filenames, err := cfg.resolveOperationFiles()
 		require.NoError(t, err)
-
-		pkgPath, err := packagePathFromModule(filepath.Join(moduleDir, "client"))
-		require.NoError(t, err)
-		assert.Equal(t, "example.com/app/client", pkgPath)
+		assert.Equal(t, []string{filepath.Join(dir, "viewer.graphql")}, filenames)
 	})
-}
-
-func TestConfigValidationErrors(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		config    Config
-		wantError string
-	}{
-		{
-			name:      "invalid test handler type strategy",
-			config:    Config{TestHandlerTypes: "invalid"},
-			wantError: "test_handler.types must be one of",
-		},
-		{
-			name:      "invalid package",
-			config:    Config{Package: "invalid-package"},
-			wantError: "invalid package in octoqlgen.yaml",
-		},
-		{
-			name: "invalid casing",
-			config: Config{
-				Casing: Casing{Default: "invalid"},
-			},
-			wantError: "unknown casing algorithm",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := test.config.ValidateAndFillDefaults(filepath.Join("testdata", "queries", "subpackage"))
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), test.wantError)
-		})
-	}
 }

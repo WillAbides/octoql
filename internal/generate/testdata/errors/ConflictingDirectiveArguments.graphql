@@ -1,1 +1,0 @@
-query ConflictingDirectiveArguments @octoqlgen(pointer: true, pointer: false) { f }

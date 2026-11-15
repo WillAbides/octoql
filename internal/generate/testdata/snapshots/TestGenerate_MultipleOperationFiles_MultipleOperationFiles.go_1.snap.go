@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/willabides/octoql/internal/testutil"
+	testutil "github.com/willabides/octoql/internal/testutil"
 )
 
 // _octoqlNoUnmarshalJSON is for generated code only.
@@ -33,18 +33,6 @@ type _octoqlNoUnmarshalJSON struct{}
 // UnmarshalJSON method from being promoted.
 func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
 	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
-}
-
-// _octoqlNoMarshalJSON is for generated code only.
-//
-// Embedding _octoqlNoMarshalJSON alongside a type with a MarshalJSON method prevents
-// that sibling method from being promoted.
-type _octoqlNoMarshalJSON struct{}
-
-// MarshalJSON should never be called. It exists only to prevent a sibling
-// MarshalJSON method from being promoted.
-func (_octoqlNoMarshalJSON) MarshalJSON() ([]byte, error) {
-	panic("_octoqlNoMarshalJSON.MarshalJSON should never be called!")
 }
 
 const _octoqlMaxResponseErrorRawBody = 64 * 1024
@@ -1216,10 +1204,12 @@ func (e *GitHubNamingPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) GitHubNaming() (*GitHubNamingResponse, error) {
+func (c *Client) GitHubNaming(
+	ctx context.Context,
+) (*GitHubNamingResponse, error) {
 	var response GitHubNamingResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "GitHubNaming",
 			Query:         GitHubNaming_Operation,
@@ -1274,10 +1264,12 @@ func (e *anyPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) any() (*anyResponse, error) {
+func (c *Client) any(
+	ctx context.Context,
+) (*anyResponse, error) {
 	var response anyResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "any",
 			Query:         any_Operation,
@@ -1332,10 +1324,12 @@ func (e *newPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) new() (*newResponse, error) {
+func (c *Client) new(
+	ctx context.Context,
+) (*newResponse, error) {
 	var response newResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "new",
 			Query:         new_Operation,

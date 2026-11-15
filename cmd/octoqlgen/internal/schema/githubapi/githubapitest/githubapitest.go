@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi"
+	githubapi "github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi"
 )
 
 type Error = githubapi.Error

@@ -1,0 +1,16 @@
+query getRepository($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+  }
+}
+
+query wireSemantics {
+  date
+  dates
+  account {
+    id
+    login
+  }
+  rawCreatedAt
+  rawProperty
+}
