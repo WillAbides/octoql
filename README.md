@@ -107,7 +107,8 @@ schema:
 ```
 
 To verify an existing schema file or download a missing remote schema without
-running code generation:
+running code generation (pass `-o <path>` to write the schema to a file instead
+of stdout):
 
 ```sh
 go run github.com/willabides/octoql/cmd/octoqlgen@<version> schema fetch
@@ -121,8 +122,6 @@ go run github.com/willabides/octoql/cmd/octoqlgen@<version> schema update
 git diff -- octoqlgen.yaml
 go generate ./...
 ```
-
-See the [CLI reference](docs/cli.md) for all commands and flags.
 
 ## Call the generated client
 
@@ -164,10 +163,12 @@ For non-bearer authentication schemes, configure the `http.Client` or
 `http.RoundTripper` passed to `NewClient`.
 
 Generated clients refuse HTTP redirects by default. Point `NewClient` directly
-at the final GraphQL endpoint whenever possible, or call
-`client.SetAllowRedirects(true)` when a redirecting appliance requires it. See
-[security considerations](docs/SECURITY.md#redirects-and-credentials) before
-enabling redirects or attaching credentials in a custom `RoundTripper`.
+at the final HTTPS GraphQL endpoint whenever possible, or call
+`client.SetAllowRedirects(true)` when a redirecting appliance requires it. The
+opt-in follows at most 10 redirects and removes bearer `Authorization` when a
+redirect leaves the original scheme, host, and port. Credentials added by a
+custom `http.RoundTripper` are reapplied on every redirect hop and cannot be
+removed by `octoql`, so prefer `SetBearerToken` for bearer authentication.
 
 ## Runtime responses and errors
 
@@ -270,10 +271,8 @@ Enum values and abstract implementations remain open at runtime so generated
 clients stay forward-compatible when GitHub adds new enum values or schema
 types. Unrecognized enum strings unmarshal without error, and unreferenced or
 unrecognized `__typename` values decode into `OctoqlOther`. When writing
-authorization or policy checks that must fail closed, match known values
-explicitly and deny the `default` case. See
-[schema evolution and authorization checks](docs/SECURITY.md#schema-evolution-and-authorization-checks)
-for examples.
+authorization or policy checks that must fail closed, match known enum
+constants and concrete types explicitly and deny the `default` case.
 
 ## Pagination
 
@@ -419,7 +418,6 @@ for handler configuration details.
 
 - [Configuration reference](docs/configuration.md)
 - [octoqlgen directive reference](docs/directive.md)
-- [CLI reference](docs/cli.md)
 - [Runnable example](example)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](docs/SECURITY.md)

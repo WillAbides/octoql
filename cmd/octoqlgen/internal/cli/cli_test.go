@@ -777,8 +777,7 @@ Flags:
   -h, --help           Show context-sensitive help.
       --version        Show version information.
 
-      --config=PATH    Path to an octoqlgen configuration file. Defaults to
-                       octoqlgen.yaml.
+      --config=PATH    Path to an octoqlgen configuration file.
   -o, --output=PATH    Write the exact schema bytes to a file instead of stdout.`))
 			default:
 				t.Fatalf("missing inline snapshot for %s", test.name)

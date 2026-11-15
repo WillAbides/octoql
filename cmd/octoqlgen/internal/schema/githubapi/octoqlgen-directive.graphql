@@ -6,7 +6,7 @@
 # changes nothing except what your editor reports.
 #
 # Point your GraphQL tooling at this file alongside your schema. Many setups
-# already read every .graphql file in the project; those that take a list, such
+# already read every .graphql file in the project. Those that take a list, such
 # as graphql-config, need it added:
 #
 #   schema:
@@ -24,10 +24,10 @@ directive @octoqlgen(
     """Whether the value uses a pointer type in Go."""
     pointer: Boolean
 
-    """Use a struct for this field even though its type is an interface."""
+    """Use a struct for this field even though its type is an interface or union."""
     struct: Boolean
 
-    """Use the generated type of this field's single fragment spread directly."""
+    """Use the generated type of this selection's single fragment spread directly."""
     flatten: Boolean
 
     """
@@ -44,13 +44,13 @@ directive @octoqlgen(
 ) repeatable on QUERY | MUTATION | FIELD | FRAGMENT_DEFINITION | VARIABLE_DEFINITION
 
 directive @octoqlgenDefaults(
-    """Default omitempty for the variables inside."""
+    """Whether to omit empty variables inside by default."""
     omitempty: Boolean
 
-    """Default pointer for the variables and selected fields inside."""
+    """Whether variables and selected fields inside use pointer types by default."""
     pointer: Boolean
 
-    """Default struct for the interface-typed fields inside."""
+    """Whether interface- and union-typed fields inside use a struct type by default."""
     struct: Boolean
 ) repeatable on QUERY | MUTATION | FRAGMENT_DEFINITION
 

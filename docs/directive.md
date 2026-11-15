@@ -6,7 +6,7 @@ scope:
 | Directive | Scope | Goes on |
 | --- | --- | --- |
 | `@octoqlgen` | the node it is attached to | fields, variables, operations, fragments |
-| [`@octoqlgenDefaults`](#octoqlgendefaults) | the fields inside | operations, fragments |
+| [`@octoqlgenDefaults`](#octoqlgendefaults) | the variables and fields inside | operations, fragments |
 | [`@octoqlgenFor`](#octoqlgenfor) | a named type's field, everywhere | operations, fragments |
 
 They are real GraphQL directives attached directly to the element they configure.
@@ -41,8 +41,8 @@ duplicate directive definitions.
 
 `@octoqlgen` applies only to the element it is attached to, not to that
 element's arguments or selections. Use `@octoqlgenDefaults` to set defaults for
-fields inside an operation or fragment, and `@octoqlgenFor` to configure a
-named type's field.
+variables and fields inside an operation or fragment, and `@octoqlgenFor` to
+configure a named type's field.
 
 String option values must not be empty. Use `bind: "-"` to explicitly opt out
 of a configured binding.
@@ -53,38 +53,40 @@ For example:
 # Comment describing the query
 query MyQuery(
   $arg1: String
-  $arg2: String @octoqlgen(n: "d")
+  $arg2: String @octoqlgen(pointer: true)
   $arg3: MyInput
-) @octoqlgenDefaults(n: "b") @octoqlgenDefaults(n: "c") {
-  field1 @octoqlgen(n: "e")
+) @octoqlgenDefaults(pointer: false) @octoqlgenDefaults(omitempty: true) {
+  field1 @octoqlgen(pointer: true)
   field2
-  field3(argument: "value") @octoqlgen(n: "f") {
+  field3(argument: "value") @octoqlgen(typename: "CustomField3") {
     field4
     field5
   }
 }
 ```
 
-Here `b` and `c` apply to all relevant nodes in the query, `d` applies to
-`$arg2`, `e` applies to `field1`, and `f` applies to `field3` but not to its
+Here `pointer: false` and `omitempty: true` on `@octoqlgenDefaults` apply to the
+relevant variables and selected fields in the query, `@octoqlgen(pointer: true)`
+on `$arg2` and `field1` overrides the `pointer: false` default on those nodes,
+and `@octoqlgen(typename: "CustomField3")` applies to `field3` but not to its
 argument, `field4`, or `field5`.
 
-An `@octoqlgen` on a node takes precedence over a default, so `d`, `e`, and `f`
-take precedence over `b` and `c`.
-
-`@octoqlgen` does *not* apply to a node's children, so `d` does not apply to the
-fields of `MyInput` and `f` does not apply to `field4`. Defaults apply to the
-operation's variables and selected fields, so both `b` and `c` apply to `$arg1`,
-`$arg3`, `field2`, `field4`, and `field5`. Use `@octoqlgenFor` to configure the
-fields of `MyInput`.
+`@octoqlgen` does *not* apply to a node's children, so a directive on `$arg3`
+does not apply to the fields of `MyInput` and a directive on `field3` does not
+apply to `field4` or `field5`. Defaults apply to the operation's variables and
+selected fields, so `@octoqlgenDefaults` applies to `$arg1`, `$arg3`, `field2`,
+`field4`, and `field5`. Use `@octoqlgenFor` to configure the fields of `MyInput`.
 
 Each directive is repeatable in the same location as long as the repeats do not
 have conflicting options. octoql does not support subscriptions.
 
 ## `@octoqlgenDefaults`
 
-Sets `omitempty`, `pointer`, or `struct` as a default for the fields inside an
-operation or fragment. A directive on a node takes precedence.
+Sets `omitempty`, `pointer`, or `struct` as a default for the variables and
+selected fields inside an operation or fragment (`omitempty` applies to optional
+variables, `pointer` to variables and selected fields, and `struct` to
+interface- or union-typed selected fields). A directive on a node takes
+precedence.
 
 ```graphql
 query MyQuery @octoqlgenDefaults(pointer: false) {
@@ -173,7 +175,8 @@ be avoided, or to distinguish between the Go zero value and null.
 
 ## `struct`
 
-Uses a struct type in Go for this field, even when it is an interface.
+Uses a struct type in Go for this field, even when its GraphQL type is an
+interface or union.
 
 This is useful for a query like:
 
@@ -183,19 +186,19 @@ query MyQuery {
 }
 ```
 
-where only shared fields of an interface are requested. By default octoqlgen
-still generates an interface type, for consistency. That is not necessary here:
-a struct works just as well because there are no type-specific fields, and
-`struct: true` requests one.
+where only shared fields of an interface (or `__typename` on a union) are
+requested. By default octoqlgen still generates an interface type, for
+consistency. That is not necessary here: a struct works just as well because
+there are no type-specific fields, and `struct: true` requests one.
 
 This is only allowed when there are no fragments in play, so that all fields are
-on the interface type. Adding a fragment later requires removing this option,
-and the generated types will change.
+shared across the abstract type. Adding a fragment later requires removing this
+option, and the generated types will change.
 
 ## `flatten`
 
-Uses the generated type of a fragment directly. The field's selection must
-contain a single fragment spread.
+Uses the generated type of a single fragment spread directly instead of
+generating a wrapper struct for the field, operation, or named fragment.
 
 Given a query like:
 
@@ -236,9 +239,9 @@ type MyQueryResponse struct {
 }
 ```
 
-This is only applicable when the selection contains one fragment spread and the
-field type implements the fragment type. An automatically added `__typename`
-selection does not prevent flattening.
+This is only applicable when the selection of the field, operation, or fragment
+contains one fragment spread and the enclosing type implements the fragment
+type. An automatically added `__typename` selection does not prevent flattening.
 
 ## `alias`
 
@@ -305,7 +308,7 @@ octoqlgen-generated type.
 
 ## `typename`
 
-Gives the type of this field the given name in Go.
+Gives the type of this field or operation response the given name in Go.
 
 Given the following query:
 
@@ -320,7 +323,7 @@ query MyQuery @octoqlgen(typename: "MyResp") {
 octoqlgen generates:
 
 ```go
-type Resp struct {
+type MyResp struct {
 	User User
 }
 type User struct {
@@ -344,11 +347,11 @@ query MyQuery {
 generates:
 
 ```go
-type Resp struct {
-	User User
+type MyQueryResponse struct {
+	User MyQueryUser
 }
 type NameType string
-type User struct {
+type MyQueryUser struct {
 	Name NameType
 }
 ```
@@ -362,7 +365,7 @@ complains if the same type name is used in multiple
 places, unless they request the exact same fields in the same order, or if a
 type name conflicts with an autogenerated one. Such types should also have
 matching `@octoqlgen` directives, although this is not currently validated.
-Fragments are often easier to use; when a field contains only a fragment spread,
+Fragments are often easier to use. When a field contains only a fragment spread,
 see [`flatten`](#flatten).
 
 Unlike most directives, when applied to an entire operation `typename` affects
@@ -435,7 +438,7 @@ where `type Tags []string` — is **conservatively wrapped** (`*Tags`), because
 octoqlgen cannot see through the name to know it is already a slice. This is the
 safe direction: an unnecessary pointer, never a missing one. The bare
 predeclared identifier `any` is normalized to `interface{}` (which cannot be
-shadowed) and left unwrapped; bind to a package-qualified name if you have
+shadowed) and left unwrapped. Bind to a package-qualified name if you have
 deliberately shadowed `any` with your own non-nil-able type.
 
 Because absence must stay representable, combining `@skip` or `@include` with
@@ -472,7 +475,7 @@ and never generates its nested fields, so it cannot make any of them nil-able. A
 `@skip` or `@include` on a field *nested inside* such a bound composite is
 therefore also rejected with a generation error, even though moving the directive
 onto individual fields is otherwise the supported fix. A directive on the bound
-field itself is unaffected; only selections beneath an opaque binding are
+field itself is unaffected. Only selections beneath an opaque binding are
 rejected.
 
 One field is excluded from the forced-pointer support above: `__typename` within
