@@ -1,55 +1,55 @@
 // {{.Name}}PartialDataError contains partial data returned by {{.Name}}.
 type {{.Name}}PartialDataError struct {
-    data *{{.ResponseName}}
-    err error
+	data *{{.ResponseName}}
+	err  error
 }
 
 func (e *{{.Name}}PartialDataError) Error() string {
-    if e == nil || e.err == nil {
-        return "graphql response contains partial data"
-    }
-    return e.err.Error()
+	if e == nil || e.err == nil {
+		return "graphql response contains partial data"
+	}
+	return e.err.Error()
 }
 
 func (e *{{.Name}}PartialDataError) Unwrap() error {
-    if e == nil {
-        return nil
-    }
-    return e.err
+	if e == nil {
+		return nil
+	}
+	return e.err
 }
 
 func (e *{{.Name}}PartialDataError) PartialData() *{{.ResponseName}} {
-    if e == nil {
-        return nil
-    }
-    return e.data
+	if e == nil {
+		return nil
+	}
+	return e.data
 }
 
 {{.Doc}}
 func (c *Client) {{.Name}}(
-    ctx {{ref "context.Context"}},
-    {{if .Input -}}
-    vars {{.Input.GoName}},
-    {{end -}}
+	ctx context.Context,
+	{{- if .InputType}}
+	vars {{.InputType}},
+	{{- end}}
 ) (*{{.ResponseName}}, error) {
-    var response {{.ResponseName}}
-    hasData, err := c._octoqlExecute(
-        ctx,
-        _octoqlPayload{
-            OperationName: "{{.Name}}",
-            Query: {{printf "%q" $.Body}},
-            Variables: {{if .Input}}&vars{{else}}nil{{end}},
-        },
-        &response,
-    )
-    if !hasData {
-        return nil, err
-    }
-    if err != nil {
-        return nil, &{{.Name}}PartialDataError{
-            data: &response,
-            err: err,
-        }
-    }
-    return &response, nil
+	var response {{.ResponseName}}
+	hasData, err := c._octoqlExecute(
+		ctx,
+		_octoqlPayload{
+			OperationName: "{{.Name}}",
+			Query:         {{.QueryLiteral}},
+			Variables:     {{if .InputType}}&vars{{else}}nil{{end}},
+		},
+		&response,
+	)
+	if !hasData {
+		return nil, err
+	}
+	if err != nil {
+		return nil, &{{.Name}}PartialDataError{
+			data: &response,
+			err:  err,
+		}
+	}
+	return &response, nil
 }

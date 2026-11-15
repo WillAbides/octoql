@@ -147,28 +147,24 @@ func newImportScope(pkgPath string) *importScope {
 	}
 }
 
-func (s *importScope) importPackage(pkgPath string) string {
-	alias, ok := s.imports[pkgPath]
-	if ok {
-		return alias
-	}
+func defaultPackageAlias(pkgPath string) string {
 	basePath := pkgPath
 	unversioned, _, splitOK := module.SplitPathVersion(pkgPath)
 	if splitOK {
 		basePath = unversioned
 	}
-	pkgName := makeIdentifier(basePath[strings.LastIndex(basePath, "/")+1:])
+	return makeIdentifier(basePath[strings.LastIndex(basePath, "/")+1:])
+}
+
+func (s *importScope) importPackage(pkgPath string) string {
+	alias, ok := s.imports[pkgPath]
+	if ok {
+		return alias
+	}
+	pkgName := defaultPackageAlias(pkgPath)
 	alias = allocateIdentifier(pkgName, s.usedAliases)
 	s.imports[pkgPath] = alias
 	return alias
-}
-
-func (s *importScope) ref(fullyQualifiedName string) (string, error) {
-	parsed, err := parseRef(fullyQualifiedName)
-	if err != nil {
-		return "", err
-	}
-	return parsed.render(s), nil
 }
 
 func (s *importScope) declaration() string {
@@ -205,48 +201,4 @@ func (s *importScope) declaration() string {
 	}
 	builder.WriteString(")\n\n")
 	return builder.String()
-}
-
-// registerBoundTypeImports pre-registers external type bindings in sorted
-// typeMap order so user-bound packages claim their natural package aliases
-// before generated runtime or helper stdlib imports.
-func registerBoundTypeImports(typeMap map[string]goType, scope *importScope) {
-	seen := make(map[goType]bool, len(typeMap))
-	var visit func(goType)
-	visit = func(typ goType) {
-		if seen[typ] {
-			return
-		}
-		seen[typ] = true
-
-		switch current := typ.(type) {
-		case *goOpaqueType:
-			current.Ref.render(scope)
-		case *goSliceType:
-			visit(current.Elem)
-		case *goPointerType:
-			visit(current.Elem)
-		case *goStructType:
-			for _, field := range current.Fields {
-				visit(field.GoType)
-			}
-		case *goInterfaceType:
-			for _, field := range current.SharedFields {
-				visit(field.GoType)
-			}
-			for _, impl := range current.Implementations {
-				visit(impl)
-			}
-			visit(current.OtherImplementation)
-		}
-	}
-
-	names := make([]string, 0, len(typeMap))
-	for name := range typeMap {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		visit(typeMap[name])
-	}
 }

@@ -20,6 +20,17 @@ type testHandlerTemplateData struct {
 	Operations    []testHandlerOperation
 }
 
+var testHandlerStdlibImports = []string{
+	"encoding/json/jsontext",
+	"encoding/json/v2",
+	"fmt",
+	"net/http",
+	"strconv",
+	"sync",
+	"testing",
+	"time",
+}
+
 var testHandlerReservedNames = []string{
 	"ExpectOption",
 	"MinTimes",
@@ -50,6 +61,9 @@ var testHandlerReservedNames = []string{
 
 func renderTestHandler(plan *planState) ([]byte, error) {
 	r := newRenderer(plan.config.testHandlerPackage, "")
+	for _, pkgPath := range testHandlerStdlibImports {
+		r.imports.importPackage(pkgPath)
+	}
 	for _, name := range testHandlerReservedNames {
 		r.imports.usedAliases[name] = true
 	}

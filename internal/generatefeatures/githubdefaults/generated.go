@@ -1110,7 +1110,6 @@ func (v *namingShapesResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *namingShapesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -1527,7 +1526,6 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *runtimeAbstractsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err

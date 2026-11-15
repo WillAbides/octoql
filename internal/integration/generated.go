@@ -1015,7 +1015,6 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 }
 
 func (v *addStarAddStarAddStarPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -1163,7 +1162,6 @@ func (v *directivesResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *directivesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1171,7 +1169,6 @@ func (v *directivesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		User                *directivesUser                             `json:"user"`
 		Actor               directivesResponseActor                     `json:"actor"`
@@ -1182,6 +1179,7 @@ func (v *directivesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	firstPass.Actor = v.Actor
 	firstPass.Actors = v.Actors
 	firstPass.UsersCreatedOnDates = v.UsersCreatedOnDates
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1203,6 +1201,7 @@ func (v *directivesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1234,7 +1233,6 @@ func (v *directivesResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *directivesResponse) _octoqlPremarshalJSON() *_octoqlPremarshaldirectivesResponse {
 	var retval _octoqlPremarshaldirectivesResponse
-
 	retval.User = v.User
 	retval.Actor = v.Actor
 	retval.Actors = v.Actors
@@ -1467,7 +1465,6 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 }
 
 func (v *getRepositoryRepository) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -1775,7 +1772,6 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 }
 
 func (v *organizationFields) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -1955,7 +1951,6 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) e
 }
 
 func (v *organizationFieldsTopContributorOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1963,13 +1958,13 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSONFrom(dec *js
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 		Id       string `json:"id"`
 	}
 	firstPass.Typename = v.Typename
 	firstPass.Id = v.Id
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1985,6 +1980,7 @@ func (v *organizationFieldsTopContributorOrganization) UnmarshalJSONFrom(dec *js
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -2010,7 +2006,6 @@ func (v *organizationFieldsTopContributorOrganization) MarshalJSONTo(enc *jsonte
 
 func (v *organizationFieldsTopContributorOrganization) _octoqlPremarshalJSON() *_octoqlPremarshalorganizationFieldsTopContributorOrganization {
 	var retval _octoqlPremarshalorganizationFieldsTopContributorOrganization
-
 	retval.Typename = v.Typename
 	retval.Id = v.Id
 	retval.ContributionCount = v.repositoryOwnerFieldsOctoqlOther.ContributionCount
@@ -2041,7 +2036,6 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 }
 
 func (v *organizationFieldsTopContributorUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -2049,13 +2043,13 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSONFrom(dec *jsontext.D
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 		Id       string `json:"id"`
 	}
 	firstPass.Typename = v.Typename
 	firstPass.Id = v.Id
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -2076,6 +2070,7 @@ func (v *organizationFieldsTopContributorUser) UnmarshalJSONFrom(dec *jsontext.D
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -2102,7 +2097,6 @@ func (v *organizationFieldsTopContributorUser) MarshalJSONTo(enc *jsontext.Encod
 
 func (v *organizationFieldsTopContributorUser) _octoqlPremarshalJSON() *_octoqlPremarshalorganizationFieldsTopContributorUser {
 	var retval _octoqlPremarshalorganizationFieldsTopContributorUser
-
 	retval.Typename = v.Typename
 	retval.Id = v.Id
 	retval.ContributionCount = v.repositoryOwnerFieldsUser.ContributionCount
@@ -2120,7 +2114,6 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryFragment) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -2290,7 +2283,6 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryFragmentActorsOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -2351,7 +2343,6 @@ func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryFragmentActorsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -2359,13 +2350,13 @@ func (v *queryFragmentActorsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 		Id       string `json:"id"`
 	}
 	firstPass.Typename = v.Typename
 	firstPass.Id = v.Id
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -2381,6 +2372,7 @@ func (v *queryFragmentActorsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -2406,7 +2398,6 @@ func (v *queryFragmentActorsUser) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *queryFragmentActorsUser) _octoqlPremarshalJSON() *_octoqlPremarshalqueryFragmentActorsUser {
 	var retval _octoqlPremarshalqueryFragmentActorsUser
-
 	retval.Typename = v.Typename
 	retval.Id = v.Id
 	retval.ContributionCount = v.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount
@@ -2640,7 +2631,6 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryWithFragmentsActorsOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -2912,7 +2902,6 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryWithFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -3041,7 +3030,6 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryWithInterfaceListFieldResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -3171,7 +3159,6 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -3355,7 +3342,6 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) erro
 }
 
 func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -3363,13 +3349,13 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSONFrom(dec *jsont
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 		Id       string `json:"id"`
 	}
 	firstPass.Typename = v.Typename
 	firstPass.Id = v.Id
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -3385,6 +3371,7 @@ func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSONFrom(dec *jsont
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -3414,7 +3401,6 @@ func (v *queryWithNamedFragmentsActorsOrganization) MarshalJSONTo(enc *jsontext.
 
 func (v *queryWithNamedFragmentsActorsOrganization) _octoqlPremarshalJSON() *_octoqlPremarshalqueryWithNamedFragmentsActorsOrganization {
 	var retval _octoqlPremarshalqueryWithNamedFragmentsActorsOrganization
-
 	retval.Typename = v.Typename
 	retval.Id = v.Id
 	retval.Plan = v.organizationFields.Plan
@@ -3445,7 +3431,6 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -3453,13 +3438,13 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSONFrom(dec *jsontext.Deco
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 		Id       string `json:"id"`
 	}
 	firstPass.Typename = v.Typename
 	firstPass.Id = v.Id
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -3475,6 +3460,7 @@ func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSONFrom(dec *jsontext.Deco
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -3501,7 +3487,6 @@ func (v *queryWithNamedFragmentsActorsUser) MarshalJSONTo(enc *jsontext.Encoder)
 
 func (v *queryWithNamedFragmentsActorsUser) _octoqlPremarshalJSON() *_octoqlPremarshalqueryWithNamedFragmentsActorsUser {
 	var retval _octoqlPremarshalqueryWithNamedFragmentsActorsUser
-
 	retval.Typename = v.Typename
 	retval.Id = v.Id
 	retval.ContributionCount = v.userFields.repositoryOwnerFieldsUser.ContributionCount
@@ -3519,7 +3504,6 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryWithNamedFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -3589,7 +3573,6 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *queryWithSearchResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -3901,7 +3884,6 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 }
 
 func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -4141,7 +4123,6 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 }
 
 func (v *repositoryOwnerFieldsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -4149,11 +4130,11 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		ContributionCount *int `json:"contributionCount"`
 	}
 	firstPass.ContributionCount = v.ContributionCount
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -4168,6 +4149,7 @@ func (v *repositoryOwnerFieldsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -4193,7 +4175,6 @@ func (v *repositoryOwnerFieldsUser) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *repositoryOwnerFieldsUser) _octoqlPremarshalJSON() *_octoqlPremarshalrepositoryOwnerFieldsUser {
 	var retval _octoqlPremarshalrepositoryOwnerFieldsUser
-
 	retval.ContributionCount = v.ContributionCount
 	retval.Id = v.moreUserFields.Id
 	retval.Status = v.moreUserFields.Status
@@ -4228,7 +4209,6 @@ func (v *userFields) UnmarshalJSON(b []byte) error {
 }
 
 func (v *userFields) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -4236,11 +4216,11 @@ func (v *userFields) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Id string `json:"id"`
 	}
 	firstPass.Id = v.Id
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -4260,6 +4240,7 @@ func (v *userFields) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -4285,7 +4266,6 @@ func (v *userFields) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *userFields) _octoqlPremarshalJSON() *_octoqlPremarshaluserFields {
 	var retval _octoqlPremarshaluserFields
-
 	retval.Id = v.Id
 	retval.ContributionCount = v.repositoryOwnerFieldsUser.ContributionCount
 	retval.Status = v.moreUserFields.Status

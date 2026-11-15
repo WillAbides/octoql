@@ -4,11 +4,11 @@ type testTB interface {
 }
 
 type graphqlRequest struct {
-	OperationName string                           `json:"operationName"`
-	Variables     {{ref "encoding/json/jsontext.Value"}} `json:"variables"`
+	OperationName string         `json:"operationName"`
+	Variables     jsontext.Value `json:"variables"`
 }
 
-type operationResult[V any] func(V, {{ref "net/http.ResponseWriter"}}) error
+type operationResult[V any] func(V, http.ResponseWriter) error
 
 type expectationOptions struct {
 	remaining int
@@ -40,7 +40,7 @@ type expectation[V any] struct {
 }
 
 type expectationSet[V any] struct {
-	mu           {{ref "sync.Mutex"}}
+	mu           sync.Mutex
 	tb           testTB
 	operation    string
 	expectations []*expectation[V]
@@ -108,7 +108,7 @@ func (s *expectationSet[V]) match(
 ) (operationResult[V], error) {
 	key, err := variableKeyJSON(rawVariables)
 	if err != nil {
-		return nil, {{ref "fmt.Errorf"}}("%s variables: %w", s.operation, err)
+		return nil, fmt.Errorf("%s variables: %w", s.operation, err)
 	}
 
 	s.mu.Lock()
@@ -125,7 +125,7 @@ func (s *expectationSet[V]) match(
 			expected.remaining--
 		}
 		if expected.result == nil {
-			return nil, {{ref "fmt.Errorf"}}(
+			return nil, fmt.Errorf(
 				"%s expectation for variables %+v has no response",
 				s.operation,
 				variables,
@@ -136,7 +136,7 @@ func (s *expectationSet[V]) match(
 
 	if s.fallback != nil {
 		if s.fallback.result == nil {
-			return nil, {{ref "fmt.Errorf"}}(
+			return nil, fmt.Errorf(
 				"%s default expectation has no response",
 				s.operation,
 			)
@@ -144,7 +144,7 @@ func (s *expectationSet[V]) match(
 		return s.fallback.result, nil
 	}
 
-	return nil, {{ref "fmt.Errorf"}}(
+	return nil, fmt.Errorf(
 		"no expectation found for %s variables %+v",
 		s.operation,
 		variables,
@@ -194,29 +194,29 @@ func (s *expectationSet[V]) reset(variables ...V) {
 }
 
 func variableKey[V any](variables V) (string, error) {
-	encoded, err := {{ref "encoding/json/v2.Marshal"}}(
+	encoded, err := json.Marshal(
 		variables,
-		{{ref "encoding/json/v2.FormatNilSliceAsNull"}}(true),
+		json.FormatNilSliceAsNull(true),
 	)
 	if err != nil {
-		return "", {{ref "fmt.Errorf"}}("encoding variables: %w", err)
+		return "", fmt.Errorf("encoding variables: %w", err)
 	}
 	return variableKeyJSON(encoded)
 }
 
 func variableKeyJSON(encoded []byte) (string, error) {
-	normalized := append({{ref "encoding/json/jsontext.Value"}}(nil), encoded...)
-	err := normalized.Canonicalize({{ref "encoding/json/jsontext.CanonicalizeRawInts"}}(false))
+	normalized := append(jsontext.Value(nil), encoded...)
+	err := normalized.Canonicalize(jsontext.CanonicalizeRawInts(false))
 	if err != nil {
-		return "", {{ref "fmt.Errorf"}}("normalizing variables: %w", err)
+		return "", fmt.Errorf("normalizing variables: %w", err)
 	}
 	return string(normalized), nil
 }
 
 func decodeVariables(encoded []byte, destination any) error {
-	err := {{ref "encoding/json/v2.Unmarshal"}}(encoded, destination)
+	err := json.Unmarshal(encoded, destination)
 	if err != nil {
-		return {{ref "fmt.Errorf"}}("decoding variables: %w", err)
+		return fmt.Errorf("decoding variables: %w", err)
 	}
 	return nil
 }
@@ -239,7 +239,7 @@ func (s *expectationSet[V]) verify() {
 
 type responseOptions struct {
 	status int
-	header {{ref "net/http.Header"}}
+	header http.Header
 	err    error
 }
 
@@ -248,7 +248,7 @@ type ResponseOption func(*responseOptions)
 func WithStatus(status int) ResponseOption {
 	return func(options *responseOptions) {
 		if status < 100 || status > 999 {
-			options.err = {{ref "fmt.Errorf"}}("invalid http status %d", status)
+			options.err = fmt.Errorf("invalid http status %d", status)
 			return
 		}
 		options.status = status
@@ -256,17 +256,17 @@ func WithStatus(status int) ResponseOption {
 }
 
 func WithHeader(name string, values ...string) ResponseOption {
-	canonicalName := {{ref "net/http.CanonicalHeaderKey"}}(name)
+	canonicalName := http.CanonicalHeaderKey(name)
 	clonedValues := append([]string{}, values...)
 	return func(options *responseOptions) {
 		options.header[canonicalName] = append([]string{}, clonedValues...)
 	}
 }
 
-func WithHeaders(header {{ref "net/http.Header"}}) ResponseOption {
-	clonedHeader := {{ref "net/http.Header"}}{}
+func WithHeaders(header http.Header) ResponseOption {
+	clonedHeader := http.Header{}
 	for name, values := range header {
-		canonicalName := {{ref "net/http.CanonicalHeaderKey"}}(name)
+		canonicalName := http.CanonicalHeaderKey(name)
 		clonedHeader[canonicalName] = append(clonedHeader[canonicalName], values...)
 	}
 	return func(options *responseOptions) {
@@ -282,17 +282,17 @@ func WithPrimaryRateLimit(rateLimit {{.ClientPackage}}.RateLimit) ResponseOption
 			rateLimit.Remaining < 0 ||
 			rateLimit.Used < 0
 		if hasNegativeValue {
-			options.err = {{ref "fmt.Errorf"}}("primary rate limit values must not be negative")
+			options.err = fmt.Errorf("primary rate limit values must not be negative")
 			return
 		}
 
-		options.header.Set("X-RateLimit-Limit", {{ref "strconv.Itoa"}}(rateLimit.Limit))
-		options.header.Set("X-RateLimit-Remaining", {{ref "strconv.Itoa"}}(rateLimit.Remaining))
-		options.header.Set("X-RateLimit-Used", {{ref "strconv.Itoa"}}(rateLimit.Used))
+		options.header.Set("X-RateLimit-Limit", strconv.Itoa(rateLimit.Limit))
+		options.header.Set("X-RateLimit-Remaining", strconv.Itoa(rateLimit.Remaining))
+		options.header.Set("X-RateLimit-Used", strconv.Itoa(rateLimit.Used))
 		if !rateLimit.Reset.IsZero() {
 			options.header.Set(
 				"X-RateLimit-Reset",
-				{{ref "strconv.FormatInt"}}(rateLimit.Reset.Unix(), 10),
+				strconv.FormatInt(rateLimit.Reset.Unix(), 10),
 			)
 		}
 		if rateLimit.Resource != "" {
@@ -301,28 +301,28 @@ func WithPrimaryRateLimit(rateLimit {{.ClientPackage}}.RateLimit) ResponseOption
 	}
 }
 
-func WithSecondaryRateLimit(retryAfter {{ref "time.Duration"}}) ResponseOption {
+func WithSecondaryRateLimit(retryAfter time.Duration) ResponseOption {
 	return func(options *responseOptions) {
 		if retryAfter < 0 {
-			options.err = {{ref "fmt.Errorf"}}("secondary rate limit retry-after must not be negative")
+			options.err = fmt.Errorf("secondary rate limit retry-after must not be negative")
 			return
 		}
 
-		seconds := retryAfter / {{ref "time.Second"}}
-		if retryAfter%{{ref "time.Second"}} != 0 {
+		seconds := retryAfter / time.Second
+		if retryAfter%time.Second != 0 {
 			seconds++
 		}
 		options.header.Set(
 			"Retry-After",
-			{{ref "strconv.FormatInt"}}(int64(seconds), 10),
+			strconv.FormatInt(int64(seconds), 10),
 		)
 	}
 }
 
 func buildResponseOptions(options ...ResponseOption) responseOptions {
 	config := responseOptions{
-		status: {{ref "net/http.StatusOK"}},
-		header: {{ref "net/http.Header"}}{},
+		status: http.StatusOK,
+		header: http.Header{},
 	}
 	for _, option := range options {
 		if option != nil {
@@ -343,7 +343,7 @@ func combineResponseOptions(
 }
 
 func writeGraphQLResponse(
-	writer {{ref "net/http.ResponseWriter"}},
+	writer http.ResponseWriter,
 	data any,
 	graphqlErrors []{{.ClientPackage}}.Error,
 	options responseOptions,
@@ -365,19 +365,19 @@ func writeGraphQLResponse(
 		payload["errors"] = graphqlErrors
 	}
 	writer.WriteHeader(options.status)
-	err := {{ref "encoding/json/v2.MarshalWrite"}}(
+	err := json.MarshalWrite(
 		writer,
 		payload,
-		{{ref "encoding/json/v2.FormatNilSliceAsNull"}}(true),
+		json.FormatNilSliceAsNull(true),
 	)
 	if err != nil {
-		return {{ref "fmt.Errorf"}}("encoding graphql response: %w", err)
+		return fmt.Errorf("encoding graphql response: %w", err)
 	}
 	return nil
 }
 
 func writeRequestError(
-	writer {{ref "net/http.ResponseWriter"}},
+	writer http.ResponseWriter,
 	status int,
 	message string,
 ) error {
@@ -396,9 +396,9 @@ type TestHandler struct {
 	{{end -}}
 }
 
-var _ {{ref "net/http.Handler"}} = (*TestHandler)(nil)
+var _ http.Handler = (*TestHandler)(nil)
 
-func NewTestHandler(testingTB {{ref "testing.TB"}}) *TestHandler {
+func NewTestHandler(testingTB testing.TB) *TestHandler {
 	return newTestHandler(testingTB)
 }
 
@@ -428,14 +428,14 @@ func (h *TestHandler) Reset() {
 }
 
 func (h *TestHandler) ServeHTTP(
-	writer {{ref "net/http.ResponseWriter"}},
-	request *{{ref "net/http.Request"}},
+	writer http.ResponseWriter,
+	request *http.Request,
 ) {
-	if request.Method != {{ref "net/http.MethodPost"}} {
-		writer.Header().Set("Allow", {{ref "net/http.MethodPost"}})
+	if request.Method != http.MethodPost {
+		writer.Header().Set("Allow", http.MethodPost)
 		err := writeRequestError(
 			writer,
-			{{ref "net/http.StatusMethodNotAllowed"}},
+			http.StatusMethodNotAllowed,
 			"graphql requests must use POST",
 		)
 		if err != nil {
@@ -445,14 +445,14 @@ func (h *TestHandler) ServeHTTP(
 	}
 
 	var graphqlRequest graphqlRequest
-	err := {{ref "encoding/json/v2.UnmarshalRead"}}(
-		{{ref "net/http.MaxBytesReader"}}(writer, request.Body, 8<<20),
+	err := json.UnmarshalRead(
+		http.MaxBytesReader(writer, request.Body, 8<<20),
 		&graphqlRequest,
 	)
 	if err != nil {
 		writeErr := writeRequestError(
 			writer,
-			{{ref "net/http.StatusBadRequest"}},
+			http.StatusBadRequest,
 			"decoding graphql request: "+err.Error(),
 		)
 		if writeErr != nil {
@@ -464,7 +464,7 @@ func (h *TestHandler) ServeHTTP(
 	if graphqlRequest.OperationName == "" {
 		err = writeRequestError(
 			writer,
-			{{ref "net/http.StatusBadRequest"}},
+			http.StatusBadRequest,
 			"graphql request is missing operationName",
 		)
 		if err != nil {
@@ -473,7 +473,7 @@ func (h *TestHandler) ServeHTTP(
 		return
 	}
 	if len(graphqlRequest.Variables) == 0 {
-		graphqlRequest.Variables = {{ref "encoding/json/jsontext.Value"}}("{}")
+		graphqlRequest.Variables = jsontext.Value("{}")
 	}
 
 	switch graphqlRequest.OperationName {
@@ -485,7 +485,7 @@ func (h *TestHandler) ServeHTTP(
 			h.tb.Errorf("decoding {{.Name}} variables: %v", err)
 			writeErr := writeRequestError(
 				writer,
-				{{ref "net/http.StatusOK"}},
+				http.StatusOK,
 				"decoding {{.Name}} variables: "+err.Error(),
 			)
 			if writeErr != nil {
@@ -502,7 +502,7 @@ func (h *TestHandler) ServeHTTP(
 			h.tb.Errorf("%v", matchErr)
 			writeErr := writeRequestError(
 				writer,
-				{{ref "net/http.StatusOK"}},
+				http.StatusOK,
 				matchErr.Error(),
 			)
 			if writeErr != nil {
@@ -518,7 +518,7 @@ func (h *TestHandler) ServeHTTP(
 	default:
 		err = writeRequestError(
 			writer,
-			{{ref "net/http.StatusOK"}},
+			http.StatusOK,
 			"unknown operation: "+graphqlRequest.OperationName,
 		)
 		if err != nil {
@@ -581,7 +581,7 @@ func (b *{{.Name}}Expectation) Respond(
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
+		func(_ {{.VariablesType}}, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
@@ -595,7 +595,7 @@ func (b *{{.Name}}Expectation) RespondError(
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
+		func(_ {{.VariablesType}}, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
@@ -613,7 +613,7 @@ func (b *{{.Name}}Expectation) RespondDataAndErrors(
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
+		func(_ {{.VariablesType}}, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -625,21 +625,21 @@ func (b *{{.Name}}Expectation) RespondDataAndErrors(
 }
 
 func (b *{{.Name}}Expectation) Handle(
-	handler func({{if .HasVariables}}{{.VariablesName}}, {{end}}{{ref "net/http.ResponseWriter"}}),
+	handler func({{if .HasVariables}}{{.VariablesName}}, {{end}}http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("{{.Name}} dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ {{.VariablesType}}, _ {{ref "net/http.ResponseWriter"}}) error {
-				return {{ref "fmt.Errorf"}}("{{.Name}} dynamic handler is nil")
+			func(_ {{.VariablesType}}, _ http.ResponseWriter) error {
+				return fmt.Errorf("{{.Name}} dynamic handler is nil")
 			},
 		)
 		return
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables {{.VariablesType}}, writer {{ref "net/http.ResponseWriter"}}) error {
+		func(variables {{.VariablesType}}, writer http.ResponseWriter) error {
 			handler({{if .HasVariables}}variables, {{end}}writer)
 			return nil
 		},

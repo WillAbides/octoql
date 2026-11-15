@@ -20,58 +20,45 @@
      the premarshal value so an interface marshal helper can embed it alongside
      an explicit __typename field. */}}
 
-{{- $hasEmbedded := false -}}
-{{- range .Fields -}}
-{{- if .IsEmbedded -}}{{- $hasEmbedded = true -}}{{- end -}}
-{{- end -}}
-{{- $hasInterfaces := false -}}
-{{- range .FlattenedFields -}}
-{{- if .NeedsMarshaling -}}{{- $hasInterfaces = true -}}{{- end -}}
-{{- end }}
-
-{{if $hasEmbedded -}}
-type _octoqlPremarshal{{.GoName}} struct{
-    {{range .FlattenedFields -}}
-    {{.GoName}} {{typeRef .GoType}} `json:"{{.JSONName}}{{.OmitTag}}"`
-    {{end}}
+{{- if .HasEmbedded}}
+type _octoqlPremarshal{{.GoName}} struct {
+	{{- range .FlattenedFields}}
+	{{.GoName}} {{.TypeRef}} `json:{{.JSONTag}}`
+	{{- end}}
 }
-{{else -}}
+{{- else}}
 type _octoqlPremarshal{{.GoName}} {{.GoName}}
-{{end}}
+{{- end}}
 
 func (v *{{.GoName}}) MarshalJSON() ([]byte, error) {
-    return {{ref "encoding/json/v2.Marshal"}}(
-        v,
-        {{ref "encoding/json/v2.FormatNilSliceAsNull"}}(true),
-    )
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *{{.GoName}}) MarshalJSONTo(enc *{{ref "encoding/json/jsontext.Encoder"}}) error {
-    return {{ref "encoding/json/v2.MarshalEncode"}}(
-        enc,
-        v._octoqlPremarshalJSON(),
-        {{if $hasInterfaces -}}
-        {{ref "encoding/json/v2.WithMarshalers"}}({{ref "encoding/json/v2.JoinMarshalers"}}(
-            {{range .FlattenedFields -}}
-            {{if .NeedsMarshaling -}}
-            {{ref "encoding/json/v2.MarshalToFunc"}}(_octoqlMarshal{{.GoType.Unwrap.QualifiedRef}}),
-            {{end -}}
-            {{end -}}
-        )),
-        {{end -}}
-    )
+func (v *{{.GoName}}) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		{{- if .Marshalers}}
+		json.WithMarshalers(json.JoinMarshalers(
+			{{- range .Marshalers}}
+			json.MarshalToFunc({{.}}),
+			{{- end}}
+		)),
+		{{- end}}
+	)
 }
 
 func (v *{{.GoName}}) _octoqlPremarshalJSON() *_octoqlPremarshal{{.GoName}} {
-    {{if $hasEmbedded -}}
-    var retval _octoqlPremarshal{{.GoName}}
-
-    {{range $field := .FlattenedFields -}}
-    retval.{{$field.GoName}} = v.{{$field.Selector}}
-    {{end -}}
-
-    return &retval
-    {{else -}}
-    return (*_octoqlPremarshal{{.GoName}})(v)
-    {{end -}}
+	{{- if .HasEmbedded}}
+	var retval _octoqlPremarshal{{.GoName}}
+	{{- range .FlattenedFields}}
+	retval.{{.GoName}} = v.{{.Selector}}
+	{{- end}}
+	return &retval
+	{{- else}}
+	return (*_octoqlPremarshal{{.GoName}})(v)
+	{{- end}}
 }

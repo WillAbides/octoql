@@ -14,98 +14,74 @@
      field. */}}
 
 func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
-    return {{ref "encoding/json/v2.Unmarshal"}}(b, v)
+	return json.Unmarshal(b, v)
 }
 
-func (v *{{.GoName}}) UnmarshalJSONFrom(dec *{{ref "encoding/json/jsontext.Decoder"}}) error {
-    {{- $hasEmbedded := false -}}
-    {{- $hasNonEmbedded := false -}}
-    {{- $hasInterfaces := false -}}
-    {{- range .Fields -}}
-    {{- if .IsEmbedded -}}
-    {{- $hasEmbedded = true -}}
-    {{- else -}}
-    {{- $hasNonEmbedded = true -}}
-    {{- if .NeedsMarshaling -}}{{- $hasInterfaces = true -}}{{- end -}}
-    {{- end -}}
-    {{- end }}
+func (v *{{.GoName}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	{{- if not .HasEmbedded}}
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
+		return err
+	}
 
-    {{if not $hasEmbedded -}}
-    if dec.PeekKind() == 'n' {
-        _, err := dec.ReadToken()
-        return err
-    }
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshal{{.GoName}})(v),
+		{{- if .Unmarshalers}}
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			{{- range .Unmarshalers}}
+			json.UnmarshalFromFunc({{.}}),
+			{{- end}}
+		)),
+		{{- end}}
+	)
+	{{- else}}
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if string(b) == "null" {
+		return nil
+	}
 
-    return {{ref "encoding/json/v2.UnmarshalDecode"}}(
-        dec,
-        (*_octoqlPremarshal{{.GoName}})(v),
-        {{if $hasInterfaces -}}
-        {{ref "encoding/json/v2.WithUnmarshalers"}}({{ref "encoding/json/v2.JoinUnmarshalers"}}(
-            {{range .Fields -}}
-            {{if and .NeedsMarshaling (not .IsEmbedded) -}}
-            {{ref "encoding/json/v2.UnmarshalFromFunc"}}(_octoqlUnmarshal{{.GoType.Unwrap.QualifiedRef}}),
-            {{end -}}
-            {{end -}}
-        )),
-        {{end -}}
-    )
-    {{else -}}
-    b, err := dec.ReadValue()
-    if err != nil {
-        return err
-    }
-    if string(b) == "null" {
-        return nil
-    }
+	{{- if .DirectFields}}
+	var firstPass struct {
+		{{- range .DirectFields}}
+		{{.GoName}} {{.TypeRef}} `json:{{.JSONTag}}`
+		{{- end}}
+	}
+	{{- range .DirectFields}}
+	firstPass.{{.GoName}} = v.{{.GoName}}
+	{{- end}}
 
-    {{if $hasNonEmbedded -}}
-    var firstPass struct{
-        {{range .Fields -}}
-        {{if not .IsEmbedded -}}
-        {{.GoName}} {{typeRef .GoType}} `json:"{{.JSONName}}{{.OmitTag}}"`
-        {{end -}}
-        {{end -}}
-    }
-    {{range .Fields -}}
-    {{if not .IsEmbedded -}}
-    firstPass.{{.GoName}} = v.{{.GoName}}
-    {{end -}}
-    {{end -}}
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+		{{- if .Unmarshalers}}
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			{{- range .Unmarshalers}}
+			json.UnmarshalFromFunc({{.}}),
+			{{- end}}
+		)),
+		{{- end}}
+	)
+	if err != nil {
+		return err
+	}
+	{{- range .DirectFields}}
+	v.{{.GoName}} = firstPass.{{.GoName}}
+	{{- end}}
+	{{- end}}
 
-    err = {{ref "encoding/json/v2.Unmarshal"}}(
-        b,
-        &firstPass,
-        dec.Options(),
-        {{if $hasInterfaces -}}
-        {{ref "encoding/json/v2.WithUnmarshalers"}}({{ref "encoding/json/v2.JoinUnmarshalers"}}(
-            {{range .Fields -}}
-            {{if and .NeedsMarshaling (not .IsEmbedded) -}}
-            {{ref "encoding/json/v2.UnmarshalFromFunc"}}(_octoqlUnmarshal{{.GoType.Unwrap.QualifiedRef}}),
-            {{end -}}
-            {{end -}}
-        )),
-        {{end -}}
-    )
-    if err != nil {
-        return err
-    }
-    {{range .Fields -}}
-    {{if not .IsEmbedded -}}
-    v.{{.GoName}} = firstPass.{{.GoName}}
-    {{end -}}
-    {{end -}}
-    {{end -}}
+	{{- range .EmbeddedTypeRefs}}
+	err = json.Unmarshal(
+		b, &v.{{.}}, dec.Options())
+	if err != nil {
+		return err
+	}
+	{{- end}}
 
-    {{range $field := .Fields -}}
-    {{if $field.IsEmbedded -}}
-    err = {{ref "encoding/json/v2.Unmarshal"}}(
-        b, &v.{{typeRef $field.GoType.Unwrap}}, dec.Options())
-    if err != nil {
-        return err
-    }
-    {{end -}}
-    {{end -}}
-
-    return nil
-    {{end -}}
+	return nil
+	{{- end}}
 }

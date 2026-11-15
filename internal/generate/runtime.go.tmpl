@@ -53,45 +53,45 @@ func (e *ResponseSizeLimitError) Error() string {
 	if e == nil {
 		return "graphql response exceeds its size limit"
 	}
-	return {{ ref "fmt.Sprintf" }}("graphql response exceeds %d-byte limit", e.Limit)
+	return fmt.Sprintf("graphql response exceeds %d-byte limit", e.Limit)
 }
 
 // MarshalJSON encodes string and integer path segments in GraphQL wire format.
 func (p Path) MarshalJSON() ([]byte, error) {
-	return {{ ref "encoding/json/v2.Marshal" }}(p)
+	return json.Marshal(p)
 }
 
 // MarshalJSONTo encodes string and integer path segments in GraphQL wire format.
-func (p Path) MarshalJSONTo(enc *{{ ref "encoding/json/jsontext.Encoder" }}) error {
+func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if p == nil {
-		return enc.WriteToken({{ ref "encoding/json/jsontext.Null" }})
+		return enc.WriteToken(jsontext.Null)
 	}
 
-	err := enc.WriteToken({{ ref "encoding/json/jsontext.BeginArray" }})
+	err := enc.WriteToken(jsontext.BeginArray)
 	if err != nil {
-		return {{ ref "fmt.Errorf" }}("encode graphql path: %w", err)
+		return fmt.Errorf("encode graphql path: %w", err)
 	}
 	for index, segment := range p {
 		switch value := segment.(type) {
 		case string:
-			err = enc.WriteToken({{ ref "encoding/json/jsontext.String" }}(value))
+			err = enc.WriteToken(jsontext.String(value))
 		case int:
-			err = enc.WriteToken({{ ref "encoding/json/jsontext.Int" }}(int64(value)))
+			err = enc.WriteToken(jsontext.Int(int64(value)))
 		default:
-			return {{ ref "fmt.Errorf" }}(
+			return fmt.Errorf(
 				"encode graphql path segment %d: expected string or int, got %T",
 				index,
 				segment,
 			)
 		}
 		if err != nil {
-			return {{ ref "fmt.Errorf" }}("encode graphql path segment %d: %w", index, err)
+			return fmt.Errorf("encode graphql path segment %d: %w", index, err)
 		}
 	}
 
-	err = enc.WriteToken({{ ref "encoding/json/jsontext.EndArray" }})
+	err = enc.WriteToken(jsontext.EndArray)
 	if err != nil {
-		return {{ ref "fmt.Errorf" }}("encode graphql path: %w", err)
+		return fmt.Errorf("encode graphql path: %w", err)
 	}
 	return nil
 }
@@ -99,21 +99,21 @@ func (p Path) MarshalJSONTo(enc *{{ ref "encoding/json/jsontext.Encoder" }}) err
 // UnmarshalJSON decodes GraphQL string and integer path segments.
 func (p *Path) UnmarshalJSON(data []byte) error {
 	if p == nil {
-		return {{ ref "errors.New" }}("decode graphql path: nil destination")
+		return errors.New("decode graphql path: nil destination")
 	}
-	return {{ ref "encoding/json/v2.Unmarshal" }}(data, p)
+	return json.Unmarshal(data, p)
 }
 
 // UnmarshalJSONFrom decodes GraphQL string and integer path segments.
-func (p *Path) UnmarshalJSONFrom(dec *{{ ref "encoding/json/jsontext.Decoder" }}) error {
+func (p *Path) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if p == nil {
-		return {{ ref "errors.New" }}("decode graphql path: nil destination")
+		return errors.New("decode graphql path: nil destination")
 	}
 
-	var rawSegments []{{ ref "encoding/json/jsontext.Value" }}
-	err := {{ ref "encoding/json/v2.UnmarshalDecode" }}(dec, &rawSegments)
+	var rawSegments []jsontext.Value
+	err := json.UnmarshalDecode(dec, &rawSegments)
 	if err != nil {
-		return {{ ref "fmt.Errorf" }}("decode graphql path: %w", err)
+		return fmt.Errorf("decode graphql path: %w", err)
 	}
 	if rawSegments == nil {
 		*p = nil
@@ -124,18 +124,18 @@ func (p *Path) UnmarshalJSONFrom(dec *{{ ref "encoding/json/jsontext.Decoder" }}
 	for index, rawSegment := range rawSegments {
 		if rawSegment.Kind() == '"' {
 			var field string
-			err = {{ ref "encoding/json/v2.Unmarshal" }}(rawSegment, &field)
+			err = json.Unmarshal(rawSegment, &field)
 			if err != nil {
-				return {{ ref "fmt.Errorf" }}("decode graphql path segment %d: %w", index, err)
+				return fmt.Errorf("decode graphql path segment %d: %w", index, err)
 			}
 			segments[index] = field
 			continue
 		}
 
 		var parsed int64
-		parsed, err = {{ ref "strconv.ParseInt" }}(string(rawSegment), 10, {{ ref "strconv.IntSize" }})
+		parsed, err = strconv.ParseInt(string(rawSegment), 10, strconv.IntSize)
 		if err != nil {
-			return {{ ref "fmt.Errorf" }}(
+			return fmt.Errorf(
 				"decode graphql path segment %d: expected string or integer: %w",
 				index,
 				err,
@@ -150,7 +150,7 @@ func (p *Path) UnmarshalJSONFrom(dec *{{ ref "encoding/json/jsontext.Decoder" }}
 
 // String formats a path using dotted fields and bracketed list indexes.
 func (p Path) String() string {
-	var result {{ ref "strings.Builder" }}
+	var result strings.Builder
 	for _, segment := range p {
 		switch value := segment.(type) {
 		case string:
@@ -160,7 +160,7 @@ func (p Path) String() string {
 			result.WriteString(value)
 		case int:
 			result.WriteByte('[')
-			result.WriteString({{ ref "strconv.Itoa" }}(value))
+			result.WriteString(strconv.Itoa(value))
 			result.WriteByte(']')
 		default:
 			if result.Len() > 0 {
@@ -186,7 +186,7 @@ func (e *Error) Error() string {
 	if path == "" {
 		return message
 	}
-	return {{ ref "fmt.Sprintf" }}("%s (path %s)", message, path)
+	return fmt.Sprintf("%s (path %s)", message, path)
 }
 
 // Error returns a stable summary of all GraphQL errors.
@@ -202,11 +202,11 @@ func (e Errors) Error() string {
 	if len(messages) == 1 {
 		return "graphql error: " + messages[0]
 	}
-	return "graphql errors: " + {{ ref "strings.Join" }}(messages, "; ")
+	return "graphql errors: " + strings.Join(messages, "; ")
 }
 
-// Unwrap exposes individual GraphQL errors to [{{ ref "errors.Is" }}], [{{ ref "errors.As" }}], and
-// [{{ ref "errors.AsType" }}].
+// Unwrap exposes individual GraphQL errors to [errors.Is], [errors.As], and
+// [errors.AsType].
 func (e Errors) Unwrap() []error {
 	unwrapped := make([]error, 0, len(e))
 	for _, graphqlError := range e {
@@ -225,7 +225,7 @@ func (e *ResponseError) Error() string {
 
 	message := "graphql response failed"
 	if !_octoqlIsSuccessfulStatus(e.StatusCode) {
-		message = {{ ref "fmt.Sprintf" }}(
+		message = fmt.Sprintf(
 			"graphql response failed with status %d",
 			e.StatusCode,
 		)
@@ -237,7 +237,7 @@ func (e *ResponseError) Error() string {
 }
 
 // Unwrap exposes decoded GraphQL errors and response processing failures to
-// [{{ ref "errors.Is" }}], [{{ ref "errors.As" }}], and [{{ ref "errors.AsType" }}].
+// [errors.Is], [errors.As], and [errors.AsType].
 func (e *ResponseError) Unwrap() error {
 	if e == nil {
 		return nil
@@ -264,7 +264,7 @@ func _octoqlNewResponseError(params _octoqlResponseErrorParams) *ResponseError {
 			rawBody = rawBody[:_octoqlMaxResponseErrorRawBody]
 			isTruncated = true
 		}
-		rawBody = {{ ref "bytes.Clone" }}(rawBody)
+		rawBody = bytes.Clone(rawBody)
 	}
 
 	return &ResponseError{
@@ -294,7 +294,7 @@ type RateLimit struct {
 	Limit     int
 	Remaining int
 	Used      int
-	Reset     {{ ref "time.Time" }}
+	Reset     time.Time
 	Resource  string
 }
 
@@ -308,11 +308,11 @@ type RateLimitError struct {
 	RateLimit *RateLimit
 	// RetryAfter is the parsed Retry-After delay for RateLimitSecondary responses,
 	// and is zero for RateLimitPrimary responses.
-	RetryAfter {{ ref "time.Duration" }}
+	RetryAfter time.Duration
 	// Err is the wrapped response failure.
 	Err error
 
-	retryAt {{ ref "time.Time" }}
+	retryAt time.Time
 }
 
 // Error returns a summary of the rate-limit failure.
@@ -321,9 +321,9 @@ func (e *RateLimitError) Error() string {
 		return "github rate limit exceeded"
 	}
 	if e.Err == nil {
-		return {{ ref "fmt.Sprintf" }}("github %s rate limit exceeded", e.Kind)
+		return fmt.Sprintf("github %s rate limit exceeded", e.Kind)
 	}
-	return {{ ref "fmt.Sprintf" }}("github %s rate limit exceeded: %v", e.Kind, e.Err)
+	return fmt.Sprintf("github %s rate limit exceeded: %v", e.Kind, e.Err)
 }
 
 // Unwrap exposes the response failure and its GraphQL or processing causes.
@@ -335,27 +335,27 @@ func (e *RateLimitError) Unwrap() error {
 }
 
 // RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() {{ ref "time.Time" }} {
+func (e *RateLimitError) RetryAt() time.Time {
 	if e == nil {
-		return {{ ref "time.Time" }}{}
+		return time.Time{}
 	}
 	if e.Kind == RateLimitPrimary {
 		if e.RateLimit == nil {
-			return {{ ref "time.Time" }}{}
+			return time.Time{}
 		}
 		return e.RateLimit.Reset
 	}
 	return e.retryAt
 }
 
-var _octoqlRateLimitNow = {{ ref "time.Now" }}
+var _octoqlRateLimitNow = time.Now
 
 func _octoqlMaxUnixSeconds() uint64 {
-	firstUnixSecond := {{ ref "time.Date" }}(1, {{ ref "time.January" }}, 1, 0, 0, 0, 0, {{ ref "time.UTC" }}).Unix()
-	return uint64({{ ref "math.MaxInt64" }} + firstUnixSecond)
+	firstUnixSecond := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC).Unix()
+	return uint64(math.MaxInt64 + firstUnixSecond)
 }
 
-func _octoqlRateLimitFromHeader(header {{ ref "net/http.Header" }}) *RateLimit {
+func _octoqlRateLimitFromHeader(header http.Header) *RateLimit {
 	limit, ok := _octoqlNonnegativeHeaderInt(header, "X-RateLimit-Limit")
 	if !ok {
 		return nil
@@ -374,48 +374,48 @@ func _octoqlRateLimitFromHeader(header {{ ref "net/http.Header" }}) *RateLimit {
 		Remaining: remaining,
 		Used:      used,
 		Reset:     reset,
-		Resource:  {{ ref "strings.TrimSpace" }}(_octoqlHeaderValue(header, "X-RateLimit-Resource")),
+		Resource:  strings.TrimSpace(_octoqlHeaderValue(header, "X-RateLimit-Resource")),
 	}
 }
 
-func _octoqlNonnegativeHeaderInt(header {{ ref "net/http.Header" }}, name string) (int, bool) {
-	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), {{ ref "strconv.IntSize" }}-1)
+func _octoqlNonnegativeHeaderInt(header http.Header, name string) (int, bool) {
+	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), strconv.IntSize-1)
 	if !valid {
 		return 0, false
 	}
 	return int(value), true
 }
 
-func _octoqlNonnegativeHeaderUnix(header {{ ref "net/http.Header" }}, name string) ({{ ref "time.Time" }}, bool) {
+func _octoqlNonnegativeHeaderUnix(header http.Header, name string) (time.Time, bool) {
 	value, valid := _octoqlParseNonnegativeDecimal(_octoqlHeaderValue(header, name), 63)
 	if !valid {
-		return {{ ref "time.Time" }}{}, false
+		return time.Time{}, false
 	}
 	if value > _octoqlMaxUnixSeconds() {
-		return {{ ref "time.Time" }}{}, false
+		return time.Time{}, false
 	}
-	return {{ ref "time.Unix" }}(int64(value), 0).UTC(), true
+	return time.Unix(int64(value), 0).UTC(), true
 }
 
-func _octoqlRetryAfterFromHeader(header {{ ref "net/http.Header" }}, now {{ ref "time.Time" }}) ({{ ref "time.Duration" }}, {{ ref "time.Time" }}, bool) {
-	value := {{ ref "strings.TrimSpace" }}(_octoqlHeaderValue(header, "Retry-After"))
+func _octoqlRetryAfterFromHeader(header http.Header, now time.Time) (time.Duration, time.Time, bool) {
+	value := strings.TrimSpace(_octoqlHeaderValue(header, "Retry-After"))
 	if value == "" {
-		return 0, {{ ref "time.Time" }}{}, false
+		return 0, time.Time{}, false
 	}
 
 	seconds, valid := _octoqlParseNonnegativeDecimal(value, 64)
 	if valid {
-		maxSeconds := uint64({{ ref "math.MaxInt64" }} / int64({{ ref "time.Second" }}))
+		maxSeconds := uint64(math.MaxInt64 / int64(time.Second))
 		if seconds > maxSeconds {
-			return 0, {{ ref "time.Time" }}{}, false
+			return 0, time.Time{}, false
 		}
-		retryAfter := {{ ref "time.Duration" }}(seconds) * {{ ref "time.Second" }}
+		retryAfter := time.Duration(seconds) * time.Second
 		return retryAfter, now.Add(retryAfter), true
 	}
 
-	retryAt, err := {{ ref "net/http.ParseTime" }}(value)
+	retryAt, err := http.ParseTime(value)
 	if err != nil {
-		return 0, {{ ref "time.Time" }}{}, false
+		return 0, time.Time{}, false
 	}
 	retryAt = retryAt.UTC()
 	retryAfter := retryAt.Sub(now)
@@ -426,7 +426,7 @@ func _octoqlRetryAfterFromHeader(header {{ ref "net/http.Header" }}, now {{ ref 
 }
 
 func _octoqlParseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
-	value = {{ ref "strings.TrimSpace" }}(value)
+	value = strings.TrimSpace(value)
 	if value == "" {
 		return 0, false
 	}
@@ -435,16 +435,16 @@ func _octoqlParseNonnegativeDecimal(value string, bitSize int) (uint64, bool) {
 			return 0, false
 		}
 	}
-	parsed, err := {{ ref "strconv.ParseUint" }}(value, 10, bitSize)
+	parsed, err := strconv.ParseUint(value, 10, bitSize)
 	if err != nil {
 		return 0, false
 	}
 	return parsed, true
 }
 
-func _octoqlHeaderValue(header {{ ref "net/http.Header" }}, name string) string {
+func _octoqlHeaderValue(header http.Header, name string) string {
 	for headerName, values := range header {
-		if {{ ref "strings.EqualFold" }}(headerName, name) && len(values) > 0 {
+		if strings.EqualFold(headerName, name) && len(values) > 0 {
 			return values[0]
 		}
 	}
@@ -452,9 +452,9 @@ func _octoqlHeaderValue(header {{ ref "net/http.Header" }}, name string) string 
 }
 
 func _octoqlClassifyRateLimit(
-	httpResponse *{{ ref "net/http.Response" }},
+	httpResponse *http.Response,
 	rateLimit *RateLimit,
-	retryAfterNow {{ ref "time.Time" }},
+	retryAfterNow time.Time,
 	err error,
 ) error {
 	if err == nil || httpResponse == nil || !_octoqlIsRateLimitStatus(httpResponse.StatusCode) {
@@ -490,7 +490,7 @@ func _octoqlClassifyRateLimit(
 
 func _octoqlIsRateLimitStatus(statusCode int) bool {
 	switch statusCode {
-	case {{ ref "net/http.StatusOK" }}, {{ ref "net/http.StatusForbidden" }}, {{ ref "net/http.StatusTooManyRequests" }}:
+	case http.StatusOK, http.StatusForbidden, http.StatusTooManyRequests:
 		return true
 	default:
 		return false
@@ -499,9 +499,9 @@ func _octoqlIsRateLimitStatus(statusCode int) bool {
 
 func _octoqlIsPrimaryRateLimit(statusCode int, rateLimit *RateLimit, err error) bool {
 	switch statusCode {
-	case {{ ref "net/http.StatusTooManyRequests" }}:
+	case http.StatusTooManyRequests:
 		return true
-	case {{ ref "net/http.StatusForbidden" }}:
+	case http.StatusForbidden:
 		if rateLimit != nil && rateLimit.Remaining == 0 {
 			return true
 		}
@@ -510,7 +510,7 @@ func _octoqlIsPrimaryRateLimit(statusCode int, rateLimit *RateLimit, err error) 
 }
 
 func _octoqlHasGraphQLRateLimitError(err error) bool {
-	graphqlErrors, ok := {{ ref "errors.AsType" }}[Errors](err)
+	graphqlErrors, ok := errors.AsType[Errors](err)
 	if !ok {
 		return false
 	}
@@ -530,30 +530,30 @@ const DefaultResponseSizeLimit int64 = 10 * 1024 * 1024
 //
 // Configure bearer authentication with [Client.SetBearerToken]. Other request
 // behavior, including other authentication schemes, belongs on the supplied
-// [{{ ref "net/http.Client" }}] or its [{{ ref "net/http.RoundTripper" }}]. A Client may be used concurrently
+// [http.Client] or its [http.RoundTripper]. A Client may be used concurrently
 // after construction.
 type Client struct {
-	httpClient *{{ ref "net/http.Client" }}
+	httpClient *http.Client
 	rateLimit  *RateLimit
 	endpoint   string
 
-	bearerToken          {{ ref "sync/atomic.Pointer" }}[string]
-	allowRedirects       {{ ref "sync/atomic.Bool" }}
-	responseObservation  {{ ref "sync/atomic.Uint64" }}
-	responseSizeLimit    {{ ref "sync/atomic.Int64" }}
-	rateLimitMu          {{ ref "sync.RWMutex" }}
+	bearerToken          atomic.Pointer[string]
+	allowRedirects       atomic.Bool
+	responseObservation  atomic.Uint64
+	responseSizeLimit    atomic.Int64
+	rateLimitMu          sync.RWMutex
 	rateLimitObservation uint64
 }
 
 const _octoqlMaxRedirects = 10
 
 // NewClient returns a client for endpoint. It shallow-copies httpClient, or
-// [{{ ref "net/http.DefaultClient" }}] when httpClient is nil, and configures
+// [http.DefaultClient] when httpClient is nil, and configures
 // the copy to refuse redirects by default. Changes to the supplied client after
 // this call, including its CheckRedirect function, do not affect the returned
 // Client. The supplied CheckRedirect is discarded; use [Client.SetAllowRedirects]
 // to opt in to redirects.
-func NewClient(endpoint string, httpClient *{{ ref "net/http.Client" }}) *Client {
+func NewClient(endpoint string, httpClient *http.Client) *Client {
 	client := &Client{
 		endpoint: endpoint,
 	}
@@ -562,21 +562,21 @@ func NewClient(endpoint string, httpClient *{{ ref "net/http.Client" }}) *Client
 	return client
 }
 
-func (c *Client) _octoqlHTTPClient(httpClient *{{ ref "net/http.Client" }}) *{{ ref "net/http.Client" }} {
+func (c *Client) _octoqlHTTPClient(httpClient *http.Client) *http.Client {
 	if httpClient == nil {
-		httpClient = {{ ref "net/http.DefaultClient" }}
+		httpClient = http.DefaultClient
 	}
 	clientCopy := *httpClient
 	clientCopy.CheckRedirect = c._octoqlCheckRedirect
 	return &clientCopy
 }
 
-func (c *Client) _octoqlCheckRedirect(request *{{ ref "net/http.Request" }}, via []*{{ ref "net/http.Request" }}) error {
+func (c *Client) _octoqlCheckRedirect(request *http.Request, via []*http.Request) error {
 	if c == nil || !c.allowRedirects.Load() {
 		return _octoqlRejectRedirect(request)
 	}
 	if len(via) >= _octoqlMaxRedirects {
-		return {{ ref "fmt.Errorf" }}("octoql: stopped after %d redirects", _octoqlMaxRedirects)
+		return fmt.Errorf("octoql: stopped after %d redirects", _octoqlMaxRedirects)
 	}
 	if len(via) > 0 && !_octoqlSameOrigin(via[0].URL, request.URL) {
 		request.Header.Del("Authorization")
@@ -584,17 +584,17 @@ func (c *Client) _octoqlCheckRedirect(request *{{ ref "net/http.Request" }}, via
 	return nil
 }
 
-func _octoqlRejectRedirect(request *{{ ref "net/http.Request" }}) error {
+func _octoqlRejectRedirect(request *http.Request) error {
 	status := "redirect"
 	if request.Response != nil {
 		status = request.Response.Status
 	}
-	return {{ ref "fmt.Errorf" }}("octoql: redirect refused: %s to %s", status, request.URL.Redacted())
+	return fmt.Errorf("octoql: redirect refused: %s to %s", status, request.URL.Redacted())
 }
 
-func _octoqlSameOrigin(left, right *{{ ref "net/url.URL" }}) bool {
-	return {{ ref "strings.EqualFold" }}(left.Scheme, right.Scheme) &&
-		{{ ref "strings.EqualFold" }}(left.Host, right.Host)
+func _octoqlSameOrigin(left, right *url.URL) bool {
+	return strings.EqualFold(left.Scheme, right.Scheme) &&
+		strings.EqualFold(left.Host, right.Host)
 }
 
 // SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
@@ -602,10 +602,10 @@ func _octoqlSameOrigin(left, right *{{ ref "net/url.URL" }}) bool {
 // with client operations to rotate credentials.
 func (c *Client) SetBearerToken(token string) error {
 	if c == nil {
-		return {{ ref "errors.New" }}("octoql: client is nil")
+		return errors.New("octoql: client is nil")
 	}
 	if !_octoqlValidBearerToken(token) {
-		return {{ ref "errors.New" }}("octoql: invalid bearer token")
+		return errors.New("octoql: invalid bearer token")
 	}
 
 	c.bearerToken.Store(&token)
@@ -624,12 +624,12 @@ func (c *Client) AllowRedirects() bool {
 // SetAllowRedirects configures whether client follows redirects. When enabled,
 // client follows at most 10 redirects and removes Authorization when a redirect
 // leaves the original request origin. Credentials added by a custom
-// [{{ ref "net/http.RoundTripper" }}] cannot be removed because the transport
+// [http.RoundTripper] cannot be removed because the transport
 // reapplies them on every hop. It may be called concurrently with client
 // operations.
 func (c *Client) SetAllowRedirects(allow bool) error {
 	if c == nil {
-		return {{ ref "errors.New" }}("octoql: client is nil")
+		return errors.New("octoql: client is nil")
 	}
 	c.allowRedirects.Store(allow)
 	return nil
@@ -654,10 +654,10 @@ func (c *Client) ResponseSizeLimit() int64 {
 // concurrently with client operations.
 func (c *Client) SetResponseSizeLimit(limit int64) error {
 	if c == nil {
-		return {{ ref "errors.New" }}("octoql: client is nil")
+		return errors.New("octoql: client is nil")
 	}
 	if limit <= 0 {
-		return {{ ref "errors.New" }}("octoql: response size limit must be greater than zero")
+		return errors.New("octoql: response size limit must be greater than zero")
 	}
 
 	c.responseSizeLimit.Store(limit)
@@ -699,26 +699,26 @@ type _octoqlPayload struct {
 // Every failure after the server returns an HTTP response includes
 // [ResponseError]. GraphQL errors and rate limits remain discoverable in that
 // error chain as [Errors] and [RateLimitError].
-func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoqlPayload, response any) (bool, error) {
+func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, response any) (bool, error) {
 	if c == nil {
-		return false, {{ ref "errors.New" }}("octoql: client is nil")
+		return false, errors.New("octoql: client is nil")
 	}
-	body, err := {{ ref "encoding/json/v2.Marshal" }}(
+	body, err := json.Marshal(
 		payload,
-		{{ ref "encoding/json/v2.FormatNilSliceAsNull" }}(true),
+		json.FormatNilSliceAsNull(true),
 	)
 	if err != nil {
-		return false, {{ ref "fmt.Errorf" }}("encode graphql request: %w", err)
+		return false, fmt.Errorf("encode graphql request: %w", err)
 	}
 
-	request, err := {{ ref "net/http.NewRequestWithContext" }}(
+	request, err := http.NewRequestWithContext(
 		ctx,
-		{{ ref "net/http.MethodPost" }},
+		http.MethodPost,
 		c.endpoint,
-		{{ ref "bytes.NewReader" }}(body),
+		bytes.NewReader(body),
 	)
 	if err != nil {
-		return false, {{ ref "fmt.Errorf" }}("create graphql request: %w", err)
+		return false, fmt.Errorf("create graphql request: %w", err)
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
@@ -735,14 +735,14 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 	httpResponse, sendErr := httpClient.Do(request)
 	if httpResponse == nil {
 		if sendErr == nil {
-			return false, {{ ref "errors.New" }}("send graphql request: HTTP client returned no response")
+			return false, errors.New("send graphql request: HTTP client returned no response")
 		}
-		return false, {{ ref "fmt.Errorf" }}("send graphql request: %w", sendErr)
+		return false, fmt.Errorf("send graphql request: %w", sendErr)
 	}
 
-	var retryAfterNow {{ ref "time.Time" }}
+	var retryAfterNow time.Time
 	if _octoqlIsRateLimitStatus(httpResponse.StatusCode) &&
-		{{ ref "strings.TrimSpace" }}(_octoqlHeaderValue(httpResponse.Header, "Retry-After")) != "" {
+		strings.TrimSpace(_octoqlHeaderValue(httpResponse.Header, "Retry-After")) != "" {
 		retryAfterNow = _octoqlRateLimitNow()
 	}
 
@@ -753,7 +753,7 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 	statusCode := httpResponse.StatusCode
 	requestID := _octoqlRequestIDFromHeader(httpResponse.Header)
 	if sendErr != nil {
-		cause := {{ ref "fmt.Errorf" }}("send graphql request: %w", sendErr)
+		cause := fmt.Errorf("send graphql request: %w", sendErr)
 		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode: statusCode,
 			requestID:  requestID,
@@ -763,7 +763,7 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 	}
 
 	if httpResponse.Body == nil {
-		cause := {{ ref "errors.New" }}("read graphql response: response body is nil")
+		cause := errors.New("read graphql response: response body is nil")
 		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode: statusCode,
 			requestID:  requestID,
@@ -777,8 +777,8 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 		c.ResponseSizeLimit(),
 	)
 	if readErr != nil {
-		cause := {{ ref "errors.Join" }}(readErr, closeErr)
-		_, responseTooLarge := {{ ref "errors.AsType" }}[*ResponseSizeLimitError](readErr)
+		cause := errors.Join(readErr, closeErr)
+		_, responseTooLarge := errors.AsType[*ResponseSizeLimitError](readErr)
 		responseError := _octoqlNewResponseError(_octoqlResponseErrorParams{
 			statusCode:    statusCode,
 			requestID:     requestID,
@@ -792,28 +792,28 @@ func (c *Client) _octoqlExecute(ctx {{ ref "context.Context" }}, payload _octoql
 
 	data, graphqlErrors, decodeErr := _octoqlDecodeResponse(body)
 
-	hasData := data != nil && !{{ ref "bytes.Equal" }}({{ ref "bytes.TrimSpace" }}(data), []byte("null"))
+	hasData := data != nil && !bytes.Equal(bytes.TrimSpace(data), []byte("null"))
 	hasErrors := len(graphqlErrors) > 0
 	hasUsableData := false
 	if hasData {
 		dataErr := _octoqlDecodeData(data, response)
 		hasUsableData = dataErr == nil
-		decodeErr = {{ ref "errors.Join" }}(decodeErr, dataErr)
+		decodeErr = errors.Join(decodeErr, dataErr)
 	}
 
 	cause := decodeErr
 	if len(graphqlErrors) > 0 {
 		var left error = graphqlErrors
-		cause = {{ ref "errors.Join" }}(left, cause)
+		cause = errors.Join(left, cause)
 	}
-	cause = {{ ref "errors.Join" }}(cause, closeErr)
+	cause = errors.Join(cause, closeErr)
 
 	isSuccessful := _octoqlIsSuccessfulStatus(statusCode)
 	haspayload := hasData || hasErrors
 	missingpayload := decodeErr == nil && !haspayload
 	if isSuccessful && missingpayload {
-		payloadErr := {{ ref "errors.New" }}("decode graphql response: response contains neither data nor errors")
-		cause = {{ ref "errors.Join" }}(cause, payloadErr)
+		payloadErr := errors.New("decode graphql response: response contains neither data nor errors")
+		cause = errors.Join(cause, payloadErr)
 	}
 
 	if isSuccessful && cause == nil {
@@ -850,9 +850,9 @@ func (c *Client) _octoqlObserveRateLimit(observation uint64, rateLimit *RateLimi
 	c.rateLimitObservation = observation
 }
 
-func _octoqlRequestIDFromHeader(header {{ ref "net/http.Header" }}) string {
+func _octoqlRequestIDFromHeader(header http.Header) string {
 	for name, values := range header {
-		if {{ ref "strings.EqualFold" }}(name, "X-GitHub-Request-ID") && len(values) > 0 {
+		if strings.EqualFold(name, "X-GitHub-Request-ID") && len(values) > 0 {
 			return values[0]
 		}
 	}
@@ -888,43 +888,43 @@ func _octoqlValidBearerTokenCharacter(character byte) bool {
 		return true
 	case character >= '0' && character <= '9':
 		return true
-	case {{ ref "strings.ContainsRune" }}("-._~+/", rune(character)):
+	case strings.ContainsRune("-._~+/", rune(character)):
 		return true
 	default:
 		return false
 	}
 }
 
-func _octoqlReadAndClose(body {{ ref "io.ReadCloser" }}, limit int64) ([]byte, error, error) {
-	payload, readErr := {{ ref "io.ReadAll" }}({{ ref "io.LimitReader" }}(body, limit))
+func _octoqlReadAndClose(body io.ReadCloser, limit int64) ([]byte, error, error) {
+	payload, readErr := io.ReadAll(io.LimitReader(body, limit))
 	if readErr == nil {
 		var excess [1]byte
-		count, excessErr := {{ ref "io.ReadFull" }}(body, excess[:])
+		count, excessErr := io.ReadFull(body, excess[:])
 		switch {
 		case count > 0:
 			readErr = &ResponseSizeLimitError{Limit: limit}
-		case excessErr != nil && !{{ ref "errors.Is" }}(excessErr, {{ ref "io.EOF" }}):
+		case excessErr != nil && !errors.Is(excessErr, io.EOF):
 			readErr = excessErr
 		}
 	}
 	closeErr := body.Close()
 	if readErr != nil {
-		readErr = {{ ref "fmt.Errorf" }}("read graphql response: %w", readErr)
+		readErr = fmt.Errorf("read graphql response: %w", readErr)
 	}
 	if closeErr != nil {
-		closeErr = {{ ref "fmt.Errorf" }}("close graphql response: %w", closeErr)
+		closeErr = fmt.Errorf("close graphql response: %w", closeErr)
 	}
 	return payload, readErr, closeErr
 }
 
-func _octoqlDecodeResponse(body []byte) ({{ ref "encoding/json/jsontext.Value" }}, Errors, error) {
+func _octoqlDecodeResponse(body []byte) (jsontext.Value, Errors, error) {
 	var envelope struct {
-		Data   {{ ref "encoding/json/jsontext.Value" }} `json:"data"`
-		Errors {{ ref "encoding/json/jsontext.Value" }} `json:"errors"`
+		Data   jsontext.Value `json:"data"`
+		Errors jsontext.Value `json:"errors"`
 	}
-	err := {{ ref "encoding/json/v2.Unmarshal" }}(body, &envelope)
+	err := json.Unmarshal(body, &envelope)
 	if err != nil {
-		return nil, nil, {{ ref "fmt.Errorf" }}(
+		return nil, nil, fmt.Errorf(
 			"decode graphql response envelope: %w",
 			err,
 		)
@@ -935,17 +935,17 @@ func _octoqlDecodeResponse(body []byte) ({{ ref "encoding/json/jsontext.Value" }
 		return envelope.Data, graphqlErrors, nil
 	}
 
-	err = {{ ref "encoding/json/v2.Unmarshal" }}(envelope.Errors, &graphqlErrors)
+	err = json.Unmarshal(envelope.Errors, &graphqlErrors)
 	if err != nil {
-		err = {{ ref "fmt.Errorf" }}("decode graphql response errors: %w", err)
+		err = fmt.Errorf("decode graphql response errors: %w", err)
 	}
 	return envelope.Data, graphqlErrors, err
 }
 
-func _octoqlDecodeData(data {{ ref "encoding/json/jsontext.Value" }}, response any) error {
-	err := {{ ref "encoding/json/v2.Unmarshal" }}(data, response)
+func _octoqlDecodeData(data jsontext.Value, response any) error {
+	err := json.Unmarshal(data, response)
 	if err != nil {
-		return {{ ref "fmt.Errorf" }}("decode graphql response data: %w", err)
+		return fmt.Errorf("decode graphql response data: %w", err)
 	}
 	return nil
 }
