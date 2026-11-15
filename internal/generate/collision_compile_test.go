@@ -20,7 +20,6 @@ func TestGenerateCollisionCompileCorpus(t *testing.T) {
 		name       string
 		schema     string
 		operations string
-		casing     Casing
 		// wantGenerationErr, when set, is a substring the generation error must
 		// contain.  Each collision case names its offending identifier so an
 		// unrelated failure cannot satisfy it.  When empty, generation must
@@ -150,25 +149,6 @@ fragment F on I {
 				"the fragment F on GraphQL type Impl",
 				"give one of them a distinct name with an @octoqlgen(typename:) directive",
 			},
-		},
-		{
-			// With auto-camel casing, foo_bar and fooBar both normalize to the
-			// Go identifier FooBar.
-			name: "underscore and camel fields",
-			schema: `
-type Query {
-  foo_bar: String!
-  fooBar: String!
-}
-`,
-			operations: `
-query Fields {
-  foo_bar
-  fooBar
-}
-`,
-			casing:            Casing{Default: CasingAutoCamelCase},
-			wantGenerationErr: "Go identifier FooBar for both field FooBar (GraphQL foo_bar) and field FooBar (GraphQL fooBar)",
 		},
 		{
 			// A fragment named the same as a GraphQL type is fine as long as it
@@ -420,7 +400,7 @@ query Q($foo: String, $Foo: String) {
 `,
 			wantGenerationErr: "generated type QVariables would emit the Go identifier Foo " +
 				"for both field Foo (GraphQL foo) and field Foo (GraphQL Foo); " +
-				"rename the variable or input field, or change the casing configuration",
+				"rename the variable or input field",
 		},
 		{
 			name: "typename reuse with equivalent inline selections",
@@ -606,7 +586,6 @@ query Q {
 				schema:      test.schema,
 				operations:  test.operations,
 				packageName: "probe",
-				casing:      test.casing,
 			})
 			if test.wantGenerationErr != "" {
 				require.Error(t, err)

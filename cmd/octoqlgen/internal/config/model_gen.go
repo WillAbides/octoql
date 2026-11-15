@@ -2,12 +2,6 @@
 
 package config
 
-type Casing struct {
-	AllEnums *string            `json:"all_enums" yaml:"all_enums"`
-	Default  *string            `json:"default" yaml:"default"`
-	Enums    *map[string]string `json:"enums" yaml:"enums"`
-}
-
 type Source struct {
 	Path       string `json:"path" yaml:"path"`
 	Repository string `json:"repository" yaml:"repository"`
@@ -26,12 +20,10 @@ type TestHandler struct {
 }
 
 type Config struct {
-	Bindings            *map[string]string `json:"bindings" yaml:"bindings"`
-	Casing              *Casing            `json:"casing" yaml:"casing"`
-	Generated           string             `json:"generated" yaml:"generated"`
-	Operations          []string           `json:"operations" yaml:"operations"`
-	Package             *string            `json:"package" yaml:"package"`
-	Schema              Schema             `json:"schema" yaml:"schema"`
-	TestHandler         *TestHandler       `json:"test_handler" yaml:"test_handler"`
-	UseStructReferences *bool              `json:"use_struct_references" yaml:"use_struct_references"`
+	Bindings    *map[string]string `json:"bindings" yaml:"bindings"`
+	Generated   string             `json:"generated" yaml:"generated"`
+	Operations  []string           `json:"operations" yaml:"operations"`
+	Package     *string            `json:"package" yaml:"package"`
+	Schema      Schema             `json:"schema" yaml:"schema"`
+	TestHandler *TestHandler       `json:"test_handler" yaml:"test_handler"`
 }

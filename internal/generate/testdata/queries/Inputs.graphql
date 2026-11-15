@@ -7,7 +7,6 @@ query GitHubInputs(
   $date: Date
   $defaults: InputWithDefaults!
   $optional: OmitemptyInput
-  $structs: UseStructReferencesInput!
   $publishedDates: [[[Date!]!]!]!
   $optionalPublishedDates: [[[Date!]!]!] @octoqlgen(pointer: true)
 )
@@ -28,7 +27,6 @@ query GitHubInputs(
   }
   default(input: $defaults)
   omitempty(input: $optional)
-  useStructReferencesInput(input: $structs)
   releasesPublishedOn(dates: $publishedDates) {
     publishedAt
   }

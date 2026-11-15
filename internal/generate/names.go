@@ -99,7 +99,6 @@ package generate
 // response object (inline in convertOperation).
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
@@ -127,9 +126,8 @@ func (p namePrefix) isSingle(name string) bool {
 // field prefix, since it ends with a type, not a field (see top-of-file
 // comment), but it's used to construct both the type-names from the input and
 // the next prefix.
-func typeNameParts(prefix namePrefix, typeName string, algorithm CasingAlgorithm) namePrefix {
-	// Apply the specified casing algorithm with uppercase first letter
-	typeName = applyCasing(typeName, algorithm)
+func typeNameParts(prefix namePrefix, typeName string) namePrefix {
+	typeName = upperFirst(typeName)
 
 	// If the prefix has just one part, that's the operation-name.  There's no
 	// need to add "Query" or "Mutation". An empty prefix is unused.
@@ -146,18 +144,18 @@ func typeNameParts(prefix namePrefix, typeName string, algorithm CasingAlgorithm
 
 // Given a prefix, and a field, compute the next prefix, which will
 // be used for that field's selections.
-func nextPrefix(prefix namePrefix, field *ast.Field, algorithm CasingAlgorithm) namePrefix {
+func nextPrefix(prefix namePrefix, field *ast.Field) namePrefix {
 	// Add the type.
-	prefix = typeNameParts(prefix, field.ObjectDefinition.Name, algorithm)
+	prefix = typeNameParts(prefix, field.ObjectDefinition.Name)
 	// Add the field (there's no shortening here, see top-of-file comment).
-	fieldAlias := applyCasing(field.Alias, algorithm)
+	fieldAlias := upperFirst(field.Alias)
 	return namePrefix{text: prefix.text + fieldAlias}
 }
 
 // Given a prefix, and the GraphQL of the current type, compute the name
 // we should give it in Go.
-func makeTypeName(prefix namePrefix, typeName string, algorithm CasingAlgorithm) string {
-	return typeNameParts(prefix, typeName, algorithm).text
+func makeTypeName(prefix namePrefix, typeName string) string {
+	return typeNameParts(prefix, typeName).text
 }
 
 // Like makeTypeName, but append typeName unconditionally.
@@ -165,21 +163,6 @@ func makeTypeName(prefix namePrefix, typeName string, algorithm CasingAlgorithm)
 // This is used for when you specify a type-name for a field of interface
 // type; we use YourName for the interface, but need to do YourNameImplName for
 // the implementations.
-func makeLongTypeName(prefix namePrefix, typeName string, algorithm CasingAlgorithm) string {
-	typeName = applyCasing(typeName, algorithm)
-	return prefix.text + typeName
-}
-
-func (c *Casing) enumValueName(goTypeName string, enum *ast.Definition, val *ast.EnumValueDefinition) string {
-	switch algo := c.forEnum(enum.Name); algo {
-	case CasingDefault:
-		return goTypeName + goConstName(val.Name)
-	case CasingRaw:
-		return goTypeName + "_" + val.Name
-	case CasingAutoCamelCase:
-		return goTypeName + applyCasing(val.Name, algo)
-	default:
-		// Should already be caught by validation.
-		panic(fmt.Sprintf("unknown casing algorithm %s", algo))
-	}
+func makeLongTypeName(prefix namePrefix, typeName string) string {
+	return prefix.text + upperFirst(typeName)
 }

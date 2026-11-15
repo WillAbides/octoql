@@ -43,7 +43,6 @@ type testGenerateSpec struct {
 	schema      string
 	operations  string
 	packageName string
-	casing      Casing
 	bindings    map[string]string
 }
 
@@ -63,7 +62,6 @@ func generateTestSource(t *testing.T, spec *testGenerateSpec) (string, error) {
 		Operations: []string{operationPath},
 		Generated:  filepath.Join(dir, "generated.go"),
 		Package:    packageName,
-		Casing:     spec.casing,
 		Bindings:   spec.bindings,
 	}
 	outputs, err := Generate(config)
@@ -180,6 +178,10 @@ func TestGenerate(t *testing.T) {
 			sourceFilenames: []string{"GraphShapes.graphql"},
 		},
 		{
+			name:            "Inputs.graphql",
+			sourceFilenames: []string{"Inputs.graphql"},
+		},
+		{
 			name:            "Naming.graphql",
 			sourceFilenames: []string{"Naming.graphql"},
 		},
@@ -212,6 +214,7 @@ func TestGenerate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			assert.NotContains(t, string(generated[goFilename]), "func (v *GitHubInputsVariables) Get")
 
 			t.Run(goFilename, func(t *testing.T) {
 				snapshot := matchGeneratedSnapshot(t, generated[goFilename])
@@ -256,7 +259,6 @@ func TestGenerateNormalizesConfig(t *testing.T) {
 	assert.Contains(t, source, "package api")
 	assert.Contains(t, source, "ctx context.Context,")
 	assert.Equal(t, "example.com/app/client", config.pkgPath)
-	assert.Equal(t, CasingDefault, config.Casing.Default)
 	assert.Contains(t, string(outputs[config.TestHandlerGenerated]), "package githubapitest")
 	assert.Empty(t, warnings.String())
 
@@ -821,30 +823,6 @@ func compileGeneratedOutputs(
 	compileGoDir(t, directory, false)
 }
 
-func TestGenerateWithConfig(t *testing.T) {
-	t.Parallel()
-
-	var snapshot []byte
-	t.Run("struct references", func(t *testing.T) {
-		config := &Config{
-			Schema:           "schema.graphql",
-			Operations:       []string{"Inputs.graphql"},
-			StructReferences: true,
-			Bindings:         testBindings(),
-		}
-		require.NoError(t, config.ValidateAndFillDefaults(dataDir))
-		generated, err := Generate(config)
-		require.NoError(t, err)
-		source := string(generated[config.Generated])
-		assert.NotContains(t, source, "func (v *__GitHubInputsInput) Get")
-		snapshot = matchGeneratedSnapshot(t, generated[config.Generated])
-		if snapshot == nil {
-			snapshot = generated[config.Generated]
-		}
-	})
-	compileModulePackages(t, map[string][]byte{"struct_references": snapshot})
-}
-
 func TestOmitUnreferencedImplementations(t *testing.T) {
 	t.Parallel()
 
@@ -932,7 +910,7 @@ func TestGenerateErrors(t *testing.T) {
 			case "ConflictingDirectives.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingDirectives.graphql:1: conflicting values for pointer"))
 			case "ConflictingEnumValues.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingEnumValues.schema.graphql:4: enum values FIRST_VALUE and first_value have conflicting Go name AnnoyingEnumFirstValue; add 'all_enums: raw' or 'enums: AnnoyingEnum: raw' to 'casing' in octoqlgen.yaml to fix"))
+				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingEnumValues.schema.graphql:4: enum values FIRST_VALUE and first_value have conflicting Go name AnnoyingEnumFirstValue"))
 			case "ConflictingSelections.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingSelections.graphql:1: operations must have operation-names"))
 			case "ConflictingTypeNameAndForFieldBind.graphql":

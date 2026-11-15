@@ -26,8 +26,6 @@ type Config struct {
 	TestHandlerTypes     TestHandlerTypeStrategy
 	Package              string
 	Bindings             map[string]string
-	Casing               Casing
-	StructReferences     bool
 	Warnings             io.Writer // Warnings are discarded when nil.
 
 	// The directory of the config-file (relative to which all the other paths
@@ -57,62 +55,6 @@ func (s TestHandlerTypeStrategy) validate() error {
 	default:
 		return errorf(nil, "test_handler.types must be one of: 'client' or 'local'")
 	}
-}
-
-// CasingAlgorithm represents a GraphQL-to-Go name conversion algorithm.
-type CasingAlgorithm string
-
-const (
-	CasingDefault       CasingAlgorithm = "default"
-	CasingRaw           CasingAlgorithm = "raw"
-	CasingAutoCamelCase CasingAlgorithm = "auto_camel_case"
-)
-
-func (a CasingAlgorithm) validate() error {
-	switch a {
-	case CasingDefault, CasingRaw, CasingAutoCamelCase:
-		return nil
-	default:
-		return errorf(nil, "unknown casing algorithm: %s", a)
-	}
-}
-
-// Casing configures GraphQL-to-Go name conversion.
-type Casing struct {
-	Default  CasingAlgorithm
-	AllEnums CasingAlgorithm
-	Enums    map[string]CasingAlgorithm
-}
-
-func (c *Casing) validate() error {
-	err := c.Default.validate()
-	if err != nil {
-		return err
-	}
-	if c.AllEnums != "" {
-		err = c.AllEnums.validate()
-		if err != nil {
-			return err
-		}
-	}
-	for _, algo := range c.Enums {
-		err = algo.validate()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *Casing) forEnum(graphQLTypeName string) CasingAlgorithm {
-	specificConfig, ok := c.Enums[graphQLTypeName]
-	if ok {
-		return specificConfig
-	}
-	if c.AllEnums != "" {
-		return c.AllEnums
-	}
-	return c.Default
 }
 
 // pathJoin is like filepath.Join but 1) it only takes two arguments,
@@ -246,14 +188,6 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 		return err
 	}
 	err = c.validatePackageNameAndPath()
-	if err != nil {
-		return err
-	}
-
-	if c.Casing.Default == "" {
-		c.Casing.Default = CasingDefault
-	}
-	err = c.Casing.validate()
 	if err != nil {
 		return err
 	}

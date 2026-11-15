@@ -24,27 +24,6 @@ func upperFirst(s string) string {
 	return changeFirst(strings.TrimLeft(s, "_"), unicode.ToUpper)
 }
 
-func snakeToCamel(s string) string {
-	var result strings.Builder
-	var nextUpper bool
-
-	for _, r := range s {
-		if r == '_' {
-			nextUpper = true
-			continue
-		}
-
-		if nextUpper {
-			result.WriteRune(unicode.ToUpper(r))
-			nextUpper = false
-			continue
-		}
-		result.WriteRune(r)
-	}
-
-	return result.String()
-}
-
 func goConstName(s string) string {
 	if strings.TrimLeft(s, "_") == "" {
 		return s
@@ -61,13 +40,6 @@ func goConstName(s string) string {
 		prev = r
 		return ret
 	}, s)
-}
-
-func applyCasing(s string, algo CasingAlgorithm) string {
-	if algo == CasingAutoCamelCase {
-		s = snakeToCamel(s)
-	}
-	return upperFirst(s)
 }
 
 // https://go.dev/ref/spec#Keywords

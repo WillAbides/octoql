@@ -84,21 +84,6 @@ func generateConfig(source *config.Config) *generate.Config {
 		bindings = maps.Clone(*source.Bindings)
 	}
 
-	var casing generate.Casing
-	if source.Casing != nil {
-		casing.Default = generate.CasingAlgorithm(stringValue(source.Casing.Default))
-		casing.AllEnums = generate.CasingAlgorithm(stringValue(source.Casing.AllEnums))
-		if source.Casing.Enums != nil {
-			casing.Enums = make(
-				map[string]generate.CasingAlgorithm,
-				len(*source.Casing.Enums),
-			)
-			for name, algorithm := range *source.Casing.Enums {
-				casing.Enums[name] = generate.CasingAlgorithm(algorithm)
-			}
-		}
-	}
-
 	return &generate.Config{
 		Schema:               source.SchemaPath(),
 		Operations:           source.OperationPaths(),
@@ -107,8 +92,6 @@ func generateConfig(source *config.Config) *generate.Config {
 		TestHandlerTypes:     generate.TestHandlerTypeStrategy(source.TestHandlerTypesValue()),
 		Package:              stringValue(source.Package),
 		Bindings:             bindings,
-		Casing:               casing,
-		StructReferences:     boolValue(source.UseStructReferences),
 	}
 }
 
@@ -117,8 +100,4 @@ func stringValue(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func boolValue(value *bool) bool {
-	return value != nil && *value
 }

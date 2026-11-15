@@ -68,11 +68,6 @@ func TestRunGenerate(t *testing.T) {
 				"bindings:\n"+
 				"  CustomID: string\n"+
 				"  URI: net/url.URL\n"+
-				"casing:\n"+
-				"  default: auto_camel_case\n"+
-				"  enums:\n"+
-				"    IssueState: raw\n"+
-				"use_struct_references: true\n"+
 				"test_handler:\n"+
 				"  generated: githubapitest/generated.go\n"+
 				"  types: local\n",
@@ -92,8 +87,7 @@ func TestRunGenerate(t *testing.T) {
 		assert.Contains(t, string(clientSource), "package githubapi")
 		assert.Contains(t, string(clientSource), "func (c *Client) Viewer(")
 		assert.Contains(t, string(clientSource), "ctx context.Context")
-		assert.Contains(t, string(clientSource), "IssueState_OPEN")
-		assert.Contains(t, string(clientSource), "type ViewerIpAddressListSnakeCaseType struct")
+		assert.Contains(t, string(clientSource), "IssueStateOpen")
 		assert.Contains(t, string(clientSource), `"net/url"`)
 		assert.Contains(t, string(clientSource), "url.URL")
 		assert.Contains(t, string(clientSource), `const Viewer_Operation = "\nquery Viewer`)
@@ -407,9 +401,9 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			wantErr: "bindings.DateTime must not be empty",
 		},
 		{
-			name:    "unknown casing field",
-			yaml:    baseYAML + "casing:\n  unknown: raw\n",
-			wantErr: "field unknown not found in type config.Casing",
+			name:    "removed casing option",
+			yaml:    baseYAML + "casing: {}\n",
+			wantErr: "field casing not found in type config.Config",
 		},
 		{
 			name:    "invalid test handler strategy",
@@ -452,6 +446,11 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			wantErr: "field package_bindings not found in type config.Config",
 		},
 		{
+			name:    "removed use_struct_references option",
+			yaml:    baseYAML + "use_struct_references: true\n",
+			wantErr: "field use_struct_references not found in type config.Config",
+		},
+		{
 			name:    "missing source repository",
 			yaml:    "schema:\n  path: s.graphql\n  source:\n    path: s.graphql\n    revision: " + cliRevision + "\noperations: []\ngenerated: g.go\n",
 			wantErr: "schema.source.repository is required",
@@ -470,11 +469,6 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			name:    "invalid go package identifier",
 			yaml:    baseYAML + "package: invalid-package\n",
 			wantErr: "invalid package in octoqlgen.yaml",
-		},
-		{
-			name:    "invalid casing algorithm",
-			yaml:    baseYAML + "casing:\n  default: invalid\n",
-			wantErr: "unknown casing algorithm",
 		},
 		{
 			name:    "test handler in client package",

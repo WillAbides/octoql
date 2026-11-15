@@ -131,7 +131,7 @@ func checkStructIdentifiers(t *goStructType) error {
 	}
 	remedy := "disambiguate the conflicting selection with a field alias"
 	if t.IsInput {
-		remedy = "rename the variable or input field, or change the casing configuration"
+		remedy = "rename the variable or input field"
 	}
 	used := make(map[string]identifierSource)
 	register := func(name, description string, pos *ast.Position) error {
@@ -392,43 +392,39 @@ func defaultScalarType(graphQLName string) (string, bool) {
 }
 
 type inputFieldSpec struct {
-	ownerName    string
-	fieldName    string
-	kindLabel    string
-	astType      *ast.Type
-	hasDefault   bool
-	description  string
-	fieldPos     *ast.Position
-	errPos       *ast.Position
-	enforceRules bool
-	options      *fieldOptions
+	ownerName   string
+	fieldName   string
+	kindLabel   string
+	astType     *ast.Type
+	hasDefault  bool
+	description string
+	fieldPos    *ast.Position
+	errPos      *ast.Position
+	options     *fieldOptions
 }
 
 func (g *planState) convertInputField(spec *inputFieldSpec) (*goStructField, error) {
-	if spec.enforceRules && spec.astType.NonNull && !spec.hasDefault && spec.options.GetOmitempty() {
+	if spec.astType.NonNull && !spec.hasDefault && spec.options.GetOmitempty() {
 		return nil, errorf(spec.errPos,
 			"omitempty may only be used on optional arguments: %s.%s",
 			spec.ownerName, spec.fieldName)
 	}
 
-	goTyp, structRefOmitempty, err := g.convertInputType(spec.astType, spec.options)
+	goTyp, err := g.convertInputType(spec.astType, spec.options)
 	if err != nil {
 		return nil, err
 	}
 
-	omitempty := structRefOmitempty
-	if spec.options.Omitempty != nil {
-		omitempty = *spec.options.Omitempty
-	}
+	omitempty := spec.options.GetOmitempty()
 
 	_, isPointer := goTyp.(*goPointerType)
-	if spec.enforceRules && spec.astType.NonNull && isPointer && !omitempty {
+	if spec.astType.NonNull && isPointer && !omitempty {
 		return nil, errorf(spec.errPos,
 			"pointer on non-null %s can only be used together with omitempty: %s.%s",
 			spec.kindLabel, spec.ownerName, spec.fieldName)
 	}
 
-	goName := applyCasing(spec.fieldName, g.config.Casing.Default)
+	goName := upperFirst(spec.fieldName)
 	return &goStructField{
 		GoName:      goName,
 		GoType:      goTyp,
@@ -455,15 +451,14 @@ func (g *planState) convertArguments(
 		}
 		options := g.directives.forVariable(arg, opOptions.Defaults)
 		field, err := g.convertInputField(&inputFieldSpec{
-			ownerName:    operation.Name,
-			fieldName:    arg.Variable,
-			kindLabel:    "argument",
-			astType:      arg.Type,
-			hasDefault:   arg.DefaultValue != nil,
-			fieldPos:     arg.Position,
-			errPos:       arg.Position,
-			enforceRules: true,
-			options:      options,
+			ownerName:  operation.Name,
+			fieldName:  arg.Variable,
+			kindLabel:  "argument",
+			astType:    arg.Type,
+			hasDefault: arg.DefaultValue != nil,
+			fieldPos:   arg.Position,
+			errPos:     arg.Position,
+			options:    options,
 		})
 		if err != nil {
 			return nil, err
@@ -513,31 +508,24 @@ func (g *planState) convertLocalBinding(
 func (g *planState) convertInputType(
 	typ *ast.Type,
 	options *fieldOptions,
-) (goType, bool, error) {
+) (goType, error) {
 	if options.Bind != "" && options.Bind != "-" {
-		bound, err := g.convertLocalBinding(typ, nil, options)
-		return bound, false, err
+		return g.convertLocalBinding(typ, nil, options)
 	}
 	if typ.Elem != nil {
-		elem, defaultOmitempty, err := g.convertInputType(typ.Elem, options)
+		elem, err := g.convertInputType(typ.Elem, options)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
-		return &goSliceType{Elem: elem}, defaultOmitempty, nil
+		return &goSliceType{Elem: elem}, nil
 	}
 
 	def := g.schema.Types[typ.Name()]
-	goTyp, isBound, err := g.convertInputDefinition(def, typ.Position, options)
+	goTyp, err := g.convertInputDefinition(def, typ.Position, options)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	if !isBound && g.getStructReference(def) {
-		if !options.PointerIsFalse() {
-			goTyp = &goPointerType{Elem: goTyp}
-		}
-		return goTyp, true, nil
-	}
-	return applyPointerSelection(goTyp, typ, options), false, nil
+	return applyPointerSelection(goTyp, typ, options), nil
 }
 
 type selectionTypeSpec struct {
@@ -567,7 +555,7 @@ func (g *planState) convertSelectionType(spec *selectionTypeSpec) (goType, error
 	}
 
 	def := g.schema.Types[spec.typ.Name()]
-	goTyp, isBound, err := g.convertOutputDefinition(&outputDefinitionSpec{
+	goTyp, err := g.convertOutputDefinition(&outputDefinitionSpec{
 		prefix:       spec.prefix,
 		def:          def,
 		pos:          spec.typ.Position,
@@ -577,12 +565,6 @@ func (g *planState) convertSelectionType(spec *selectionTypeSpec) (goType, error
 	})
 	if err != nil {
 		return nil, err
-	}
-	if !isBound && g.getStructReference(def) {
-		if !spec.options.PointerIsFalse() {
-			goTyp = &goPointerType{Elem: goTyp}
-		}
-		return goTyp, nil
 	}
 	return applyPointerSelection(goTyp, spec.typ, spec.options), nil
 }
@@ -603,11 +585,6 @@ func applyPointerSelection(
 		return goTyp
 	}
 	return &goPointerType{Elem: goTyp}
-}
-
-func (g *planState) getStructReference(def *ast.Definition) bool {
-	return g.config.StructReferences &&
-		(def.Kind == ast.Object || def.Kind == ast.InputObject)
 }
 
 func (g *planState) resolveConfiguredBinding(
@@ -685,14 +662,12 @@ func (g *planState) convertScalarOrEnumDefinition(
 
 		goNames := make(map[string]*goEnumValue, len(def.EnumValues))
 		for i, val := range def.EnumValues {
-			goName := g.config.Casing.enumValueName(name, def, val)
+			goName := name + goConstName(val.Name)
 			conflict := goNames[goName]
 			if conflict != nil {
 				return nil, errorf(val.Position,
-					"enum values %s and %s have conflicting Go name %s; "+
-						"add 'all_enums: raw' or 'enums: %v: raw' "+
-						"to 'casing' in octoqlgen.yaml to fix",
-					val.Name, conflict.GraphQLName, goName, def.Name)
+					"enum values %s and %s have conflicting Go name %s",
+					val.Name, conflict.GraphQLName, goName)
 			}
 
 			goTyp.Values[i] = goEnumValue{
@@ -727,24 +702,23 @@ func (g *planState) convertInputDefinition(
 	def *ast.Definition,
 	pos *ast.Position,
 	options *fieldOptions,
-) (goType, bool, error) {
+) (goType, error) {
 	bound, err := g.resolveConfiguredBinding(def, nil, options)
 	if bound != nil || err != nil {
-		return bound, bound != nil, err
+		return bound, err
 	}
 
-	name := applyCasing(def.Name, g.config.Casing.Default)
+	name := upperFirst(def.Name)
 	if options.TypeName != "" {
 		if goKeywords[options.TypeName] {
-			return nil, false, errorf(pos, "typename option must not be a go keyword")
+			return nil, errorf(pos, "typename option must not be a go keyword")
 		}
 		name = options.TypeName
 	}
 
 	provPos := provenancePosition(pos, options)
 	if def.Kind != ast.InputObject {
-		typ, scalarErr := g.convertScalarOrEnumDefinition(name, def, pos, provPos)
-		return typ, false, scalarErr
+		return g.convertScalarOrEnumDefinition(name, def, pos, provPos)
 	}
 
 	existing, err := g.getType(&typeLookup{
@@ -754,7 +728,7 @@ func (g *planState) convertInputDefinition(
 		pos:         provPos,
 	})
 	if existing != nil || err != nil {
-		return existing, false, err
+		return existing, err
 	}
 
 	goTyp := &goStructType{
@@ -766,33 +740,31 @@ func (g *planState) convertInputDefinition(
 	}
 	_, err = g.addType(goTyp, goTyp.GoName, provPos)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
-	enforceRules := !g.config.StructReferences
 	for i, field := range def.Fields {
 		opts, dirErr := g.directives.forInputField(def, field)
 		if dirErr != nil {
-			return nil, false, dirErr
+			return nil, dirErr
 		}
 		convertedField, fieldErr := g.convertInputField(&inputFieldSpec{
-			ownerName:    name,
-			fieldName:    field.Name,
-			kindLabel:    "input field",
-			astType:      field.Type,
-			hasDefault:   field.DefaultValue != nil,
-			description:  field.Description,
-			fieldPos:     field.Position,
-			errPos:       pos,
-			enforceRules: enforceRules,
-			options:      opts,
+			ownerName:   name,
+			fieldName:   field.Name,
+			kindLabel:   "input field",
+			astType:     field.Type,
+			hasDefault:  field.DefaultValue != nil,
+			description: field.Description,
+			fieldPos:    field.Position,
+			errPos:      pos,
+			options:     opts,
 		})
 		if fieldErr != nil {
-			return nil, false, fieldErr
+			return nil, fieldErr
 		}
 		goTyp.Fields[i] = convertedField
 	}
-	return goTyp, false, nil
+	return goTyp, nil
 }
 
 type abstractSelectionSpec struct {
@@ -884,7 +856,7 @@ type outputDefinitionSpec struct {
 	defaults     defaultOptions
 }
 
-func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType, bool, error) {
+func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType, error) {
 	prefix := spec.prefix
 	def := spec.def
 	pos := spec.pos
@@ -893,31 +865,29 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 	defaults := spec.defaults
 	bound, err := g.resolveConfiguredBinding(def, selectionSet, options)
 	if bound != nil || err != nil {
-		return bound, bound != nil, err
+		return bound, err
 	}
 
-	casing := g.config.Casing.Default
 	var name string
 	switch {
 	case options.TypeName != "":
 		if goKeywords[options.TypeName] {
-			return nil, false, errorf(pos, "typename option must not be a go keyword")
+			return nil, errorf(pos, "typename option must not be a go keyword")
 		}
 		name = options.TypeName
 		if prefix.isSingle(name) {
-			name = makeLongTypeName(prefix, def.Name, casing)
+			name = makeLongTypeName(prefix, def.Name)
 		}
 		prefix = newNamePrefix(options.TypeName)
 	case def.Kind == ast.Enum:
-		name = applyCasing(def.Name, casing)
+		name = upperFirst(def.Name)
 	default:
-		name = makeTypeName(prefix, def.Name, casing)
+		name = makeTypeName(prefix, def.Name)
 	}
 
 	provPos := provenancePosition(pos, options)
 	if def.Kind == ast.Enum || def.Kind == ast.Scalar {
-		typ, scalarErr := g.convertScalarOrEnumDefinition(name, def, pos, provPos)
-		return typ, false, scalarErr
+		return g.convertScalarOrEnumDefinition(name, def, pos, provPos)
 	}
 
 	desc := descriptionInfo{
@@ -932,14 +902,14 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 
 	fields, err := g.convertSelectionSet(prefix, selectionSet, def, defaults)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	if options.GetFlatten() {
 		fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
 		if flattenErr != nil {
-			return nil, false, flattenErr
+			return nil, flattenErr
 		}
-		return fields[fieldIndex].GoType, false, nil
+		return fields[fieldIndex].GoType, nil
 	}
 
 	switch kind {
@@ -949,12 +919,11 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 			Fields:          fields,
 			descriptionInfo: desc,
 		}
-		added, addErr := g.addType(goTyp, goTyp.GoName, provPos)
-		return added, false, addErr
+		return g.addType(goTyp, goTyp.GoName, provPos)
 
 	case ast.Interface, ast.Union:
 		explicitTypeName := options.TypeName
-		typ, absErr := g.buildAbstractSelectionType(&abstractSelectionSpec{
+		return g.buildAbstractSelectionType(&abstractSelectionSpec{
 			goName:        name,
 			prefix:        prefix,
 			def:           def,
@@ -966,15 +935,14 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 			pos:           pos,
 			implGoName: func(implDef *ast.Definition) string {
 				if explicitTypeName != "" && prefix.isSingle(explicitTypeName) {
-					return makeLongTypeName(prefix, implDef.Name, casing)
+					return makeLongTypeName(prefix, implDef.Name)
 				}
-				return makeTypeName(prefix, implDef.Name, casing)
+				return makeTypeName(prefix, implDef.Name)
 			},
 		})
-		return typ, false, absErr
 
 	default:
-		return nil, false, errorf(pos, "unexpected kind: %v", def.Kind)
+		return nil, errorf(pos, "unexpected kind: %v", def.Kind)
 	}
 }
 
@@ -1362,9 +1330,8 @@ func (g *planState) convertField(
 	if opts.Alias != "" {
 		goName = opts.Alias
 	}
-	casing := g.config.Casing.Default
-	goName = applyCasing(goName, casing)
-	prefix = nextPrefix(prefix, field, casing)
+	goName = upperFirst(goName)
+	prefix = nextPrefix(prefix, field)
 
 	fieldGoType, err := g.convertSelectionType(&selectionTypeSpec{
 		prefix:       prefix,

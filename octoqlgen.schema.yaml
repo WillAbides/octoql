@@ -124,75 +124,9 @@ properties:
     x-go-type: map[string]string
     additionalProperties:
       type: string
-  casing:
-    $ref: '#/$defs/casing'
-  use_struct_references:
-    description: Whether generated struct fields default to pointers with omitempty.
-    x-doc: |
-      When true, fields with a struct type default to `pointer: true` and
-      `omitempty: true`.
-
-      This is useful for schemas where it would be burdensome to set those
-      options manually on a large number of fields. Defaults to false.
-    type: boolean
-    examples:
-      - true
   test_handler:
     $ref: '#/$defs/testHandler'
 $defs:
-  casing:
-    description: GraphQL-to-Go name casing configuration.
-    x-doc: |
-      By default octoqlgen converts GraphQL names to Go style automatically.
-      Sometimes that does not produce the desired result; these options
-      configure the algorithm for a given schema.
-
-      Each option accepts one of the following values:
-
-      - `default`: use octoqlgen's default algorithm, which converts GraphQL
-        names to exported Go names. This is usually best for schemas using
-        idiomatic GraphQL naming.
-      - `raw`: keep the GraphQL spelling, without converting it to Go style.
-        octoqlgen still uppercases the first character of generated identifiers.
-        This is usually best for schemas with casing conflicts, such as enums
-        whose values differ only in casing.
-      - `auto_camel_case`: convert `snake_case` to `camelCase` before standard
-        processing. This applies to field names, type names, and enum values.
-    type: object
-    additionalProperties: false
-    properties:
-      default:
-        description: Default casing algorithm.
-        x-doc: |
-          The casing algorithm to use for all GraphQL names, including fields
-          and types.
-        type: string
-        examples:
-          - auto_camel_case
-      all_enums:
-        description: Casing algorithm for enums without a specific override.
-        x-doc: |
-          The casing algorithm to use for all GraphQL enum values.
-        type: string
-        examples:
-          - raw
-      enums:
-        description: Casing algorithm overrides keyed by GraphQL enum name.
-        x-doc: |
-          The casing algorithm to use for the values of specific GraphQL enum
-          types. These entries take precedence over `all_enums`.
-
-          Keys are GraphQL enum type names and values are casing algorithms:
-
-          ```yaml
-          casing:
-            enums:
-              PullRequestState: raw
-          ```
-        type: object
-        x-go-type: map[string]string
-        additionalProperties:
-          type: string
   schema:
     description: Local schema path and optional pinned GitHub.com source.
     x-doc: |
