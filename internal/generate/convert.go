@@ -4,6 +4,7 @@ package generate
 // into Go type definitions in planState.typeMap.
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"sort"
@@ -12,30 +13,28 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-type typeLookup struct {
-	goName      string
-	graphQLName string
-	newSource   string
-	pos         *ast.Position
-}
-
-func (g *planState) getType(lookup *typeLookup) (goType, error) {
-	typ, ok := g.typeMap[lookup.goName]
+func (g *planState) getType(
+	goName string,
+	graphQLName string,
+	newSource string,
+	pos *ast.Position,
+) (goType, error) {
+	typ, ok := g.typeMap[goName]
 	if !ok {
 		return nil, nil
 	}
 
-	if typ.GraphQLTypeName() != lookup.graphQLName {
+	if typ.GraphQLTypeName() != graphQLName {
 		oldSource := describeTypeSource(typ)
-		oldPos := g.typePositions[lookup.goName]
+		oldPos := g.typePositions[goName]
 		return typ, errorf(
-			lookup.pos, "conflicting definition for the Go type %s: it is generated "+
+			pos, "conflicting definition for the Go type %s: it is generated "+
 				"from both %s (at %s) and %s (at %s), which are different "+
 				"GraphQL types (expected GraphQL type %s, got %s); give one of "+
 				"them a distinct name with an @octoqlgen(typename:) directive so "+
 				"they produce separate Go types",
-			lookup.goName, oldSource, posString(oldPos), lookup.newSource, posString(lookup.pos),
-			typ.GraphQLTypeName(), lookup.graphQLName,
+			goName, oldSource, posString(oldPos), newSource, posString(pos),
+			typ.GraphQLTypeName(), graphQLName,
 		)
 	}
 
@@ -73,12 +72,7 @@ func posString(pos *ast.Position) string {
 
 func (g *planState) addType(typ goType, goName string, pos *ast.Position) (goType, error) {
 	newSource := describeTypeSource(typ)
-	otherTyp, err := g.getType(&typeLookup{
-		goName:      goName,
-		graphQLName: typ.GraphQLTypeName(),
-		newSource:   newSource,
-		pos:         pos,
-	})
+	otherTyp, err := g.getType(goName, typ.GraphQLTypeName(), newSource, pos)
 	if err != nil {
 		return otherTyp, err
 	}
@@ -208,11 +202,7 @@ func checkStructIdentifiers(t *goStructType) error {
 		}
 		existing, ok := used[name]
 		if ok {
-			errPos := pos
-			if errPos == nil {
-				errPos = existing.pos
-			}
-			return errorf(errPos,
+			return errorf(cmp.Or(pos, existing.pos),
 				"generated type %s would emit the Go identifier %s for both %s and %s; %s",
 				t.GoName, name, existing.description, description, remedy)
 		}
@@ -292,8 +282,6 @@ func canonicalizeTypeRef(ref, pkgPath string) string {
 		name = "uint8"
 	case "rune":
 		name = "int32"
-	case "any":
-		name = "interface{}"
 	}
 	return ref[:start] + name
 }
@@ -352,11 +340,7 @@ func checkInterfaceIdentifiers(t *goInterfaceType, pkgPath string) error {
 		if !sameOwner && existing.canonSignature == method.canonSignature {
 			continue
 		}
-		errPos := method.pos
-		if errPos == nil {
-			errPos = existing.pos
-		}
-		return errorf(errPos,
+		return errorf(cmp.Or(method.pos, existing.pos),
 			"generated interface %s would emit two methods named %s that do not "+
 				"agree: %s%s from %s, and %s%s from %s; "+
 				"disambiguate the conflicting selection with a field alias",
@@ -712,12 +696,7 @@ func (g *planState) convertScalarOrEnumDefinition(
 	def *ast.Definition,
 	pos, provenancePos *ast.Position,
 ) (goType, error) {
-	existing, err := g.getType(&typeLookup{
-		goName:      name,
-		graphQLName: def.Name,
-		newSource:   describeGraphQLSource(def.Name, ""),
-		pos:         provenancePos,
-	})
+	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), provenancePos)
 	if existing != nil || err != nil {
 		return existing, err
 	}
@@ -792,12 +771,7 @@ func (g *planState) convertInputDefinition(
 		return g.convertScalarOrEnumDefinition(name, def, pos, provPos)
 	}
 
-	existing, err := g.getType(&typeLookup{
-		goName:      name,
-		graphQLName: def.Name,
-		newSource:   describeGraphQLSource(def.Name, ""),
-		pos:         provPos,
-	})
+	existing, err := g.getType(name, def.Name, describeGraphQLSource(def.Name, ""), provPos)
 	if existing != nil || err != nil {
 		return existing, err
 	}
@@ -838,26 +812,64 @@ func (g *planState) convertInputDefinition(
 	return goTyp, nil
 }
 
-type abstractSelectionSpec struct {
+type compositeSelectionSpec struct {
 	goName        string
 	prefix        namePrefix
 	def           *ast.Definition
 	selectionSet  ast.SelectionSet
-	sharedFields  []*goStructField
 	defaults      defaultOptions
 	desc          descriptionInfo
 	provenancePos *ast.Position
 	pos           *ast.Position
-	implGoName    func(*ast.Definition) string
+	forceStruct   bool
+	flatten       bool
 }
 
-func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goType, error) {
-	existing, err := g.getType(&typeLookup{
-		goName:      spec.goName,
-		graphQLName: spec.def.Name,
-		newSource:   describeGraphQLSource(spec.def.Name, spec.desc.FragmentName),
-		pos:         spec.provenancePos,
-	})
+func (g *planState) buildCompositeSelectionType(spec *compositeSelectionSpec) (goType, error) {
+	fields, err := g.convertSelectionSet(spec.prefix, spec.selectionSet, spec.def, spec.defaults)
+	if err != nil {
+		return nil, err
+	}
+	if spec.flatten {
+		fieldIndex, flattenErr := validateFlattenOption(spec.def, spec.selectionSet, spec.pos)
+		if flattenErr != nil {
+			return nil, flattenErr
+		}
+		return fields[fieldIndex].GoType, nil
+	}
+
+	kind := spec.def.Kind
+	if spec.forceStruct && validateStructOption(spec.def, spec.selectionSet, spec.pos) == nil {
+		kind = ast.Object
+	}
+
+	switch kind {
+	case ast.Object:
+		goTyp := &goStructType{
+			GoName:          spec.goName,
+			Fields:          fields,
+			descriptionInfo: spec.desc,
+		}
+		return g.addType(goTyp, goTyp.GoName, spec.provenancePos)
+
+	case ast.Interface, ast.Union:
+		return g.buildAbstractSelectionType(spec, fields)
+
+	default:
+		return nil, errorf(spec.pos, "unexpected kind: %v", spec.def.Kind)
+	}
+}
+
+func (g *planState) buildAbstractSelectionType(
+	spec *compositeSelectionSpec,
+	sharedFields []*goStructField,
+) (goType, error) {
+	existing, err := g.getType(
+		spec.goName,
+		spec.def.Name,
+		describeGraphQLSource(spec.def.Name, spec.desc.FragmentName),
+		spec.provenancePos,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -870,7 +882,7 @@ func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goT
 
 	goTyp := &goInterfaceType{
 		GoName:          spec.goName,
-		SharedFields:    spec.sharedFields,
+		SharedFields:    sharedFields,
 		descriptionInfo: spec.desc,
 	}
 	existingInterface, isInterface := existing.(*goInterfaceType)
@@ -892,8 +904,12 @@ func (g *planState) buildAbstractSelectionType(spec *abstractSelectionSpec) (goT
 			implDesc.GraphQLDescription = implDef.Description
 		}
 
+		implName := makeTypeName(spec.prefix, implDef.Name)
+		if spec.prefix.single {
+			implName = makeLongTypeName(spec.prefix, implDef.Name)
+		}
 		implTyp := &goStructType{
-			GoName:          spec.implGoName(implDef),
+			GoName:          implName,
 			Fields:          implFields,
 			descriptionInfo: implDesc,
 		}
@@ -961,60 +977,21 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 		return g.convertScalarOrEnumDefinition(name, def, pos, provPos)
 	}
 
-	desc := descriptionInfo{
-		GraphQLDescription: def.Description,
-		GraphQLName:        def.Name,
-	}
-
-	kind := def.Kind
-	if options.GetStruct() && validateStructOption(def, selectionSet, pos) == nil {
-		kind = ast.Object
-	}
-
-	fields, err := g.convertSelectionSet(prefix, selectionSet, def, defaults)
-	if err != nil {
-		return nil, err
-	}
-	if options.GetFlatten() {
-		fieldIndex, flattenErr := validateFlattenOption(def, selectionSet, pos)
-		if flattenErr != nil {
-			return nil, flattenErr
-		}
-		return fields[fieldIndex].GoType, nil
-	}
-
-	switch kind {
-	case ast.Object:
-		goTyp := &goStructType{
-			GoName:          name,
-			Fields:          fields,
-			descriptionInfo: desc,
-		}
-		return g.addType(goTyp, goTyp.GoName, provPos)
-
-	case ast.Interface, ast.Union:
-		explicitTypeName := options.TypeName
-		return g.buildAbstractSelectionType(&abstractSelectionSpec{
-			goName:        name,
-			prefix:        prefix,
-			def:           def,
-			selectionSet:  selectionSet,
-			sharedFields:  fields,
-			defaults:      defaults,
-			desc:          desc,
-			provenancePos: provPos,
-			pos:           pos,
-			implGoName: func(implDef *ast.Definition) string {
-				if explicitTypeName != "" && prefix.isSingle(explicitTypeName) {
-					return makeLongTypeName(prefix, implDef.Name)
-				}
-				return makeTypeName(prefix, implDef.Name)
-			},
-		})
-
-	default:
-		return nil, errorf(pos, "unexpected kind: %v", def.Kind)
-	}
+	return g.buildCompositeSelectionType(&compositeSelectionSpec{
+		goName:       name,
+		prefix:       prefix,
+		def:          def,
+		selectionSet: selectionSet,
+		defaults:     defaults,
+		desc: descriptionInfo{
+			GraphQLDescription: def.Description,
+			GraphQLName:        def.Name,
+		},
+		provenancePos: provPos,
+		pos:           pos,
+		forceStruct:   options.GetStruct(),
+		flatten:       options.GetFlatten(),
+	})
 }
 
 func (g *planState) filterReferencedImplementations(
@@ -1070,11 +1047,10 @@ func (g *planState) filterReferencedImplementations(
 			}
 
 			definition := g.schema.Types[typeCondition]
-			conditionTypes := g.possibleObjectTypes(definition)
 			fragmentApplicable := map[string]bool{}
-			for concreteType := range conditionTypes {
-				if current.applicable[concreteType] {
-					fragmentApplicable[concreteType] = true
+			for _, possibleType := range g.schema.GetPossibleTypes(definition) {
+				if current.applicable[possibleType.Name] {
+					fragmentApplicable[possibleType.Name] = true
 				}
 			}
 			if len(fragmentApplicable) == 0 {
@@ -1107,25 +1083,6 @@ func selectionSetHasDirectFields(selectionSet ast.SelectionSet) bool {
 		}
 	}
 	return false
-}
-
-func (g *planState) possibleObjectTypes(definition *ast.Definition) map[string]bool {
-	if definition == nil {
-		return map[string]bool{}
-	}
-	if definition.Kind == ast.Object {
-		return map[string]bool{definition.Name: true}
-	}
-	if definition.Kind != ast.Interface && definition.Kind != ast.Union {
-		return map[string]bool{}
-	}
-
-	possibleTypes := g.schema.GetPossibleTypes(definition)
-	result := make(map[string]bool, len(possibleTypes))
-	for _, possibleType := range possibleTypes {
-		result[possibleType.Name] = true
-	}
-	return result
 }
 
 func (g *planState) attachCatchAllImplementation(
@@ -1334,57 +1291,23 @@ func (g *planState) convertFragmentSpread(
 func (g *planState) convertNamedFragment(fragment *ast.FragmentDefinition) (goType, error) {
 	typ := g.schema.Types[fragment.TypeCondition]
 	fragOptions := g.directives.forFragment(fragment)
-	comment := precedingComment(fragment.Position)
 
-	desc := descriptionInfo{
-		CommentOverride:    comment,
-		GraphQLName:        typ.Name,
-		GraphQLDescription: typ.Description,
-		FragmentName:       fragment.Name,
-	}
-
-	prefix := newNamePrefix(fragment.Name)
-	fields, err := g.convertSelectionSet(prefix, fragment.SelectionSet, typ, fragOptions.Defaults)
-	if err != nil {
-		return nil, err
-	}
-	if fragOptions.Flatten {
-		fieldIndex, flattenErr := validateFlattenOption(typ, fragment.SelectionSet, fragment.Position)
-		if flattenErr != nil {
-			return nil, flattenErr
-		}
-		return fields[fieldIndex].GoType, nil
-	}
-
-	switch typ.Kind {
-	case ast.Object:
-		goTyp := &goStructType{
-			GoName:          fragment.Name,
-			Fields:          fields,
-			descriptionInfo: desc,
-		}
-		return g.addType(goTyp, goTyp.GoName, fragment.Position)
-
-	case ast.Interface, ast.Union:
-		return g.buildAbstractSelectionType(&abstractSelectionSpec{
-			goName:        fragment.Name,
-			prefix:        prefix,
-			def:           typ,
-			selectionSet:  fragment.SelectionSet,
-			sharedFields:  fields,
-			defaults:      fragOptions.Defaults,
-			desc:          desc,
-			provenancePos: fragment.Position,
-			pos:           fragment.Position,
-			implGoName: func(implDef *ast.Definition) string {
-				return fragment.Name + upperFirst(implDef.Name)
-			},
-		})
-
-	default:
-		return nil, errorf(fragment.Position, "invalid type for fragment: %v is a %v",
-			fragment.TypeCondition, typ.Kind)
-	}
+	return g.buildCompositeSelectionType(&compositeSelectionSpec{
+		goName:       fragment.Name,
+		prefix:       newNamePrefix(fragment.Name),
+		def:          typ,
+		selectionSet: fragment.SelectionSet,
+		defaults:     fragOptions.Defaults,
+		desc: descriptionInfo{
+			CommentOverride:    precedingComment(fragment.Position),
+			GraphQLName:        typ.Name,
+			GraphQLDescription: typ.Description,
+			FragmentName:       fragment.Name,
+		},
+		provenancePos: fragment.Position,
+		pos:           fragment.Position,
+		flatten:       fragOptions.Flatten,
+	})
 }
 
 func (g *planState) convertField(
