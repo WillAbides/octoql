@@ -232,7 +232,12 @@ func checkStructIdentifiers(t *goStructType) error {
 	}
 
 	if t.NeedsMarshaling() {
-		for _, method := range []string{"MarshalJSON", "UnmarshalJSON"} {
+		for _, method := range []string{
+			"MarshalJSON",
+			"MarshalJSONTo",
+			"UnmarshalJSON",
+			"UnmarshalJSONFrom",
+		} {
 			err := register(method, method+" method", nil)
 			if err != nil {
 				return err
@@ -424,7 +429,7 @@ var builtinTypes = map[string]string{
 var githubScalarTypes = map[string]string{
 	"Base64String":        "string",
 	"BigInt":              "string",
-	"CustomPropertyValue": "encoding/json.RawMessage",
+	"CustomPropertyValue": "encoding/json/jsontext.Value",
 	"Date":                "string",
 	"DateTime":            "time.Time",
 	"GitObjectID":         "string",

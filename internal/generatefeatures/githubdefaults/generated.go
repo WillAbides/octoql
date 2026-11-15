@@ -5,7 +5,8 @@ package githubdefaults
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -19,18 +20,6 @@ import (
 	"time"
 )
 
-// _octoqlNoUnmarshalJSON is for generated code only.
-//
-// Embedding _octoqlNoUnmarshalJSON alongside a type with an UnmarshalJSON method
-// prevents that sibling method from being promoted.
-type _octoqlNoUnmarshalJSON struct{}
-
-// UnmarshalJSON should never be called. It exists only to prevent a sibling
-// UnmarshalJSON method from being promoted.
-func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
-}
-
 const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
@@ -43,8 +32,8 @@ type Path []any
 
 // Location identifies a line and column in a GraphQL document.
 type Location struct {
-	Line   int `json:"line,omitempty"`
-	Column int `json:"column,omitempty"`
+	Line   int `json:"line,omitzero"`
+	Column int `json:"column,omitzero"`
 }
 
 // Error describes an error returned in a GraphQL response.
@@ -91,37 +80,42 @@ func (e *ResponseSizeLimitError) Error() string {
 
 // MarshalJSON encodes string and integer path segments in GraphQL wire format.
 func (p Path) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p)
+}
+
+// MarshalJSONTo encodes string and integer path segments in GraphQL wire format.
+func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if p == nil {
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	}
 
-	segments := make([]json.RawMessage, len(p))
+	err := enc.WriteToken(jsontext.BeginArray)
+	if err != nil {
+		return fmt.Errorf("encode graphql path: %w", err)
+	}
 	for index, segment := range p {
-		var encoded []byte
-		var err error
 		switch value := segment.(type) {
 		case string:
-			encoded, err = json.Marshal(value)
+			err = enc.WriteToken(jsontext.String(value))
 		case int:
-			encoded, err = json.Marshal(value)
+			err = enc.WriteToken(jsontext.Int(int64(value)))
 		default:
-			return nil, fmt.Errorf(
+			return fmt.Errorf(
 				"encode graphql path segment %d: expected string or int, got %T",
 				index,
 				segment,
 			)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("encode graphql path segment %d: %w", index, err)
+			return fmt.Errorf("encode graphql path segment %d: %w", index, err)
 		}
-		segments[index] = encoded
 	}
 
-	encoded, err := json.Marshal(segments)
+	err = enc.WriteToken(jsontext.EndArray)
 	if err != nil {
-		return nil, fmt.Errorf("encode graphql path: %w", err)
+		return fmt.Errorf("encode graphql path: %w", err)
 	}
-	return encoded, nil
+	return nil
 }
 
 // UnmarshalJSON decodes GraphQL string and integer path segments.
@@ -129,9 +123,17 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 	if p == nil {
 		return errors.New("decode graphql path: nil destination")
 	}
+	return json.Unmarshal(data, p)
+}
 
-	var rawSegments []json.RawMessage
-	err := json.Unmarshal(data, &rawSegments)
+// UnmarshalJSONFrom decodes GraphQL string and integer path segments.
+func (p *Path) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if p == nil {
+		return errors.New("decode graphql path: nil destination")
+	}
+
+	var rawSegments []jsontext.Value
+	err := json.UnmarshalDecode(dec, &rawSegments)
 	if err != nil {
 		return fmt.Errorf("decode graphql path: %w", err)
 	}
@@ -142,10 +144,9 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 
 	segments := make(Path, len(rawSegments))
 	for index, rawSegment := range rawSegments {
-		trimmed := bytes.TrimSpace(rawSegment)
-		if len(trimmed) > 0 && trimmed[0] == '"' {
+		if rawSegment.Kind() == '"' {
 			var field string
-			err = json.Unmarshal(trimmed, &field)
+			err = json.Unmarshal(rawSegment, &field)
 			if err != nil {
 				return fmt.Errorf("decode graphql path segment %d: %w", index, err)
 			}
@@ -153,9 +154,8 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 			continue
 		}
 
-		var listIndex int
 		var parsed int64
-		parsed, err = strconv.ParseInt(string(trimmed), 10, strconv.IntSize)
+		parsed, err = strconv.ParseInt(string(rawSegment), 10, strconv.IntSize)
 		if err != nil {
 			return fmt.Errorf(
 				"decode graphql path segment %d: expected string or integer: %w",
@@ -163,8 +163,7 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 				err,
 			)
 		}
-		listIndex = int(parsed)
-		segments[index] = listIndex
+		segments[index] = int(parsed)
 	}
 
 	*p = segments
@@ -726,7 +725,10 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 	if c == nil {
 		return false, errors.New("octoql: client is nil")
 	}
-	body, err := json.Marshal(payload)
+	body, err := json.Marshal(
+		payload,
+		json.FormatNilSliceAsNull(true),
+	)
 	if err != nil {
 		return false, fmt.Errorf("encode graphql request: %w", err)
 	}
@@ -937,10 +939,10 @@ func _octoqlReadAndClose(body io.ReadCloser, limit int64) ([]byte, error, error)
 	return payload, readErr, closeErr
 }
 
-func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
+func _octoqlDecodeResponse(body []byte) (jsontext.Value, Errors, error) {
 	var envelope struct {
-		Data   json.RawMessage `json:"data"`
-		Errors json.RawMessage `json:"errors"`
+		Data   jsontext.Value `json:"data"`
+		Errors jsontext.Value `json:"errors"`
 	}
 	err := json.Unmarshal(body, &envelope)
 	if err != nil {
@@ -962,7 +964,7 @@ func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	return envelope.Data, graphqlErrors, err
 }
 
-func _octoqlDecodeData(data json.RawMessage, response any) error {
+func _octoqlDecodeData(data jsontext.Value, response any) error {
 	err := json.Unmarshal(data, response)
 	if err != nil {
 		return fmt.Errorf("decode graphql response data: %w", err)
@@ -992,7 +994,7 @@ type getReviewReview struct {
 	BodyHTML       string                      `json:"bodyHTML"`
 	Encoded        string                      `json:"encoded"`
 	Certificate    string                      `json:"certificate"`
-	PropertyValue  *json.RawMessage            `json:"propertyValue"`
+	PropertyValue  *jsontext.Value             `json:"propertyValue"`
 	Author         *getReviewReviewAuthorActor `json:"author"`
 	Editor         *getReviewReviewEditorActor `json:"editor"`
 }
@@ -1025,15 +1027,20 @@ type namingShapesNamingActor interface {
 
 func (v *namingShapesNamingActorOctoqlOther) implementsGraphQLInterfacenamingShapesNamingActor() {}
 
-func _octoqlUnmarshalnamingShapesNamingActor(b []byte, v *namingShapesNamingActor) error {
+func _octoqlUnmarshalnamingShapesNamingActor(dec *jsontext.Decoder, v *namingShapesNamingActor) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1044,21 +1051,21 @@ func _octoqlUnmarshalnamingShapesNamingActor(b []byte, v *namingShapesNamingActo
 			"response was missing Actor.__typename")
 	default:
 		*v = new(namingShapesNamingActorOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalnamingShapesNamingActor(v *namingShapesNamingActor) ([]byte, error) {
+func _octoqlMarshalnamingShapesNamingActor(enc *jsontext.Encoder, v *namingShapesNamingActor) error {
 	switch vv := (*v).(type) {
 	case *namingShapesNamingActorOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for namingShapesNamingActor: "%T"`, vv)
 	}
 }
@@ -1094,80 +1101,51 @@ type namingShapesQueryTypedNamingUserQueryNamingUser struct {
 type namingShapesResponse struct {
 	NamingUser           namingShapesNamingUser                          `json:"namingUser"`
 	QueryNamingUser      namingShapesQueryNamingUser                     `json:"queryNamingUser"`
-	NamingActor          namingShapesNamingActor                         `json:"-"`
+	NamingActor          namingShapesNamingActor                         `json:"namingActor"`
 	QueryTypedNamingUser namingShapesQueryTypedNamingUserQueryNamingUser `json:"queryTypedNamingUser"`
 }
 
 func (v *namingShapesResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *namingShapesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*namingShapesResponse
-		NamingActor json.RawMessage `json:"namingActor"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.namingShapesResponse = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.NamingActor
-		src := firstPass.NamingActor
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalnamingShapesNamingActor(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal namingShapesResponse.NamingActor: %w", err)
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalnamingShapesResponse)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalnamingShapesNamingActor),
+		)),
+	)
 }
 
-type _octoqlPremarshalnamingShapesResponse struct {
-	NamingUser namingShapesNamingUser `json:"namingUser"`
-
-	QueryNamingUser namingShapesQueryNamingUser `json:"queryNamingUser"`
-
-	NamingActor json.RawMessage `json:"namingActor"`
-
-	QueryTypedNamingUser namingShapesQueryTypedNamingUserQueryNamingUser `json:"queryTypedNamingUser"`
-}
+type _octoqlPremarshalnamingShapesResponse namingShapesResponse
 
 func (v *namingShapesResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *namingShapesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalnamingShapesResponse, error) {
-	var retval _octoqlPremarshalnamingShapesResponse
+func (v *namingShapesResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalnamingShapesNamingActor),
+		)),
+	)
+}
 
-	retval.NamingUser = v.NamingUser
-	retval.QueryNamingUser = v.QueryNamingUser
-	{
-		dst := &retval.NamingActor
-		src := v.NamingActor
-		var err error
-		*dst, err = _octoqlMarshalnamingShapesNamingActor(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal namingShapesResponse.NamingActor: %w", err)
-		}
-	}
-	retval.QueryTypedNamingUser = v.QueryTypedNamingUser
-	return &retval, nil
+func (v *namingShapesResponse) _octoqlPremarshalJSON() *_octoqlPremarshalnamingShapesResponse {
+	return (*_octoqlPremarshalnamingShapesResponse)(v)
 }
 
 // runtimeAbstractsActorNode includes the requested fields of the GraphQL interface Node.
@@ -1190,15 +1168,20 @@ func (v *runtimeAbstractsActorNodeOrganization) implementsGraphQLInterfaceruntim
 func (v *runtimeAbstractsActorNodeOctoqlOther) implementsGraphQLInterfaceruntimeAbstractsActorNode() {
 }
 
-func _octoqlUnmarshalruntimeAbstractsActorNode(b []byte, v *runtimeAbstractsActorNode) error {
+func _octoqlUnmarshalruntimeAbstractsActorNode(dec *jsontext.Decoder, v *runtimeAbstractsActorNode) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1206,27 +1189,27 @@ func _octoqlUnmarshalruntimeAbstractsActorNode(b []byte, v *runtimeAbstractsActo
 	switch tn.TypeName {
 	case "Bot":
 		*v = new(runtimeAbstractsActorNodeBot)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "NamingUser":
 		*v = new(runtimeAbstractsActorNodeNamingUser)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Organization":
 		*v = new(runtimeAbstractsActorNodeOrganization)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing Node.__typename")
 	default:
 		*v = new(runtimeAbstractsActorNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalruntimeAbstractsActorNode(v *runtimeAbstractsActorNode) ([]byte, error) {
+func _octoqlMarshalruntimeAbstractsActorNode(enc *jsontext.Encoder, v *runtimeAbstractsActorNode) error {
 	switch vv := (*v).(type) {
 	case *runtimeAbstractsActorNodeBot:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -1236,10 +1219,10 @@ func _octoqlMarshalruntimeAbstractsActorNode(v *runtimeAbstractsActorNode) ([]by
 			TypeName:                     "Bot",
 			runtimeAbstractsActorNodeBot: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsActorNodeNamingUser:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -1249,10 +1232,10 @@ func _octoqlMarshalruntimeAbstractsActorNode(v *runtimeAbstractsActorNode) ([]by
 			TypeName:                            "NamingUser",
 			runtimeAbstractsActorNodeNamingUser: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsActorNodeOrganization:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -1262,16 +1245,16 @@ func _octoqlMarshalruntimeAbstractsActorNode(v *runtimeAbstractsActorNode) ([]by
 			TypeName:                              "Organization",
 			runtimeAbstractsActorNodeOrganization: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsActorNodeOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for runtimeAbstractsActorNode: "%T"`, vv)
 	}
 }
@@ -1328,15 +1311,20 @@ type runtimeAbstractsNestedNodesNode interface {
 func (v *runtimeAbstractsNestedNodesNodeOctoqlOther) implementsGraphQLInterfaceruntimeAbstractsNestedNodesNode() {
 }
 
-func _octoqlUnmarshalruntimeAbstractsNestedNodesNode(b []byte, v *runtimeAbstractsNestedNodesNode) error {
+func _octoqlUnmarshalruntimeAbstractsNestedNodesNode(dec *jsontext.Decoder, v *runtimeAbstractsNestedNodesNode) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1347,21 +1335,21 @@ func _octoqlUnmarshalruntimeAbstractsNestedNodesNode(b []byte, v *runtimeAbstrac
 			"response was missing Node.__typename")
 	default:
 		*v = new(runtimeAbstractsNestedNodesNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalruntimeAbstractsNestedNodesNode(v *runtimeAbstractsNestedNodesNode) ([]byte, error) {
+func _octoqlMarshalruntimeAbstractsNestedNodesNode(enc *jsontext.Encoder, v *runtimeAbstractsNestedNodesNode) error {
 	switch vv := (*v).(type) {
 	case *runtimeAbstractsNestedNodesNodeOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for runtimeAbstractsNestedNodesNode: "%T"`, vv)
 	}
 }
@@ -1402,15 +1390,20 @@ func (v *runtimeAbstractsNodeOctoqlOther) implementsGraphQLInterfaceruntimeAbstr
 func (v *runtimeAbstractsNodeRepository) implementsGraphQLInterfaceruntimeAbstractsNode()   {}
 func (v *runtimeAbstractsNode2OctoqlOther) implementsGraphQLInterfaceruntimeAbstractsNode() {}
 
-func _octoqlUnmarshalruntimeAbstractsNode(b []byte, v *runtimeAbstractsNode) error {
+func _octoqlUnmarshalruntimeAbstractsNode(dec *jsontext.Decoder, v *runtimeAbstractsNode) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1418,24 +1411,24 @@ func _octoqlUnmarshalruntimeAbstractsNode(b []byte, v *runtimeAbstractsNode) err
 	switch tn.TypeName {
 	case "OctoqlOther":
 		*v = new(runtimeAbstractsNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Repository":
 		*v = new(runtimeAbstractsNodeRepository)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing Node.__typename")
 	default:
 		*v = new(runtimeAbstractsNode2OctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalruntimeAbstractsNode(v *runtimeAbstractsNode) ([]byte, error) {
+func _octoqlMarshalruntimeAbstractsNode(enc *jsontext.Encoder, v *runtimeAbstractsNode) error {
 	switch vv := (*v).(type) {
 	case *runtimeAbstractsNodeOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -1445,10 +1438,10 @@ func _octoqlMarshalruntimeAbstractsNode(v *runtimeAbstractsNode) ([]byte, error)
 			TypeName:                        "OctoqlOther",
 			runtimeAbstractsNodeOctoqlOther: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsNodeRepository:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -1458,16 +1451,16 @@ func _octoqlMarshalruntimeAbstractsNode(v *runtimeAbstractsNode) ([]byte, error)
 			TypeName:                       "Repository",
 			runtimeAbstractsNodeRepository: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsNode2OctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for runtimeAbstractsNode: "%T"`, vv)
 	}
 }
@@ -1524,184 +1517,56 @@ func (v *runtimeAbstractsNodeRepository) GetUrl() string { return v.Url }
 
 // runtimeAbstractsResponse is returned by runtimeAbstracts on success.
 type runtimeAbstractsResponse struct {
-	Node        runtimeAbstractsNode                  `json:"-"`
-	NestedNodes [][][]runtimeAbstractsNestedNodesNode `json:"-"`
-	ActorNode   runtimeAbstractsActorNode             `json:"-"`
+	Node        runtimeAbstractsNode                  `json:"node"`
+	NestedNodes [][][]runtimeAbstractsNestedNodesNode `json:"nestedNodes"`
+	ActorNode   runtimeAbstractsActorNode             `json:"actorNode"`
 }
 
 func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *runtimeAbstractsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*runtimeAbstractsResponse
-		Node        json.RawMessage `json:"node"`
-		NestedNodes json.RawMessage `json:"nestedNodes"`
-		ActorNode   json.RawMessage `json:"actorNode"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.runtimeAbstractsResponse = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.Node
-		src := firstPass.Node
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalruntimeAbstractsNode(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal runtimeAbstractsResponse.Node: %w", err)
-			}
-		}
-	}
-	{
-		dst := &v.NestedNodes
-		raw := firstPass.NestedNodes
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src [][][]json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal runtimeAbstractsResponse.NestedNodes: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[][][]runtimeAbstractsNestedNodesNode,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if src != nil {
-							*dst = make(
-								[][]runtimeAbstractsNestedNodesNode,
-								len(src))
-							for i, src := range src {
-								dst := &(*dst)[i]
-								if src != nil {
-									*dst = make(
-										[]runtimeAbstractsNestedNodesNode,
-										len(src))
-									for i, src := range src {
-										dst := &(*dst)[i]
-										if len(src) != 0 && string(src) != "null" {
-											err = _octoqlUnmarshalruntimeAbstractsNestedNodesNode(src, dst)
-											if err != nil {
-												return fmt.Errorf(
-													"unable to unmarshal runtimeAbstractsResponse.NestedNodes: %w", err)
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	{
-		dst := &v.ActorNode
-		src := firstPass.ActorNode
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalruntimeAbstractsActorNode(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal runtimeAbstractsResponse.ActorNode: %w", err)
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalruntimeAbstractsResponse)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsNode),
+			json.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsNestedNodesNode),
+			json.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsActorNode),
+		)),
+	)
 }
 
-type _octoqlPremarshalruntimeAbstractsResponse struct {
-	Node json.RawMessage `json:"node"`
-
-	NestedNodes [][][]json.RawMessage `json:"nestedNodes"`
-
-	ActorNode json.RawMessage `json:"actorNode"`
-}
+type _octoqlPremarshalruntimeAbstractsResponse runtimeAbstractsResponse
 
 func (v *runtimeAbstractsResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *runtimeAbstractsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalruntimeAbstractsResponse, error) {
-	var retval _octoqlPremarshalruntimeAbstractsResponse
+func (v *runtimeAbstractsResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalruntimeAbstractsNode),
+			json.MarshalToFunc(_octoqlMarshalruntimeAbstractsNestedNodesNode),
+			json.MarshalToFunc(_octoqlMarshalruntimeAbstractsActorNode),
+		)),
+	)
+}
 
-	{
-		dst := &retval.Node
-		src := v.Node
-		var err error
-		*dst, err = _octoqlMarshalruntimeAbstractsNode(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal runtimeAbstractsResponse.Node: %w", err)
-		}
-	}
-	{
-		dst := &retval.NestedNodes
-		src := v.NestedNodes
-		if src != nil {
-			*dst = make(
-				[][][]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if src != nil {
-					*dst = make(
-						[][]json.RawMessage,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if src != nil {
-							*dst = make(
-								[]json.RawMessage,
-								len(src))
-							for i, src := range src {
-								dst := &(*dst)[i]
-								var err error
-								*dst, err = _octoqlMarshalruntimeAbstractsNestedNodesNode(&src)
-								if err != nil {
-									return nil, fmt.Errorf(
-										"unable to marshal runtimeAbstractsResponse.NestedNodes: %w", err)
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	{
-		dst := &retval.ActorNode
-		src := v.ActorNode
-		var err error
-		*dst, err = _octoqlMarshalruntimeAbstractsActorNode(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal runtimeAbstractsResponse.ActorNode: %w", err)
-		}
-	}
-	return &retval, nil
+func (v *runtimeAbstractsResponse) _octoqlPremarshalJSON() *_octoqlPremarshalruntimeAbstractsResponse {
+	return (*_octoqlPremarshalruntimeAbstractsResponse)(v)
 }
 
 // runtimeAbstractsVariables contains the variables accepted by runtimeAbstracts.

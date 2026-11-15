@@ -5,7 +5,6 @@ import (
 	"embed"
 	"go/format"
 	"io"
-	"strings"
 	"text/template"
 )
 
@@ -32,33 +31,13 @@ func (r *renderer) typeRef(typ goType) string {
 	return typ.renderRef(r.imports)
 }
 
-func repeat(n int, s string) string {
-	if n <= 0 {
-		return ""
-	}
-	return strings.Repeat(s, n)
-}
-
-func intRange(n int) []int {
-	ret := make([]int, n)
-	for i := range n {
-		ret[i] = i
-	}
-	return ret
-}
-
-func sub(x, y int) int { return x - y }
-
 // render executes the given template with this renderer's import-aware funcs.
 func (r *renderer) render(tmplRelFilename string, w io.Writer, data any) error {
 	tmpl := r.templateCache[tmplRelFilename]
 	if tmpl == nil {
 		funcMap := template.FuncMap{
-			"ref":      r.imports.ref,
-			"typeRef":  r.typeRef,
-			"repeat":   repeat,
-			"intRange": intRange,
-			"sub":      sub,
+			"ref":     r.imports.ref,
+			"typeRef": r.typeRef,
 		}
 		var err error
 		tmpl, err = template.New(tmplRelFilename).Funcs(funcMap).ParseFS(templates, tmplRelFilename)

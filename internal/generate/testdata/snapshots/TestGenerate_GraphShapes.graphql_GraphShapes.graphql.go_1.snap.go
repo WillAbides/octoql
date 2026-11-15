@@ -5,7 +5,8 @@ package test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -21,18 +22,6 @@ import (
 	testutil "github.com/willabides/octoql/internal/testutil"
 )
 
-// _octoqlNoUnmarshalJSON is for generated code only.
-//
-// Embedding _octoqlNoUnmarshalJSON alongside a type with an UnmarshalJSON method
-// prevents that sibling method from being promoted.
-type _octoqlNoUnmarshalJSON struct{}
-
-// UnmarshalJSON should never be called. It exists only to prevent a sibling
-// UnmarshalJSON method from being promoted.
-func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
-}
-
 const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
@@ -45,8 +34,8 @@ type Path []any
 
 // Location identifies a line and column in a GraphQL document.
 type Location struct {
-	Line   int `json:"line,omitempty"`
-	Column int `json:"column,omitempty"`
+	Line   int `json:"line,omitzero"`
+	Column int `json:"column,omitzero"`
 }
 
 // Error describes an error returned in a GraphQL response.
@@ -93,37 +82,42 @@ func (e *ResponseSizeLimitError) Error() string {
 
 // MarshalJSON encodes string and integer path segments in GraphQL wire format.
 func (p Path) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p)
+}
+
+// MarshalJSONTo encodes string and integer path segments in GraphQL wire format.
+func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if p == nil {
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	}
 
-	segments := make([]json.RawMessage, len(p))
+	err := enc.WriteToken(jsontext.BeginArray)
+	if err != nil {
+		return fmt.Errorf("encode graphql path: %w", err)
+	}
 	for index, segment := range p {
-		var encoded []byte
-		var err error
 		switch value := segment.(type) {
 		case string:
-			encoded, err = json.Marshal(value)
+			err = enc.WriteToken(jsontext.String(value))
 		case int:
-			encoded, err = json.Marshal(value)
+			err = enc.WriteToken(jsontext.Int(int64(value)))
 		default:
-			return nil, fmt.Errorf(
+			return fmt.Errorf(
 				"encode graphql path segment %d: expected string or int, got %T",
 				index,
 				segment,
 			)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("encode graphql path segment %d: %w", index, err)
+			return fmt.Errorf("encode graphql path segment %d: %w", index, err)
 		}
-		segments[index] = encoded
 	}
 
-	encoded, err := json.Marshal(segments)
+	err = enc.WriteToken(jsontext.EndArray)
 	if err != nil {
-		return nil, fmt.Errorf("encode graphql path: %w", err)
+		return fmt.Errorf("encode graphql path: %w", err)
 	}
-	return encoded, nil
+	return nil
 }
 
 // UnmarshalJSON decodes GraphQL string and integer path segments.
@@ -131,9 +125,17 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 	if p == nil {
 		return errors.New("decode graphql path: nil destination")
 	}
+	return json.Unmarshal(data, p)
+}
 
-	var rawSegments []json.RawMessage
-	err := json.Unmarshal(data, &rawSegments)
+// UnmarshalJSONFrom decodes GraphQL string and integer path segments.
+func (p *Path) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if p == nil {
+		return errors.New("decode graphql path: nil destination")
+	}
+
+	var rawSegments []jsontext.Value
+	err := json.UnmarshalDecode(dec, &rawSegments)
 	if err != nil {
 		return fmt.Errorf("decode graphql path: %w", err)
 	}
@@ -144,10 +146,9 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 
 	segments := make(Path, len(rawSegments))
 	for index, rawSegment := range rawSegments {
-		trimmed := bytes.TrimSpace(rawSegment)
-		if len(trimmed) > 0 && trimmed[0] == '"' {
+		if rawSegment.Kind() == '"' {
 			var field string
-			err = json.Unmarshal(trimmed, &field)
+			err = json.Unmarshal(rawSegment, &field)
 			if err != nil {
 				return fmt.Errorf("decode graphql path segment %d: %w", index, err)
 			}
@@ -155,9 +156,8 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 			continue
 		}
 
-		var listIndex int
 		var parsed int64
-		parsed, err = strconv.ParseInt(string(trimmed), 10, strconv.IntSize)
+		parsed, err = strconv.ParseInt(string(rawSegment), 10, strconv.IntSize)
 		if err != nil {
 			return fmt.Errorf(
 				"decode graphql path segment %d: expected string or integer: %w",
@@ -165,8 +165,7 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 				err,
 			)
 		}
-		listIndex = int(parsed)
-		segments[index] = listIndex
+		segments[index] = int(parsed)
 	}
 
 	*p = segments
@@ -728,7 +727,10 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 	if c == nil {
 		return false, errors.New("octoql: client is nil")
 	}
-	body, err := json.Marshal(payload)
+	body, err := json.Marshal(
+		payload,
+		json.FormatNilSliceAsNull(true),
+	)
 	if err != nil {
 		return false, fmt.Errorf("encode graphql request: %w", err)
 	}
@@ -939,10 +941,10 @@ func _octoqlReadAndClose(body io.ReadCloser, limit int64) ([]byte, error, error)
 	return payload, readErr, closeErr
 }
 
-func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
+func _octoqlDecodeResponse(body []byte) (jsontext.Value, Errors, error) {
 	var envelope struct {
-		Data   json.RawMessage `json:"data"`
-		Errors json.RawMessage `json:"errors"`
+		Data   jsontext.Value `json:"data"`
+		Errors jsontext.Value `json:"errors"`
 	}
 	err := json.Unmarshal(body, &envelope)
 	if err != nil {
@@ -964,7 +966,7 @@ func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	return envelope.Data, graphqlErrors, err
 }
 
-func _octoqlDecodeData(data json.RawMessage, response any) error {
+func _octoqlDecodeData(data jsontext.Value, response any) error {
 	err := json.Unmarshal(data, response)
 	if err != nil {
 		return fmt.Errorf("decode graphql response data: %w", err)
@@ -990,15 +992,20 @@ type ActorDetails interface {
 
 func (v *ActorDetailsOctoqlOther) implementsGraphQLInterfaceActorDetails() {}
 
-func _octoqlUnmarshalActorDetails(b []byte, v *ActorDetails) error {
+func _octoqlUnmarshalActorDetails(dec *jsontext.Decoder, v *ActorDetails) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1009,21 +1016,21 @@ func _octoqlUnmarshalActorDetails(b []byte, v *ActorDetails) error {
 			"response was missing Actor.__typename")
 	default:
 		*v = new(ActorDetailsOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalActorDetails(v *ActorDetails) ([]byte, error) {
+func _octoqlMarshalActorDetails(enc *jsontext.Encoder, v *ActorDetails) error {
 	switch vv := (*v).(type) {
 	case *ActorDetailsOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for ActorDetails: "%T"`, vv)
 	}
 }
@@ -1061,15 +1068,20 @@ func (v *GetActorActorOrganization) implementsGraphQLInterfaceGetActorActor()   
 func (v *GetActorActorUser) implementsGraphQLInterfaceGetActorActor()                  {}
 func (v *GetActorActorOctoqlOther) implementsGraphQLInterfaceGetActorActor()           {}
 
-func _octoqlUnmarshalGetActorActor(b []byte, v *GetActorActor) error {
+func _octoqlUnmarshalGetActorActor(dec *jsontext.Decoder, v *GetActorActor) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1077,108 +1089,100 @@ func _octoqlUnmarshalGetActorActor(b []byte, v *GetActorActor) error {
 	switch tn.TypeName {
 	case "Bot":
 		*v = new(GetActorActorBot)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "EnterpriseUserAccount":
 		*v = new(GetActorActorEnterpriseUserAccount)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Organization":
 		*v = new(GetActorActorOrganization)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "User":
 		*v = new(GetActorActorUser)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing Actor.__typename")
 	default:
 		*v = new(GetActorActorOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
+func _octoqlMarshalGetActorActor(enc *jsontext.Encoder, v *GetActorActor) error {
 	switch vv := (*v).(type) {
 	case *GetActorActorBot:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorActorBot
 		}{
 			TypeName:                          "Bot",
-			_octoqlPremarshalGetActorActorBot: premarshaled,
+			_octoqlPremarshalGetActorActorBot: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+		)
 	case *GetActorActorEnterpriseUserAccount:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorActorEnterpriseUserAccount
 		}{
 			TypeName: "EnterpriseUserAccount",
-			_octoqlPremarshalGetActorActorEnterpriseUserAccount: premarshaled,
+			_octoqlPremarshalGetActorActorEnterpriseUserAccount: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+		)
 	case *GetActorActorOrganization:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorActorOrganization
 		}{
 			TypeName: "Organization",
-			_octoqlPremarshalGetActorActorOrganization: premarshaled,
+			_octoqlPremarshalGetActorActorOrganization: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+		)
 	case *GetActorActorUser:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorActorUser
 		}{
 			TypeName:                           "User",
-			_octoqlPremarshalGetActorActorUser: premarshaled,
+			_octoqlPremarshalGetActorActorUser: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+		)
 	case *GetActorActorOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-		return json.Marshal(premarshaled)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for GetActorActor: "%T"`, vv)
 	}
 }
@@ -1199,24 +1203,34 @@ func (v *GetActorActorBot) GetId() testutil.ID { return v.ActorDetailsOctoqlOthe
 func (v *GetActorActorBot) GetLogin() string { return v.ActorDetailsOctoqlOther.Login }
 
 func (v *GetActorActorBot) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorActorBot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorActorBot
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorActorBot = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.ActorDetailsOctoqlOther)
+		b, &v.ActorDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1224,28 +1238,32 @@ func (v *GetActorActorBot) UnmarshalJSON(b []byte) error {
 }
 
 type _octoqlPremarshalGetActorActorBot struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+	Login    string      `json:"login"`
 }
 
 func (v *GetActorActorBot) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorActorBot) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorBot, error) {
+func (v *GetActorActorBot) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorActorBot) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorBot {
 	var retval _octoqlPremarshalGetActorActorBot
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
-	return &retval, nil
+	return &retval
 }
 
 // GetActorActorEnterpriseUserAccount includes the requested fields of the GraphQL type EnterpriseUserAccount.
@@ -1266,24 +1284,34 @@ func (v *GetActorActorEnterpriseUserAccount) GetLogin() string {
 }
 
 func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorActorEnterpriseUserAccount
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorActorEnterpriseUserAccount = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.ActorDetailsOctoqlOther)
+		b, &v.ActorDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1291,28 +1319,32 @@ func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
 }
 
 type _octoqlPremarshalGetActorActorEnterpriseUserAccount struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+	Login    string      `json:"login"`
 }
 
 func (v *GetActorActorEnterpriseUserAccount) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorActorEnterpriseUserAccount) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorEnterpriseUserAccount, error) {
+func (v *GetActorActorEnterpriseUserAccount) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorActorEnterpriseUserAccount) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorEnterpriseUserAccount {
 	var retval _octoqlPremarshalGetActorActorEnterpriseUserAccount
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
-	return &retval, nil
+	return &retval
 }
 
 // GetActorActorOctoqlOther represents GetActorActor implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
@@ -1331,24 +1363,34 @@ func (v *GetActorActorOctoqlOther) GetId() testutil.ID { return v.ActorDetailsOc
 func (v *GetActorActorOctoqlOther) GetLogin() string { return v.ActorDetailsOctoqlOther.Login }
 
 func (v *GetActorActorOctoqlOther) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorActorOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorActorOctoqlOther
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorActorOctoqlOther = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.ActorDetailsOctoqlOther)
+		b, &v.ActorDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1356,28 +1398,32 @@ func (v *GetActorActorOctoqlOther) UnmarshalJSON(b []byte) error {
 }
 
 type _octoqlPremarshalGetActorActorOctoqlOther struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+	Login    string      `json:"login"`
 }
 
 func (v *GetActorActorOctoqlOther) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorActorOctoqlOther) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorOctoqlOther, error) {
+func (v *GetActorActorOctoqlOther) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorActorOctoqlOther) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorOctoqlOther {
 	var retval _octoqlPremarshalGetActorActorOctoqlOther
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
-	return &retval, nil
+	return &retval
 }
 
 // GetActorActorOrganization includes the requested fields of the GraphQL type Organization.
@@ -1396,24 +1442,34 @@ func (v *GetActorActorOrganization) GetId() testutil.ID { return v.ActorDetailsO
 func (v *GetActorActorOrganization) GetLogin() string { return v.ActorDetailsOctoqlOther.Login }
 
 func (v *GetActorActorOrganization) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorActorOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorActorOrganization
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorActorOrganization = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.ActorDetailsOctoqlOther)
+		b, &v.ActorDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1421,28 +1477,32 @@ func (v *GetActorActorOrganization) UnmarshalJSON(b []byte) error {
 }
 
 type _octoqlPremarshalGetActorActorOrganization struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+	Login    string      `json:"login"`
 }
 
 func (v *GetActorActorOrganization) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorActorOrganization) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorOrganization, error) {
+func (v *GetActorActorOrganization) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorActorOrganization) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorOrganization {
 	var retval _octoqlPremarshalGetActorActorOrganization
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
-	return &retval, nil
+	return &retval
 }
 
 // GetActorActorUser includes the requested fields of the GraphQL type User.
@@ -1461,24 +1521,34 @@ func (v *GetActorActorUser) GetId() testutil.ID { return v.ActorDetailsOctoqlOth
 func (v *GetActorActorUser) GetLogin() string { return v.ActorDetailsOctoqlOther.Login }
 
 func (v *GetActorActorUser) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorActorUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorActorUser
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorActorUser = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.ActorDetailsOctoqlOther)
+		b, &v.ActorDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1486,28 +1556,32 @@ func (v *GetActorActorUser) UnmarshalJSON(b []byte) error {
 }
 
 type _octoqlPremarshalGetActorActorUser struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
+	Typename string      `json:"__typename"`
+	Id       testutil.ID `json:"id"`
+	Login    string      `json:"login"`
 }
 
 func (v *GetActorActorUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorActorUser) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorActorUser, error) {
+func (v *GetActorActorUser) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorActorUser) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorUser {
 	var retval _octoqlPremarshalGetActorActorUser
 
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
-	return &retval, nil
+	return &retval
 }
 
 // GetActorRepositoryOwner includes the requested fields of the GraphQL interface RepositoryOwner.
@@ -1530,15 +1604,20 @@ func (v *GetActorRepositoryOwnerOrganization) implementsGraphQLInterfaceGetActor
 func (v *GetActorRepositoryOwnerUser) implementsGraphQLInterfaceGetActorRepositoryOwner()         {}
 func (v *GetActorRepositoryOwnerOctoqlOther) implementsGraphQLInterfaceGetActorRepositoryOwner()  {}
 
-func _octoqlUnmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwner) error {
+func _octoqlUnmarshalGetActorRepositoryOwner(dec *jsontext.Decoder, v *GetActorRepositoryOwner) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1546,88 +1625,81 @@ func _octoqlUnmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwne
 	switch tn.TypeName {
 	case "EnterpriseUserAccount":
 		*v = new(GetActorRepositoryOwnerEnterpriseUserAccount)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Organization":
 		*v = new(GetActorRepositoryOwnerOrganization)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "User":
 		*v = new(GetActorRepositoryOwnerUser)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing RepositoryOwner.__typename")
 	default:
 		*v = new(GetActorRepositoryOwnerOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error) {
+func _octoqlMarshalGetActorRepositoryOwner(enc *jsontext.Encoder, v *GetActorRepositoryOwner) error {
 	switch vv := (*v).(type) {
 	case *GetActorRepositoryOwnerEnterpriseUserAccount:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount
 		}{
 			TypeName: "EnterpriseUserAccount",
-			_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount: premarshaled,
+			_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+		)
 	case *GetActorRepositoryOwnerOrganization:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorRepositoryOwnerOrganization
 		}{
 			TypeName: "Organization",
-			_octoqlPremarshalGetActorRepositoryOwnerOrganization: premarshaled,
+			_octoqlPremarshalGetActorRepositoryOwnerOrganization: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+		)
 	case *GetActorRepositoryOwnerUser:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorRepositoryOwnerUser
 		}{
 			TypeName: "User",
-			_octoqlPremarshalGetActorRepositoryOwnerUser: premarshaled,
+			_octoqlPremarshalGetActorRepositoryOwnerUser: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+		)
 	case *GetActorRepositoryOwnerOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-		return json.Marshal(premarshaled)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for GetActorRepositoryOwner: "%T"`, vv)
 	}
 }
@@ -1657,24 +1729,34 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) GetRepositories() Reposit
 }
 
 func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorRepositoryOwnerEnterpriseUserAccount
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorRepositoryOwnerEnterpriseUserAccount = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.RepositoryOwnerDetailsOctoqlOther)
+		b, &v.RepositoryOwnerDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1682,31 +1764,34 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSON(b []byte) e
 }
 
 type _octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
-
+	Typename     string                                                 `json:"__typename"`
+	Id           testutil.ID                                            `json:"id"`
+	Login        string                                                 `json:"login"`
 	Repositories RepositoryOwnerDetailsRepositoriesRepositoryConnection `json:"repositories"`
 }
 
 func (v *GetActorRepositoryOwnerEnterpriseUserAccount) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorRepositoryOwnerEnterpriseUserAccount) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount, error) {
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorRepositoryOwnerEnterpriseUserAccount) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount {
 	var retval _octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
 	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
 	retval.Repositories = v.RepositoryOwnerDetailsOctoqlOther.Repositories
-	return &retval, nil
+	return &retval
 }
 
 // GetActorRepositoryOwnerOctoqlOther represents GetActorRepositoryOwner implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
@@ -1734,24 +1819,34 @@ func (v *GetActorRepositoryOwnerOctoqlOther) GetRepositories() RepositoryOwnerDe
 }
 
 func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorRepositoryOwnerOctoqlOther
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorRepositoryOwnerOctoqlOther = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.RepositoryOwnerDetailsOctoqlOther)
+		b, &v.RepositoryOwnerDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1759,31 +1854,34 @@ func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSON(b []byte) error {
 }
 
 type _octoqlPremarshalGetActorRepositoryOwnerOctoqlOther struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
-
+	Typename     string                                                 `json:"__typename"`
+	Id           testutil.ID                                            `json:"id"`
+	Login        string                                                 `json:"login"`
 	Repositories RepositoryOwnerDetailsRepositoriesRepositoryConnection `json:"repositories"`
 }
 
 func (v *GetActorRepositoryOwnerOctoqlOther) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorRepositoryOwnerOctoqlOther) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRepositoryOwnerOctoqlOther, error) {
+func (v *GetActorRepositoryOwnerOctoqlOther) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorRepositoryOwnerOctoqlOther) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorRepositoryOwnerOctoqlOther {
 	var retval _octoqlPremarshalGetActorRepositoryOwnerOctoqlOther
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
 	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
 	retval.Repositories = v.RepositoryOwnerDetailsOctoqlOther.Repositories
-	return &retval, nil
+	return &retval
 }
 
 // GetActorRepositoryOwnerOrganization includes the requested fields of the GraphQL type Organization.
@@ -1811,24 +1909,34 @@ func (v *GetActorRepositoryOwnerOrganization) GetRepositories() RepositoryOwnerD
 }
 
 func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorRepositoryOwnerOrganization
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorRepositoryOwnerOrganization = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.RepositoryOwnerDetailsOctoqlOther)
+		b, &v.RepositoryOwnerDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1836,31 +1944,34 @@ func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSON(b []byte) error {
 }
 
 type _octoqlPremarshalGetActorRepositoryOwnerOrganization struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
-
+	Typename     string                                                 `json:"__typename"`
+	Id           testutil.ID                                            `json:"id"`
+	Login        string                                                 `json:"login"`
 	Repositories RepositoryOwnerDetailsRepositoriesRepositoryConnection `json:"repositories"`
 }
 
 func (v *GetActorRepositoryOwnerOrganization) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorRepositoryOwnerOrganization) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRepositoryOwnerOrganization, error) {
+func (v *GetActorRepositoryOwnerOrganization) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorRepositoryOwnerOrganization) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorRepositoryOwnerOrganization {
 	var retval _octoqlPremarshalGetActorRepositoryOwnerOrganization
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
 	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
 	retval.Repositories = v.RepositoryOwnerDetailsOctoqlOther.Repositories
-	return &retval, nil
+	return &retval
 }
 
 // GetActorRepositoryOwnerUser includes the requested fields of the GraphQL type User.
@@ -1888,24 +1999,34 @@ func (v *GetActorRepositoryOwnerUser) GetRepositories() RepositoryOwnerDetailsRe
 }
 
 func (v *GetActorRepositoryOwnerUser) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
+func (v *GetActorRepositoryOwnerUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetActorRepositoryOwnerUser
-		_octoqlNoUnmarshalJSON
+		Typename string `json:"__typename"`
 	}
-	firstPass.GetActorRepositoryOwnerUser = v
-
-	err := json.Unmarshal(b, &firstPass)
+	firstPass.Typename = v.Typename
+	err = json.Unmarshal(
+		b,
+		&firstPass,
+		dec.Options(),
+	)
 	if err != nil {
 		return err
 	}
-
+	v.Typename = firstPass.Typename
 	err = json.Unmarshal(
-		b, &v.RepositoryOwnerDetailsOctoqlOther)
+		b, &v.RepositoryOwnerDetailsOctoqlOther, dec.Options())
 	if err != nil {
 		return err
 	}
@@ -1913,127 +2034,85 @@ func (v *GetActorRepositoryOwnerUser) UnmarshalJSON(b []byte) error {
 }
 
 type _octoqlPremarshalGetActorRepositoryOwnerUser struct {
-	Typename string `json:"__typename"`
-
-	Id testutil.ID `json:"id"`
-
-	Login string `json:"login"`
-
+	Typename     string                                                 `json:"__typename"`
+	Id           testutil.ID                                            `json:"id"`
+	Login        string                                                 `json:"login"`
 	Repositories RepositoryOwnerDetailsRepositoriesRepositoryConnection `json:"repositories"`
 }
 
 func (v *GetActorRepositoryOwnerUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorRepositoryOwnerUser) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRepositoryOwnerUser, error) {
+func (v *GetActorRepositoryOwnerUser) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+	)
+}
+
+func (v *GetActorRepositoryOwnerUser) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorRepositoryOwnerUser {
 	var retval _octoqlPremarshalGetActorRepositoryOwnerUser
 
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
 	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
 	retval.Repositories = v.RepositoryOwnerDetailsOctoqlOther.Repositories
-	return &retval, nil
+	return &retval
 }
 
 // GetActorResponse is returned by GetActor on success.
 type GetActorResponse struct {
-	Actor           GetActorActor           `json:"-"`
-	RepositoryOwner GetActorRepositoryOwner `json:"-"`
+	Actor           GetActorActor           `json:"actor"`
+	RepositoryOwner GetActorRepositoryOwner `json:"repositoryOwner"`
 }
 
 func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *GetActorResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*GetActorResponse
-		Actor           json.RawMessage `json:"actor"`
-		RepositoryOwner json.RawMessage `json:"repositoryOwner"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.GetActorResponse = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.Actor
-		src := firstPass.Actor
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalGetActorActor(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal GetActorResponse.Actor: %w", err)
-			}
-		}
-	}
-	{
-		dst := &v.RepositoryOwner
-		src := firstPass.RepositoryOwner
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalGetActorRepositoryOwner(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal GetActorResponse.RepositoryOwner: %w", err)
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalGetActorResponse)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalGetActorActor),
+			json.UnmarshalFromFunc(_octoqlUnmarshalGetActorRepositoryOwner),
+		)),
+	)
 }
 
-type _octoqlPremarshalGetActorResponse struct {
-	Actor json.RawMessage `json:"actor"`
-
-	RepositoryOwner json.RawMessage `json:"repositoryOwner"`
-}
+type _octoqlPremarshalGetActorResponse GetActorResponse
 
 func (v *GetActorResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetActorResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorResponse, error) {
-	var retval _octoqlPremarshalGetActorResponse
+func (v *GetActorResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalGetActorActor),
+			json.MarshalToFunc(_octoqlMarshalGetActorRepositoryOwner),
+		)),
+	)
+}
 
-	{
-		dst := &retval.Actor
-		src := v.Actor
-		var err error
-		*dst, err = _octoqlMarshalGetActorActor(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal GetActorResponse.Actor: %w", err)
-		}
-	}
-	{
-		dst := &retval.RepositoryOwner
-		src := v.RepositoryOwner
-		var err error
-		*dst, err = _octoqlMarshalGetActorRepositoryOwner(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal GetActorResponse.RepositoryOwner: %w", err)
-		}
-	}
-	return &retval, nil
+func (v *GetActorResponse) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorResponse {
+	return (*_octoqlPremarshalGetActorResponse)(v)
 }
 
 // GetActorVariables contains the variables accepted by GetActor.
@@ -2065,15 +2144,20 @@ func (v *GetNodeNodeRepository) implementsGraphQLInterfaceGetNodeNode()   {}
 func (v *GetNodeNodeUser) implementsGraphQLInterfaceGetNodeNode()         {}
 func (v *GetNodeNodeOctoqlOther) implementsGraphQLInterfaceGetNodeNode()  {}
 
-func _octoqlUnmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
+func _octoqlUnmarshalGetNodeNode(dec *jsontext.Decoder, v *GetNodeNode) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -2081,33 +2165,33 @@ func _octoqlUnmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 	switch tn.TypeName {
 	case "Issue":
 		*v = new(GetNodeNodeIssue)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Organization":
 		*v = new(GetNodeNodeOrganization)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "PullRequest":
 		*v = new(GetNodeNodePullRequest)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Repository":
 		*v = new(GetNodeNodeRepository)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "User":
 		*v = new(GetNodeNodeUser)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing Node.__typename")
 	default:
 		*v = new(GetNodeNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
+func _octoqlMarshalGetNodeNode(enc *jsontext.Encoder, v *GetNodeNode) error {
 	switch vv := (*v).(type) {
 	case *GetNodeNodeIssue:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -2117,10 +2201,10 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 			TypeName:         "Issue",
 			GetNodeNodeIssue: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *GetNodeNodeOrganization:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -2130,10 +2214,10 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 			TypeName:                "Organization",
 			GetNodeNodeOrganization: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *GetNodeNodePullRequest:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -2143,10 +2227,10 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 			TypeName:               "PullRequest",
 			GetNodeNodePullRequest: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *GetNodeNodeRepository:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -2156,10 +2240,10 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 			TypeName:              "Repository",
 			GetNodeNodeRepository: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *GetNodeNodeUser:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -2169,16 +2253,16 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 			TypeName:        "User",
 			GetNodeNodeUser: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *GetNodeNodeOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for GetNodeNode: "%T"`, vv)
 	}
 }
@@ -2262,70 +2346,50 @@ func (v *GetNodeNodeUser) GetId() testutil.ID { return v.Id }
 
 // GetNodeResponse is returned by GetNode on success.
 type GetNodeResponse struct {
-	Node GetNodeNode `json:"-"`
+	Node GetNodeNode `json:"node"`
 }
 
 func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *GetNodeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*GetNodeResponse
-		Node json.RawMessage `json:"node"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.GetNodeResponse = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.Node
-		src := firstPass.Node
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalGetNodeNode(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal GetNodeResponse.Node: %w", err)
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalGetNodeResponse)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalGetNodeNode),
+		)),
+	)
 }
 
-type _octoqlPremarshalGetNodeResponse struct {
-	Node json.RawMessage `json:"node"`
-}
+type _octoqlPremarshalGetNodeResponse GetNodeResponse
 
 func (v *GetNodeResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *GetNodeResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalGetNodeResponse, error) {
-	var retval _octoqlPremarshalGetNodeResponse
+func (v *GetNodeResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalGetNodeNode),
+		)),
+	)
+}
 
-	{
-		dst := &retval.Node
-		src := v.Node
-		var err error
-		*dst, err = _octoqlMarshalGetNodeNode(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal GetNodeResponse.Node: %w", err)
-		}
-	}
-	return &retval, nil
+func (v *GetNodeResponse) _octoqlPremarshalJSON() *_octoqlPremarshalGetNodeResponse {
+	return (*_octoqlPremarshalGetNodeResponse)(v)
 }
 
 // GetNodeVariables contains the variables accepted by GetNode.
@@ -2348,15 +2412,20 @@ type NestedNodeShapesNestedNodesNode interface {
 func (v *NestedNodeShapesNestedNodesNodeOctoqlOther) implementsGraphQLInterfaceNestedNodeShapesNestedNodesNode() {
 }
 
-func _octoqlUnmarshalNestedNodeShapesNestedNodesNode(b []byte, v *NestedNodeShapesNestedNodesNode) error {
+func _octoqlUnmarshalNestedNodeShapesNestedNodesNode(dec *jsontext.Decoder, v *NestedNodeShapesNestedNodesNode) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -2367,21 +2436,21 @@ func _octoqlUnmarshalNestedNodeShapesNestedNodesNode(b []byte, v *NestedNodeShap
 			"response was missing Node.__typename")
 	default:
 		*v = new(NestedNodeShapesNestedNodesNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalNestedNodeShapesNestedNodesNode(v *NestedNodeShapesNestedNodesNode) ([]byte, error) {
+func _octoqlMarshalNestedNodeShapesNestedNodesNode(enc *jsontext.Encoder, v *NestedNodeShapesNestedNodesNode) error {
 	switch vv := (*v).(type) {
 	case *NestedNodeShapesNestedNodesNodeOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for NestedNodeShapesNestedNodesNode: "%T"`, vv)
 	}
 }
@@ -2400,128 +2469,50 @@ func (v *NestedNodeShapesNestedNodesNodeOctoqlOther) GetId() testutil.ID { retur
 
 // NestedNodeShapesResponse is returned by NestedNodeShapes on success.
 type NestedNodeShapesResponse struct {
-	NestedNodes [][][]NestedNodeShapesNestedNodesNode `json:"-"`
+	NestedNodes [][][]NestedNodeShapesNestedNodesNode `json:"nestedNodes"`
 }
 
 func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *NestedNodeShapesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*NestedNodeShapesResponse
-		NestedNodes json.RawMessage `json:"nestedNodes"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.NestedNodeShapesResponse = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.NestedNodes
-		raw := firstPass.NestedNodes
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src [][][]json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal NestedNodeShapesResponse.NestedNodes: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[][][]NestedNodeShapesNestedNodesNode,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if src != nil {
-							*dst = make(
-								[][]NestedNodeShapesNestedNodesNode,
-								len(src))
-							for i, src := range src {
-								dst := &(*dst)[i]
-								if src != nil {
-									*dst = make(
-										[]NestedNodeShapesNestedNodesNode,
-										len(src))
-									for i, src := range src {
-										dst := &(*dst)[i]
-										if len(src) != 0 && string(src) != "null" {
-											err = _octoqlUnmarshalNestedNodeShapesNestedNodesNode(src, dst)
-											if err != nil {
-												return fmt.Errorf(
-													"unable to unmarshal NestedNodeShapesResponse.NestedNodes: %w", err)
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalNestedNodeShapesResponse)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalNestedNodeShapesNestedNodesNode),
+		)),
+	)
 }
 
-type _octoqlPremarshalNestedNodeShapesResponse struct {
-	NestedNodes [][][]json.RawMessage `json:"nestedNodes"`
-}
+type _octoqlPremarshalNestedNodeShapesResponse NestedNodeShapesResponse
 
 func (v *NestedNodeShapesResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *NestedNodeShapesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalNestedNodeShapesResponse, error) {
-	var retval _octoqlPremarshalNestedNodeShapesResponse
+func (v *NestedNodeShapesResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalNestedNodeShapesNestedNodesNode),
+		)),
+	)
+}
 
-	{
-		dst := &retval.NestedNodes
-		src := v.NestedNodes
-		if src != nil {
-			*dst = make(
-				[][][]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if src != nil {
-					*dst = make(
-						[][]json.RawMessage,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if src != nil {
-							*dst = make(
-								[]json.RawMessage,
-								len(src))
-							for i, src := range src {
-								dst := &(*dst)[i]
-								var err error
-								*dst, err = _octoqlMarshalNestedNodeShapesNestedNodesNode(&src)
-								if err != nil {
-									return nil, fmt.Errorf(
-										"unable to marshal NestedNodeShapesResponse.NestedNodes: %w", err)
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return &retval, nil
+func (v *NestedNodeShapesResponse) _octoqlPremarshalJSON() *_octoqlPremarshalNestedNodeShapesResponse {
+	return (*_octoqlPremarshalNestedNodeShapesResponse)(v)
 }
 
 type RecursiveInput struct {
@@ -2556,8 +2547,8 @@ type RecursiveRepositoryVariables struct {
 // RepositoryEventCovarianceLatestRepositoryEvent includes the requested fields of the GraphQL type RepositoryEvent.
 type RepositoryEventCovarianceLatestRepositoryEvent struct {
 	Typename            string                                                                          `json:"__typename"`
-	Subject             RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode           `json:"-"`
-	RelatedSubjects     []RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode `json:"-"`
+	Subject             RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode           `json:"subject"`
+	RelatedSubjects     []RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode `json:"relatedSubjects"`
 	RepositorySubject   RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository       `json:"repositorySubject"`
 	RelatedRepositories []RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository   `json:"relatedRepositories"`
 }
@@ -2576,128 +2567,48 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetRelatedSubjects() []
 }
 
 func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*RepositoryEventCovarianceLatestRepositoryEvent
-		Subject         json.RawMessage `json:"subject"`
-		RelatedSubjects json.RawMessage `json:"relatedSubjects"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.RepositoryEventCovarianceLatestRepositoryEvent = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.Subject
-		src := firstPass.Subject
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.Subject: %w", err)
-			}
-		}
-	}
-	{
-		dst := &v.RelatedSubjects
-		raw := firstPass.RelatedSubjects
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src []json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(src, dst)
-							if err != nil {
-								return fmt.Errorf(
-									"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode),
+			json.UnmarshalFromFunc(_octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode),
+		)),
+	)
 }
 
-type _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent struct {
-	Typename string `json:"__typename"`
-
-	Subject json.RawMessage `json:"subject"`
-
-	RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
-
-	RepositorySubject RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository `json:"repositorySubject"`
-
-	RelatedRepositories []RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository `json:"relatedRepositories"`
-}
+type _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent RepositoryEventCovarianceLatestRepositoryEvent
 
 func (v *RepositoryEventCovarianceLatestRepositoryEvent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *RepositoryEventCovarianceLatestRepositoryEvent) _octoqlPremarshalJSON() (*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent, error) {
-	var retval _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode),
+			json.MarshalToFunc(_octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode),
+		)),
+	)
+}
 
-	retval.Typename = v.Typename
-	{
-		dst := &retval.Subject
-		src := v.Subject
-		var err error
-		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal RepositoryEventCovarianceLatestRepositoryEvent.Subject: %w", err)
-		}
-	}
-	{
-		dst := &retval.RelatedSubjects
-		src := v.RelatedSubjects
-		if src != nil {
-			*dst = make(
-				[]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				var err error
-				*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(&src)
-				if err != nil {
-					return nil, fmt.Errorf(
-						"unable to marshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
-				}
-			}
-		}
-	}
-	retval.RepositorySubject = v.RepositorySubject
-	retval.RelatedRepositories = v.RelatedRepositories
-	return &retval, nil
+func (v *RepositoryEventCovarianceLatestRepositoryEvent) _octoqlPremarshalJSON() *_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent {
+	return (*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent)(v)
 }
 
 // RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository includes the requested fields of the GraphQL type Repository.
@@ -2730,15 +2641,20 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) implementsGraphQLInterf
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItem() {
 }
 
-func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) error {
+func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(dec *jsontext.Decoder, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -2746,48 +2662,47 @@ func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
 	switch tn.TypeName {
 	case "RepositoryEvent":
 		*v = new(RepositoryEventCovarianceLatestRepositoryEvent)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing TimelineItem.__typename")
 	default:
 		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) ([]byte, error) {
+func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(enc *jsontext.Encoder, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) error {
 	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEvent:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent
 		}{
 			TypeName: "RepositoryEvent",
-			_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent: premarshaled,
+			_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+			json.WithMarshalers(json.JoinMarshalers(
+				json.MarshalToFunc(_octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode),
+				json.MarshalToFunc(_octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode),
+			)),
+		)
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-		return json.Marshal(premarshaled)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItem: "%T"`, vv)
 	}
 }
@@ -2795,8 +2710,8 @@ func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v 
 // RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther represents RepositoryEventCovarianceLatestRepositoryEventTimelineItem implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
 type RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther struct {
 	Typename        string                                                                          `json:"__typename"`
-	Subject         RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode           `json:"-"`
-	RelatedSubjects []RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode `json:"-"`
+	Subject         RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode           `json:"subject"`
+	RelatedSubjects []RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode `json:"relatedSubjects"`
 }
 
 // GetTypename returns RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.Typename, and is useful for accessing the field via an interface.
@@ -2815,122 +2730,48 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 }
 
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther
-		Subject         json.RawMessage `json:"subject"`
-		RelatedSubjects json.RawMessage `json:"relatedSubjects"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.Subject
-		src := firstPass.Subject
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.Subject: %w", err)
-			}
-		}
-	}
-	{
-		dst := &v.RelatedSubjects
-		raw := firstPass.RelatedSubjects
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src []json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[]RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(src, dst)
-							if err != nil {
-								return fmt.Errorf(
-									"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode),
+			json.UnmarshalFromFunc(_octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode),
+		)),
+	)
 }
 
-type _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther struct {
-	Typename string `json:"__typename"`
-
-	Subject json.RawMessage `json:"subject"`
-
-	RelatedSubjects []json.RawMessage `json:"relatedSubjects"`
-}
+type _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther
 
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) _octoqlPremarshalJSON() (*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther, error) {
-	var retval _octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode),
+			json.MarshalToFunc(_octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode),
+		)),
+	)
+}
 
-	retval.Typename = v.Typename
-	{
-		dst := &retval.Subject
-		src := v.Subject
-		var err error
-		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.Subject: %w", err)
-		}
-	}
-	{
-		dst := &retval.RelatedSubjects
-		src := v.RelatedSubjects
-		if src != nil {
-			*dst = make(
-				[]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				var err error
-				*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(&src)
-				if err != nil {
-					return nil, fmt.Errorf(
-						"unable to marshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
-				}
-			}
-		}
-	}
-	return &retval, nil
+func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) _octoqlPremarshalJSON() *_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther {
+	return (*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther)(v)
 }
 
 // RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode includes the requested fields of the GraphQL interface Node.
@@ -2948,15 +2789,20 @@ type RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNo
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNodeOctoqlOther) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode() {
 }
 
-func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) error {
+func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(dec *jsontext.Decoder, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -2967,21 +2813,21 @@ func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemR
 			"response was missing Node.__typename")
 	default:
 		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) ([]byte, error) {
+func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(enc *jsontext.Encoder, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) error {
 	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNodeOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode: "%T"`, vv)
 	}
 }
@@ -3017,15 +2863,20 @@ type RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode inter
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNodeOctoqlOther) implementsGraphQLInterfaceRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode() {
 }
 
-func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(b []byte, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) error {
+func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(dec *jsontext.Decoder, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -3036,21 +2887,21 @@ func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemS
 			"response was missing Node.__typename")
 	default:
 		*v = new(RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNodeOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) ([]byte, error) {
+func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(enc *jsontext.Encoder, v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) error {
 	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNodeOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode: "%T"`, vv)
 	}
 }
@@ -3073,70 +2924,50 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNodeOc
 
 // RepositoryEventCovarianceResponse is returned by RepositoryEventCovariance on success.
 type RepositoryEventCovarianceResponse struct {
-	LatestRepositoryEvent RepositoryEventCovarianceLatestRepositoryEventTimelineItem `json:"-"`
+	LatestRepositoryEvent RepositoryEventCovarianceLatestRepositoryEventTimelineItem `json:"latestRepositoryEvent"`
 }
 
 func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *RepositoryEventCovarianceResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*RepositoryEventCovarianceResponse
-		LatestRepositoryEvent json.RawMessage `json:"latestRepositoryEvent"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.RepositoryEventCovarianceResponse = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.LatestRepositoryEvent
-		src := firstPass.LatestRepositoryEvent
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal RepositoryEventCovarianceResponse.LatestRepositoryEvent: %w", err)
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalRepositoryEventCovarianceResponse)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem),
+		)),
+	)
 }
 
-type _octoqlPremarshalRepositoryEventCovarianceResponse struct {
-	LatestRepositoryEvent json.RawMessage `json:"latestRepositoryEvent"`
-}
+type _octoqlPremarshalRepositoryEventCovarianceResponse RepositoryEventCovarianceResponse
 
 func (v *RepositoryEventCovarianceResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *RepositoryEventCovarianceResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalRepositoryEventCovarianceResponse, error) {
-	var retval _octoqlPremarshalRepositoryEventCovarianceResponse
+func (v *RepositoryEventCovarianceResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem),
+		)),
+	)
+}
 
-	{
-		dst := &retval.LatestRepositoryEvent
-		src := v.LatestRepositoryEvent
-		var err error
-		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal RepositoryEventCovarianceResponse.LatestRepositoryEvent: %w", err)
-		}
-	}
-	return &retval, nil
+func (v *RepositoryEventCovarianceResponse) _octoqlPremarshalJSON() *_octoqlPremarshalRepositoryEventCovarianceResponse {
+	return (*_octoqlPremarshalRepositoryEventCovarianceResponse)(v)
 }
 
 // RepositoryOwnerDetails includes the GraphQL fields of RepositoryOwner requested by the fragment RepositoryOwnerDetails.
@@ -3155,15 +2986,20 @@ type RepositoryOwnerDetails interface {
 
 func (v *RepositoryOwnerDetailsOctoqlOther) implementsGraphQLInterfaceRepositoryOwnerDetails() {}
 
-func _octoqlUnmarshalRepositoryOwnerDetails(b []byte, v *RepositoryOwnerDetails) error {
+func _octoqlUnmarshalRepositoryOwnerDetails(dec *jsontext.Decoder, v *RepositoryOwnerDetails) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -3174,21 +3010,21 @@ func _octoqlUnmarshalRepositoryOwnerDetails(b []byte, v *RepositoryOwnerDetails)
 			"response was missing RepositoryOwner.__typename")
 	default:
 		*v = new(RepositoryOwnerDetailsOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalRepositoryOwnerDetails(v *RepositoryOwnerDetails) ([]byte, error) {
+func _octoqlMarshalRepositoryOwnerDetails(enc *jsontext.Encoder, v *RepositoryOwnerDetails) error {
 	switch vv := (*v).(type) {
 	case *RepositoryOwnerDetailsOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for RepositoryOwnerDetails: "%T"`, vv)
 	}
 }
@@ -3237,100 +3073,51 @@ type SearchRepositoriesResponse struct {
 
 // SearchRepositoriesSearchSearchResultConnection includes the requested fields of the GraphQL type SearchResultConnection.
 type SearchRepositoriesSearchSearchResultConnection struct {
-	Nodes    []SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem `json:"-"`
+	Nodes    []SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem `json:"nodes"`
 	PageInfo SearchRepositoriesSearchSearchResultConnectionPageInfo                `json:"pageInfo"`
 }
 
 func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*SearchRepositoriesSearchSearchResultConnection
-		Nodes json.RawMessage `json:"nodes"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.SearchRepositoriesSearchSearchResultConnection = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.Nodes
-		raw := firstPass.Nodes
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src []json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[]SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(src, dst)
-							if err != nil {
-								return fmt.Errorf(
-									"unable to unmarshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnection)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem),
+		)),
+	)
 }
 
-type _octoqlPremarshalSearchRepositoriesSearchSearchResultConnection struct {
-	Nodes []json.RawMessage `json:"nodes"`
-
-	PageInfo SearchRepositoriesSearchSearchResultConnectionPageInfo `json:"pageInfo"`
-}
+type _octoqlPremarshalSearchRepositoriesSearchSearchResultConnection SearchRepositoriesSearchSearchResultConnection
 
 func (v *SearchRepositoriesSearchSearchResultConnection) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *SearchRepositoriesSearchSearchResultConnection) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnection, error) {
-	var retval _octoqlPremarshalSearchRepositoriesSearchSearchResultConnection
+func (v *SearchRepositoriesSearchSearchResultConnection) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem),
+		)),
+	)
+}
 
-	{
-		dst := &retval.Nodes
-		src := v.Nodes
-		if src != nil {
-			*dst = make(
-				[]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				var err error
-				*dst, err = _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(&src)
-				if err != nil {
-					return nil, fmt.Errorf(
-						"unable to marshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
-				}
-			}
-		}
-	}
-	retval.PageInfo = v.PageInfo
-	return &retval, nil
+func (v *SearchRepositoriesSearchSearchResultConnection) _octoqlPremarshalJSON() *_octoqlPremarshalSearchRepositoriesSearchSearchResultConnection {
+	return (*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnection)(v)
 }
 
 // SearchRepositoriesSearchSearchResultConnectionNodesIssue includes the requested fields of the GraphQL type Issue.
@@ -3377,7 +3164,7 @@ type SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommitPa
 type SearchRepositoriesSearchSearchResultConnectionNodesRepository struct {
 	Typename string                                                                         `json:"__typename"`
 	RepoName string                                                                         `json:"repoName"`
-	Owner    SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner             `json:"-"`
+	Owner    SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner             `json:"owner"`
 	Parent   *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryParentRepository `json:"parent"`
 }
 
@@ -3387,75 +3174,46 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) GetTypen
 }
 
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
 
-	if string(b) == "null" {
-		return nil
-	}
+func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
-	var firstPass struct {
-		*SearchRepositoriesSearchSearchResultConnectionNodesRepository
-		Owner json.RawMessage `json:"owner"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.SearchRepositoriesSearchSearchResultConnectionNodesRepository = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
+	if dec.PeekKind() == 'n' {
+		_, err := dec.ReadToken()
 		return err
 	}
 
-	{
-		dst := &v.Owner
-		src := firstPass.Owner
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal SearchRepositoriesSearchSearchResultConnectionNodesRepository.Owner: %w", err)
-			}
-		}
-	}
-	return nil
+	return json.UnmarshalDecode(
+		dec,
+		(*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository)(v),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner),
+		)),
+	)
 }
 
-type _octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository struct {
-	Typename string `json:"__typename"`
-
-	RepoName string `json:"repoName"`
-
-	Owner json.RawMessage `json:"owner"`
-
-	Parent *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryParentRepository `json:"parent"`
-}
+type _octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository SearchRepositoriesSearchSearchResultConnectionNodesRepository
 
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository, error) {
-	var retval _octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository
+func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(
+		enc,
+		v._octoqlPremarshalJSON(),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner),
+		)),
+	)
+}
 
-	retval.Typename = v.Typename
-	retval.RepoName = v.RepoName
-	{
-		dst := &retval.Owner
-		src := v.Owner
-		var err error
-		*dst, err = _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal SearchRepositoriesSearchSearchResultConnectionNodesRepository.Owner: %w", err)
-		}
-	}
-	retval.Parent = v.Parent
-	return &retval, nil
+func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) _octoqlPremarshalJSON() *_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository {
+	return (*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository)(v)
 }
 
 // SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner includes the requested fields of the GraphQL interface RepositoryOwner.
@@ -3473,15 +3231,20 @@ type SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner interfac
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwnerOctoqlOther) implementsGraphQLInterfaceSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner() {
 }
 
-func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(b []byte, v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) error {
+func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(dec *jsontext.Decoder, v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -3492,21 +3255,21 @@ func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesReposito
 			"response was missing RepositoryOwner.__typename")
 	default:
 		*v = new(SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwnerOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) ([]byte, error) {
+func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(enc *jsontext.Encoder, v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) error {
 	switch vv := (*v).(type) {
 	case *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwnerOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner: "%T"`, vv)
 	}
 }
@@ -3554,15 +3317,20 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) implemen
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItemOctoqlOther) implementsGraphQLInterfaceSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem() {
 }
 
-func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(b []byte, v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) error {
+func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(dec *jsontext.Decoder, v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
 	if string(b) == "null" {
+		*v = nil
 		return nil
 	}
 
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err := json.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -3570,27 +3338,27 @@ func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchRe
 	switch tn.TypeName {
 	case "Issue":
 		*v = new(SearchRepositoriesSearchSearchResultConnectionNodesIssue)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "PullRequest":
 		*v = new(SearchRepositoriesSearchSearchResultConnectionNodesPullRequest)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Repository":
 		*v = new(SearchRepositoriesSearchSearchResultConnectionNodesRepository)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing SearchResultItem.__typename")
 	default:
 		*v = new(SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItemOctoqlOther)
-		return json.Unmarshal(b, *v)
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
-func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) ([]byte, error) {
+func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(enc *jsontext.Encoder, v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) error {
 	switch vv := (*v).(type) {
 	case *SearchRepositoriesSearchSearchResultConnectionNodesIssue:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -3600,10 +3368,10 @@ func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResu
 			TypeName: "Issue",
 			SearchRepositoriesSearchSearchResultConnectionNodesIssue: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *SearchRepositoriesSearchSearchResultConnectionNodesPullRequest:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
 		result := struct {
@@ -3613,33 +3381,35 @@ func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResu
 			TypeName: "PullRequest",
 			SearchRepositoriesSearchSearchResultConnectionNodesPullRequest: vv,
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(enc, &result)
 	case *SearchRepositoriesSearchSearchResultConnectionNodesRepository:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
 
-		premarshaled, err := vv._octoqlPremarshalJSON()
-		if err != nil {
-			return nil, err
-		}
 		result := struct {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository
 		}{
 			TypeName: "Repository",
-			_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository: premarshaled,
+			_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository: vv._octoqlPremarshalJSON(),
 		}
-		return json.Marshal(result)
+		return json.MarshalEncode(
+			enc,
+			&result,
+			json.WithMarshalers(json.JoinMarshalers(
+				json.MarshalToFunc(_octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner),
+			)),
+		)
 	case *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItemOctoqlOther:
 		if vv == nil {
-			return []byte("null"), nil
+			return enc.WriteToken(jsontext.Null)
 		}
-		return json.Marshal(vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	default:
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			`unexpected concrete type for SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem: "%T"`, vv)
 	}
 }

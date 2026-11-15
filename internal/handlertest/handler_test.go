@@ -1,7 +1,7 @@
 package handlertest_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -34,7 +34,7 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	assert.Equal(t, "octocat", viewerResponse.Viewer.Login)
 
 	dynamicVariables := githubapi.EchoPropertyVariables{
-		Value: json.RawMessage(`"dynamic"`),
+		Value: jsontext.Value(`"dynamic"`),
 	}
 	receivedVariables := make(chan githubapi.EchoPropertyVariables, 1)
 	handler.ExpectEchoProperty(dynamicVariables).Handle(func(
@@ -87,9 +87,9 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	_, wrongOperation := errors.AsType[*githubapi.GetNodePartialDataError](err)
 	assert.False(t, wrongOperation)
 
-	fifoVars := githubapi.EchoPropertyVariables{Value: json.RawMessage(`"fifo"`)}
-	stubVars := githubapi.EchoPropertyVariables{Value: json.RawMessage(`"stub"`)}
-	fallbackVars := githubapi.EchoPropertyVariables{Value: json.RawMessage(`"fallback"`)}
+	fifoVars := githubapi.EchoPropertyVariables{Value: jsontext.Value(`"fifo"`)}
+	stubVars := githubapi.EchoPropertyVariables{Value: jsontext.Value(`"stub"`)}
+	fallbackVars := githubapi.EchoPropertyVariables{Value: jsontext.Value(`"fallback"`)}
 	handler.DefaultEchoProperty().Handle(func(
 		vars githubapi.EchoPropertyVariables,
 		writer http.ResponseWriter,
@@ -99,10 +99,10 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 		assert.NoError(t, writeErr)
 	})
 	handler.ExpectEchoProperty(fifoVars).Respond(githubapi.EchoPropertyResponse{
-		EchoProperty: json.RawMessage(`"first"`),
+		EchoProperty: jsontext.Value(`"first"`),
 	})
 	handler.ExpectEchoProperty(fifoVars).Respond(githubapi.EchoPropertyResponse{
-		EchoProperty: json.RawMessage(`"second"`),
+		EchoProperty: jsontext.Value(`"second"`),
 	})
 	handler.ExpectEchoProperty(stubVars, githubapitest.MinTimes(0)).Respond(githubapi.EchoPropertyResponse{})
 
@@ -303,7 +303,7 @@ func TestGeneratedHandlerConcurrentRequests(t *testing.T) {
 	t.Cleanup(server.Close)
 	client := githubapi.NewClient(server.URL, http.DefaultClient)
 	variables := githubapi.EchoPropertyVariables{
-		Value: json.RawMessage(`"concurrent"`),
+		Value: jsontext.Value(`"concurrent"`),
 	}
 	handler.ExpectEchoProperty(
 		variables,
@@ -342,7 +342,7 @@ func repositoryData() githubapi.GetRepositoryResponse {
 			Id:            "R1",
 			FullName:      "octo-org/octo-repo",
 			UpdatedAt:     time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC),
-			PropertyValue: json.RawMessage(`["red","blue"]`),
+			PropertyValue: jsontext.Value(`["red","blue"]`),
 			Issues: githubapi.GetRepositoryRepositoryIssuesIssueConnection{
 				Nodes: []githubapi.GetRepositoryRepositoryIssuesIssueConnectionNodesIssue{{
 					Id:    "I1",

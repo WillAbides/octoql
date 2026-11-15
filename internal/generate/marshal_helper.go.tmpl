@@ -1,33 +1,47 @@
-{{/* This is somewhat parallel to unmarshal_helper.go.tmpl, but, as usual, in
-     reverse.  Note the helper accepts a pointer-to-interface, for
-     consistency with unmarshaling. */}}
+{{/* This is somewhat parallel to unmarshal_helper.go.tmpl, but in reverse.
+     Note the helper accepts a pointer-to-interface for MarshalToFunc so it
+     matches interface-typed fields without matching concrete implementation
+     types. */}}
 
-func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
+func _octoqlMarshal{{.GoName}}(enc *{{ref "encoding/json/jsontext.Encoder"}}, v *{{.GoName}}) error {
     switch vv := (*v).(type) {
     {{range .Implementations -}}
     case *{{.GoName}}:
         if vv == nil {
-            return []byte("null"), nil
+            return enc.WriteToken({{ref "encoding/json/jsontext.Null"}})
         }
 
         {{/* Now actually do the marshal, with the concrete type. (Go only
              marshals embeds the way we want if they're structs.)  Except that
              won't work right if the implementation-type has its own
-             MarshalJSON method (maybe it in turn has an interface-typed
+             MarshalJSONTo method (maybe it in turn has an interface-typed
              field), so we call the helper _octoqlPremarshalJSON directly (see
              marshal.go.tmpl). */}}
         {{if .NeedsMarshaling -}}
-        premarshaled, err := vv._octoqlPremarshalJSON()
-        if err != nil {
-            return nil, err
-        }
+        {{- $hasInterfaces := false -}}
+        {{- range .FlattenedFields -}}
+        {{- if .NeedsMarshaling -}}{{- $hasInterfaces = true -}}{{- end -}}
+        {{- end -}}
         result := struct {
             TypeName string `json:"__typename"`
             *_octoqlPremarshal{{.GoName}}
         }{
             TypeName: "{{.GraphQLName}}",
-            _octoqlPremarshal{{.GoName}}: premarshaled,
+            _octoqlPremarshal{{.GoName}}: vv._octoqlPremarshalJSON(),
         }
+        return {{ref "encoding/json/v2.MarshalEncode"}}(
+            enc,
+            &result,
+            {{if $hasInterfaces -}}
+            {{ref "encoding/json/v2.WithMarshalers"}}({{ref "encoding/json/v2.JoinMarshalers"}}(
+                {{range .FlattenedFields -}}
+                {{if .NeedsMarshaling -}}
+                {{ref "encoding/json/v2.MarshalToFunc"}}(_octoqlMarshal{{.GoType.Unwrap.QualifiedRef}}),
+                {{end -}}
+                {{end -}}
+            )),
+            {{end -}}
+        )
         {{else -}}
         result := struct {
             TypeName string `json:"__typename"`
@@ -36,26 +50,18 @@ func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
             TypeName: "{{.GraphQLName}}",
             {{.GoName}}: vv,
         }
+        return {{ref "encoding/json/v2.MarshalEncode"}}(enc, &result)
         {{end -}}
-        return {{ref "encoding/json.Marshal"}}(result)
     {{end -}}
     case *{{.OtherImplementation.GoName}}:
         if vv == nil {
-            return []byte("null"), nil
+            return enc.WriteToken({{ref "encoding/json/jsontext.Null"}})
         }
-        {{if .OtherImplementation.NeedsMarshaling -}}
-        premarshaled, err := vv._octoqlPremarshalJSON()
-        if err != nil {
-            return nil, err
-        }
-        return {{ref "encoding/json.Marshal"}}(premarshaled)
-        {{else -}}
-        return {{ref "encoding/json.Marshal"}}(vv)
-        {{end -}}
+        return {{ref "encoding/json/v2.MarshalEncode"}}(enc, vv)
     case nil:
-        return []byte("null"), nil
+        return enc.WriteToken({{ref "encoding/json/jsontext.Null"}})
     default:
-        return nil, {{ref "fmt.Errorf"}}(
+        return {{ref "fmt.Errorf"}}(
             `unexpected concrete type for {{.GoName}}: "%T"`, vv)
     }
 }

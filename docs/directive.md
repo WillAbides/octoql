@@ -138,9 +138,11 @@ with `@octoqlgenFor`.
 ## `omitempty`
 
 Omits this argument, or input-type field when combined with
-[`@octoqlgenFor`](#octoqlgenfor), if it has an empty value. Empty is defined the
-same as in `encoding/json`: false, 0, a nil pointer, a nil interface value, and
-any empty array, slice, map, or string.
+[`@octoqlgenFor`](#octoqlgenfor), if it has an empty or zero value. octoqlgen
+emits `,omitempty` on slices, arrays, and maps (omitting `nil` and empty
+collections) and `,omitzero` on pointers and other types (omitting `nil`
+pointers, `false`, `0`, `""`, zero structs, and values whose `IsZero()` method
+returns `true`).
 
 Given the following query:
 
@@ -151,7 +153,7 @@ query MyQuery($arg: String @octoqlgen(omitempty: true)) { ... }
 octoqlgen generates a variables field like:
 
 ```go
-Arg *string `json:"arg,omitempty"`
+Arg *string `json:"arg,omitzero"`
 ```
 
 A nil pointer omits `arg` from the variables object, while a pointer to `""`

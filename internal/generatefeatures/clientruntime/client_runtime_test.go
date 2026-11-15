@@ -1,7 +1,8 @@
 package clientruntime
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -55,7 +56,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				truncatedBody := []byte(`{"errors":[`)
 				assert.Equal(t, truncatedBody, responseError.RawBody)
 				assert.Equal(t, http.StatusServiceUnavailable, responseError.StatusCode)
-				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
+				_, syntaxErrorFound := errors.AsType[*jsontext.SyntacticError](err)
 				assert.True(t, syntaxErrorFound)
 			},
 		},
@@ -67,7 +68,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				t.Helper()
 				require.Error(t, err)
-				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
+				_, syntaxErrorFound := errors.AsType[*jsontext.SyntacticError](err)
 				assert.True(t, syntaxErrorFound)
 			},
 		},
@@ -84,7 +85,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				require.ErrorAs(t, err, &graphqlErrors)
 				require.Len(t, graphqlErrors, 1)
 				assert.Equal(t, ErrorType("PARTIAL"), graphqlErrors[0].Type)
-				_, typeErrorFound := errors.AsType[*json.UnmarshalTypeError](err)
+				_, typeErrorFound := errors.AsType[*json.SemanticError](err)
 				assert.True(t, typeErrorFound)
 			},
 		},
@@ -158,7 +159,7 @@ func TestDoRequestAndAuth(t *testing.T) {
 	assert.Equal(t, "https://github.example/api/graphql", withVariables.url)
 	assert.Equal(t, "application/json", withVariables.header.Get("Content-Type"))
 	assert.Equal(t, "Bearer github_pat_first", withVariables.header.Get("Authorization"))
-	var withVariablesPayload map[string]json.RawMessage
+	var withVariablesPayload map[string]jsontext.Value
 	err = json.Unmarshal(withVariables.body, &withVariablesPayload)
 	require.NoError(t, err)
 	assert.JSONEq(t, `"getRepository"`, string(withVariablesPayload["operationName"]))
@@ -170,7 +171,7 @@ func TestDoRequestAndAuth(t *testing.T) {
 	require.NoError(t, err)
 	withoutVariables := <-requests
 	assert.Equal(t, "Bearer github_pat_second", withoutVariables.header.Get("Authorization"))
-	var withoutVariablesPayload map[string]json.RawMessage
+	var withoutVariablesPayload map[string]jsontext.Value
 	err = json.Unmarshal(withoutVariables.body, &withoutVariablesPayload)
 	require.NoError(t, err)
 	assert.NotContains(t, withoutVariablesPayload, "variables")

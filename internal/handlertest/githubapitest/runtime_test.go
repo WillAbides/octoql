@@ -2,7 +2,8 @@ package githubapitest
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -53,7 +54,7 @@ func TestCleanupAndUnexpectedOperationFailures(t *testing.T) {
 	t.Run("unmet minimum count", func(t *testing.T) {
 		fake := &fakeTB{}
 		handler := newTestHandler(fake)
-		required := githubapi.EchoPropertyVariables{Value: json.RawMessage(`"required"`)}
+		required := githubapi.EchoPropertyVariables{Value: jsontext.Value(`"required"`)}
 		handler.ExpectEchoProperty(required, MinTimes(2)).Respond(githubapi.EchoPropertyResponse{})
 
 		postOperation(t, handler, "EchoProperty", required)
