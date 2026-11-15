@@ -32,40 +32,8 @@ Type: `string` · Required
 
 Nested leaf prose.
 
-### `test_handler.types`
-
-Type: `string` · Optional · Default: `client` · Values: `client`, `local`
-
-Prose about types.
-
 ## `bindings`
 
 Type: `object` · Optional
 
 Prose about bindings.
-
-### `bindings.<name>`
-
-Section prose for a binding.
-
-#### `bindings.<name>.type`
-
-Type: `string` · Required
-
-Prose about the bound Go type.
-
-## `package_bindings`
-
-Type: `array` · Optional
-
-Prose about package bindings.
-
-### `package_bindings[]`
-
-Section prose for a package binding.
-
-#### `package_bindings[].package`
-
-Type: `string` · Required
-
-Prose about the package import path.

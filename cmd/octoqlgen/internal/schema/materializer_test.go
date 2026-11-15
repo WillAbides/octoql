@@ -183,7 +183,6 @@ func TestGitHubTokenPrecedence(t *testing.T) {
 
 			token, err := discoverToken(
 				t.Context(),
-				"github.com",
 				environmentLookup(test.environment),
 				test.runner,
 			)
@@ -308,12 +307,8 @@ func testGitHubMaterializer(client httpDoer) *Materializer {
 		err:    errors.New("exit 1"),
 	}
 	materializer.LookupEnvironment = environmentLookup(map[string]string{})
-	materializer.GitHubAPIBaseURL = func(string) string {
-		return "https://api.example.test"
-	}
-	materializer.GitHubGraphQLEndpoint = func(string) string {
-		return "https://api.example.test/graphql"
-	}
+	materializer.GitHubAPIBaseURL = "https://api.example.test"
+	materializer.GitHubGraphQLEndpoint = "https://api.example.test/graphql"
 	return materializer
 }
 

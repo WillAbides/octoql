@@ -252,7 +252,7 @@ func (cmd *schemaUpdateCommand) Run() error {
 	currentHash := fmt.Sprintf("%x", sha256.Sum256(originalSchema.data))
 	schemaUnchanged := originalSchema.exists && currentHash == result.SHA256
 	pinsUnchanged := loaded.Schema.SHA256Value() == result.SHA256 &&
-		sourceRevision(source) == result.Revision
+		source.Revision == result.Revision
 	if schemaUnchanged && pinsUnchanged {
 		updatedConfig := config.SetSchemaDirective(rawConfig, cmd.configSchemaURL)
 		_, err = config.Parse(updatedConfig)
@@ -329,7 +329,7 @@ func (cmd *schemaUpdateCommand) Run() error {
 	_, err = fmt.Fprintf(
 		cmd.stdout,
 		"updated schema revision %s -> %s, sha256 %s -> %s\n",
-		displayRevision(sourceRevision(source)),
+		displayRevision(source.Revision),
 		displayRevision(result.Revision),
 		loaded.Schema.SHA256Value(),
 		result.SHA256,
@@ -376,10 +376,6 @@ func snapshotFile(path string) (fileSnapshot, error) {
 
 func sameFileSnapshot(left, right fileSnapshot) bool {
 	return left.exists == right.exists && left.mode == right.mode && bytes.Equal(left.data, right.data)
-}
-
-func sourceRevision(source config.Source) string {
-	return source.Revision
 }
 
 func hasRemoteSource(source config.Source) bool {

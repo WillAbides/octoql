@@ -53,8 +53,8 @@ func allocateIdentifier(base string, used map[string]bool) string {
 
 var sliceOrMapPrefixRegexp = regexp.MustCompile(`^(\*|\[\d*\]|map\[string\])*`)
 
-// goRef is a parsed, destination-neutral Go type or package-qualified symbol
-// reference. It resolves against a target package's importScope at render time.
+// goRef is a parsed Go type or package-qualified symbol reference. It resolves
+// against a target package's importScope at render time.
 type goRef struct {
 	prefix    string
 	pkgPath   string
@@ -80,23 +80,12 @@ func (r goRef) isNilable() bool {
 		strings.HasPrefix(r.prefix, "map[")
 }
 
-func (r goRef) render(scope *importScope) (string, error) {
-	if r.pkgPath == "" {
-		return r.prefix + r.localName, nil
-	}
-	if r.pkgPath == scope.forbiddenPkgPath {
-		return "", errorf(
-			nil,
-			"test_handler.types local cannot use %q because it is owned by the generated client package %q",
-			r.qualified(),
-			r.pkgPath,
-		)
-	}
-	if r.pkgPath == scope.pkgPath {
-		return r.prefix + r.localName, nil
+func (r goRef) render(scope *importScope) string {
+	if r.pkgPath == "" || r.pkgPath == scope.pkgPath {
+		return r.prefix + r.localName
 	}
 	alias := scope.importPackage(r.pkgPath)
-	return r.prefix + alias + "." + r.localName, nil
+	return r.prefix + alias + "." + r.localName
 }
 
 // parseRef parses and validates a Go type or symbol expression:
@@ -147,18 +136,16 @@ func parseRef(fullyQualifiedName string) (goRef, error) {
 
 // importScope tracks imports and alias collisions for one generated Go file.
 type importScope struct {
-	pkgPath          string
-	forbiddenPkgPath string
-	imports          map[string]string
-	usedAliases      map[string]bool
+	pkgPath     string
+	imports     map[string]string
+	usedAliases map[string]bool
 }
 
-func newImportScope(pkgPath, forbiddenPkgPath string) *importScope {
+func newImportScope(pkgPath string) *importScope {
 	return &importScope{
-		pkgPath:          pkgPath,
-		forbiddenPkgPath: forbiddenPkgPath,
-		imports:          map[string]string{},
-		usedAliases:      map[string]bool{},
+		pkgPath:     pkgPath,
+		imports:     map[string]string{},
+		usedAliases: map[string]bool{},
 	}
 }
 
@@ -183,7 +170,7 @@ func (s *importScope) ref(fullyQualifiedName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return parsed.render(s)
+	return parsed.render(s), nil
 }
 
 func (s *importScope) declaration() string {
@@ -225,46 +212,35 @@ func (s *importScope) declaration() string {
 // registerBoundTypeImports pre-registers external type bindings in sorted
 // typeMap order so user-bound packages claim their natural package aliases
 // before generated runtime or helper stdlib imports.
-func registerBoundTypeImports(typeMap map[string]goType, scope *importScope) error {
+func registerBoundTypeImports(typeMap map[string]goType, scope *importScope) {
 	seen := make(map[goType]bool, len(typeMap))
-	var visit func(goType) error
-	visit = func(typ goType) error {
+	var visit func(goType)
+	visit = func(typ goType) {
 		if seen[typ] {
-			return nil
+			return
 		}
 		seen[typ] = true
 
 		switch current := typ.(type) {
 		case *goOpaqueType:
-			_, err := current.Ref.render(scope)
-			return err
+			current.Ref.render(scope)
 		case *goSliceType:
-			return visit(current.Elem)
+			visit(current.Elem)
 		case *goPointerType:
-			return visit(current.Elem)
+			visit(current.Elem)
 		case *goStructType:
 			for _, field := range current.Fields {
-				err := visit(field.GoType)
-				if err != nil {
-					return err
-				}
+				visit(field.GoType)
 			}
 		case *goInterfaceType:
 			for _, field := range current.SharedFields {
-				err := visit(field.GoType)
-				if err != nil {
-					return err
-				}
+				visit(field.GoType)
 			}
 			for _, impl := range current.Implementations {
-				err := visit(impl)
-				if err != nil {
-					return err
-				}
+				visit(impl)
 			}
-			return visit(current.OtherImplementation)
+			visit(current.OtherImplementation)
 		}
-		return nil
 	}
 
 	names := make([]string, 0, len(typeMap))
@@ -273,10 +249,6 @@ func registerBoundTypeImports(typeMap map[string]goType, scope *importScope) err
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		err := visit(typeMap[name])
-		if err != nil {
-			return err
-		}
+		visit(typeMap[name])
 	}
-	return nil
 }

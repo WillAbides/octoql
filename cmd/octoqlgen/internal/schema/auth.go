@@ -34,7 +34,6 @@ func (execRunner) Run(
 
 func discoverToken(
 	ctx context.Context,
-	host string,
 	lookupEnvironment func(string) (string, bool),
 	runner commandRunner,
 ) (string, error) {
@@ -53,7 +52,7 @@ func discoverToken(
 		"auth",
 		"token",
 		"--hostname",
-		host,
+		"github.com",
 	)
 	if err == nil {
 		return strings.TrimSpace(string(stdout)), nil

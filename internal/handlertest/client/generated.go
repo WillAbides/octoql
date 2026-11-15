@@ -1093,20 +1093,17 @@ func _octoqlUnmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 }
 
 func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *GetNodeNodeIssue:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeIssue
 		}{
-			TypeName:         typename,
+			TypeName:         "Issue",
 			GetNodeNodeIssue: vv,
 		}
 		return json.Marshal(result)
@@ -1114,13 +1111,12 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Repository"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeRepository
 		}{
-			TypeName:              typename,
+			TypeName:              "Repository",
 			GetNodeNodeRepository: vv,
 		}
 		return json.Marshal(result)
@@ -1456,20 +1452,17 @@ func _octoqlUnmarshalSearchSearchSearchResultItem(b []byte, v *SearchSearchSearc
 }
 
 func _octoqlMarshalSearchSearchSearchResultItem(v *SearchSearchSearchResultItem) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *SearchSearchIssue:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*SearchSearchIssue
 		}{
-			TypeName:          typename,
+			TypeName:          "Issue",
 			SearchSearchIssue: vv,
 		}
 		return json.Marshal(result)
@@ -1477,13 +1470,12 @@ func _octoqlMarshalSearchSearchSearchResultItem(v *SearchSearchSearchResultItem)
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Repository"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*SearchSearchRepository
 		}{
-			TypeName:               typename,
+			TypeName:               "Repository",
 			SearchSearchRepository: vv,
 		}
 		return json.Marshal(result)

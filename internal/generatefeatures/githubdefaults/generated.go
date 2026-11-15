@@ -1049,7 +1049,6 @@ func _octoqlUnmarshalnamingShapesNamingActor(b []byte, v *namingShapesNamingActo
 }
 
 func _octoqlMarshalnamingShapesNamingActor(v *namingShapesNamingActor) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *namingShapesNamingActorOctoqlOther:
 		if vv == nil {
@@ -1224,20 +1223,17 @@ func _octoqlUnmarshalruntimeAbstractsActorNode(b []byte, v *runtimeAbstractsActo
 }
 
 func _octoqlMarshalruntimeAbstractsActorNode(v *runtimeAbstractsActorNode) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *runtimeAbstractsActorNodeBot:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Bot"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*runtimeAbstractsActorNodeBot
 		}{
-			TypeName:                     typename,
+			TypeName:                     "Bot",
 			runtimeAbstractsActorNodeBot: vv,
 		}
 		return json.Marshal(result)
@@ -1245,13 +1241,12 @@ func _octoqlMarshalruntimeAbstractsActorNode(v *runtimeAbstractsActorNode) ([]by
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "NamingUser"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*runtimeAbstractsActorNodeNamingUser
 		}{
-			TypeName:                            typename,
+			TypeName:                            "NamingUser",
 			runtimeAbstractsActorNodeNamingUser: vv,
 		}
 		return json.Marshal(result)
@@ -1259,13 +1254,12 @@ func _octoqlMarshalruntimeAbstractsActorNode(v *runtimeAbstractsActorNode) ([]by
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*runtimeAbstractsActorNodeOrganization
 		}{
-			TypeName:                              typename,
+			TypeName:                              "Organization",
 			runtimeAbstractsActorNodeOrganization: vv,
 		}
 		return json.Marshal(result)
@@ -1358,7 +1352,6 @@ func _octoqlUnmarshalruntimeAbstractsNestedNodesNode(b []byte, v *runtimeAbstrac
 }
 
 func _octoqlMarshalruntimeAbstractsNestedNodesNode(v *runtimeAbstractsNestedNodesNode) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *runtimeAbstractsNestedNodesNodeOctoqlOther:
 		if vv == nil {
@@ -1439,20 +1432,17 @@ func _octoqlUnmarshalruntimeAbstractsNode(b []byte, v *runtimeAbstractsNode) err
 }
 
 func _octoqlMarshalruntimeAbstractsNode(v *runtimeAbstractsNode) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *runtimeAbstractsNodeOctoqlOther:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "OctoqlOther"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*runtimeAbstractsNodeOctoqlOther
 		}{
-			TypeName:                        typename,
+			TypeName:                        "OctoqlOther",
 			runtimeAbstractsNodeOctoqlOther: vv,
 		}
 		return json.Marshal(result)
@@ -1460,13 +1450,12 @@ func _octoqlMarshalruntimeAbstractsNode(v *runtimeAbstractsNode) ([]byte, error)
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Repository"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*runtimeAbstractsNodeRepository
 		}{
-			TypeName:                       typename,
+			TypeName:                       "Repository",
 			runtimeAbstractsNodeRepository: vv,
 		}
 		return json.Marshal(result)

@@ -20,8 +20,10 @@ import (
 )
 
 const (
-	DefaultMaxResponseBytes int64 = 32 << 20
-	DefaultTimeout                = 30 * time.Second
+	DefaultMaxResponseBytes      int64 = 32 << 20
+	DefaultTimeout                     = 30 * time.Second
+	DefaultGitHubAPIBaseURL            = "https://api.github.com"
+	DefaultGitHubGraphQLEndpoint       = "https://api.github.com/graphql"
 )
 
 type Request struct {
@@ -34,8 +36,8 @@ type Materializer struct {
 	HTTPClient            httpDoer
 	CommandRunner         commandRunner
 	LookupEnvironment     func(string) (string, bool)
-	GitHubAPIBaseURL      func(string) string
-	GitHubGraphQLEndpoint func(string) string
+	GitHubAPIBaseURL      string
+	GitHubGraphQLEndpoint string
 	MaxResponseBytes      int64
 	Timeout               time.Duration
 }
@@ -45,8 +47,8 @@ func NewMaterializer() *Materializer {
 		HTTPClient:            &httpClient{},
 		CommandRunner:         execRunner{},
 		LookupEnvironment:     os.LookupEnv,
-		GitHubAPIBaseURL:      defaultGitHubAPIBaseURL,
-		GitHubGraphQLEndpoint: defaultGitHubGraphQLEndpoint,
+		GitHubAPIBaseURL:      DefaultGitHubAPIBaseURL,
+		GitHubGraphQLEndpoint: DefaultGitHubGraphQLEndpoint,
 		MaxResponseBytes:      DefaultMaxResponseBytes,
 		Timeout:               DefaultTimeout,
 	}
@@ -180,8 +182,8 @@ type dependencies struct {
 	httpClient            httpDoer
 	commandRunner         commandRunner
 	lookupEnvironment     func(string) (string, bool)
-	githubAPIBaseURL      func(string) string
-	githubGraphQLEndpoint func(string) string
+	githubAPIBaseURL      string
+	githubGraphQLEndpoint string
 	maxResponseBytes      int64
 	timeout               time.Duration
 }
@@ -192,19 +194,13 @@ func (m *Materializer) dependencies() dependencies {
 		httpClient:            cmp.Or(m.HTTPClient, defaults.HTTPClient),
 		commandRunner:         cmp.Or(m.CommandRunner, defaults.CommandRunner),
 		lookupEnvironment:     m.LookupEnvironment,
-		githubAPIBaseURL:      m.GitHubAPIBaseURL,
-		githubGraphQLEndpoint: m.GitHubGraphQLEndpoint,
+		githubAPIBaseURL:      cmp.Or(m.GitHubAPIBaseURL, defaults.GitHubAPIBaseURL),
+		githubGraphQLEndpoint: cmp.Or(m.GitHubGraphQLEndpoint, defaults.GitHubGraphQLEndpoint),
 		maxResponseBytes:      m.MaxResponseBytes,
 		timeout:               cmp.Or(m.Timeout, defaults.Timeout),
 	}
 	if deps.lookupEnvironment == nil {
 		deps.lookupEnvironment = defaults.LookupEnvironment
-	}
-	if deps.githubAPIBaseURL == nil {
-		deps.githubAPIBaseURL = defaults.GitHubAPIBaseURL
-	}
-	if deps.githubGraphQLEndpoint == nil {
-		deps.githubGraphQLEndpoint = defaults.GitHubGraphQLEndpoint
 	}
 	if deps.maxResponseBytes <= 0 {
 		deps.maxResponseBytes = defaults.MaxResponseBytes

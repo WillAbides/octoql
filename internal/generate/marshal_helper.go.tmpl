@@ -1,21 +1,14 @@
 {{/* This is somewhat parallel to unmarshal_helper.go.tmpl, but, as usual, in
      reverse.  Note the helper accepts a pointer-to-interface, for
-     consistency with unmarshaling and with the API we expect of custom
-     marshalers. */}}
+     consistency with unmarshaling. */}}
 
 func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
-    {{/* Determine the GraphQL typename, which the unmarshaler will need should
-         it be called on our output. */}}
-    {{if .Implementations -}}
-    var typename string
-    {{end -}}
     switch vv := (*v).(type) {
     {{range .Implementations -}}
     case *{{.GoName}}:
         if vv == nil {
             return []byte("null"), nil
         }
-        typename = "{{.GraphQLName}}"
 
         {{/* Now actually do the marshal, with the concrete type. (Go only
              marshals embeds the way we want if they're structs.)  Except that
@@ -32,7 +25,7 @@ func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
             TypeName string `json:"__typename"`
             *_octoqlPremarshal{{.GoName}}
         }{
-            TypeName: typename,
+            TypeName: "{{.GraphQLName}}",
             _octoqlPremarshal{{.GoName}}: premarshaled,
         }
         {{else -}}
@@ -40,7 +33,7 @@ func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
             TypeName string `json:"__typename"`
             *{{.GoName}}
         }{
-            TypeName: typename,
+            TypeName: "{{.GraphQLName}}",
             {{.GoName}}: vv,
         }
         {{end -}}

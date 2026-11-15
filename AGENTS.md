@@ -92,22 +92,13 @@
   with only custom-tagged Go files and a non-default package name must set
   `package` explicitly in `octoqlgen.yaml`.
 - Typed test-handler generation is an optional renderer over the same immutable
-  parsed and converted operation plan as client generation. Do not add a second
-  config load, schema parse, operation parser, abstract-type analysis, or
+  parsed and converted operation plan as client generation. It imports the
+  generated client package and uses its operation types directly. Do not add a
+  second config load, schema parse, operation parser, abstract-type analysis, or
   subscription path.
-- Generated test handlers use `test_handler.types: client` by default to import
-  and alias generated client types. `types: local` emits distinct operation
-  types in the handler package without importing the client package.
-- Both test-handler type strategies render from the same immutable generation
-  plan and shared type renderer. Do not add a second config load, schema parse,
-  operation parser, type conversion, or abstract-type analysis.
-- Preserve destination-neutral binding and marshal-helper references in the
-  shared plan, then resolve imports per renderer. Local handlers reject
-  reachable references owned by the generated client package. Field equivalence
-  in `generatedTypeFieldsMatch` compares destination-neutral `QualifiedRef()`
+- Field equivalence in `generatedTypeFieldsMatch` compares `QualifiedRef()`
   strings directly because `bind` targets handwritten types rather than
-  generated types and collapsing client-qualified bindings with local generated
-  types would make `types: local` validation depend on operation order.
+  generated types.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
   Generated outputs, config updates, and materialized schemas write directly

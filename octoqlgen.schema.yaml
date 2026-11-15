@@ -231,10 +231,11 @@ $defs:
       operation plan used for the client.
 
       The handler package is inferred independently from its destination,
-      including when the destination directory is new and empty.
+      including when the destination directory is new and empty. It imports the
+      generated client package and uses its operation, `Error`, and `RateLimit`
+      types directly.
 
       Every test-handler operation name must begin with an uppercase letter.
-      This applies to both type strategies; `local` does not relax it.
 
       Omitting `test_handler` generates only the client and performs no handler
       package work.
@@ -251,25 +252,3 @@ $defs:
         type: string
         examples:
           - githubapitest/generated.go
-      types:
-        description: Source of generated test handler operation types.
-        x-doc: |
-          Where the handler's operation types come from.
-
-          `client`, the default, imports the generated client package and
-          exposes aliases for its response, input, enum, abstract variant, and
-          `OctoqlOther` types. Handler response values are then assignable to
-          generated client types. Because another package aliases the generated
-          client operation types, this also requires exported operation names.
-
-          `local` emits distinct but wire-equivalent operation types directly in
-          the handler package, without importing the client. Local values are
-          not directly assignable to client types. In this mode reachable
-          binding types and marshal helpers may be external or owned by the
-          handler package, but may not be owned by the generated client
-          package, because that would reintroduce the client dependency.
-        type: string
-        enum:
-          - client
-          - local
-        default: client

@@ -24,7 +24,6 @@ type Config struct {
 	ConfigFile           string
 	Generated            string
 	TestHandlerGenerated string
-	TestHandlerTypes     TestHandlerTypeStrategy
 	Package              string
 	Bindings             map[string]string
 	Warnings             io.Writer // Warnings are discarded when nil.
@@ -34,28 +33,10 @@ type Config struct {
 	baseDir string
 	// The package-path into which we are generating.
 	pkgPath string
-	// The package name and path for the generated test handler.
+	// The package name for the generated test handler.
 	testHandlerPackage string
-	testHandlerPkgPath string
 	normalized         bool
 	outputs            []inspectedPath
-}
-
-// TestHandlerTypeStrategy controls where generated test handlers get operation types.
-type TestHandlerTypeStrategy string
-
-const (
-	TestHandlerTypesClient TestHandlerTypeStrategy = "client"
-	TestHandlerTypesLocal  TestHandlerTypeStrategy = "local"
-)
-
-func (s TestHandlerTypeStrategy) validate() error {
-	switch s {
-	case TestHandlerTypesClient, TestHandlerTypesLocal:
-		return nil
-	default:
-		return errorf(nil, "test_handler.types must be one of: 'client' or 'local'")
-	}
 }
 
 // pathJoin is like filepath.Join but 1) it only takes two arguments,
@@ -192,11 +173,6 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if err != nil {
 		return err
 	}
-	c.TestHandlerTypes = cmp.Or(c.TestHandlerTypes, TestHandlerTypesClient)
-	err = c.TestHandlerTypes.validate()
-	if err != nil {
-		return err
-	}
 	err = c.validatePackageNameAndPath()
 	if err != nil {
 		return err
@@ -238,13 +214,13 @@ func (c *Config) validatePackageNameAndPath() error {
 	if c.TestHandlerGenerated == "" {
 		return nil
 	}
-	if c.TestHandlerTypes == TestHandlerTypesClient && c.pkgPath == "" {
+	if c.pkgPath == "" {
 		return errorf(
 			nil,
 			"unable to generate test handler without identifying the generated client package path",
 		)
 	}
-	if c.TestHandlerTypes == TestHandlerTypesClient && c.Package == "main" {
+	if c.Package == "main" {
 		return errorf(
 			nil,
 			"test handler cannot import a generated client in package main",
@@ -268,15 +244,13 @@ func (c *Config) validatePackageNameAndPath() error {
 		)
 	}
 	sameDirectory := filepath.Dir(c.TestHandlerGenerated) == filepath.Dir(c.Generated)
-	samePackagePath := c.pkgPath != "" && handlerPkgPath == c.pkgPath
-	if sameDirectory || samePackagePath {
+	if sameDirectory || handlerPkgPath == c.pkgPath {
 		return errorf(
 			nil,
 			"test handler must be generated in a separate package from the client",
 		)
 	}
 	c.testHandlerPackage = handlerPackage
-	c.testHandlerPkgPath = handlerPkgPath
 	return nil
 }
 

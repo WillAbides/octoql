@@ -13,22 +13,22 @@ import (
 var templates embed.FS
 
 // renderer renders Go declarations and templates into one target package using
-// an isolated importScope, leaving the shared generationPlan untouched.
+// an isolated importScope.
 type renderer struct {
 	pkgName       string
 	imports       *importScope
 	templateCache map[string]*template.Template
 }
 
-func newRenderer(pkgName, pkgPath, forbiddenPkgPath string) *renderer {
+func newRenderer(pkgName, pkgPath string) *renderer {
 	return &renderer{
 		pkgName:       pkgName,
-		imports:       newImportScope(pkgPath, forbiddenPkgPath),
+		imports:       newImportScope(pkgPath),
 		templateCache: map[string]*template.Template{},
 	}
 }
 
-func (r *renderer) typeRef(typ goType) (string, error) {
+func (r *renderer) typeRef(typ goType) string {
 	return typ.renderRef(r.imports)
 }
 

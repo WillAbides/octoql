@@ -17,30 +17,6 @@ import (
 	githubapi "github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi"
 )
 
-type Error = githubapi.Error
-type ErrorType = githubapi.ErrorType
-type Location = githubapi.Location
-type Path = githubapi.Path
-type RateLimit = githubapi.RateLimit
-
-type LatestCommitRepository = githubapi.LatestCommitRepository
-
-type LatestCommitRepositoryDefaultBranchRef = githubapi.LatestCommitRepositoryDefaultBranchRef
-
-type LatestCommitRepositoryDefaultBranchRefTargetCommit = githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommit
-
-type LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection = githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection
-
-type LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit = githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit
-
-type LatestCommitRepositoryDefaultBranchRefTargetGitObject = githubapi.LatestCommitRepositoryDefaultBranchRefTargetGitObject
-
-type LatestCommitRepositoryDefaultBranchRefTargetGitObjectOctoqlOther = githubapi.LatestCommitRepositoryDefaultBranchRefTargetGitObjectOctoqlOther
-
-type LatestCommitResponse = githubapi.LatestCommitResponse
-
-type LatestCommitVariables = githubapi.LatestCommitVariables
-
 type testTB interface {
 	Cleanup(func())
 	Errorf(string, ...any)
@@ -324,7 +300,7 @@ func WithHeaders(header http.Header) ResponseOption {
 	}
 }
 
-func WithPrimaryRateLimit(rateLimit RateLimit) ResponseOption {
+func WithPrimaryRateLimit(rateLimit githubapi.RateLimit) ResponseOption {
 	return func(options *responseOptions) {
 		hasNegativeValue := rateLimit.Limit < 0 ||
 			rateLimit.Remaining < 0 ||
@@ -393,7 +369,7 @@ func combineResponseOptions(
 func writeGraphQLResponse(
 	writer http.ResponseWriter,
 	data any,
-	graphqlErrors []Error,
+	graphqlErrors []githubapi.Error,
 	options responseOptions,
 ) error {
 	if options.err != nil {
@@ -428,14 +404,14 @@ func writeRequestError(
 	return writeGraphQLResponse(
 		writer,
 		nil,
-		[]Error{{Message: message}},
+		[]githubapi.Error{{Message: message}},
 		buildResponseOptions(WithStatus(status)),
 	)
 }
 
 type TestHandler struct {
 	tb         testTB
-	operation0 expectationSet[LatestCommitVariables]
+	operation0 expectationSet[githubapi.LatestCommitVariables]
 }
 
 var _ http.Handler = (*TestHandler)(nil)
@@ -446,10 +422,10 @@ func NewTestHandler(testingTB testing.TB) *TestHandler {
 
 func newTestHandler(testingTB testTB) *TestHandler {
 	h := &TestHandler{tb: testingTB}
-	h.operation0 = expectationSet[LatestCommitVariables]{
+	h.operation0 = expectationSet[githubapi.LatestCommitVariables]{
 		tb:           testingTB,
 		operation:    "LatestCommit",
-		expectations: []*expectation[LatestCommitVariables]{},
+		expectations: []*expectation[githubapi.LatestCommitVariables]{},
 	}
 	testingTB.Cleanup(h.verify)
 	return h
@@ -531,7 +507,7 @@ func (h *TestHandler) ServeHTTP(
 
 	switch graphqlRequest.OperationName {
 	case "LatestCommit":
-		var variables LatestCommitVariables
+		var variables githubapi.LatestCommitVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			h.tb.Errorf("decoding LatestCommit variables: %v", err)
@@ -579,13 +555,13 @@ func (h *TestHandler) ServeHTTP(
 }
 
 type LatestCommitExpectation struct {
-	set      *expectationSet[LatestCommitVariables]
-	expected *expectation[LatestCommitVariables]
+	set      *expectationSet[githubapi.LatestCommitVariables]
+	expected *expectation[githubapi.LatestCommitVariables]
 	options  []ResponseOption
 }
 
 func (h *TestHandler) ExpectLatestCommit(
-	variables LatestCommitVariables,
+	variables githubapi.LatestCommitVariables,
 	options ...ExpectOption,
 ) *LatestCommitExpectation {
 	return &LatestCommitExpectation{
@@ -606,7 +582,7 @@ func (h *TestHandler) DefaultLatestCommit() *LatestCommitExpectation {
 	}
 }
 
-func (h *TestHandler) ResetLatestCommit(variables ...LatestCommitVariables) {
+func (h *TestHandler) ResetLatestCommit(variables ...githubapi.LatestCommitVariables) {
 	h.operation0.reset(variables...)
 }
 
@@ -618,32 +594,32 @@ func (b *LatestCommitExpectation) WithOptions(
 }
 
 func (b *LatestCommitExpectation) Respond(
-	data LatestCommitResponse,
+	data githubapi.LatestCommitResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ LatestCommitVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.LatestCommitVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
 func (b *LatestCommitExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ LatestCommitVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.LatestCommitVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -651,13 +627,13 @@ func (b *LatestCommitExpectation) RespondError(
 }
 
 func (b *LatestCommitExpectation) RespondDataAndErrors(
-	data LatestCommitResponse,
-	graphqlErrors ...Error,
+	data githubapi.LatestCommitResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ LatestCommitVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.LatestCommitVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -669,13 +645,13 @@ func (b *LatestCommitExpectation) RespondDataAndErrors(
 }
 
 func (b *LatestCommitExpectation) Handle(
-	handler func(LatestCommitVariables, http.ResponseWriter),
+	handler func(githubapi.LatestCommitVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("LatestCommit dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ LatestCommitVariables, _ http.ResponseWriter) error {
+			func(_ githubapi.LatestCommitVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("LatestCommit dynamic handler is nil")
 			},
 		)
@@ -683,7 +659,7 @@ func (b *LatestCommitExpectation) Handle(
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables LatestCommitVariables, writer http.ResponseWriter) error {
+		func(variables githubapi.LatestCommitVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
 		},

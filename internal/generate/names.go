@@ -121,32 +121,11 @@ func (p namePrefix) isSingle(name string) bool {
 	return p.single && p.text == name
 }
 
-// Given a prefix, and the next type-name, compute the prefix with
-// that type-name added (if applicable).  The returned value is not a valid
-// field prefix, since it ends with a type, not a field (see top-of-file
-// comment), but it's used to construct both the type-names from the input and
-// the next prefix.
-func typeNameParts(prefix namePrefix, typeName string) namePrefix {
-	typeName = upperFirst(typeName)
-
-	// If the prefix has just one part, that's the operation-name.  There's no
-	// need to add "Query" or "Mutation". An empty prefix is unused.
-	if prefix.text == "" || prefix.single {
-		return prefix
-	}
-	// If the name-so-far ends with this type's name, omit the type-name
-	// (see the "shortened" case in the top-of-file comment).
-	if strings.HasSuffix(prefix.text, typeName) {
-		return prefix
-	}
-	return namePrefix{text: prefix.text + typeName}
-}
-
 // Given a prefix, and a field, compute the next prefix, which will
 // be used for that field's selections.
 func nextPrefix(prefix namePrefix, field *ast.Field) namePrefix {
 	// Add the type.
-	prefix = typeNameParts(prefix, field.ObjectDefinition.Name)
+	prefix = namePrefix{text: makeTypeName(prefix, field.ObjectDefinition.Name)}
 	// Add the field (there's no shortening here, see top-of-file comment).
 	fieldAlias := upperFirst(field.Alias)
 	return namePrefix{text: prefix.text + fieldAlias}
@@ -155,7 +134,19 @@ func nextPrefix(prefix namePrefix, field *ast.Field) namePrefix {
 // Given a prefix, and the GraphQL of the current type, compute the name
 // we should give it in Go.
 func makeTypeName(prefix namePrefix, typeName string) string {
-	return typeNameParts(prefix, typeName).text
+	typeName = upperFirst(typeName)
+
+	// If the prefix has just one part, that's the operation-name.  There's no
+	// need to add "Query" or "Mutation".
+	if prefix.single {
+		return prefix.text
+	}
+	// If the name-so-far ends with this type's name, omit the type-name
+	// (see the "shortened" case in the top-of-file comment).
+	if strings.HasSuffix(prefix.text, typeName) {
+		return prefix.text
+	}
+	return prefix.text + typeName
 }
 
 // Like makeTypeName, but append typeName unconditionally.

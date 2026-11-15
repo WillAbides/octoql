@@ -313,8 +313,11 @@ func TestGenerateReservesDeclarationsAndAliasesMismatchedPackageImports(t *testi
 	rootDir := newModuleTempDir(t)
 	mismatchDir := filepath.Join(rootDir, "pkgdir")
 	versionedDir := filepath.Join(rootDir, "modpkg", "v2")
-	require.NoError(t, os.MkdirAll(mismatchDir, 0o755))
-	require.NoError(t, os.MkdirAll(versionedDir, 0o755))
+	firstDir := filepath.Join(rootDir, "first", "shared")
+	secondDir := filepath.Join(rootDir, "second", "shared")
+	for _, directory := range []string{mismatchDir, versionedDir, firstDir, secondDir} {
+		require.NoError(t, os.MkdirAll(directory, 0o755))
+	}
 	require.NoError(t, os.WriteFile(
 		filepath.Join(mismatchDir, "value.go"),
 		[]byte("package actualpkg\n\ntype Value string\n"),
@@ -325,13 +328,28 @@ func TestGenerateReservesDeclarationsAndAliasesMismatchedPackageImports(t *testi
 		[]byte("package modpkg\n\ntype Value string\n"),
 		0o600,
 	))
+	for _, directory := range []string{firstDir, secondDir} {
+		require.NoError(t, os.WriteFile(
+			filepath.Join(directory, "value.go"),
+			[]byte("package shared\n\ntype Value string\n"),
+			0o600,
+		))
+	}
 	mismatchAbs, err := filepath.Abs(mismatchDir)
 	require.NoError(t, err)
 	versionedAbs, err := filepath.Abs(versionedDir)
 	require.NoError(t, err)
+	firstAbs, err := filepath.Abs(firstDir)
+	require.NoError(t, err)
+	secondAbs, err := filepath.Abs(secondDir)
+	require.NoError(t, err)
 	mismatchPkg, err := packagePathFromModule(mismatchAbs)
 	require.NoError(t, err)
 	versionedPkg, err := packagePathFromModule(versionedAbs)
+	require.NoError(t, err)
+	firstPkg, err := packagePathFromModule(firstAbs)
+	require.NoError(t, err)
+	secondPkg, err := packagePathFromModule(secondAbs)
 	require.NoError(t, err)
 
 	schemaPath := filepath.Join(rootDir, "schema.graphql")
@@ -340,6 +358,8 @@ func TestGenerateReservesDeclarationsAndAliasesMismatchedPackageImports(t *testi
 scalar Mismatched
 scalar Versioned
 scalar StdV2
+scalar First
+scalar Second
 type Box {
   id: ID!
 }
@@ -348,6 +368,8 @@ type Query {
   mismatched: Mismatched!
   versioned: Versioned!
   stdV2: StdV2!
+  first: First!
+  second: Second!
 }
 `), 0o600))
 	require.NoError(t, os.WriteFile(operationPath, []byte(`
@@ -358,6 +380,8 @@ query Inspect {
   mismatched
   versioned
   stdV2
+  first
+  second
 }
 `), 0o600))
 
@@ -366,16 +390,23 @@ query Inspect {
 		Operations:           []string{operationPath},
 		Generated:            filepath.Join(rootDir, "client", "generated.go"),
 		TestHandlerGenerated: filepath.Join(rootDir, "githubapitest", "generated.go"),
-		TestHandlerTypes:     TestHandlerTypesLocal,
 		Package:              "client",
 		Bindings: map[string]string{
 			"Mismatched": mismatchPkg + ".Value",
 			"Versioned":  versionedPkg + ".Value",
 			"StdV2":      "math/rand/v2.PCG",
+			"First":      firstPkg + ".Value",
+			"Second":     secondPkg + ".Value",
 		},
 	}
 	outputs, err := Generate(config)
 	require.NoError(t, err)
+	secondOutputs, err := Generate(config)
+	require.NoError(t, err)
+	assert.Equal(t, outputs, secondOutputs)
+	clientSource := string(outputs[config.Generated])
+	assert.Contains(t, clientSource, `"`+firstPkg+`"`)
+	assert.Contains(t, clientSource, `shared2 "`+secondPkg+`"`)
 	compileGeneratedOutputs(t, rootDir, outputs)
 }
 
@@ -445,58 +476,23 @@ func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 func TestGenerateWithTestHandlerUsesOnePlan(t *testing.T) {
 	t.Parallel()
 
-	rootDir := newModuleTempDir(t)
-
-	compiledOutputs := make(map[string][]byte)
-	for _, strategy := range []TestHandlerTypeStrategy{
-		TestHandlerTypesClient,
-		TestHandlerTypesLocal,
-	} {
-		t.Run(string(strategy), func(t *testing.T) {
-			strategyDir := filepath.Join(rootDir, string(strategy))
-			outputs := testGenerateWithTestHandlerUsesOnePlan(t, strategyDir, strategy)
-			maps.Copy(compiledOutputs, outputs)
-		})
-	}
-	compileGeneratedOutputs(t, rootDir, compiledOutputs)
-}
-
-func testGenerateWithTestHandlerUsesOnePlan(
-	t *testing.T,
-	tempDir string,
-	strategy TestHandlerTypeStrategy,
-) map[string][]byte {
+	tempDir := newModuleTempDir(t)
 	config := &Config{
 		Schema:               filepath.Join(dataDir, "schema.graphql"),
 		Operations:           []string{filepath.Join(dataDir, "GraphShapes.graphql")},
 		Generated:            filepath.Join(tempDir, "client", "generated.go"),
 		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-		TestHandlerTypes:     strategy,
 		Bindings:             testBindings(),
 	}
-	err := config.ValidateAndFillDefaults("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, config.ValidateAndFillDefaults(""))
 
 	outputs, err := Generate(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(outputs) != 2 {
-		t.Fatalf("outputs = %d, want 2", len(outputs))
-	}
-	if config.testHandlerPackage != "githubapitest" {
-		t.Fatalf(
-			"test handler package = %q, want githubapitest",
-			config.testHandlerPackage,
-		)
-	}
+	require.NoError(t, err)
+	require.Len(t, outputs, 2)
+	assert.Equal(t, "githubapitest", config.testHandlerPackage)
 
 	secondOutputs, err := Generate(config)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for filename, content := range outputs {
 		if !bytes.Equal(content, secondOutputs[filename]) {
 			t.Fatalf("output %q is not deterministic", filename)
@@ -515,197 +511,11 @@ func testGenerateWithTestHandlerUsesOnePlan(
 	assert.Equal(t, outputs[config.Generated], clientSecond)
 	assert.Equal(t, clientSecond, clientAgain)
 	handlerSource := string(outputs[config.TestHandlerGenerated])
-	clientImport := config.pkgPath + `"`
-	switch strategy {
-	case TestHandlerTypesLocal:
-		assert.NotContains(t, handlerSource, clientImport)
-		assert.Contains(t, handlerSource, "type SearchRepositoriesResponse struct")
-	default:
-		assert.Contains(t, handlerSource, clientImport)
-	}
+	assert.Contains(t, handlerSource, config.pkgPath+`"`)
+	assert.NotContains(t, handlerSource, "type Error =")
+	assert.NotContains(t, handlerSource, "type SearchRepositoriesResponse =")
 
-	return outputs
-}
-
-func TestGenerateLocalTestHandlerBindings(t *testing.T) {
-	t.Parallel()
-
-	rootDir := newModuleTempDir(t)
-	compiledOutputs := make(map[string][]byte)
-
-	newConfig := func(
-		t *testing.T,
-		schema string,
-		operation string,
-	) (*Config, string) {
-		tempDir, err := os.MkdirTemp(rootDir, "case-")
-		require.NoError(t, err)
-		schemaPath := filepath.Join(tempDir, "schema.graphql")
-		err = os.WriteFile(schemaPath, []byte(schema), 0o600)
-		require.NoError(t, err)
-		operationPath := filepath.Join(tempDir, "operation.graphql")
-		err = os.WriteFile(operationPath, []byte(operation), 0o600)
-		require.NoError(t, err)
-		config := &Config{
-			Schema:               schemaPath,
-			Operations:           []string{operationPath},
-			Generated:            filepath.Join(tempDir, "client", "generated.go"),
-			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-			TestHandlerTypes:     TestHandlerTypesLocal,
-			Package:              "client",
-		}
-		err = config.ValidateAndFillDefaults("")
-		require.NoError(t, err)
-		return config, tempDir
-	}
-
-	const scalarSchema = `
-scalar Bound
-scalar Unused
-type Query {
-  value(input: Bound): Bound
-}
-`
-	const scalarOperation = `
-query Value($input: Bound) {
-  value(input: $input)
-}
-`
-
-	t.Run("reachable client binding rejected", func(t *testing.T) {
-		config, _ := newConfig(t, scalarSchema, scalarOperation)
-		config.Bindings = map[string]string{
-			"Bound": config.pkgPath + ".ClientScalar",
-		}
-
-		outputs, err := Generate(config)
-
-		require.Error(t, err)
-		assert.Nil(t, outputs)
-		assert.Contains(t, err.Error(), "test_handler.types local cannot use")
-		assert.Contains(t, err.Error(), "generated client package")
-		assert.Contains(t, err.Error(), "ClientScalar")
-	})
-
-	t.Run("handler binding resolves without self import", func(t *testing.T) {
-		// This temporary fixture deliberately exports its binding because the
-		// generated client imports it from the generated handler package.
-		config, tempDir := newConfig(t, scalarSchema, scalarOperation)
-		config.Bindings = map[string]string{
-			"Bound": config.testHandlerPkgPath + ".HandlerScalar",
-		}
-
-		outputs, err := Generate(config)
-
-		require.NoError(t, err)
-		handlerSource := string(outputs[config.TestHandlerGenerated])
-		assert.Contains(t, handlerSource, "HandlerScalar")
-		assert.NotContains(t, handlerSource, `"`+config.testHandlerPkgPath+`"`)
-		outputs[filepath.Join(tempDir, "githubapitest", "support.go")] = []byte(
-			"package githubapitest\n\ntype HandlerScalar string\n",
-		)
-		maps.Copy(compiledOutputs, outputs)
-	})
-
-	t.Run("external binding compiles", func(t *testing.T) {
-		config, _ := newConfig(t, scalarSchema, scalarOperation)
-		config.Bindings = map[string]string{
-			"Bound": "github.com/willabides/octoql/internal/testutil.Date",
-		}
-
-		outputs, err := Generate(config)
-
-		require.NoError(t, err)
-		handlerSource := string(outputs[config.TestHandlerGenerated])
-		assert.Contains(
-			t,
-			handlerSource,
-			`"github.com/willabides/octoql/internal/testutil"`,
-		)
-		maps.Copy(compiledOutputs, outputs)
-	})
-
-	t.Run("unused client binding does not block", func(t *testing.T) {
-		config, _ := newConfig(t, scalarSchema, scalarOperation)
-		config.Bindings = map[string]string{
-			"Bound":  "string",
-			"Unused": config.pkgPath + ".ClientScalar",
-		}
-
-		outputs, err := Generate(config)
-
-		require.NoError(t, err)
-		assert.NotContains(
-			t,
-			string(outputs[config.TestHandlerGenerated]),
-			`"`+config.pkgPath+`"`,
-		)
-		maps.Copy(compiledOutputs, outputs)
-	})
-
-	t.Run("colliding external import aliases are deterministic", func(t *testing.T) {
-		config, tempDir := newConfig(
-			t,
-			`
-scalar First
-scalar Second
-type Query {
-  first: First!
-  second: Second!
-}
-`,
-			`
-query Alpha { first }
-query Beta { second }
-`,
-		)
-		firstDirectory := filepath.Join(tempDir, "first", "shared")
-		secondDirectory := filepath.Join(tempDir, "second", "shared")
-		for _, directory := range []string{firstDirectory, secondDirectory} {
-			mkdirErr := os.MkdirAll(directory, 0o755)
-			require.NoError(t, mkdirErr)
-			writeErr := os.WriteFile(
-				filepath.Join(directory, "value.go"),
-				[]byte("package shared\n\ntype Value string\n"),
-				0o600,
-			)
-			require.NoError(t, writeErr)
-		}
-		firstAbsolute, err := filepath.Abs(firstDirectory)
-		require.NoError(t, err)
-		secondAbsolute, err := filepath.Abs(secondDirectory)
-		require.NoError(t, err)
-		firstPackage, err := packagePathFromModule(firstAbsolute)
-		require.NoError(t, err)
-		secondPackage, err := packagePathFromModule(secondAbsolute)
-		require.NoError(t, err)
-		config.Bindings = map[string]string{
-			"First":  firstPackage + ".Value",
-			"Second": secondPackage + ".Value",
-		}
-
-		first, err := Generate(config)
-		require.NoError(t, err)
-		second, err := Generate(config)
-		require.NoError(t, err)
-
-		assert.Equal(t, first[config.TestHandlerGenerated], second[config.TestHandlerGenerated])
-		handlerSource := string(first[config.TestHandlerGenerated])
-		assert.Contains(t, handlerSource, `"`+firstPackage+`"`)
-		assert.Contains(t, handlerSource, `shared2 "`+secondPackage+`"`)
-		maps.Copy(compiledOutputs, first)
-	})
-
-	t.Run("local types do not import main client", func(t *testing.T) {
-		config, _ := newConfig(t, "type Query { value: String! }\n", "query Value { value }\n")
-		config.Package = "main"
-
-		outputs, err := Generate(config)
-		require.NoError(t, err)
-		assert.NotContains(t, string(outputs[config.TestHandlerGenerated]), config.pkgPath+`"`)
-	})
-
-	compileGeneratedOutputs(t, rootDir, compiledOutputs)
+	compileGeneratedOutputs(t, tempDir, outputs)
 }
 
 func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
@@ -715,60 +525,13 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 		name      string
 		schema    string
 		operation string
-		types     TestHandlerTypeStrategy
 		wantError string
 	}{
 		{
-			name:      "typename collision with test handler runtime",
-			schema:    "type Query { value: String! }\n",
-			operation: "query Value @octoqlgen(typename: \"TestHandler\") {\n  value\n}\n",
-			wantError: "conflicts with test handler runtime",
-		},
-		{
-			name:      "lowercase operation with client types",
+			name:      "lowercase operation",
 			schema:    "type Query { viewer: String! }\n",
 			operation: "query getViewer { viewer }\n",
-			types:     TestHandlerTypesClient,
 			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
-		},
-		{
-			name:      "lowercase operation with local types",
-			schema:    "type Query { viewer: String! }\n",
-			operation: "query getViewer { viewer }\n",
-			types:     TestHandlerTypesLocal,
-			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
-		},
-		{
-			name: "enum value and expectation",
-			schema: `enum Get {
-  NODE_EXPECTATION
-}
-type Query {
-  value: Get!
-}
-`,
-			operation: "query GetNode { value }\n",
-			wantError: `generated identifier "GetNodeExpectation"`,
-		},
-		{
-			name: "client type and runtime",
-			schema: `type NewTestHandler {
-  id: ID!
-}
-type Query {
-  value: NewTestHandler!
-}
-`,
-			operation: `fragment NewTestHandler on NewTestHandler {
-  id
-}
-query Value {
-  value {
-    ...NewTestHandler
-  }
-}
-`,
-			wantError: `generated identifier "NewTestHandler"`,
 		},
 		{
 			name:   "variables alias and operation",
@@ -818,7 +581,6 @@ type Query {
 				Operations:           []string{operationPath},
 				Generated:            filepath.Join(tempDir, "client", "generated.go"),
 				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
-				TestHandlerTypes:     test.types,
 				Package:              "client",
 			}
 			require.NoError(t, config.ValidateAndFillDefaults(tempDir))
@@ -837,8 +599,7 @@ func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) 
 	compiledOutputs := make(map[string][]byte)
 
 	for _, packageName := range []string{
-		"StatusReady",
-		"StatusQueryResponse",
+		"StatusQueryExpectation",
 		"ExpectStatusQuery",
 		"DefaultStatusQuery",
 		"ResetStatusQuery",
