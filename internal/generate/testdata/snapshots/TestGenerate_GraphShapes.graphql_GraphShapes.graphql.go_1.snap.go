@@ -1207,7 +1207,6 @@ func (v *GetActorActorBot) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorActorBot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1215,11 +1214,11 @@ func (v *GetActorActorBot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1234,6 +1233,7 @@ func (v *GetActorActorBot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1259,7 +1259,6 @@ func (v *GetActorActorBot) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *GetActorActorBot) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorBot {
 	var retval _octoqlPremarshalGetActorActorBot
-
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
@@ -1288,7 +1287,6 @@ func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1296,11 +1294,11 @@ func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSONFrom(dec *jsontext.Dec
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1315,6 +1313,7 @@ func (v *GetActorActorEnterpriseUserAccount) UnmarshalJSONFrom(dec *jsontext.Dec
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1340,7 +1339,6 @@ func (v *GetActorActorEnterpriseUserAccount) MarshalJSONTo(enc *jsontext.Encoder
 
 func (v *GetActorActorEnterpriseUserAccount) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorEnterpriseUserAccount {
 	var retval _octoqlPremarshalGetActorActorEnterpriseUserAccount
-
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
@@ -1367,7 +1365,6 @@ func (v *GetActorActorOctoqlOther) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorActorOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1375,11 +1372,11 @@ func (v *GetActorActorOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1394,6 +1391,7 @@ func (v *GetActorActorOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1419,7 +1417,6 @@ func (v *GetActorActorOctoqlOther) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *GetActorActorOctoqlOther) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorOctoqlOther {
 	var retval _octoqlPremarshalGetActorActorOctoqlOther
-
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
@@ -1446,7 +1443,6 @@ func (v *GetActorActorOrganization) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorActorOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1454,11 +1450,11 @@ func (v *GetActorActorOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1473,6 +1469,7 @@ func (v *GetActorActorOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1498,7 +1495,6 @@ func (v *GetActorActorOrganization) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *GetActorActorOrganization) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorOrganization {
 	var retval _octoqlPremarshalGetActorActorOrganization
-
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
@@ -1525,7 +1521,6 @@ func (v *GetActorActorUser) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorActorUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1533,11 +1528,11 @@ func (v *GetActorActorUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1552,6 +1547,7 @@ func (v *GetActorActorUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1577,7 +1573,6 @@ func (v *GetActorActorUser) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *GetActorActorUser) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorActorUser {
 	var retval _octoqlPremarshalGetActorActorUser
-
 	retval.Typename = v.Typename
 	retval.Id = v.ActorDetailsOctoqlOther.Id
 	retval.Login = v.ActorDetailsOctoqlOther.Login
@@ -1733,7 +1728,6 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSON(b []byte) e
 }
 
 func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1741,11 +1735,11 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSONFrom(dec *js
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1760,6 +1754,7 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) UnmarshalJSONFrom(dec *js
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1786,7 +1781,6 @@ func (v *GetActorRepositoryOwnerEnterpriseUserAccount) MarshalJSONTo(enc *jsonte
 
 func (v *GetActorRepositoryOwnerEnterpriseUserAccount) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount {
 	var retval _octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount
-
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
 	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
@@ -1823,7 +1817,6 @@ func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1831,11 +1824,11 @@ func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Dec
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1850,6 +1843,7 @@ func (v *GetActorRepositoryOwnerOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Dec
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1876,7 +1870,6 @@ func (v *GetActorRepositoryOwnerOctoqlOther) MarshalJSONTo(enc *jsontext.Encoder
 
 func (v *GetActorRepositoryOwnerOctoqlOther) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorRepositoryOwnerOctoqlOther {
 	var retval _octoqlPremarshalGetActorRepositoryOwnerOctoqlOther
-
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
 	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
@@ -1913,7 +1906,6 @@ func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1921,11 +1913,11 @@ func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSONFrom(dec *jsontext.De
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -1940,6 +1932,7 @@ func (v *GetActorRepositoryOwnerOrganization) UnmarshalJSONFrom(dec *jsontext.De
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1966,7 +1959,6 @@ func (v *GetActorRepositoryOwnerOrganization) MarshalJSONTo(enc *jsontext.Encode
 
 func (v *GetActorRepositoryOwnerOrganization) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorRepositoryOwnerOrganization {
 	var retval _octoqlPremarshalGetActorRepositoryOwnerOrganization
-
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
 	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
@@ -2003,7 +1995,6 @@ func (v *GetActorRepositoryOwnerUser) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorRepositoryOwnerUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -2011,11 +2002,11 @@ func (v *GetActorRepositoryOwnerUser) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 	if string(b) == "null" {
 		return nil
 	}
-
 	var firstPass struct {
 		Typename string `json:"__typename"`
 	}
 	firstPass.Typename = v.Typename
+
 	err = json.Unmarshal(
 		b,
 		&firstPass,
@@ -2030,6 +2021,7 @@ func (v *GetActorRepositoryOwnerUser) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -2056,7 +2048,6 @@ func (v *GetActorRepositoryOwnerUser) MarshalJSONTo(enc *jsontext.Encoder) error
 
 func (v *GetActorRepositoryOwnerUser) _octoqlPremarshalJSON() *_octoqlPremarshalGetActorRepositoryOwnerUser {
 	var retval _octoqlPremarshalGetActorRepositoryOwnerUser
-
 	retval.Typename = v.Typename
 	retval.Id = v.RepositoryOwnerDetailsOctoqlOther.Id
 	retval.Login = v.RepositoryOwnerDetailsOctoqlOther.Login
@@ -2075,7 +2066,6 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetActorResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -2354,7 +2344,6 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetNodeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -2477,7 +2466,6 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *NestedNodeShapesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -2571,7 +2559,6 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 }
 
 func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -2734,7 +2721,6 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 }
 
 func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -2932,7 +2918,6 @@ func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *RepositoryEventCovarianceResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -3082,7 +3067,6 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 }
 
 func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -3178,7 +3162,6 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) Unmarsha
 }
 
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err

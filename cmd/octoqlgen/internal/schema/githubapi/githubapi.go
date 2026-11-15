@@ -999,7 +999,6 @@ func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSON(b []byte) error {
 }
 
 func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err

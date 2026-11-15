@@ -11,19 +11,19 @@ import (
 //go:embed *.tmpl
 var templates embed.FS
 
+var parsedTemplates = template.Must(template.ParseFS(templates, "*.tmpl"))
+
 // renderer renders Go declarations and templates into one target package using
 // an isolated importScope.
 type renderer struct {
-	pkgName       string
-	imports       *importScope
-	templateCache map[string]*template.Template
+	pkgName string
+	imports *importScope
 }
 
 func newRenderer(pkgName, pkgPath string) *renderer {
 	return &renderer{
-		pkgName:       pkgName,
-		imports:       newImportScope(pkgPath),
-		templateCache: map[string]*template.Template{},
+		pkgName: pkgName,
+		imports: newImportScope(pkgPath),
 	}
 }
 
@@ -31,22 +31,9 @@ func (r *renderer) typeRef(typ goType) string {
 	return typ.renderRef(r.imports)
 }
 
-// render executes the given template with this renderer's import-aware funcs.
+// render executes the given template.
 func (r *renderer) render(tmplRelFilename string, w io.Writer, data any) error {
-	tmpl := r.templateCache[tmplRelFilename]
-	if tmpl == nil {
-		funcMap := template.FuncMap{
-			"ref":     r.imports.ref,
-			"typeRef": r.typeRef,
-		}
-		var err error
-		tmpl, err = template.New(tmplRelFilename).Funcs(funcMap).ParseFS(templates, tmplRelFilename)
-		if err != nil {
-			return errorf(nil, "could not load template %v: %v", tmplRelFilename, err)
-		}
-		r.templateCache[tmplRelFilename] = tmpl
-	}
-	err := tmpl.Execute(w, data)
+	err := parsedTemplates.ExecuteTemplate(w, tmplRelFilename, data)
 	if err != nil {
 		return errorf(nil, "could not render template: %v", err)
 	}

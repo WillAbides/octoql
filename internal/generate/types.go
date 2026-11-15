@@ -6,6 +6,7 @@ package generate
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
@@ -197,6 +198,85 @@ func (f *goStructField) NeedsMarshaling() bool {
 	return isInterface
 }
 
+func (f *goStructField) jsonTag() string {
+	return strconv.Quote(f.JSONName + f.OmitTag())
+}
+
+type structFieldTemplateData struct {
+	GoName   string
+	Selector string
+	TypeRef  string
+	JSONTag  string
+}
+
+type structJSONTemplateData struct {
+	GoName           string
+	DirectFields     []structFieldTemplateData
+	EmbeddedTypeRefs []string
+	FlattenedFields  []structFieldTemplateData
+	Unmarshalers     []string
+	Marshalers       []string
+	HasEmbedded      bool
+}
+
+func flattenedMarshalers(flattened []*selector) []string {
+	var marshalers []string
+	for _, field := range flattened {
+		if field.NeedsMarshaling() {
+			marshalers = append(
+				marshalers,
+				"_octoqlMarshal"+field.GoType.Unwrap().QualifiedRef(),
+			)
+		}
+	}
+	return marshalers
+}
+
+func (t *goStructType) jsonTemplateData(
+	r *renderer,
+	flattened []*selector,
+) structJSONTemplateData {
+	data := structJSONTemplateData{
+		GoName:          t.GoName,
+		FlattenedFields: make([]structFieldTemplateData, 0, len(flattened)),
+		Marshalers:      flattenedMarshalers(flattened),
+	}
+
+	for _, field := range t.Fields {
+		if field.IsEmbedded() {
+			data.HasEmbedded = true
+			data.EmbeddedTypeRefs = append(
+				data.EmbeddedTypeRefs,
+				r.typeRef(field.GoType.Unwrap()),
+			)
+			continue
+		}
+
+		data.DirectFields = append(data.DirectFields, structFieldTemplateData{
+			GoName:  field.GoName,
+			TypeRef: r.typeRef(field.GoType),
+			JSONTag: field.jsonTag(),
+		})
+		if field.NeedsMarshaling() {
+			data.Unmarshalers = append(
+				data.Unmarshalers,
+				"_octoqlUnmarshal"+field.GoType.Unwrap().QualifiedRef(),
+			)
+		}
+	}
+
+	for _, field := range flattened {
+		data.FlattenedFields = append(data.FlattenedFields, structFieldTemplateData{
+			GoName:   field.GoName,
+			Selector: field.Selector,
+			TypeRef:  r.typeRef(field.GoType),
+			JSONTag:  field.jsonTag(),
+		})
+	}
+
+	return data
+}
+
 func (t *goStructType) NeedsMarshaling() bool {
 	for _, f := range t.Fields {
 		if f.NeedsMarshaling() {
@@ -262,7 +342,7 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 	fmt.Fprintf(w, "type %s struct {\n", t.GoName)
 	for _, field := range t.Fields {
 		writeDescription(w, field.Description)
-		jsonTag := `"` + field.JSONName + field.OmitTag() + `"`
+		jsonTag := field.jsonTag()
 		if field.IsEmbedded() {
 			jsonTag = `"-"`
 		}
@@ -270,11 +350,18 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 	}
 	fmt.Fprintf(w, "}\n")
 
-	if !t.IsInput && len(t.InterfaceGetters) > 0 {
-		flattened, err := t.FlattenedFields()
-		if err != nil {
-			return err
-		}
+	needsGetters := !t.IsInput && len(t.InterfaceGetters) > 0
+	needsMarshaling := t.NeedsMarshaling()
+	if !needsGetters && !needsMarshaling {
+		return nil
+	}
+
+	flattened, err := t.FlattenedFields()
+	if err != nil {
+		return err
+	}
+
+	if needsGetters {
 		for _, field := range flattened {
 			if !t.InterfaceGetters[field.GoName] {
 				continue
@@ -289,12 +376,13 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 		}
 	}
 
-	if t.NeedsMarshaling() {
-		err := r.render("unmarshal.go.tmpl", w, t)
+	if needsMarshaling {
+		data := t.jsonTemplateData(r, flattened)
+		err = r.render("unmarshal.go.tmpl", w, data)
 		if err != nil {
 			return err
 		}
-		err = r.render("marshal.go.tmpl", w, t)
+		err = r.render("marshal.go.tmpl", w, data)
 		if err != nil {
 			return err
 		}
@@ -313,6 +401,47 @@ type goInterfaceType struct {
 	Implementations     []*goStructType
 	OtherImplementation *goStructType
 	descriptionInfo
+}
+
+type interfaceImplementationTemplateData struct {
+	GoName          string
+	GraphQLName     string
+	Marshalers      []string
+	NeedsMarshaling bool
+}
+
+type interfaceJSONTemplateData struct {
+	GoName          string
+	GraphQLName     string
+	Implementations []interfaceImplementationTemplateData
+	OtherGoName     string
+}
+
+func (t *goInterfaceType) jsonTemplateData() (interfaceJSONTemplateData, error) {
+	implementations := make([]interfaceImplementationTemplateData, 0, len(t.Implementations))
+	for _, impl := range t.Implementations {
+		needsMarshaling := impl.NeedsMarshaling()
+		var marshalers []string
+		if needsMarshaling {
+			flattened, err := impl.FlattenedFields()
+			if err != nil {
+				return interfaceJSONTemplateData{}, err
+			}
+			marshalers = flattenedMarshalers(flattened)
+		}
+		implementations = append(implementations, interfaceImplementationTemplateData{
+			GoName:          impl.GoName,
+			GraphQLName:     impl.GraphQLName,
+			Marshalers:      marshalers,
+			NeedsMarshaling: needsMarshaling,
+		})
+	}
+	return interfaceJSONTemplateData{
+		GoName:          t.GoName,
+		GraphQLName:     t.GraphQLName,
+		Implementations: implementations,
+		OtherGoName:     t.OtherImplementation.GoName,
+	}, nil
 }
 
 func (t *goInterfaceType) markerMethodName() string {
@@ -359,11 +488,15 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 	}
 	fmt.Fprintf(w, "func (v *%s) %s() {}\n", t.OtherImplementation.GoName, implementsMethodName)
 
-	err := r.render("unmarshal_helper.go.tmpl", w, t)
+	data, err := t.jsonTemplateData()
 	if err != nil {
 		return err
 	}
-	return r.render("marshal_helper.go.tmpl", w, t)
+	err = r.render("unmarshal_helper.go.tmpl", w, data)
+	if err != nil {
+		return err
+	}
+	return r.render("marshal_helper.go.tmpl", w, data)
 }
 
 func (t *goInterfaceType) QualifiedRef() string          { return t.GoName }

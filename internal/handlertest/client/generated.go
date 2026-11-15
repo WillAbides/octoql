@@ -1188,7 +1188,6 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *GetNodeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -1288,7 +1287,6 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (v *SearchResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	if dec.PeekKind() == 'n' {
 		_, err := dec.ReadToken()
 		return err
@@ -1472,7 +1470,6 @@ func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 }
 
 func (v *ViewerViewerUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-
 	b, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -1480,12 +1477,12 @@ func (v *ViewerViewerUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if string(b) == "null" {
 		return nil
 	}
-
 	err = json.Unmarshal(
 		b, &v.ViewerVariables, dec.Options())
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1510,7 +1507,6 @@ func (v *ViewerViewerUser) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (v *ViewerViewerUser) _octoqlPremarshalJSON() *_octoqlPremarshalViewerViewerUser {
 	var retval _octoqlPremarshalViewerViewerUser
-
 	retval.Id = v.ViewerVariables.Id
 	retval.Login = v.ViewerVariables.Login
 	return &retval

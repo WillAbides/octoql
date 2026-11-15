@@ -3,65 +3,59 @@
      matches interface-typed fields without matching concrete implementation
      types. */}}
 
-func _octoqlMarshal{{.GoName}}(enc *{{ref "encoding/json/jsontext.Encoder"}}, v *{{.GoName}}) error {
-    switch vv := (*v).(type) {
-    {{range .Implementations -}}
-    case *{{.GoName}}:
-        if vv == nil {
-            return enc.WriteToken({{ref "encoding/json/jsontext.Null"}})
-        }
+func _octoqlMarshal{{.GoName}}(enc *jsontext.Encoder, v *{{.GoName}}) error {
+	switch vv := (*v).(type) {
+	{{- range .Implementations}}
+	case *{{.GoName}}:
+		if vv == nil {
+			return enc.WriteToken(jsontext.Null)
+		}
 
-        {{/* Now actually do the marshal, with the concrete type. (Go only
-             marshals embeds the way we want if they're structs.)  Except that
-             won't work right if the implementation-type has its own
-             MarshalJSONTo method (maybe it in turn has an interface-typed
-             field), so we call the helper _octoqlPremarshalJSON directly (see
-             marshal.go.tmpl). */}}
-        {{if .NeedsMarshaling -}}
-        {{- $hasInterfaces := false -}}
-        {{- range .FlattenedFields -}}
-        {{- if .NeedsMarshaling -}}{{- $hasInterfaces = true -}}{{- end -}}
-        {{- end -}}
-        result := struct {
-            TypeName string `json:"__typename"`
-            *_octoqlPremarshal{{.GoName}}
-        }{
-            TypeName: "{{.GraphQLName}}",
-            _octoqlPremarshal{{.GoName}}: vv._octoqlPremarshalJSON(),
-        }
-        return {{ref "encoding/json/v2.MarshalEncode"}}(
-            enc,
-            &result,
-            {{if $hasInterfaces -}}
-            {{ref "encoding/json/v2.WithMarshalers"}}({{ref "encoding/json/v2.JoinMarshalers"}}(
-                {{range .FlattenedFields -}}
-                {{if .NeedsMarshaling -}}
-                {{ref "encoding/json/v2.MarshalToFunc"}}(_octoqlMarshal{{.GoType.Unwrap.QualifiedRef}}),
-                {{end -}}
-                {{end -}}
-            )),
-            {{end -}}
-        )
-        {{else -}}
-        result := struct {
-            TypeName string `json:"__typename"`
-            *{{.GoName}}
-        }{
-            TypeName: "{{.GraphQLName}}",
-            {{.GoName}}: vv,
-        }
-        return {{ref "encoding/json/v2.MarshalEncode"}}(enc, &result)
-        {{end -}}
-    {{end -}}
-    case *{{.OtherImplementation.GoName}}:
-        if vv == nil {
-            return enc.WriteToken({{ref "encoding/json/jsontext.Null"}})
-        }
-        return {{ref "encoding/json/v2.MarshalEncode"}}(enc, vv)
-    case nil:
-        return enc.WriteToken({{ref "encoding/json/jsontext.Null"}})
-    default:
-        return {{ref "fmt.Errorf"}}(
-            `unexpected concrete type for {{.GoName}}: "%T"`, vv)
-    }
+		{{/* Now actually do the marshal, with the concrete type. (Go only
+		     marshals embeds the way we want if they're structs.)  Except that
+		     won't work right if the implementation-type has its own
+		     MarshalJSONTo method (maybe it in turn has an interface-typed
+		     field), so we call the helper _octoqlPremarshalJSON directly (see
+		     marshal.go.tmpl). */ -}}
+		{{- if .NeedsMarshaling}}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*_octoqlPremarshal{{.GoName}}
+		}{
+			TypeName: "{{.GraphQLName}}",
+			_octoqlPremarshal{{.GoName}}: vv._octoqlPremarshalJSON(),
+		}
+		return json.MarshalEncode(
+			enc,
+			&result,
+			{{- if .Marshalers}}
+			json.WithMarshalers(json.JoinMarshalers(
+				{{- range .Marshalers}}
+				json.MarshalToFunc({{.}}),
+				{{- end}}
+			)),
+			{{- end}}
+		)
+		{{- else}}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*{{.GoName}}
+		}{
+			TypeName: "{{.GraphQLName}}",
+			{{.GoName}}: vv,
+		}
+		return json.MarshalEncode(enc, &result)
+		{{- end}}
+	{{- end}}
+	case *{{.OtherGoName}}:
+		if vv == nil {
+			return enc.WriteToken(jsontext.Null)
+		}
+		return json.MarshalEncode(enc, vv)
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for {{.GoName}}: "%T"`, vv)
+	}
 }

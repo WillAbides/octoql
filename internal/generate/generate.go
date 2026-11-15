@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
@@ -162,6 +163,24 @@ func (g *planState) addOperation(op *ast.OperationDefinition) error {
 	return nil
 }
 
+var clientStdlibImports = []string{
+	"bytes",
+	"context",
+	"encoding/json/jsontext",
+	"encoding/json/v2",
+	"errors",
+	"fmt",
+	"io",
+	"math",
+	"net/http",
+	"net/url",
+	"strconv",
+	"strings",
+	"sync",
+	"sync/atomic",
+	"time",
+}
+
 var clientRuntimeDeclarations = []string{
 	"Client",
 	"DefaultResponseSizeLimit",
@@ -255,6 +274,27 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 			)
 		}
 		entry.declaration = fmt.Sprintf("runtime declaration %q", name)
+		packageSymbols[name] = entry
+	}
+
+	for _, pkgPath := range clientStdlibImports {
+		name := defaultPackageAlias(pkgPath)
+		if typeMap[name] != nil {
+			return errorf(
+				nil,
+				"generated runtime import %q conflicts with a generated GraphQL type",
+				name,
+			)
+		}
+		entry := packageSymbols[name]
+		if entry.declaration == "a generated enum value" {
+			return errorf(
+				nil,
+				"generated runtime import %q conflicts with a generated enum declaration",
+				name,
+			)
+		}
+		entry.declaration = fmt.Sprintf("runtime import %q", name)
 		packageSymbols[name] = entry
 	}
 
@@ -398,8 +438,19 @@ func reserveClientDeclarations(plan *planState, scope *importScope) {
 	}
 }
 
+type operationTemplateData struct {
+	Name         string
+	Doc          string
+	QueryLiteral string
+	InputType    string
+	ResponseName string
+}
+
 func renderClient(plan *planState) ([]byte, error) {
 	r := newRenderer(plan.config.Package, plan.config.pkgPath)
+	for _, pkgPath := range clientStdlibImports {
+		r.imports.importPackage(pkgPath)
+	}
 	reserveClientDeclarations(plan, r.imports)
 	registerBoundTypeImports(plan.typeMap, r.imports)
 
@@ -423,7 +474,17 @@ func renderClient(plan *planState) ([]byte, error) {
 	}
 
 	for _, op := range plan.operations {
-		err = r.render("operation.go.tmpl", &bodyBuf, op)
+		inputType := ""
+		if op.Input != nil {
+			inputType = op.Input.GoName
+		}
+		err = r.render("operation.go.tmpl", &bodyBuf, operationTemplateData{
+			Name:         op.Name,
+			Doc:          op.Doc,
+			QueryLiteral: strconv.Quote(op.Body),
+			InputType:    inputType,
+			ResponseName: op.ResponseName,
+		})
 		if err != nil {
 			return nil, err
 		}

@@ -147,28 +147,24 @@ func newImportScope(pkgPath string) *importScope {
 	}
 }
 
-func (s *importScope) importPackage(pkgPath string) string {
-	alias, ok := s.imports[pkgPath]
-	if ok {
-		return alias
-	}
+func defaultPackageAlias(pkgPath string) string {
 	basePath := pkgPath
 	unversioned, _, splitOK := module.SplitPathVersion(pkgPath)
 	if splitOK {
 		basePath = unversioned
 	}
-	pkgName := makeIdentifier(basePath[strings.LastIndex(basePath, "/")+1:])
+	return makeIdentifier(basePath[strings.LastIndex(basePath, "/")+1:])
+}
+
+func (s *importScope) importPackage(pkgPath string) string {
+	alias, ok := s.imports[pkgPath]
+	if ok {
+		return alias
+	}
+	pkgName := defaultPackageAlias(pkgPath)
 	alias = allocateIdentifier(pkgName, s.usedAliases)
 	s.imports[pkgPath] = alias
 	return alias
-}
-
-func (s *importScope) ref(fullyQualifiedName string) (string, error) {
-	parsed, err := parseRef(fullyQualifiedName)
-	if err != nil {
-		return "", err
-	}
-	return parsed.render(s), nil
 }
 
 func (s *importScope) declaration() string {

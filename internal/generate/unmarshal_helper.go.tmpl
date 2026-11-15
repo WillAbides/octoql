@@ -4,38 +4,38 @@
      The helper itself is fairly simple: it reads the raw JSON value, switches
      on __typename, then unmarshals into the relevant struct. */}}
 
-func _octoqlUnmarshal{{.GoName}}(dec *{{ref "encoding/json/jsontext.Decoder"}}, v *{{.GoName}}) error {
-    b, err := dec.ReadValue()
-    if err != nil {
-        return err
-    }
-    if string(b) == "null" {
-        *v = nil
-        return nil
-    }
+func _octoqlUnmarshal{{.GoName}}(dec *jsontext.Decoder, v *{{.GoName}}) error {
+	b, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if string(b) == "null" {
+		*v = nil
+		return nil
+	}
 
-    var tn struct {
-        TypeName string `json:"__typename"`
-    }
-    err = {{ref "encoding/json/v2.Unmarshal"}}(b, &tn)
-    if err != nil {
-        return err
-    }
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err = json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
 
-    switch tn.TypeName {
-    {{range .Implementations -}}
-    case "{{.GraphQLName}}":
-        *v = new({{.GoName}})
-        return {{ref "encoding/json/v2.Unmarshal"}}(b, *v, dec.Options())
-    {{end -}}
-    case "":
-        {{/* Likely if we're making a request to a mock server and the author
-             of the mock didn't know to add __typename, so give a special
-             error. */ -}}
-        return {{ref "fmt.Errorf"}}(
-            "response was missing {{.GraphQLName}}.__typename")
-    default:
-        *v = new({{.OtherImplementation.GoName}})
-        return {{ref "encoding/json/v2.Unmarshal"}}(b, *v, dec.Options())
-    }
+	switch tn.TypeName {
+	{{- range .Implementations}}
+	case "{{.GraphQLName}}":
+		*v = new({{.GoName}})
+		return json.Unmarshal(b, *v, dec.Options())
+	{{- end}}
+	case "":
+		{{/* Likely if we're making a request to a mock server and the author
+		     of the mock didn't know to add __typename, so give a special
+		     error. */ -}}
+		return fmt.Errorf(
+			"response was missing {{.GraphQLName}}.__typename")
+	default:
+		*v = new({{.OtherGoName}})
+		return json.Unmarshal(b, *v, dec.Options())
+	}
 }

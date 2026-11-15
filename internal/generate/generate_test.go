@@ -295,10 +295,10 @@ query Value($input: JSON!) {
 	})
 	require.NoError(t, err)
 
-	assert.Contains(t, source, `"github.com/willabides/octoql/internal/generate/testdata/json"`)
-	assert.Contains(t, source, `json2 "encoding/json/v2"`)
-	assert.Contains(t, source, "Input json.Value")
-	assert.Contains(t, source, "json2.Marshal")
+	assert.Contains(t, source, `json2 "github.com/willabides/octoql/internal/generate/testdata/json"`)
+	assert.Contains(t, source, `json "encoding/json/v2"`)
+	assert.Contains(t, source, "Input json2.Value")
+	assert.Contains(t, source, "json.Marshal")
 	compileModulePackages(t, map[string][]byte{"runtime_import_alias_collision": []byte(source)})
 }
 
@@ -369,7 +369,7 @@ type Query {
 `), 0o600))
 	require.NoError(t, os.WriteFile(operationPath, []byte(`
 query Inspect {
-  box @octoqlgen(typename: "json") {
+  box @octoqlgen(typename: "shared") {
     id
   }
   mismatched
@@ -400,8 +400,8 @@ query Inspect {
 	require.NoError(t, err)
 	assert.Equal(t, outputs, secondOutputs)
 	clientSource := string(outputs[config.Generated])
-	assert.Contains(t, clientSource, `"`+firstPkg+`"`)
-	assert.Contains(t, clientSource, `shared2 "`+secondPkg+`"`)
+	assert.Contains(t, clientSource, `shared2 "`+firstPkg+`"`)
+	assert.Contains(t, clientSource, `shared3 "`+secondPkg+`"`)
 	compileGeneratedOutputs(t, rootDir, outputs)
 }
 
@@ -418,6 +418,11 @@ func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 			name:      "runtime method collision",
 			operation: "query RateLimit {\n  value\n}\n",
 			wantError: `generated Client method "RateLimit" conflicts with operation "RateLimit"`,
+		},
+		{
+			name:      "runtime import collision",
+			operation: "query Value @octoqlgen(typename: \"json\") {\n  value\n}\n",
+			wantError: `generated runtime import "json" conflicts with a generated GraphQL type`,
 		},
 		{
 			name:      "partial data error type collision",
