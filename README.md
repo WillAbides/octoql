@@ -266,13 +266,12 @@ case *githubapi.GetNodeNodeOctoqlOther:
 }
 ```
 
-By default, enum values and abstract implementations remain open at runtime so
-generated clients stay forward-compatible when GitHub adds new enum values or
-schema types. Unrecognized enum strings unmarshal without error, and
-unrecognized `__typename` values decode into `OctoqlOther` (unless
-[`omit_unreferenced_implementations`](docs/configuration.md#omit_unreferenced_implementations)
-is set to `false`). When writing authorization or policy checks that must fail
-closed, match known values explicitly and deny the `default` case. See
+Enum values and abstract implementations remain open at runtime so generated
+clients stay forward-compatible when GitHub adds new enum values or schema
+types. Unrecognized enum strings unmarshal without error, and unreferenced or
+unrecognized `__typename` values decode into `OctoqlOther`. When writing
+authorization or policy checks that must fail closed, match known values
+explicitly and deny the `default` case. See
 [schema evolution and authorization checks](docs/SECURITY.md#schema-evolution-and-authorization-checks)
 for examples.
 

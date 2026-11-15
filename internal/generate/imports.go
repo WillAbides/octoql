@@ -259,9 +259,7 @@ func registerBoundTypeImports(typeMap map[string]goType, scope *importScope) err
 					return err
 				}
 			}
-			if current.OtherImplementation != nil {
-				return visit(current.OtherImplementation)
-			}
+			return visit(current.OtherImplementation)
 		}
 		return nil
 	}

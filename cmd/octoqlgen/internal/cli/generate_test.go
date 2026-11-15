@@ -65,7 +65,6 @@ func TestRunGenerate(t *testing.T) {
 				"  - graphql/**/*.graphql\n"+
 				"generated: githubapi/generated.go\n"+
 				"package: githubapi\n"+
-				"export_operations: githubapi/operations.json\n"+
 				"bindings:\n"+
 				"  CustomID:\n"+
 				"    type: string\n"+
@@ -76,7 +75,6 @@ func TestRunGenerate(t *testing.T) {
 				"  enums:\n"+
 				"    IssueState: raw\n"+
 				"use_struct_references: true\n"+
-				"omit_unreferenced_implementations: false\n"+
 				"test_handler:\n"+
 				"  generated: githubapitest/generated.go\n"+
 				"  types: local\n",
@@ -101,19 +99,13 @@ func TestRunGenerate(t *testing.T) {
 		assert.Contains(t, string(clientSource), `"net/url"`)
 		assert.Contains(t, string(clientSource), "url.URL")
 		assert.Contains(t, string(clientSource), `const Viewer_Operation = "\nquery Viewer`)
+		assert.Contains(t, string(clientSource), "contains ` backtick")
 		assert.NotContains(t, string(clientSource), "const Viewer_Operation = `")
 
 		handlerSource, err := os.ReadFile(filepath.Join(directory, "githubapitest", "generated.go"))
 		require.NoError(t, err)
 		assert.Contains(t, string(handlerSource), "package githubapitest")
 		assert.Contains(t, string(handlerSource), "type ViewerResponse struct")
-
-		manifest, err := os.ReadFile(filepath.Join(directory, "githubapi", "operations.json"))
-		require.NoError(t, err)
-		assert.Contains(t, string(manifest), `"operationName": "Viewer"`)
-		assert.Contains(t, string(manifest), "contains ` backtick")
-		assert.Contains(t, string(manifest), filepath.Join("graphql", "viewer.graphql"))
-		assert.NotContains(t, string(manifest), directory)
 
 		companion, err := os.ReadFile(filepath.Join(directory, ".octoql", internal.DirectiveFilename))
 		require.NoError(t, err)
@@ -395,6 +387,16 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			name:    "removed context_type option",
 			yaml:    baseYAML + "context_type: \"-\"\n",
 			wantErr: "field context_type not found in type config.Config",
+		},
+		{
+			name:    "removed export_operations option",
+			yaml:    baseYAML + "export_operations: operations.json\n",
+			wantErr: "field export_operations not found in type config.Config",
+		},
+		{
+			name:    "removed omit_unreferenced_implementations option",
+			yaml:    baseYAML + "omit_unreferenced_implementations: false\n",
+			wantErr: "field omit_unreferenced_implementations not found in type config.Config",
 		},
 		{
 			name:    "unknown binding field",

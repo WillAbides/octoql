@@ -17,11 +17,10 @@ func TestGenerateCollisionCompileCorpus(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                string
-		schema              string
-		operations          string
-		casing              Casing
-		keepImplementations bool
+		name       string
+		schema     string
+		operations string
+		casing     Casing
 		// wantGenerationErr, when set, is a substring the generation error must
 		// contain.  Each collision case names its offending identifier so an
 		// unrelated failure cannot satisfy it.  When empty, generation must
@@ -140,10 +139,11 @@ query F {
   }
 }
 fragment F on I {
-  login
+  ... on Impl {
+    login
+  }
 }
 `,
-			keepImplementations: true,
 			wantGenerationErr: "conflicting definition for the Go type FImpl: " +
 				"it is generated from both the selection of GraphQL type Impl",
 			wantGenerationErrAlso: []string{
@@ -302,8 +302,7 @@ query Q($p: Profile) {
 			// same Go name, so the generated interface would declare Get<Name>
 			// twice.  With no concrete implementations there is no struct in
 			// the type map, so this is only caught by the interface pass.
-			name:                "interface fields with same getter",
-			keepImplementations: true,
+			name: "interface fields with same getter",
 			schema: `
 interface HasName {
   name: String!
@@ -336,8 +335,7 @@ query Q {
 			// treats the embedded type reference as a method identifier would
 			// reject this working input, so generation must succeed and the
 			// output must compile.
-			name:                "interface field getter and embedded fragment name",
-			keepImplementations: true,
+			name: "interface field getter and embedded fragment name",
 			schema: `
 interface HasName {
   name: String!
@@ -372,8 +370,7 @@ fragment GetName on HasName {
 			// methods would miss the conflict on the interface and emit
 			// uncompilable Go; the assertion pins the interface-pass diagnostic
 			// specifically, which only the method-set check produces.
-			name:                "interface getter and promoted method disagree",
-			keepImplementations: true,
+			name: "interface getter and promoted method disagree",
 			schema: `
 interface HasFoo {
   foo: Int!
@@ -605,16 +602,11 @@ query Q {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var omitUnreferencedImplementations *bool
-			if test.keepImplementations {
-				omitUnreferencedImplementations = new(false)
-			}
 			source, err := generateTestSource(t, &testGenerateSpec{
-				schema:                          test.schema,
-				operations:                      test.operations,
-				packageName:                     "probe",
-				casing:                          test.casing,
-				omitUnreferencedImplementations: omitUnreferencedImplementations,
+				schema:      test.schema,
+				operations:  test.operations,
+				packageName: "probe",
+				casing:      test.casing,
 			})
 			if test.wantGenerationErr != "" {
 				require.Error(t, err)

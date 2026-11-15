@@ -109,17 +109,15 @@ func generateConfig(source *config.Config) *generate.Config {
 	}
 
 	return &generate.Config{
-		Schema:                          source.SchemaPath(),
-		Operations:                      source.OperationPaths(),
-		Generated:                       source.GeneratedPath(),
-		TestHandlerGenerated:            source.TestHandlerGeneratedPath(),
-		TestHandlerTypes:                generate.TestHandlerTypeStrategy(source.TestHandlerTypesValue()),
-		Package:                         stringValue(source.Package),
-		ExportOperations:                source.ExportOperationsPath(),
-		Bindings:                        bindings,
-		Casing:                          casing,
-		StructReferences:                boolValue(source.UseStructReferences),
-		OmitUnreferencedImplementations: source.OmitUnreferencedImplementations,
+		Schema:               source.SchemaPath(),
+		Operations:           source.OperationPaths(),
+		Generated:            source.GeneratedPath(),
+		TestHandlerGenerated: source.TestHandlerGeneratedPath(),
+		TestHandlerTypes:     generate.TestHandlerTypeStrategy(source.TestHandlerTypesValue()),
+		Package:              stringValue(source.Package),
+		Bindings:             bindings,
+		Casing:               casing,
+		StructReferences:     boolValue(source.UseStructReferences),
 	}
 }
 

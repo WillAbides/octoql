@@ -164,13 +164,12 @@ func TestValidateOutputPathsProtectsInputs(t *testing.T) {
 			wantError: "generated output path",
 		},
 		{
-			name: "operation manifest collides with schema",
+			name: "generated collides with schema",
 			config: Config{
-				Schema:           schemaPath,
-				Generated:        filepath.Join(directory, "generated.go"),
-				ExportOperations: schemaPath,
+				Schema:    schemaPath,
+				Generated: schemaPath,
 			},
-			wantError: "export_operations output path",
+			wantError: "generated output path",
 		},
 		{
 			name: "test handler collides with expanded operation",

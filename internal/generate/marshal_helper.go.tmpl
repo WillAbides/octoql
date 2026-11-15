@@ -46,7 +46,6 @@ func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
         {{end -}}
         return {{ref "encoding/json.Marshal"}}(result)
     {{end -}}
-    {{if .OtherImplementation -}}
     case *{{.OtherImplementation.GoName}}:
         if vv == nil {
             return []byte("null"), nil
@@ -60,7 +59,6 @@ func _octoqlMarshal{{.GoName}}(v *{{.GoName}}) ([]byte, error) {
         {{else -}}
         return {{ref "encoding/json.Marshal"}}(vv)
         {{end -}}
-    {{end -}}
     case nil:
         return []byte("null"), nil
     default:

@@ -18,19 +18,17 @@ import (
 // Config contains generator settings. Generate normalizes unspecified values
 // automatically, or callers can validate them before materializing the schema.
 type Config struct {
-	Schema                          string
-	Operations                      []string
-	ConfigFile                      string
-	Generated                       string
-	TestHandlerGenerated            string
-	TestHandlerTypes                TestHandlerTypeStrategy
-	Package                         string
-	ExportOperations                string
-	Bindings                        map[string]*TypeBinding
-	Casing                          Casing
-	StructReferences                bool
-	OmitUnreferencedImplementations *bool
-	Warnings                        io.Writer // Warnings are discarded when nil.
+	Schema               string
+	Operations           []string
+	ConfigFile           string
+	Generated            string
+	TestHandlerGenerated string
+	TestHandlerTypes     TestHandlerTypeStrategy
+	Package              string
+	Bindings             map[string]*TypeBinding
+	Casing               Casing
+	StructReferences     bool
+	Warnings             io.Writer // Warnings are discarded when nil.
 
 	// The directory of the config-file (relative to which all the other paths
 	// are resolved).  Set by ValidateAndFillDefaults.
@@ -245,14 +243,10 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if c.TestHandlerGenerated != "" {
 		c.TestHandlerGenerated = pathJoin(baseDir, c.TestHandlerGenerated)
 	}
-	if c.ExportOperations != "" {
-		c.ExportOperations = pathJoin(baseDir, c.ExportOperations)
-	}
 	err := c.validateOutputPaths()
 	if err != nil {
 		return err
 	}
-	c.OmitUnreferencedImplementations = cmp.Or(c.OmitUnreferencedImplementations, new(true))
 	c.TestHandlerTypes = cmp.Or(c.TestHandlerTypes, TestHandlerTypesClient)
 	err = c.TestHandlerTypes.validate()
 	if err != nil {
@@ -358,10 +352,6 @@ func (c *Config) validateOutputPaths() error {
 		{
 			name: "generated",
 			path: c.Generated,
-		},
-		{
-			name: "export_operations",
-			path: c.ExportOperations,
 		},
 		{
 			name: "test_handler.generated",

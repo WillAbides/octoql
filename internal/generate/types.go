@@ -399,9 +399,7 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 	for _, impl := range t.Implementations {
 		fmt.Fprintf(w, "func (v *%s) %s() {}\n", impl.GoName, implementsMethodName)
 	}
-	if t.OtherImplementation != nil {
-		fmt.Fprintf(w, "func (v *%s) %s() {}\n", t.OtherImplementation.GoName, implementsMethodName)
-	}
+	fmt.Fprintf(w, "func (v *%s) %s() {}\n", t.OtherImplementation.GoName, implementsMethodName)
 
 	err := r.render("unmarshal_helper.go.tmpl", w, t)
 	if err != nil {

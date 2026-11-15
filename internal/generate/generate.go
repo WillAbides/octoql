@@ -2,7 +2,6 @@ package generate
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -23,23 +22,17 @@ type planState struct {
 	directives    *directiveSet
 }
 
-// JSON tags in plannedOperation are for ExportOperations (see Config for details).
 type plannedOperation struct {
-	Type           ast.Operation `json:"-"`
-	Name           string        `json:"operationName"`
-	Doc            string        `json:"-"`
-	Body           string        `json:"query"`
-	Input          *goStructType `json:"-"`
-	ResponseName   string        `json:"-"`
-	SourceFilename string        `json:"sourceLocation"`
+	Type         ast.Operation
+	Name         string
+	Doc          string
+	Body         string
+	Input        *goStructType
+	ResponseName string
 }
 
-type exportedOperations struct {
-	Operations []*plannedOperation `json:"operations"`
-}
-
-// generationPlan is the destination-neutral, read-only plan shared by client,
-// exported-operations, and test-handler renderers.
+// generationPlan is the destination-neutral, read-only plan shared by client
+// and test-handler renderers.
 type generationPlan struct {
 	config     Config
 	operations []*plannedOperation
@@ -187,13 +180,12 @@ func (g *planState) addOperation(op *ast.OperationDefinition) error {
 	}
 
 	g.operations = append(g.operations, &plannedOperation{
-		Type:           op.Operation,
-		Name:           op.Name,
-		Doc:            docComment,
-		Body:           "\n" + builder.String(),
-		Input:          inputType,
-		ResponseName:   responseType.QualifiedRef(),
-		SourceFilename: op.Position.Src.Name,
+		Type:         op.Operation,
+		Name:         op.Name,
+		Doc:          docComment,
+		Body:         "\n" + builder.String(),
+		Input:        inputType,
+		ResponseName: responseType.QualifiedRef(),
 	})
 	return nil
 }
@@ -459,18 +451,6 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 	)
 }
 
-func renderExportedOperations(plan *generationPlan) ([]byte, error) {
-	content, err := json.MarshalIndent(
-		exportedOperations{Operations: plan.operations},
-		"",
-		"  ",
-	)
-	if err != nil {
-		return nil, errorf(nil, "unable to export queries: %v", err)
-	}
-	return content, nil
-}
-
 // Generate renders every configured output from one shared generation plan.
 func Generate(config *Config) (map[string][]byte, error) {
 	err := config.ValidateAndFillDefaults(".")
@@ -490,13 +470,6 @@ func Generate(config *Config) (map[string][]byte, error) {
 	outputs := map[string][]byte{
 		config.Generated: client,
 	}
-	if config.ExportOperations != "" {
-		outputs[config.ExportOperations], err = renderExportedOperations(plan)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if config.TestHandlerGenerated != "" {
 		outputs[config.TestHandlerGenerated], err = renderTestHandler(plan)
 		if err != nil {

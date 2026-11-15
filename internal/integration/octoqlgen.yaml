@@ -5,7 +5,6 @@ schema:
 operations:
   - operations.graphql
 generated: generated.go
-omit_unreferenced_implementations: false
 bindings:
   AddCommentInput:
     type: github.com/willabides/octoql/internal/integration/server.AddCommentInput

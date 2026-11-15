@@ -244,8 +244,8 @@ func TestInterfaceNoFragments(t *testing.T) {
 	assert.Equal(t, "1", actor.GetId())
 	assert.Equal(t, "octocat", actor.GetLogin())
 
-	user, ok := actor.(*queryWithInterfaceNoFragmentsActorUser)
-	require.Truef(t, ok, "got %T, not User", actor)
+	user, ok := actor.(*queryWithInterfaceNoFragmentsActorOctoqlOther)
+	require.Truef(t, ok, "got %T, not OctoqlOther", actor)
 	assert.Equal(t, "1", user.Id)
 	assert.Equal(t, "octocat", user.Login)
 
@@ -264,8 +264,8 @@ func TestInterfaceNoFragments(t *testing.T) {
 	assert.Equal(t, "3", actor.GetId())
 	assert.Equal(t, "octo-org", actor.GetLogin())
 
-	org, ok := actor.(*queryWithInterfaceNoFragmentsActorOrganization)
-	require.Truef(t, ok, "got %T, not Organization", actor)
+	org, ok := actor.(*queryWithInterfaceNoFragmentsActorOctoqlOther)
+	require.Truef(t, ok, "got %T, not OctoqlOther", actor)
 	assert.Equal(t, "3", org.Id)
 	assert.Equal(t, "octo-org", org.Login)
 
@@ -296,8 +296,8 @@ func TestInterfaceListField(t *testing.T) {
 	assert.Equal(t, "1", response.Actors[0].GetId())
 	assert.Equal(t, "octocat", response.Actors[0].GetLogin())
 
-	user, ok := response.Actors[0].(*queryWithInterfaceListFieldActorsUser)
-	require.Truef(t, ok, "got %T, not User", response.Actors[0])
+	user, ok := response.Actors[0].(*queryWithInterfaceListFieldActorsActorOctoqlOther)
+	require.Truef(t, ok, "got %T, not OctoqlOther", response.Actors[0])
 	assert.Equal(t, "1", user.Id)
 	assert.Equal(t, "octocat", user.Login)
 
@@ -306,8 +306,8 @@ func TestInterfaceListField(t *testing.T) {
 	assert.Equal(t, "3", response.Actors[1].GetId())
 	assert.Equal(t, "octo-org", response.Actors[1].GetLogin())
 
-	org, ok := response.Actors[1].(*queryWithInterfaceListFieldActorsOrganization)
-	require.Truef(t, ok, "got %T, not Organization", response.Actors[1])
+	org, ok := response.Actors[1].(*queryWithInterfaceListFieldActorsActorOctoqlOther)
+	require.Truef(t, ok, "got %T, not OctoqlOther", response.Actors[1])
 	assert.Equal(t, "3", org.Id)
 	assert.Equal(t, "octo-org", org.Login)
 
@@ -446,7 +446,7 @@ func TestFlatten(t *testing.T) {
 	user, ok := response.Actors[0].(*queryFragmentActorsUser)
 	require.Truef(t, ok, "got %T, not User", response.Actors[0])
 	assert.Equal(t, "1", user.Id)
-	assert.Equal(t, 17, requirePtrValue(t, user.innerRepositoryOwnerFieldsUser.ContributionCount))
+	assert.Equal(t, 17, requirePtrValue(t, user.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount))
 
 	require.NotNil(t, response.Actors[1])
 	assert.Equal(t, "Organization", response.Actors[1].GetTypename())

@@ -998,10 +998,6 @@ func (g *planState) filterReferencedImplementations(
 	implementations []*ast.Definition,
 	selectionSet ast.SelectionSet,
 ) []*ast.Definition {
-	if !*g.config.OmitUnreferencedImplementations {
-		return implementations
-	}
-
 	applicable := make(map[string]bool, len(implementations))
 	for _, implementation := range implementations {
 		applicable[implementation.Name] = true
@@ -1114,10 +1110,6 @@ func (g *planState) attachCatchAllImplementation(
 	graphQLName string,
 	pos *ast.Position,
 ) error {
-	if !*g.config.OmitUnreferencedImplementations {
-		return nil
-	}
-
 	fields := make([]*goStructField, 0, len(abstractType.SharedFields))
 	for _, field := range abstractType.SharedFields {
 		if field.GoName != "" {
@@ -1304,7 +1296,7 @@ func (g *planState) convertFragmentSpread(
 				break
 			}
 		}
-		if typ == iface && iface.OtherImplementation != nil {
+		if typ == iface {
 			typ = iface.OtherImplementation
 		}
 	}

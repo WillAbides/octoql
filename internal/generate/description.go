@@ -67,9 +67,7 @@ func interfaceDescription(typ *goInterfaceType) string {
 	for _, impl := range typ.Implementations {
 		goImplNames = append(goImplNames, impl.GoName)
 	}
-	if typ.OtherImplementation != nil {
-		goImplNames = append(goImplNames, typ.OtherImplementation.GoName)
-	}
+	goImplNames = append(goImplNames, typ.OtherImplementation.GoName)
 	implementationList := fmt.Sprintf(
 		"\n\n%v is implemented by the following types:\n\t%v",
 		typ.GoName, strings.Join(goImplNames, "\n\t"),

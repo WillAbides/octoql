@@ -5,4 +5,3 @@ schema:
 operations:
   - operations.graphql
 generated: generated.go
-omit_unreferenced_implementations: true

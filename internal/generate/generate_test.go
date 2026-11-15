@@ -40,12 +40,11 @@ func testBindings() map[string]*TypeBinding {
 }
 
 type testGenerateSpec struct {
-	schema                          string
-	operations                      string
-	packageName                     string
-	casing                          Casing
-	bindings                        map[string]*TypeBinding
-	omitUnreferencedImplementations *bool
+	schema      string
+	operations  string
+	packageName string
+	casing      Casing
+	bindings    map[string]*TypeBinding
 }
 
 func generateTestSource(t *testing.T, spec *testGenerateSpec) (string, error) {
@@ -60,13 +59,12 @@ func generateTestSource(t *testing.T, spec *testGenerateSpec) (string, error) {
 		packageName = "client"
 	}
 	config := &Config{
-		Schema:                          schemaPath,
-		Operations:                      []string{operationPath},
-		Generated:                       filepath.Join(dir, "generated.go"),
-		Package:                         packageName,
-		Casing:                          spec.casing,
-		Bindings:                        spec.bindings,
-		OmitUnreferencedImplementations: spec.omitUnreferencedImplementations,
+		Schema:     schemaPath,
+		Operations: []string{operationPath},
+		Generated:  filepath.Join(dir, "generated.go"),
+		Package:    packageName,
+		Casing:     spec.casing,
+		Bindings:   spec.bindings,
 	}
 	outputs, err := Generate(config)
 	if err != nil {
@@ -174,14 +172,12 @@ func TestGenerate(t *testing.T) {
 
 	snapshotsToBuild := make(map[string][]byte)
 	for _, test := range []struct {
-		name               string
-		sourceFilenames    []string
-		checkQueryManifest bool
+		name            string
+		sourceFilenames []string
 	}{
 		{
-			name:               "GraphShapes.graphql",
-			sourceFilenames:    []string{"GraphShapes.graphql"},
-			checkQueryManifest: true,
+			name:            "GraphShapes.graphql",
+			sourceFilenames: []string{"GraphShapes.graphql"},
 		},
 		{
 			name:            "Naming.graphql",
@@ -200,7 +196,6 @@ func TestGenerate(t *testing.T) {
 		},
 	} {
 		goFilename := test.name + ".go"
-		queriesFilename := test.name + ".json"
 		operationFilenames := make([]string, 0, len(test.sourceFilenames))
 		for _, sourceFilename := range test.sourceFilenames {
 			operationFilenames = append(operationFilenames, filepath.Join(dataDir, sourceFilename))
@@ -208,28 +203,22 @@ func TestGenerate(t *testing.T) {
 
 		t.Run(test.name, func(t *testing.T) {
 			generated, err := Generate(&Config{
-				Schema:           filepath.Join(dataDir, "schema.graphql"),
-				Operations:       operationFilenames,
-				Package:          "test",
-				Generated:        goFilename,
-				ExportOperations: queriesFilename,
-				Bindings:         testBindings(),
+				Schema:     filepath.Join(dataDir, "schema.graphql"),
+				Operations: operationFilenames,
+				Package:    "test",
+				Generated:  goFilename,
+				Bindings:   testBindings(),
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			for filename, content := range generated {
-				t.Run(filename, func(t *testing.T) {
-					if filepath.Ext(filename) == ".json" && !test.checkQueryManifest {
-						return
-					}
-					snapshot := matchGeneratedSnapshot(t, filename, content)
-					if snapshot != nil {
-						snapshotsToBuild[normalizeSnapshotName(t.Name())] = snapshot
-					}
-				})
-			}
+			t.Run(goFilename, func(t *testing.T) {
+				snapshot := matchGeneratedSnapshot(t, generated[goFilename])
+				if snapshot != nil {
+					snapshotsToBuild[normalizeSnapshotName(t.Name())] = snapshot
+				}
+			})
 		})
 	}
 	compileModulePackages(t, snapshotsToBuild)
@@ -918,7 +907,7 @@ func TestGenerateWithConfig(t *testing.T) {
 		require.NoError(t, err)
 		source := string(generated[config.Generated])
 		assert.NotContains(t, source, "func (v *__GitHubInputsInput) Get")
-		snapshot = matchGeneratedSnapshot(t, config.Generated, generated[config.Generated])
+		snapshot = matchGeneratedSnapshot(t, generated[config.Generated])
 		if snapshot == nil {
 			snapshot = generated[config.Generated]
 		}
@@ -929,30 +918,22 @@ func TestGenerateWithConfig(t *testing.T) {
 func TestOmitUnreferencedImplementations(t *testing.T) {
 	t.Parallel()
 
-	generateAbstracts := func(omit *bool) string {
-		config := &Config{
-			Schema:                          filepath.Join(dataDir, "schema.graphql"),
-			Operations:                      []string{filepath.Join(githubGenerationDefaultsDir, "operations.graphql")},
-			Generated:                       "generated.go",
-			Package:                         "githubdefaults",
-			OmitUnreferencedImplementations: omit,
-		}
-		generated, err := Generate(config)
-		require.NoError(t, err)
-		return string(generated[config.Generated])
+	config := &Config{
+		Schema:     filepath.Join(dataDir, "schema.graphql"),
+		Operations: []string{filepath.Join(githubGenerationDefaultsDir, "operations.graphql")},
+		Generated:  "generated.go",
+		Package:    "githubdefaults",
 	}
+	generated, err := Generate(config)
+	require.NoError(t, err)
+	source := string(generated[config.Generated])
 
-	defaultSource := generateAbstracts(nil)
-	optOutSource := generateAbstracts(new(false))
-
-	assert.Contains(t, defaultSource, "type GitHubAbstractSelectionsNodeRepository struct")
-	assert.Contains(t, defaultSource, "type GitHubAbstractSelectionsNodeOctoqlOther struct")
-	assert.NotContains(t, defaultSource, "type GitHubAbstractSelectionsNodeIssue struct")
-	assert.Contains(t, optOutSource, "type GitHubAbstractSelectionsNodeIssue struct")
-	assert.NotContains(t, optOutSource, "OctoqlOther")
+	assert.Contains(t, source, "type GitHubAbstractSelectionsNodeRepository struct")
+	assert.Contains(t, source, "type GitHubAbstractSelectionsNodeOctoqlOther struct")
+	assert.NotContains(t, source, "type GitHubAbstractSelectionsNodeIssue struct")
 
 	catchAllPattern := regexp.MustCompile(`type (\w+OctoqlOther) struct`)
-	matches := catchAllPattern.FindAllStringSubmatch(defaultSource, -1)
+	matches := catchAllPattern.FindAllStringSubmatch(source, -1)
 	require.NotEmpty(t, matches)
 	names := make(map[string]bool, len(matches))
 	for _, match := range matches {
@@ -1093,33 +1074,28 @@ Example: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml`)
 	}
 }
 
-func matchGeneratedSnapshot(t *testing.T, filename string, content []byte) []byte {
+func matchGeneratedSnapshot(t *testing.T, content []byte) []byte {
 	t.Helper()
 
-	extension := filepath.Ext(filename)
 	snaps.WithConfig(
 		snaps.Dir(filepath.Join("testdata", "snapshots")),
 		snaps.Filename(normalizeSnapshotName(t.Name())),
-		snaps.Ext(extension),
+		snaps.Ext(".go"),
 		snaps.Raw(),
 	).MatchStandaloneSnapshot(t, string(content))
 
 	// Generated Go remains external because this compiles the snapshot file that
-	// was compared above. JSON output stays alongside the generated Go artifact.
-	if extension != ".go" || testing.Short() {
+	// was compared above.
+	if testing.Short() {
 		return nil
 	}
-	snapshot, err := os.ReadFile(standaloneSnapshotFilename(t, extension))
-	require.NoError(t, err)
-	return snapshot
-}
-
-func standaloneSnapshotFilename(t *testing.T, extension string) string {
-	return filepath.Join(
+	snapshot, err := os.ReadFile(filepath.Join(
 		"testdata",
 		"snapshots",
-		normalizeSnapshotName(t.Name())+"_1.snap"+extension,
-	)
+		normalizeSnapshotName(t.Name())+"_1.snap.go",
+	))
+	require.NoError(t, err)
+	return snapshot
 }
 
 func normalizeSnapshotName(name string) string {

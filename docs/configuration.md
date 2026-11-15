@@ -155,30 +155,6 @@ package already.
 
 Example: `githubapi`
 
-## `export_operations`
-
-Type: `string` · Optional
-
-When set, a file at this path (relative to `octoqlgen.yaml`) is generated
-containing the exact operations octoql sends to the server.
-
-This is useful for servers that require operations to be explicitly
-safelisted, especially for cases like operations involving fragments
-where the sent document may not exactly match the input, and for other
-static analysis. The JSON is an object of the form:
-
-```json
-{"operations": [{
-  "operationName": "operationname",
-  "query": "query operationName { ... }",
-  "sourceLocation": "myqueriesfile.graphql"
-}]}
-```
-
-Keys may be added in the future. By default no such file is written.
-
-Example: `operations.json`
-
 ## `bindings`
 
 Type: `object` · Optional
@@ -349,31 +325,6 @@ When true, fields with a struct type default to `pointer: true` and
 
 This is useful for schemas where it would be burdensome to set those
 options manually on a large number of fields. Defaults to false.
-
-Example: `true`
-
-## `omit_unreferenced_implementations`
-
-Type: `boolean` · Optional
-
-Generate concrete Go structs only for the abstract GraphQL
-implementations named by applicable inline or named fragments.
-
-Each abstract selection also gets an `OctoqlOther` catch-all containing
-the shared fields and `__typename`. It handles implementations not
-selected by a fragment as well as any implementation name unrecognized by
-the schema used to generate the client. Decoding those names succeeds
-without an error or log, which keeps generated clients usable when GitHub
-adds an implementation.
-
-A Go type switch or assertion against a concrete generated type does not
-match the catch-all. Code that must fail closed should enumerate allowed
-concrete types and use an explicit denying `default`.
-
-Defaults to true. Set it to false when migrating code that relies on a
-generated Go struct for every implementation allowed by the schema. No
-catch-all is generated in that mode, so an unrecognized `__typename`
-produces an error instead.
 
 Example: `true`
 

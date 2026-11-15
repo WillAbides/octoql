@@ -41,12 +41,6 @@ func generatedTypeFieldsMatch(existing, candidate goType) error {
 				return fmt.Errorf("implementation %d changed: %s vs %s", i, impl.GoName, other.GoName)
 			}
 		}
-		if ex.OtherImplementation == nil && can.OtherImplementation == nil {
-			return nil
-		}
-		if ex.OtherImplementation == nil || can.OtherImplementation == nil {
-			return fmt.Errorf("catch-all implementation changed")
-		}
 		if ex.OtherImplementation.GoName != can.OtherImplementation.GoName {
 			return fmt.Errorf("catch-all implementation changed: %s vs %s",
 				ex.OtherImplementation.GoName, can.OtherImplementation.GoName)
