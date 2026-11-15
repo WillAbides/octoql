@@ -17,7 +17,9 @@ cd octoql
 go mod download
 ```
 
-Repository scripts install their pinned development tools on demand.
+Repository scripts install their pinned development tools on demand. Edit
+`.bindown.yaml` only through `script/bindown`, and update checksums with
+`script/bindown checksums sync`.
 
 ## Development commands
 
@@ -30,7 +32,7 @@ script/generate
 
 Run focused package tests while developing, for example
 `go test -shuffle=on ./internal/generate`. `script/lint` always covers the whole
-module; to lint one package, install the pinned tools once with
+module. To lint one package, install the pinned tools once with
 `script/bindown -q install golangci-lint` and then run
 `bin/golangci-lint run ./internal/generate/...`. Run the full shuffled suite for
 repository-wide module, generator entrypoint, or release changes.
@@ -77,8 +79,9 @@ Do not add global snapshot cleanup, sorting, or `TestMain` lifecycle behavior.
 
 ## Documentation
 
-`docs/configuration.md` is generated from `octoqlgen.schema.yaml` by
-`internal/configdocgen`. Edit the schema, not the Markdown:
+`octoqlgen.schema.yaml` is the source of truth for both the Go configuration
+model (`cmd/octoqlgen/internal/config/model_gen.go`) and
+`docs/configuration.md`. Edit the schema, not the generated Go or Markdown:
 
 - keep `description` terse and single-line, since it is what editors show on
   hover through the `# yaml-language-server: $schema=` comment
@@ -88,19 +91,15 @@ Do not add global snapshot cleanup, sorting, or `TestMain` lifecycle behavior.
 Generation fails when a property has no `x-doc`, so a new configuration option
 cannot ship undocumented. Run `script/generate` after changing the schema.
 
-`docs/directive.md` and `docs/cli.md` are handwritten. Update `docs/cli.md` from
-actual `--help` output when CLI flags change.
-
 ## Project guidance
 
 - The root [README](README.md) is the primary user guide.
-- [docs/](docs/README.md) holds the configuration, directive, and CLI
-  references.
-- [AGENTS.md](AGENTS.md) records architecture and repository conventions.
+- [docs/](docs) holds the [configuration](docs/configuration.md) and
+  [directive](docs/directive.md) references.
 - Report vulnerabilities through the [security policy](docs/SECURITY.md).
 - Follow the [code of conduct](docs/CODE_OF_CONDUCT.md).
 
 Project history remains in Git. The repository does not maintain a changelog.
-Releases publish only through release-train in CI on `main`; direct GoReleaser
-publication is disabled. Contributors may validate local snapshots but must not
-publish artifacts.
+Releases publish only through release-train in CI on `main`, and direct
+GoReleaser publication is disabled. Contributors may validate local snapshots
+but must not publish artifacts.

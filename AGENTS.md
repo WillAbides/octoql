@@ -6,26 +6,26 @@
   attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`.
 - The module path is `github.com/willabides/octoql`, with Go version `1.27.3`.
 - Generated clients are self-contained and do not import the root `octoql`
-  package. `internal/generate/runtime.go.tmpl` is the canonical HTTP runtime; do
+  package. `internal/generate/runtime.go.tmpl` is the canonical HTTP runtime. Do
   not maintain a second handwritten implementation or create a public runtime
   package. A generated private JSON guard prevents UnmarshalJSON method promotion
   while preserving `encoding/json` semantics.
-  Generator implementation belongs in `internal/generate`; users invoke
+  Generator implementation belongs in `internal/generate`, and users invoke
   `cmd/octoqlgen`. Do not recreate a public `generate` package.
 - The root `README.md` is the primary user guide. Keep `docs/` for specialized
   references and project policies that are too detailed for the README. The
-  repository has no changelog; project history remains in Git.
+  repository has no changelog, and project history remains in Git.
 - `octoqlgen.yaml` is the only user-facing generator configuration. Do not restore
   `genqlient.yaml` parsing, discovery, compatibility adapters, or config merging.
 - Options come from three real GraphQL directives, one per scope: `@octoqlgen`
-  for the node it is attached to, `@octoqlgenDefaults` for the fields inside an
-  operation or fragment, and `@octoqlgenFor` for a named type's field. They are
-  declared into the loaded schema and stripped from operations before they are
-  sent. Each declares only the options its scope supports, so keep the option
-  sets narrow rather than re-adding hand-written location checks. Do not
-  reintroduce comment-based directives, source-position attachment, or a
-  compatibility alias for a prior spelling. Operations come from `.graphql`
-  files only. Do not restore extraction from Go string literals.
+  for the node it is attached to, `@octoqlgenDefaults` for the variables and
+  fields inside an operation or fragment, and `@octoqlgenFor` for a named
+  type's field. They are declared into the loaded schema and stripped from
+  operations before they are sent. Each declares only the options its scope
+  supports, so keep the option sets narrow rather than re-adding hand-written
+  location checks. Do not reintroduce comment-based directives, source-position
+  attachment, or a compatibility alias for a prior spelling. Operations come
+  from `.graphql` files only. Do not restore extraction from Go string literals.
 - A named type generates one Go type, so `@octoqlgenFor` declarations for the
   same field must agree across operations. Silence is not disagreement.
 - `internal/directive.go` owns the `@octoqlgen` declarations. octoqlgen writes
@@ -37,7 +37,7 @@
 - octoql does not support GraphQL subscriptions. Preserve per-error
   `Error.Extensions`, but ignore top-level response extensions. Do not restore
   the removed no-op `use_extensions` option.
-- Every failure after an HTTP response includes `ResponseError`; GraphQL
+- Every failure after an HTTP response includes `ResponseError`. GraphQL
   `Errors` and `RateLimitError` are independently discoverable facets in its
   error chain. Generated helpers always return nil with an error. When the
   GraphQL `data` field is non-null and decoded successfully, partial data is
@@ -47,7 +47,7 @@
   a package-level generic executor.
 - Successful HTTP metadata is not attached to generated responses. Primary
   rate-limit state is an advisory, concurrency-safe `Client.RateLimit()`
-  snapshot; request-specific failure metadata remains on the error chain.
+  snapshot, and request-specific failure metadata remains on the error chain.
 
 ## Development
 
@@ -55,7 +55,7 @@
   to commit the failing test first.
 - Use Kong declarative structs and `Run` methods for CLI commands. Keep parsing,
   dependency construction, and command execution separately testable. Put all
-  Kong metadata in one consolidated `kong:"..."` tag; do not use separate
+  Kong metadata in one consolidated `kong:"..."` tag. Do not use separate
   metadata tags such as `cmd`, `help`, `name`, `type`, or `default`.
 - Use gopls first for Go symbols, references, package APIs, renames, and
   diagnostics. Follow existing Go style and repository patterns rather than
@@ -81,7 +81,7 @@
   combinatorial option matrices when representative integration coverage and
   focused difference checks cover the same behavior.
 - The runtime config model is generated from `octoqlgen.schema.yaml` with the
-  repository-pinned `script/jsonschematogo`; do not add handwritten user config
+  repository-pinned `script/jsonschematogo`. Do not add handwritten user config
   structs.
 - Validate required config fields before defaults or path resolution. Generation
   outputs must not alias `octoqlgen.yaml`, schema inputs, or expanded operation
@@ -106,7 +106,7 @@
   creates new files) rather than temp-file staging, `fsync`, or hard-link
   publication.
 - Keep the generator in the root module. Generated application packages compile
-  without a dependency on `github.com/willabides/octoql`; users pin the command
+  without a dependency on `github.com/willabides/octoql`. Users pin the command
   as a Go tool dependency and regenerate to receive runtime fixes.
 - Do not add file-level copyright or SPDX headers to new Go files. Preserve
   project-level attribution in `LICENSE` and `THIRD_PARTY_NOTICES.md`, and
@@ -115,14 +115,14 @@
   authentication schemes belong in the supplied `http.Client` or
   `http.RoundTripper`. Credentials applied by a custom `RoundTripper` are
   reapplied on every hop and bypass normal redirect credential protections.
-  Generated clients refuse redirects by default; `Client.SetAllowRedirects`
+  Generated clients refuse redirects by default, and `Client.SetAllowRedirects`
   explicitly opts in while removing bearer Authorization across origins. A
   custom transport that follows redirects itself can bypass that policy. Do not
   add automatic retry or sleep behavior.
 - Run targeted tests and lint for affected packages. Run `go test ./...` for
   repository-wide module or entrypoint changes.
-- Never run `script/generate --check` in a local or session worktree; it is
-  CI-only. Run `script/generate`, then inspect `git status --short`,
+- Never run `script/generate --check` in a local or session worktree because it
+  is CI-only. Run `script/generate`, then inspect `git status --short`,
   `git diff --stat`, and `git diff` for unintended generated changes. Do not
   run broad audit targets when targeted validation covers the change.
 
@@ -139,22 +139,18 @@
   directory manually with `rm -rf`, regenerate it with a targeted
   `UPDATE_SNAPS=true` test, review every recreated file, then run the same test
   normally and confirm it leaves the worktree clean.
-- Normalize nondeterministic values at the source so snapshots remain stable;
-  do not hide nondeterminism with snapshot ordering or cleanup machinery.
+- Normalize nondeterministic values at the source so snapshots remain stable.
+  Do not hide nondeterminism with snapshot ordering or cleanup machinery.
 - Test-handler generator coverage compiles checked-in generated fixtures and
   exercises expectation counts, defaults, cleanup verification, response
   controls, abstract types, and concurrent requests under `go test -race`.
-- Treat `WillAbides/gqltesthandler` commit
-  `0badc27d4cac3d21bc7e0ccad7842bad47763438` as bounded implementation input
-  only. Keep its attribution in `THIRD_PARTY_NOTICES.md`; do not add its CLI,
-  config, parser, or module dependency.
 
 ## Tooling and release safety
 
-- Edit `.bindown.yaml` only through `script/bindown`; do not edit it directly.
+- Edit `.bindown.yaml` only through `script/bindown`. Do not edit it directly.
   Update checksums with `script/bindown checksums sync`.
 - Publish releases only through release-train in CI. Keep direct GoReleaser
-  publication disabled; its release hook stages archives and checksums for
+  publication disabled. Its release hook stages archives and checksums for
   release-train. Release archives must contain `LICENSE` and
   `THIRD_PARTY_NOTICES.md`.
 - Release pull requests use one of the canonical `semver:breaking`,

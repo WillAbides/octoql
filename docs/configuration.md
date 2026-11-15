@@ -46,10 +46,10 @@ remote, so the reviewed pin in `octoqlgen.yaml` is the committed
 artifact rather than the schema itself.
 
 octoqlgen writes `octoqlgen-directive.graphql` into the same
-directory, declaring `@octoqlgen` so editors can resolve it. The
-schema keeps the exact bytes its source served, so `schema.sha256`
-still describes it. See
-[editor support](directive.md#editor-support).
+directory, declaring `@octoqlgen`, `@octoqlgenDefaults`, and
+`@octoqlgenFor` so editors can resolve them. The schema keeps the
+exact bytes its source served, so `schema.sha256` still describes
+it. See [editor support](directive.md#editor-support).
 
 Example: `.octoql/schema.graphql`
 
@@ -117,15 +117,16 @@ Type: `array` · Required
 Filenames or globs holding the operations to generate code for, relative
 to `octoqlgen.yaml`.
 
-These are `.graphql` files containing operations in SDL form. Extracting
-operations from string literals in Go files is not supported.
+These are `.graphql` (or `.graphqls` / `.gql`) files containing
+operations in SDL form. Extracting operations from string literals in Go
+files is not supported.
 
 Operations are always written as a list, even when only one path is
 needed.
 
-Query and mutation names become generated helper names, so an operation
-needs an uppercase name whenever its helper must be exported.
-Subscriptions are not supported and are rejected.
+Query and mutation names become methods on the generated `Client`, so an
+operation needs an uppercase name whenever its method and types must be
+exported. Subscriptions are not supported and are rejected.
 
 Example: `graphql/**/*.graphql`
 
@@ -186,9 +187,10 @@ bindings:
 ```
 
 Values may be any named type qualified by its full package path, any
-predeclared basic type (such as `string` or `int`), `interface{}`, or
-`*T`, `[]T`, `[N]T`, and `map[string]T` of those. Inline struct or
-interface types and maps with non-`string` keys are not supported.
+predeclared basic type (such as `string` or `int`), `interface{}` (or
+`any`), or `*T`, `[]T`, `[N]T`, and `map[string]T` of those. Inline
+struct or interface types and maps with non-`string` keys are not
+supported.
 
 When a binding is used, octoqlgen checks that its type name is a supported
 type expression, but it does not check the type's JSON behavior. Bound

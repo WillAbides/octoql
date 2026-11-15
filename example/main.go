@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml
+
 func main() {
 	var err error
 	defer func() {
@@ -62,5 +64,3 @@ func main() {
 		err = fmt.Errorf("usage: %v [username]", os.Args[0])
 	}
 }
-
-//go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml
