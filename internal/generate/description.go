@@ -4,7 +4,8 @@ package generate
 //
 // For fields, and types where we just copy the "whole" type (enum and
 // input-object), this is easy: we just use the GraphQL description.  But for
-// struct types, there are often more useful things we can say.
+// output struct and interface types, there are often more useful things we can
+// say.
 
 import (
 	"fmt"
@@ -14,14 +15,16 @@ import (
 // descriptionInfo is embedded in types whose descriptions may be more complex
 // than just a copy of the GraphQL doc.
 type descriptionInfo struct {
-	// user-specified comment for this type
+	// custom comment override for this type, if any
 	CommentOverride string
 	// name of the corresponding GraphQL type
 	GraphQLName string
 	// GraphQL schema's description of the type .GraphQLName, if any
 	GraphQLDescription string
-	// name of the corresponding GraphQL fragment (on .GraphQLName), if any
+	// name of the corresponding GraphQL fragment, if any
 	FragmentName string
+	// whether the corresponding GraphQL type is a union rather than an interface
+	IsUnion bool
 }
 
 func maybeAddTypeDescription(info descriptionInfo, description string) string {
@@ -34,10 +37,10 @@ func maybeAddTypeDescription(info descriptionInfo, description string) string {
 	)
 }
 
-func fragmentDescription(info descriptionInfo) string {
+func fragmentDescription(goName string, info descriptionInfo) string {
 	return maybeAddTypeDescription(info, fmt.Sprintf(
 		"%v includes the GraphQL fields of %v requested by the fragment %v.",
-		info.FragmentName, info.GraphQLName, info.FragmentName,
+		goName, info.GraphQLName, info.FragmentName,
 	))
 }
 
@@ -49,7 +52,7 @@ func structDescription(typ *goStructType) string {
 		// Input types have all their fields, just use the GraphQL description.
 		return typ.GraphQLDescription
 	case typ.FragmentName != "":
-		return fragmentDescription(typ.descriptionInfo)
+		return fragmentDescription(typ.GoName, typ.descriptionInfo)
 	default:
 		// For types where we only have some fields, note that, along with
 		// the GraphQL documentation (if any).  We don't want to just use
@@ -77,11 +80,15 @@ func interfaceDescription(typ *goInterfaceType) string {
 	case typ.CommentOverride != "":
 		return typ.CommentOverride + implementationList
 	case typ.FragmentName != "":
-		return fragmentDescription(typ.descriptionInfo) + implementationList
+		return fragmentDescription(typ.GoName, typ.descriptionInfo) + implementationList
 	default:
+		kind := "interface"
+		if typ.IsUnion {
+			kind = "union"
+		}
 		return maybeAddTypeDescription(typ.descriptionInfo, fmt.Sprintf(
-			"%v includes the requested fields of the GraphQL interface %v.%v",
-			typ.GoName, typ.GraphQLName, implementationList,
+			"%v includes the requested fields of the GraphQL %s %v.%v",
+			typ.GoName, kind, typ.GraphQLName, implementationList,
 		))
 	}
 }

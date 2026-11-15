@@ -23,8 +23,8 @@ type RemoteResult struct {
 	Data     []byte
 }
 
-// Resolve fetches a remote schema. GitHub-backed sources are pinned to the
-// latest commit that changed the selected path before their content is fetched.
+// Resolve pins source to the latest GitHub commit that changed the selected
+// path and fetches its validated schema bytes.
 func (m *Materializer) Resolve(ctx context.Context, source config.Source) (RemoteResult, error) {
 	if source.Repository == "" {
 		return RemoteResult{}, errors.New("schema source repository is required")

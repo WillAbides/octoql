@@ -273,7 +273,7 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 			}
 			description := fmt.Sprintf(
 				"Get%s returns %s.%s, and is useful for accessing the field via an interface.",
-				field.GoName, t.GoName, field.GoName,
+				field.GoName, t.GoName, field.Selector,
 			)
 			writeDescription(w, description)
 			fmt.Fprintf(w, "func (v *%s) Get%s() %s { return v.%s }\n",
@@ -335,8 +335,8 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 		}
 		if field.GraphQLName == "__typename" {
 			description = fmt.Sprintf(
-				"%s returns the receiver's concrete GraphQL type-name "+
-					"(see interface doc for possible values).", methodName,
+				"%s returns the receiver's concrete GraphQL type-name.",
+				methodName,
 			)
 		}
 

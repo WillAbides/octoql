@@ -311,8 +311,8 @@ const (
 
 // RateLimit describes GitHub's primary rate-limit response headers.
 //
-// Missing or malformed Reset and Resource headers leave their corresponding
-// fields at their zero values.
+// A missing or malformed Reset header, or a missing Resource header, leaves
+// the corresponding field at its zero value.
 type RateLimit struct {
 	Limit     int
 	Remaining int
@@ -622,7 +622,7 @@ func _octoqlSameOrigin(left, right *url.URL) bool {
 
 // SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
 // token must use the RFC 6750 b64token syntax. It may be called concurrently
-// with [Client._octoqlExecute] to rotate credentials.
+// with client operations to rotate credentials.
 func (c *Client) SetBearerToken(token string) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -648,8 +648,8 @@ func (c *Client) AllowRedirects() bool {
 // client follows at most 10 redirects and removes Authorization when a redirect
 // leaves the original request origin. Credentials added by a custom
 // [http.RoundTripper] cannot be removed because the transport
-// reapplies them on every hop. It may be called concurrently with
-// [Client._octoqlExecute].
+// reapplies them on every hop. It may be called concurrently with client
+// operations.
 func (c *Client) SetAllowRedirects(allow bool) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -674,7 +674,7 @@ func (c *Client) ResponseSizeLimit() int64 {
 
 // SetResponseSizeLimit configures the maximum HTTP response body size Client
 // accepts for decoding. limit must be greater than zero. It may be called
-// concurrently with [Client._octoqlExecute].
+// concurrently with client operations.
 func (c *Client) SetResponseSizeLimit(limit int64) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -713,7 +713,7 @@ type _octoqlPayload struct {
 	Variables     any    `json:"variables,omitempty"`
 }
 
-// _octoqlExecute runs operation and decodes its response data into response.
+// _octoqlExecute sends payload and decodes its response data into response.
 //
 // _octoqlExecute is a generated-code contract. Response must be a non-nil pointer.
 // The returned boolean reports whether the GraphQL data field decoded
@@ -1053,7 +1053,7 @@ type EchoPropertyVariables struct {
 // GetNodeNodeOctoqlOther
 type GetNodeNode interface {
 	implementsGraphQLInterfaceGetNodeNode()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -1405,7 +1405,7 @@ type SearchSearchRepository struct {
 // GetTypename returns SearchSearchRepository.Typename, and is useful for accessing the field via an interface.
 func (v *SearchSearchRepository) GetTypename() string { return v.Typename }
 
-// SearchSearchSearchResultItem includes the requested fields of the GraphQL interface SearchResultItem.
+// SearchSearchSearchResultItem includes the requested fields of the GraphQL union SearchResultItem.
 //
 // SearchSearchSearchResultItem is implemented by the following types:
 // SearchSearchIssue
@@ -1413,7 +1413,7 @@ func (v *SearchSearchRepository) GetTypename() string { return v.Typename }
 // SearchSearchSearchResultItemOctoqlOther
 type SearchSearchSearchResultItem interface {
 	implementsGraphQLInterfaceSearchSearchSearchResultItem()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 }
 

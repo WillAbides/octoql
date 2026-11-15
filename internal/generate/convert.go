@@ -880,10 +880,12 @@ func (g *planState) buildAbstractSelectionType(
 	})
 	implementationTypes = g.filterReferencedImplementations(implementationTypes, spec.selectionSet)
 
+	desc := spec.desc
+	desc.IsUnion = spec.def.Kind == ast.Union
 	goTyp := &goInterfaceType{
 		GoName:          spec.goName,
 		SharedFields:    sharedFields,
-		descriptionInfo: spec.desc,
+		descriptionInfo: desc,
 	}
 	existingInterface, isInterface := existing.(*goInterfaceType)
 	if isInterface {
@@ -1109,16 +1111,19 @@ func (g *planState) attachCatchAllImplementation(
 	}
 
 	name := g.catchAllName(abstractType.GoName)
+	comment := fmt.Sprintf(
+		"%s represents %s implementations not explicitly selected by a fragment.",
+		name,
+		abstractType.GoName,
+	)
+	if slices.Contains(interfaceGetterFields(abstractType, map[string]bool{}), "Typename") {
+		comment += " Use GetTypename to identify the concrete GraphQL type."
+	}
 	catchAll := &goStructType{
-		GoName:      name,
-		Fields:      fields,
-		GraphQLName: graphQLName,
-		CommentOverride: fmt.Sprintf(
-			"%sOctoqlOther represents %s implementations not explicitly selected by a fragment. "+
-				"Use GetTypename to identify the concrete GraphQL type.",
-			abstractType.GoName,
-			abstractType.GoName,
-		),
+		GoName:          name,
+		Fields:          fields,
+		GraphQLName:     graphQLName,
+		CommentOverride: comment,
 	}
 	added, err := g.addType(catchAll, catchAll.GoName, pos)
 	if err != nil {

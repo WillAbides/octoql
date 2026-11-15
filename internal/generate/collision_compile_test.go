@@ -372,8 +372,8 @@ query Q($p: Profile) {
 		{
 			// Two interface fields differ only in case and normalize to the
 			// same Go name, so the generated interface would declare Get<Name>
-			// twice.  With no concrete implementations there is no struct in
-			// the type map, so this is only caught by the interface pass.
+			// twice. The sorted type pass visits the interface before its
+			// catch-all struct, so this is caught by the interface pass.
 			name: "interface fields with same getter",
 			schema: `
 interface HasName {

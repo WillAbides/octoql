@@ -11,8 +11,8 @@ import (
 	"github.com/vektah/gqlparser/v2/validator"
 )
 
-// planState holds mutable conversion state while building an immutable
-// generationPlan.
+// planState holds the parsed schema, directives, and converted Go types and
+// operations for code generation.
 type planState struct {
 	config        *Config
 	operations    []*plannedOperation

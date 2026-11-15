@@ -13,12 +13,10 @@ import (
 	"golang.org/x/mod/module"
 )
 
-// makeIdentifier takes a string and returns a valid go identifier like it.
-//
-// If the string is an identifier, return the input. Otherwise, munge it to
-// make a valid identifier, which at worst (if the input is entirely emoji,
-// say) means coming up with one out of whole cloth. This identifier need not
-// be particularly unique; the caller may add a suffix.
+// makeIdentifier takes a package name segment and returns an identifier-like
+// import alias base by stripping characters that cannot appear in a Go
+// identifier, falling back to "alias" when none remain. The caller may append
+// a numeric suffix to disambiguate collisions.
 func makeIdentifier(candidateIdentifier string) string {
 	if token.IsIdentifier(candidateIdentifier) {
 		return candidateIdentifier
@@ -88,12 +86,12 @@ func (r goRef) render(scope *importScope) string {
 	return r.prefix + alias + "." + r.localName
 }
 
-// parseRef parses and validates a Go type or symbol expression:
-//   - any package-qualified symbol (path/to/package.Name)
-//   - any predeclared basic type (string, int, etc.)
+// parseRef parses a Go type or package-qualified symbol reference:
+//   - any package-qualified reference (path/to/package.Name)
+//   - any predeclared universe identifier (string, int, etc.)
 //   - interface{} (bare `any` is normalized to `interface{}` so local
 //     declarations cannot shadow it)
-//   - for any allowed type T: *T, []T, [N]T, and map[string]T
+//   - for any allowed reference T: *T, []T, [N]T, and map[string]T
 func parseRef(fullyQualifiedName string) (goRef, error) {
 	const errorMsg = `invalid type-name "%v" (%v); expected a builtin, ` +
 		`path/to/package.Name, interface{}, or a slice, map, or pointer of those`

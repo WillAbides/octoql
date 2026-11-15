@@ -123,8 +123,7 @@ func propertyType(node *yaml.Node) string {
 	return "object"
 }
 
-// exampleLine renders example values as inline code, which stays correct for
-// scalar, list, and object valued properties alike.
+// exampleLine renders scalar example entries as inline code.
 func exampleLine(examples *yaml.Node) string {
 	values := make([]string, 0, len(examples.Content))
 	for _, item := range examples.Content {

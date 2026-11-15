@@ -314,8 +314,8 @@ const (
 
 // RateLimit describes GitHub's primary rate-limit response headers.
 //
-// Missing or malformed Reset and Resource headers leave their corresponding
-// fields at their zero values.
+// A missing or malformed Reset header, or a missing Resource header, leaves
+// the corresponding field at its zero value.
 type RateLimit struct {
 	Limit     int
 	Remaining int
@@ -625,7 +625,7 @@ func _octoqlSameOrigin(left, right *url.URL) bool {
 
 // SetBearerToken configures the OAuth 2.0 bearer token sent with each request.
 // token must use the RFC 6750 b64token syntax. It may be called concurrently
-// with [Client._octoqlExecute] to rotate credentials.
+// with client operations to rotate credentials.
 func (c *Client) SetBearerToken(token string) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -651,8 +651,8 @@ func (c *Client) AllowRedirects() bool {
 // client follows at most 10 redirects and removes Authorization when a redirect
 // leaves the original request origin. Credentials added by a custom
 // [http.RoundTripper] cannot be removed because the transport
-// reapplies them on every hop. It may be called concurrently with
-// [Client._octoqlExecute].
+// reapplies them on every hop. It may be called concurrently with client
+// operations.
 func (c *Client) SetAllowRedirects(allow bool) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -677,7 +677,7 @@ func (c *Client) ResponseSizeLimit() int64 {
 
 // SetResponseSizeLimit configures the maximum HTTP response body size Client
 // accepts for decoding. limit must be greater than zero. It may be called
-// concurrently with [Client._octoqlExecute].
+// concurrently with client operations.
 func (c *Client) SetResponseSizeLimit(limit int64) error {
 	if c == nil {
 		return errors.New("octoql: client is nil")
@@ -716,7 +716,7 @@ type _octoqlPayload struct {
 	Variables     any    `json:"variables,omitempty"`
 }
 
-// _octoqlExecute runs operation and decodes its response data into response.
+// _octoqlExecute sends payload and decodes its response data into response.
 //
 // _octoqlExecute is a generated-code contract. Response must be a non-nil pointer.
 // The returned boolean reports whether the GraphQL data field decoded
@@ -1077,7 +1077,7 @@ func (v *addStarAddStarAddStarPayload) _octoqlPremarshalJSON() (*_octoqlPremarsh
 // addStarAddStarAddStarPayloadStarrableOctoqlOther
 type addStarAddStarAddStarPayloadStarrable interface {
 	implementsGraphQLInterfaceaddStarAddStarAddStarPayloadStarrable()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -1308,7 +1308,7 @@ func (v *directivesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshaldirectiv
 // directivesResponseActorOctoqlOther
 type directivesResponseActor interface {
 	implementsGraphQLInterfacedirectivesResponseActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -1402,7 +1402,7 @@ func (v *directivesResponseActorOrganization) GetId() string { return v.Id }
 // directivesResponseActorsActorOctoqlOther
 type directivesResponseActorsActor interface {
 	implementsGraphQLInterfacedirectivesResponseActorsActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -1588,7 +1588,7 @@ func (v *getRepositoryRepository) _octoqlPremarshalJSON() (*_octoqlPremarshalget
 // getRepositoryRepositoryOwnerOctoqlOther
 type getRepositoryRepositoryOwner interface {
 	implementsGraphQLInterfacegetRepositoryRepositoryOwner()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetLogin returns the interface-field "login" from its implementation.
 	GetLogin() string
@@ -1728,7 +1728,7 @@ func _octoqlMarshalinnerActorFields(v *innerActorFields) ([]byte, error) {
 	}
 }
 
-// innerActorFieldsOctoqlOther represents innerActorFields implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
+// innerActorFieldsOctoqlOther represents innerActorFields implementations not explicitly selected by a fragment.
 type innerActorFieldsOctoqlOther struct {
 	Id    string `json:"id"`
 	Login string `json:"login"`
@@ -1740,7 +1740,7 @@ func (v *innerActorFieldsOctoqlOther) GetId() string { return v.Id }
 // GetLogin returns innerActorFieldsOctoqlOther.Login, and is useful for accessing the field via an interface.
 func (v *innerActorFieldsOctoqlOther) GetLogin() string { return v.Login }
 
-// innerActorFields includes the GraphQL fields of User requested by the fragment innerActorFields.
+// innerActorFieldsUser includes the GraphQL fields of User requested by the fragment innerActorFields.
 type innerActorFieldsUser struct {
 	Id           string               `json:"id"`
 	Login        string               `json:"login"`
@@ -1804,7 +1804,7 @@ func _octoqlMarshalinnerRepositoryOwnerFields(v *innerRepositoryOwnerFields) ([]
 	}
 }
 
-// innerRepositoryOwnerFieldsOctoqlOther represents innerRepositoryOwnerFields implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
+// innerRepositoryOwnerFieldsOctoqlOther represents innerRepositoryOwnerFields implementations not explicitly selected by a fragment.
 type innerRepositoryOwnerFieldsOctoqlOther struct {
 	ContributionCount *int `json:"contributionCount"`
 }
@@ -1914,7 +1914,7 @@ type organizationFieldsPlan struct {
 // organizationFieldsTopContributorActorOctoqlOther
 type organizationFieldsTopContributorActor interface {
 	implementsGraphQLInterfaceorganizationFieldsTopContributorActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -2030,7 +2030,7 @@ func (v *organizationFieldsTopContributorOrganization) GetTypename() string { re
 // GetId returns organizationFieldsTopContributorOrganization.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorOrganization) GetId() string { return v.Id }
 
-// GetContributionCount returns organizationFieldsTopContributorOrganization.ContributionCount, and is useful for accessing the field via an interface.
+// GetContributionCount returns organizationFieldsTopContributorOrganization.repositoryOwnerFieldsOctoqlOther.ContributionCount, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorOrganization) GetContributionCount() *int {
 	return v.repositoryOwnerFieldsOctoqlOther.ContributionCount
 }
@@ -2099,7 +2099,7 @@ func (v *organizationFieldsTopContributorUser) GetTypename() string { return v.T
 // GetId returns organizationFieldsTopContributorUser.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorUser) GetId() string { return v.Id }
 
-// GetContributionCount returns organizationFieldsTopContributorUser.ContributionCount, and is useful for accessing the field via an interface.
+// GetContributionCount returns organizationFieldsTopContributorUser.repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorUser) GetContributionCount() *int {
 	return v.repositoryOwnerFieldsUser.ContributionCount
 }
@@ -2264,7 +2264,7 @@ func (v *queryFragment) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryFragment
 // queryFragmentActorsActorOctoqlOther
 type queryFragmentActorsActor interface {
 	implementsGraphQLInterfacequeryFragmentActorsActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -2459,7 +2459,7 @@ func (v *queryFragmentActorsUser) GetTypename() string { return v.Typename }
 // GetId returns queryFragmentActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsUser) GetId() string { return v.Id }
 
-// GetContributionCount returns queryFragmentActorsUser.ContributionCount, and is useful for accessing the field via an interface.
+// GetContributionCount returns queryFragmentActorsUser.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsUser) GetContributionCount() *int {
 	return v.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount
 }
@@ -2573,7 +2573,7 @@ type queryWithFlattenVariables struct {
 // queryWithFragmentsActorsActorOctoqlOther
 type queryWithFragmentsActorsActor interface {
 	implementsGraphQLInterfacequeryWithFragmentsActorsActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -2821,7 +2821,7 @@ type queryWithFragmentsActorsOrganizationPlan struct {
 // queryWithFragmentsActorsOrganizationTopContributorActorOctoqlOther
 type queryWithFragmentsActorsOrganizationTopContributorActor interface {
 	implementsGraphQLInterfacequeryWithFragmentsActorsOrganizationTopContributorActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -3131,7 +3131,7 @@ type queryWithFragmentsVariables struct {
 // queryWithInterfaceListFieldActorsActorOctoqlOther
 type queryWithInterfaceListFieldActorsActor interface {
 	implementsGraphQLInterfacequeryWithInterfaceListFieldActorsActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -3301,7 +3301,7 @@ type queryWithInterfaceListFieldVariables struct {
 // queryWithInterfaceNoFragmentsActorOctoqlOther
 type queryWithInterfaceNoFragmentsActor interface {
 	implementsGraphQLInterfacequeryWithInterfaceNoFragmentsActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -3457,7 +3457,7 @@ type queryWithInterfaceNoFragmentsViewerUser struct {
 // queryWithNamedFragmentsActorsActorOctoqlOther
 type queryWithNamedFragmentsActorsActor interface {
 	implementsGraphQLInterfacequeryWithNamedFragmentsActorsActor()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -3648,7 +3648,7 @@ func (v *queryWithNamedFragmentsActorsUser) GetTypename() string { return v.Type
 // GetId returns queryWithNamedFragmentsActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsUser) GetId() string { return v.Id }
 
-// GetContributionCount returns queryWithNamedFragmentsActorsUser.ContributionCount, and is useful for accessing the field via an interface.
+// GetContributionCount returns queryWithNamedFragmentsActorsUser.userFields.repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsUser) GetContributionCount() *int {
 	return v.userFields.repositoryOwnerFieldsUser.ContributionCount
 }
@@ -3969,7 +3969,7 @@ type queryWithSearchSearchRepository struct {
 // GetTypename returns queryWithSearchSearchRepository.Typename, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchRepository) GetTypename() string { return v.Typename }
 
-// queryWithSearchSearchSearchResultItem includes the requested fields of the GraphQL interface SearchResultItem.
+// queryWithSearchSearchSearchResultItem includes the requested fields of the GraphQL union SearchResultItem.
 //
 // queryWithSearchSearchSearchResultItem is implemented by the following types:
 // queryWithSearchSearchBot
@@ -3981,7 +3981,7 @@ func (v *queryWithSearchSearchRepository) GetTypename() string { return v.Typena
 // queryWithSearchSearchSearchResultItemOctoqlOther
 type queryWithSearchSearchSearchResultItem interface {
 	implementsGraphQLInterfacequeryWithSearchSearchSearchResultItem()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 }
 
@@ -4249,7 +4249,7 @@ func (v *removeStarRemoveStarRemoveStarPayload) _octoqlPremarshalJSON() (*_octoq
 // removeStarRemoveStarRemoveStarPayloadStarrableOctoqlOther
 type removeStarRemoveStarRemoveStarPayloadStarrable interface {
 	implementsGraphQLInterfaceremoveStarRemoveStarRemoveStarPayloadStarrable()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	// GetTypename returns the receiver's concrete GraphQL type-name.
 	GetTypename() string
 	// GetId returns the interface-field "id" from its implementation.
 	GetId() string
@@ -4414,7 +4414,7 @@ func _octoqlMarshalrepositoryOwnerFields(v *repositoryOwnerFields) ([]byte, erro
 	}
 }
 
-// repositoryOwnerFieldsOctoqlOther represents repositoryOwnerFields implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
+// repositoryOwnerFieldsOctoqlOther represents repositoryOwnerFields implementations not explicitly selected by a fragment.
 type repositoryOwnerFieldsOctoqlOther struct {
 	ContributionCount *int `json:"contributionCount"`
 }
@@ -4422,7 +4422,7 @@ type repositoryOwnerFieldsOctoqlOther struct {
 // GetContributionCount returns repositoryOwnerFieldsOctoqlOther.ContributionCount, and is useful for accessing the field via an interface.
 func (v *repositoryOwnerFieldsOctoqlOther) GetContributionCount() *int { return v.ContributionCount }
 
-// repositoryOwnerFields includes the GraphQL fields of User requested by the fragment repositoryOwnerFields.
+// repositoryOwnerFieldsUser includes the GraphQL fields of User requested by the fragment repositoryOwnerFields.
 type repositoryOwnerFieldsUser struct {
 	moreUserFields    `json:"-"`
 	ContributionCount *int `json:"contributionCount"`
@@ -4499,7 +4499,7 @@ type userFields struct {
 	moreUserFields            `json:"-"`
 }
 
-// GetContributionCount returns userFields.ContributionCount, and is useful for accessing the field via an interface.
+// GetContributionCount returns userFields.repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *userFields) GetContributionCount() *int {
 	return v.repositoryOwnerFieldsUser.ContributionCount
 }
