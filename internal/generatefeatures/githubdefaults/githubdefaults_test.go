@@ -2,8 +2,8 @@ package githubdefaults
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"io"
 	"net/http"
 	"strings"
@@ -49,7 +49,7 @@ func TestGeneratedGitHubDefaultsWireDecoding(t *testing.T) {
 	httpClient := &http.Client{
 		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 			var requestPayload _octoqlPayload
-			err := json.NewDecoder(request.Body).Decode(&requestPayload)
+			err := json.UnmarshalRead(request.Body, &requestPayload)
 			require.NoError(t, err)
 			if requestPayload.OperationName == "variableCollisions" {
 				return &http.Response{
@@ -191,9 +191,9 @@ func TestOmittedImplementationUnmarshal(t *testing.T) {
 	t.Run("null clears reused abstract fields and nested slices round-trip", func(t *testing.T) {
 		const nestedWire = `{"node":null,"nestedNodes":[null,[],[null,[],[null,{"__typename":"Bot","id":"B1","url":"https://example.test/b"}]]],"actorNode":null}`
 		var response runtimeAbstractsResponse
-		err := json.Unmarshal([]byte(nestedWire), &response)
+		err := response.UnmarshalJSON([]byte(nestedWire))
 		require.NoError(t, err)
-		remarshaled, err := json.Marshal(&response)
+		remarshaled, err := response.MarshalJSON()
 		require.NoError(t, err)
 		require.JSONEq(t, nestedWire, string(remarshaled))
 

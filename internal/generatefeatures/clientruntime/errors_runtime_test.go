@@ -1,7 +1,8 @@
 package clientruntime
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"testing"
@@ -29,6 +30,12 @@ func TestPathJSONRoundTrip(t *testing.T) {
 	output, err := json.Marshal(graphqlError)
 	require.NoError(t, err)
 	assert.JSONEq(t, string(input), string(output))
+
+	pathBytes, err := graphqlError.Path.MarshalJSON()
+	require.NoError(t, err)
+	var decodedPath Path
+	require.NoError(t, decodedPath.UnmarshalJSON(pathBytes))
+	assert.Equal(t, wantPath, decodedPath)
 }
 
 func TestPathRejectsInvalidSegments(t *testing.T) {
@@ -42,35 +49,35 @@ func TestPathRejectsInvalidSegments(t *testing.T) {
 		},
 		{
 			name: "null",
-			path: json.RawMessage(`["repository",null]`),
+			path: jsontext.Value(`["repository",null]`),
 		},
 		{
 			name: "boolean",
-			path: json.RawMessage(`["repository",true]`),
+			path: jsontext.Value(`["repository",true]`),
 		},
 		{
 			name: "fractional number",
-			path: json.RawMessage(`["repository",1.5]`),
+			path: jsontext.Value(`["repository",1.5]`),
 		},
 		{
 			name: "exponent",
-			path: json.RawMessage(`["repository",1e2]`),
+			path: jsontext.Value(`["repository",1e2]`),
 		},
 		{
 			name: "object",
-			path: json.RawMessage(`["repository",{"field":"name"}]`),
+			path: jsontext.Value(`["repository",{"field":"name"}]`),
 		},
 		{
 			name: "array",
-			path: json.RawMessage(`["repository",[1]]`),
+			path: jsontext.Value(`["repository",[1]]`),
 		},
 		{
 			name: "positive overflow",
-			path: json.RawMessage(`["repository",999999999999999999999999999999]`),
+			path: jsontext.Value(`["repository",999999999999999999999999999999]`),
 		},
 		{
 			name: "negative overflow",
-			path: json.RawMessage(`["repository",-999999999999999999999999999999]`),
+			path: jsontext.Value(`["repository",-999999999999999999999999999999]`),
 		},
 	}
 
@@ -80,7 +87,7 @@ func TestPathRejectsInvalidSegments(t *testing.T) {
 			case Path:
 				_, err := json.Marshal(path)
 				require.Error(t, err)
-			case json.RawMessage:
+			case jsontext.Value:
 				var pathValue Path
 				err := json.Unmarshal(path, &pathValue)
 				require.Error(t, err)

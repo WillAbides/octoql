@@ -1,8 +1,7 @@
 package clientruntime
 
 import (
-	"encoding/json"
-	jsonv2 "encoding/json/v2"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -131,7 +130,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			body:       `{"data":{"repository":"not an object"}}`,
 			check: func(t *testing.T, _ *getRepositoryResponse, err error) {
 				t.Helper()
-				_, hasDecodeError := errors.AsType[*jsonv2.SemanticError](err)
+				_, hasDecodeError := errors.AsType[*json.SemanticError](err)
 				assert.True(t, hasDecodeError)
 			},
 		},
@@ -328,7 +327,7 @@ func TestSpecialSliceWireSemantics(t *testing.T) {
 			var response wireSemanticsResponse
 			err := json.Unmarshal([]byte(wire), &response)
 			require.NoError(t, err)
-			remarshaled, err := json.Marshal(&response)
+			remarshaled, err := json.Marshal(&response, json.FormatNilSliceAsNull(true))
 			require.NoError(t, err)
 			require.JSONEq(t, wire, string(remarshaled))
 		})
@@ -356,7 +355,7 @@ func TestSpecialSliceWireSemantics(t *testing.T) {
 			var response wireSemanticsResponse
 			require.NoError(t, json.Unmarshal([]byte(populated), &response))
 			require.NoError(t, json.Unmarshal([]byte(test.update), &response))
-			remarshaled, err := json.Marshal(&response)
+			remarshaled, err := json.Marshal(&response, json.FormatNilSliceAsNull(true))
 			require.NoError(t, err)
 			require.JSONEq(t, test.want, string(remarshaled))
 		})

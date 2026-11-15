@@ -1,7 +1,7 @@
-{{/* We generate MarshalJSONTo for much the same reasons as UnmarshalJSONFrom --
-     see unmarshal.go.tmpl for details.  (We generate both for generated test
-     handlers and for callers who want to, for example, put octoqlgen responses
-     in a cache.)
+{{/* We generate MarshalJSONTo and MarshalJSON for much the same reasons as
+     UnmarshalJSONFrom and UnmarshalJSON -- see unmarshal.go.tmpl for details.
+     (We generate both for generated test handlers and for callers who want to,
+     for example, put octoqlgen responses in a cache.)
 
      Specifically, the treatment of field-visibility with embedded fields must
      differ from both ordinary encoding/json/v2 and unmarshaling: we need to
@@ -10,13 +10,14 @@
      goStructType.FlattenedFields in types.go for more discussion of embedding
      and visibility.
 
-     To accomplish that, we flatten out all the embedded fields when marshaling,
-     following those precedence rules, and register any interface field
-     marshalers via WithMarshalers so encoding/json/v2 handles arbitrary slice
+     When a struct has embedded fields, we flatten them out following those
+     precedence rules. Otherwise _octoqlPremarshal<Type> is a method-stripped
+     type definition over the struct itself. Interface field marshalers are
+     registered via WithMarshalers so encoding/json/v2 handles arbitrary slice
      nesting directly.
 
-     For the benefit of marshal_helper.go.tmpl, _octoqlPremarshalJSON() builds
-     the flattened struct so an interface marshal helper can embed it alongside
+     For the benefit of marshal_helper.go.tmpl, _octoqlPremarshalJSON() returns
+     the premarshal value so an interface marshal helper can embed it alongside
      an explicit __typename field. */}}
 
 {{- $hasEmbedded := false -}}

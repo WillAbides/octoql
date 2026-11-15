@@ -1,17 +1,17 @@
-{{/* We need to generate UnmarshalJSONFrom methods for some types that we want
-     to handle specially.  Specifically, we generate an UnmarshalJSONFrom for
-     each struct with a field meeting any of these criteria:
-        - an embedded (anonymous) field, so every embedded fragment struct is
-          populated even when fields overlap across the struct and its embeds
-        - a field of interface type
-     Additionally, since we add `json:"-"` to fields we handle specially, for
-     any field which requires a MarshalJSONTo, we also generate an
-     UnmarshalJSONFrom, and vice versa.
+{{/* We need to generate UnmarshalJSONFrom and UnmarshalJSON methods for types
+     that require custom JSON handling:
+        - a struct with an embedded (anonymous) fragment field (tagged
+          `json:"-"`), so every embedded fragment struct is populated even when
+          fields overlap across the struct and its embeds
+        - a struct with a field of a GraphQL interface or union type
+     Whenever a struct requires custom unmarshaling, we also generate
+     MarshalJSONTo and MarshalJSON (see marshal.go.tmpl).
 
-     For our first pass, we decode all non-embedded fields (registering
-     type-specific unmarshalers for any interface-typed fields so encoding/json/v2
-     handles arbitrary slice nesting directly), then unmarshal the input again
-     into each embedded field. */}}
+     When a struct has no embedded fields, we unmarshal directly into a
+     method-stripped type alias with WithUnmarshalers registered for its
+     interface fields. When it has embedded fields, we first decode all
+     non-embedded fields, then unmarshal the input again into each embedded
+     field. */}}
 
 func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
     return {{ref "encoding/json/v2.Unmarshal"}}(b, v)
