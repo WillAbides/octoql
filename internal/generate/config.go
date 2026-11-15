@@ -68,10 +68,12 @@ func pathJoin(a, b string) string {
 	return filepath.Join(a, b)
 }
 
-// Try to figure out the package-name and package-path of the given .go file.
+// getPackageNameAndPath resolves the package name and import path for filename.
 //
-// Without sibling Go files, prefer fallbackPackage to a path-based guess.
-// Returns a best-guess pkgName if possible, even on error.
+// Sibling inspection uses build.Default.MatchFile without consulting GOFLAGS
+// so generated package declarations stay deterministic across shell
+// environments. When a directory has no default-build Go files, fallbackPackage
+// takes precedence over a path-based guess.
 func getPackageNameAndPath(filename, fallbackPackage string) (string, string, error) {
 	abs, err := filepath.Abs(filename)
 	if err != nil { // path is totally bogus

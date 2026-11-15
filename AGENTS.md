@@ -86,6 +86,11 @@
 - Validate required config fields before defaults or path resolution. Generation
   outputs must not alias `octoqlgen.yaml`, schema inputs, or expanded operation
   inputs, and manifest source paths remain relative to the config directory.
+- Package discovery inspects default-build Go files (`build.Default.MatchFile`)
+  and `go.mod` without consulting `GOFLAGS` or invoking `go/packages`, keeping
+  generated package declarations deterministic across environments. Directories
+  with only custom-tagged Go files and a non-default package name must set
+  `package` explicitly in `octoqlgen.yaml`.
 - Typed test-handler generation is an optional renderer over the same immutable
   parsed and converted operation plan as client generation. Do not add a second
   config load, schema parse, operation parser, abstract-type analysis, or

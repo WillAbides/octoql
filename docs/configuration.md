@@ -147,11 +147,12 @@ Example: `githubapi/generated.go`
 Type: `string` · Optional
 
 The package name for the generated code. Defaults to the package name
-corresponding to the directory of `generated`.
+corresponding to the directory of `generated`, discovered from
+default-build Go files in that directory (`build.Default`, without
+consulting `GOFLAGS`) or the directory and module path when none exist.
 
-This is rarely needed: only when the package name must differ from the
-suffix of the package path, and there are no other Go files in the
-package already.
+This is rarely needed, mainly when the package name differs from the
+directory name and the directory has no default-build Go files.
 
 Example: `githubapi`
 
