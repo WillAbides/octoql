@@ -78,6 +78,11 @@ func (e *ResponseSizeLimitError) Error() string {
 	return fmt.Sprintf("graphql response exceeds %d-byte limit", e.Limit)
 }
 
+// MarshalJSON encodes string and integer path segments in GraphQL wire format.
+func (p Path) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p)
+}
+
 // MarshalJSONTo encodes string and integer path segments in GraphQL wire format.
 func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if p == nil {
@@ -111,6 +116,14 @@ func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return fmt.Errorf("encode graphql path: %w", err)
 	}
 	return nil
+}
+
+// UnmarshalJSON decodes GraphQL string and integer path segments.
+func (p *Path) UnmarshalJSON(data []byte) error {
+	if p == nil {
+		return errors.New("decode graphql path: nil destination")
+	}
+	return json.Unmarshal(data, p)
 }
 
 // UnmarshalJSONFrom decodes GraphQL string and integer path segments.
@@ -981,6 +994,10 @@ type LatestCommitRepositoryDefaultBranchRef struct {
 	Target LatestCommitRepositoryDefaultBranchRefTargetGitObject `json:"target"`
 }
 
+func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -998,6 +1015,13 @@ func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSONFrom(dec *jsontext
 }
 
 type _octoqlPremarshalLatestCommitRepositoryDefaultBranchRef LatestCommitRepositoryDefaultBranchRef
+
+func (v *LatestCommitRepositoryDefaultBranchRef) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *LatestCommitRepositoryDefaultBranchRef) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(

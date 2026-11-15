@@ -56,6 +56,11 @@ func (e *ResponseSizeLimitError) Error() string {
 	return {{ ref "fmt.Sprintf" }}("graphql response exceeds %d-byte limit", e.Limit)
 }
 
+// MarshalJSON encodes string and integer path segments in GraphQL wire format.
+func (p Path) MarshalJSON() ([]byte, error) {
+	return {{ ref "encoding/json/v2.Marshal" }}(p)
+}
+
 // MarshalJSONTo encodes string and integer path segments in GraphQL wire format.
 func (p Path) MarshalJSONTo(enc *{{ ref "encoding/json/jsontext.Encoder" }}) error {
 	if p == nil {
@@ -89,6 +94,14 @@ func (p Path) MarshalJSONTo(enc *{{ ref "encoding/json/jsontext.Encoder" }}) err
 		return {{ ref "fmt.Errorf" }}("encode graphql path: %w", err)
 	}
 	return nil
+}
+
+// UnmarshalJSON decodes GraphQL string and integer path segments.
+func (p *Path) UnmarshalJSON(data []byte) error {
+	if p == nil {
+		return {{ ref "errors.New" }}("decode graphql path: nil destination")
+	}
+	return {{ ref "encoding/json/v2.Unmarshal" }}(data, p)
 }
 
 // UnmarshalJSONFrom decodes GraphQL string and integer path segments.

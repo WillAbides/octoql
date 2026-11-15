@@ -13,6 +13,10 @@
      handles arbitrary slice nesting directly), then unmarshal the input again
      into each embedded field. */}}
 
+func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
+    return {{ref "encoding/json/v2.Unmarshal"}}(b, v)
+}
+
 func (v *{{.GoName}}) UnmarshalJSONFrom(dec *{{ref "encoding/json/jsontext.Decoder"}}) error {
     {{- $hasEmbedded := false -}}
     {{- $hasNonEmbedded := false -}}

@@ -81,6 +81,11 @@ func (e *ResponseSizeLimitError) Error() string {
 	return fmt.Sprintf("graphql response exceeds %d-byte limit", e.Limit)
 }
 
+// MarshalJSON encodes string and integer path segments in GraphQL wire format.
+func (p Path) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p)
+}
+
 // MarshalJSONTo encodes string and integer path segments in GraphQL wire format.
 func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if p == nil {
@@ -114,6 +119,14 @@ func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return fmt.Errorf("encode graphql path: %w", err)
 	}
 	return nil
+}
+
+// UnmarshalJSON decodes GraphQL string and integer path segments.
+func (p *Path) UnmarshalJSON(data []byte) error {
+	if p == nil {
+		return errors.New("decode graphql path: nil destination")
+	}
+	return json.Unmarshal(data, p)
 }
 
 // UnmarshalJSONFrom decodes GraphQL string and integer path segments.
@@ -997,6 +1010,10 @@ type addStarAddStarAddStarPayload struct {
 	Starrable addStarAddStarAddStarPayloadStarrable `json:"starrable"`
 }
 
+func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *addStarAddStarAddStarPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -1014,6 +1031,13 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) 
 }
 
 type _octoqlPremarshaladdStarAddStarAddStarPayload addStarAddStarAddStarPayload
+
+func (v *addStarAddStarAddStarPayload) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *addStarAddStarAddStarPayload) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -1134,6 +1158,10 @@ type directivesResponse struct {
 	structDefaultsFragment `json:"-"`
 }
 
+func (v *directivesResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *directivesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	b, err := dec.ReadValue()
@@ -1184,6 +1212,13 @@ type _octoqlPremarshaldirectivesResponse struct {
 	Actors              []directivesResponseActorsActor             `json:"actors"`
 	UsersCreatedOnDates []directivesResponseUsersCreatedOnDatesUser `json:"usersCreatedOnDates"`
 	StructActor         *structDefaultsFragmentStructActor          `json:"structActor"`
+}
+
+func (v *directivesResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
 func (v *directivesResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
@@ -1427,6 +1462,10 @@ type getRepositoryRepository struct {
 	Owner         getRepositoryRepositoryOwner `json:"owner"`
 }
 
+func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *getRepositoryRepository) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -1444,6 +1483,13 @@ func (v *getRepositoryRepository) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 }
 
 type _octoqlPremarshalgetRepositoryRepository getRepositoryRepository
+
+func (v *getRepositoryRepository) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *getRepositoryRepository) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -1724,6 +1770,10 @@ type organizationFields struct {
 	TopContributor organizationFieldsTopContributorActor `json:"topContributor"`
 }
 
+func (v *organizationFields) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *organizationFields) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -1741,6 +1791,13 @@ func (v *organizationFields) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 type _octoqlPremarshalorganizationFields organizationFields
+
+func (v *organizationFields) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *organizationFields) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -1893,6 +1950,10 @@ func (v *organizationFieldsTopContributorOrganization) GetContributionCount() *i
 	return v.repositoryOwnerFieldsOctoqlOther.ContributionCount
 }
 
+func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *organizationFieldsTopContributorOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	b, err := dec.ReadValue()
@@ -1933,6 +1994,13 @@ type _octoqlPremarshalorganizationFieldsTopContributorOrganization struct {
 	ContributionCount *int   `json:"contributionCount"`
 }
 
+func (v *organizationFieldsTopContributorOrganization) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
+
 func (v *organizationFieldsTopContributorOrganization) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
 		enc,
@@ -1966,6 +2034,10 @@ func (v *organizationFieldsTopContributorUser) GetId() string { return v.Id }
 // GetContributionCount returns organizationFieldsTopContributorUser.repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorUser) GetContributionCount() *int {
 	return v.repositoryOwnerFieldsUser.ContributionCount
+}
+
+func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
 }
 
 func (v *organizationFieldsTopContributorUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -2014,6 +2086,13 @@ type _octoqlPremarshalorganizationFieldsTopContributorUser struct {
 	Status            *moreUserFieldsStatusUserStatus `json:"status"`
 }
 
+func (v *organizationFieldsTopContributorUser) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
+
 func (v *organizationFieldsTopContributorUser) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
 		enc,
@@ -2036,6 +2115,10 @@ type queryFragment struct {
 	Actors []queryFragmentActorsActor `json:"actors"`
 }
 
+func (v *queryFragment) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryFragment) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -2053,6 +2136,13 @@ func (v *queryFragment) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 type _octoqlPremarshalqueryFragment queryFragment
+
+func (v *queryFragment) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *queryFragment) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -2195,6 +2285,10 @@ func (v *queryFragmentActorsOrganization) GetTypename() string { return v.Typena
 // GetId returns queryFragmentActorsOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsOrganization) GetId() string { return v.Id }
 
+func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryFragmentActorsOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -2212,6 +2306,13 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSONFrom(dec *jsontext.Decode
 }
 
 type _octoqlPremarshalqueryFragmentActorsOrganization queryFragmentActorsOrganization
+
+func (v *queryFragmentActorsOrganization) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *queryFragmentActorsOrganization) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -2243,6 +2344,10 @@ func (v *queryFragmentActorsUser) GetId() string { return v.Id }
 // GetContributionCount returns queryFragmentActorsUser.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsUser) GetContributionCount() *int {
 	return v.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount
+}
+
+func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
 }
 
 func (v *queryFragmentActorsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -2283,6 +2388,13 @@ type _octoqlPremarshalqueryFragmentActorsUser struct {
 	Typename          string `json:"__typename"`
 	Id                string `json:"id"`
 	ContributionCount *int   `json:"contributionCount"`
+}
+
+func (v *queryFragmentActorsUser) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
 func (v *queryFragmentActorsUser) MarshalJSONTo(enc *jsontext.Encoder) error {
@@ -2523,6 +2635,10 @@ func (v *queryWithFragmentsActorsOrganization) GetId() string { return v.Id }
 // GetLogin returns queryWithFragmentsActorsOrganization.Login, and is useful for accessing the field via an interface.
 func (v *queryWithFragmentsActorsOrganization) GetLogin() string { return v.Login }
 
+func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryWithFragmentsActorsOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -2540,6 +2656,13 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSONFrom(dec *jsontext.D
 }
 
 type _octoqlPremarshalqueryWithFragmentsActorsOrganization queryWithFragmentsActorsOrganization
+
+func (v *queryWithFragmentsActorsOrganization) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *queryWithFragmentsActorsOrganization) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -2784,6 +2907,10 @@ type queryWithFragmentsResponse struct {
 	Actors []queryWithFragmentsActorsActor `json:"actors"`
 }
 
+func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryWithFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -2801,6 +2928,13 @@ func (v *queryWithFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 }
 
 type _octoqlPremarshalqueryWithFragmentsResponse queryWithFragmentsResponse
+
+func (v *queryWithFragmentsResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *queryWithFragmentsResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -2902,6 +3036,10 @@ type queryWithInterfaceListFieldResponse struct {
 	Actors []queryWithInterfaceListFieldActorsActor `json:"actors"`
 }
 
+func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryWithInterfaceListFieldResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -2919,6 +3057,13 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSONFrom(dec *jsontext.De
 }
 
 type _octoqlPremarshalqueryWithInterfaceListFieldResponse queryWithInterfaceListFieldResponse
+
+func (v *queryWithInterfaceListFieldResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *queryWithInterfaceListFieldResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -3021,6 +3166,10 @@ type queryWithInterfaceNoFragmentsResponse struct {
 	Viewer queryWithInterfaceNoFragmentsViewerUser `json:"viewer"`
 }
 
+func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -3038,6 +3187,13 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.
 }
 
 type _octoqlPremarshalqueryWithInterfaceNoFragmentsResponse queryWithInterfaceNoFragmentsResponse
+
+func (v *queryWithInterfaceNoFragmentsResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *queryWithInterfaceNoFragmentsResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -3194,6 +3350,10 @@ func (v *queryWithNamedFragmentsActorsOrganization) GetTypename() string { retur
 // GetId returns queryWithNamedFragmentsActorsOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsOrganization) GetId() string { return v.Id }
 
+func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	b, err := dec.ReadValue()
@@ -3235,6 +3395,13 @@ type _octoqlPremarshalqueryWithNamedFragmentsActorsOrganization struct {
 	TopContributor organizationFieldsTopContributorActor `json:"topContributor"`
 }
 
+func (v *queryWithNamedFragmentsActorsOrganization) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
+
 func (v *queryWithNamedFragmentsActorsOrganization) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
 		enc,
@@ -3271,6 +3438,10 @@ func (v *queryWithNamedFragmentsActorsUser) GetId() string { return v.Id }
 // GetContributionCount returns queryWithNamedFragmentsActorsUser.userFields.repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsUser) GetContributionCount() *int {
 	return v.userFields.repositoryOwnerFieldsUser.ContributionCount
+}
+
+func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
 }
 
 func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -3314,6 +3485,13 @@ type _octoqlPremarshalqueryWithNamedFragmentsActorsUser struct {
 	Status            *moreUserFieldsStatusUserStatus `json:"status"`
 }
 
+func (v *queryWithNamedFragmentsActorsUser) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
+
 func (v *queryWithNamedFragmentsActorsUser) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
 		enc,
@@ -3336,6 +3514,10 @@ type queryWithNamedFragmentsResponse struct {
 	Actors []queryWithNamedFragmentsActorsActor `json:"actors"`
 }
 
+func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryWithNamedFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -3353,6 +3535,13 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSONFrom(dec *jsontext.Decode
 }
 
 type _octoqlPremarshalqueryWithNamedFragmentsResponse queryWithNamedFragmentsResponse
+
+func (v *queryWithNamedFragmentsResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *queryWithNamedFragmentsResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -3395,6 +3584,10 @@ type queryWithSearchResponse struct {
 	Search []queryWithSearchSearchSearchResultItem `json:"search"`
 }
 
+func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *queryWithSearchResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -3412,6 +3605,13 @@ func (v *queryWithSearchResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 }
 
 type _octoqlPremarshalqueryWithSearchResponse queryWithSearchResponse
+
+func (v *queryWithSearchResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *queryWithSearchResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -3696,6 +3896,10 @@ type removeStarRemoveStarRemoveStarPayload struct {
 	Starrable removeStarRemoveStarRemoveStarPayloadStarrable `json:"starrable"`
 }
 
+func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -3713,6 +3917,13 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSONFrom(dec *jsontext.
 }
 
 type _octoqlPremarshalremoveStarRemoveStarRemoveStarPayload removeStarRemoveStarRemoveStarPayload
+
+func (v *removeStarRemoveStarRemoveStarPayload) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
 
 func (v *removeStarRemoveStarRemoveStarPayload) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(
@@ -3925,6 +4136,10 @@ type repositoryOwnerFieldsUser struct {
 // GetContributionCount returns repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *repositoryOwnerFieldsUser) GetContributionCount() *int { return v.ContributionCount }
 
+func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *repositoryOwnerFieldsUser) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	b, err := dec.ReadValue()
@@ -3960,6 +4175,13 @@ type _octoqlPremarshalrepositoryOwnerFieldsUser struct {
 	ContributionCount *int                            `json:"contributionCount"`
 	Id                string                          `json:"id"`
 	Status            *moreUserFieldsStatusUserStatus `json:"status"`
+}
+
+func (v *repositoryOwnerFieldsUser) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
 func (v *repositoryOwnerFieldsUser) MarshalJSONTo(enc *jsontext.Encoder) error {
@@ -3999,6 +4221,10 @@ type userFields struct {
 // GetContributionCount returns userFields.repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *userFields) GetContributionCount() *int {
 	return v.repositoryOwnerFieldsUser.ContributionCount
+}
+
+func (v *userFields) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
 }
 
 func (v *userFields) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -4041,6 +4267,13 @@ type _octoqlPremarshaluserFields struct {
 	Id                string                          `json:"id"`
 	ContributionCount *int                            `json:"contributionCount"`
 	Status            *moreUserFieldsStatusUserStatus `json:"status"`
+}
+
+func (v *userFields) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
 }
 
 func (v *userFields) MarshalJSONTo(enc *jsontext.Encoder) error {

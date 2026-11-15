@@ -171,8 +171,8 @@ the obvious Go types: `String` and `ID` to `string`, `Int` to `int`,
 
 octoql also maps several GitHub scalars by default. `DateTime`,
 `PreciseDateTime`, and `GitTimestamp` map to `time.Time`.
-`CustomPropertyValue` maps to `encoding/json.RawMessage`, because GitHub
-may return either a string or an array of strings. `Base64String`,
+`CustomPropertyValue` maps to `encoding/json/jsontext.Value`, because
+GitHub may return either a string or an array of strings. `Base64String`,
 `BigInt`, `Date`, `GitObjectID`, `GitRefname`, `GitSSHRemote`, `HTML`,
 `URI`, and `X509Certificate` map to `string`. This setting extends or
 overrides all of those mappings.

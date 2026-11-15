@@ -38,6 +38,13 @@ type _octoqlPremarshal{{.GoName}} struct{
 type _octoqlPremarshal{{.GoName}} {{.GoName}}
 {{end}}
 
+func (v *{{.GoName}}) MarshalJSON() ([]byte, error) {
+    return {{ref "encoding/json/v2.Marshal"}}(
+        v,
+        {{ref "encoding/json/v2.FormatNilSliceAsNull"}}(true),
+    )
+}
+
 func (v *{{.GoName}}) MarshalJSONTo(enc *{{ref "encoding/json/jsontext.Encoder"}}) error {
     return {{ref "encoding/json/v2.MarshalEncode"}}(
         enc,

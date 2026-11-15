@@ -5,9 +5,8 @@ package githubdefaults
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
-	json2 "encoding/json/v2"
+	json "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -79,6 +78,11 @@ func (e *ResponseSizeLimitError) Error() string {
 	return fmt.Sprintf("graphql response exceeds %d-byte limit", e.Limit)
 }
 
+// MarshalJSON encodes string and integer path segments in GraphQL wire format.
+func (p Path) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p)
+}
+
 // MarshalJSONTo encodes string and integer path segments in GraphQL wire format.
 func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if p == nil {
@@ -114,6 +118,14 @@ func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return nil
 }
 
+// UnmarshalJSON decodes GraphQL string and integer path segments.
+func (p *Path) UnmarshalJSON(data []byte) error {
+	if p == nil {
+		return errors.New("decode graphql path: nil destination")
+	}
+	return json.Unmarshal(data, p)
+}
+
 // UnmarshalJSONFrom decodes GraphQL string and integer path segments.
 func (p *Path) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if p == nil {
@@ -121,7 +133,7 @@ func (p *Path) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 
 	var rawSegments []jsontext.Value
-	err := json2.UnmarshalDecode(dec, &rawSegments)
+	err := json.UnmarshalDecode(dec, &rawSegments)
 	if err != nil {
 		return fmt.Errorf("decode graphql path: %w", err)
 	}
@@ -134,7 +146,7 @@ func (p *Path) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	for index, rawSegment := range rawSegments {
 		if rawSegment.Kind() == '"' {
 			var field string
-			err = json2.Unmarshal(rawSegment, &field)
+			err = json.Unmarshal(rawSegment, &field)
 			if err != nil {
 				return fmt.Errorf("decode graphql path segment %d: %w", index, err)
 			}
@@ -713,9 +725,9 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 	if c == nil {
 		return false, errors.New("octoql: client is nil")
 	}
-	body, err := json2.Marshal(
+	body, err := json.Marshal(
 		payload,
-		json2.FormatNilSliceAsNull(true),
+		json.FormatNilSliceAsNull(true),
 	)
 	if err != nil {
 		return false, fmt.Errorf("encode graphql request: %w", err)
@@ -932,7 +944,7 @@ func _octoqlDecodeResponse(body []byte) (jsontext.Value, Errors, error) {
 		Data   jsontext.Value `json:"data"`
 		Errors jsontext.Value `json:"errors"`
 	}
-	err := json2.Unmarshal(body, &envelope)
+	err := json.Unmarshal(body, &envelope)
 	if err != nil {
 		return nil, nil, fmt.Errorf(
 			"decode graphql response envelope: %w",
@@ -945,7 +957,7 @@ func _octoqlDecodeResponse(body []byte) (jsontext.Value, Errors, error) {
 		return envelope.Data, graphqlErrors, nil
 	}
 
-	err = json2.Unmarshal(envelope.Errors, &graphqlErrors)
+	err = json.Unmarshal(envelope.Errors, &graphqlErrors)
 	if err != nil {
 		err = fmt.Errorf("decode graphql response errors: %w", err)
 	}
@@ -953,7 +965,7 @@ func _octoqlDecodeResponse(body []byte) (jsontext.Value, Errors, error) {
 }
 
 func _octoqlDecodeData(data jsontext.Value, response any) error {
-	err := json2.Unmarshal(data, response)
+	err := json.Unmarshal(data, response)
 	if err != nil {
 		return fmt.Errorf("decode graphql response data: %w", err)
 	}
@@ -982,7 +994,7 @@ type getReviewReview struct {
 	BodyHTML       string                      `json:"bodyHTML"`
 	Encoded        string                      `json:"encoded"`
 	Certificate    string                      `json:"certificate"`
-	PropertyValue  *json.RawMessage            `json:"propertyValue"`
+	PropertyValue  *jsontext.Value             `json:"propertyValue"`
 	Author         *getReviewReviewAuthorActor `json:"author"`
 	Editor         *getReviewReviewEditorActor `json:"editor"`
 }
@@ -1028,7 +1040,7 @@ func _octoqlUnmarshalnamingShapesNamingActor(dec *jsontext.Decoder, v *namingSha
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err = json2.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1039,7 +1051,7 @@ func _octoqlUnmarshalnamingShapesNamingActor(dec *jsontext.Decoder, v *namingSha
 			"response was missing Actor.__typename")
 	default:
 		*v = new(namingShapesNamingActorOctoqlOther)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
@@ -1049,7 +1061,7 @@ func _octoqlMarshalnamingShapesNamingActor(enc *jsontext.Encoder, v *namingShape
 		if vv == nil {
 			return enc.WriteToken(jsontext.Null)
 		}
-		return json2.MarshalEncode(enc, vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
 		return enc.WriteToken(jsontext.Null)
 	default:
@@ -1093,6 +1105,10 @@ type namingShapesResponse struct {
 	QueryTypedNamingUser namingShapesQueryTypedNamingUserQueryNamingUser `json:"queryTypedNamingUser"`
 }
 
+func (v *namingShapesResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *namingShapesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -1100,23 +1116,30 @@ func (v *namingShapesResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 
-	return json2.UnmarshalDecode(
+	return json.UnmarshalDecode(
 		dec,
 		(*_octoqlPremarshalnamingShapesResponse)(v),
-		json2.WithUnmarshalers(json2.JoinUnmarshalers(
-			json2.UnmarshalFromFunc(_octoqlUnmarshalnamingShapesNamingActor),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalnamingShapesNamingActor),
 		)),
 	)
 }
 
 type _octoqlPremarshalnamingShapesResponse namingShapesResponse
 
+func (v *namingShapesResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
+
 func (v *namingShapesResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json2.MarshalEncode(
+	return json.MarshalEncode(
 		enc,
 		v._octoqlPremarshalJSON(),
-		json2.WithMarshalers(json2.JoinMarshalers(
-			json2.MarshalToFunc(_octoqlMarshalnamingShapesNamingActor),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalnamingShapesNamingActor),
 		)),
 	)
 }
@@ -1158,7 +1181,7 @@ func _octoqlUnmarshalruntimeAbstractsActorNode(dec *jsontext.Decoder, v *runtime
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err = json2.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1166,19 +1189,19 @@ func _octoqlUnmarshalruntimeAbstractsActorNode(dec *jsontext.Decoder, v *runtime
 	switch tn.TypeName {
 	case "Bot":
 		*v = new(runtimeAbstractsActorNodeBot)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	case "NamingUser":
 		*v = new(runtimeAbstractsActorNodeNamingUser)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Organization":
 		*v = new(runtimeAbstractsActorNodeOrganization)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing Node.__typename")
 	default:
 		*v = new(runtimeAbstractsActorNodeOctoqlOther)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
@@ -1196,7 +1219,7 @@ func _octoqlMarshalruntimeAbstractsActorNode(enc *jsontext.Encoder, v *runtimeAb
 			TypeName:                     "Bot",
 			runtimeAbstractsActorNodeBot: vv,
 		}
-		return json2.MarshalEncode(enc, &result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsActorNodeNamingUser:
 		if vv == nil {
 			return enc.WriteToken(jsontext.Null)
@@ -1209,7 +1232,7 @@ func _octoqlMarshalruntimeAbstractsActorNode(enc *jsontext.Encoder, v *runtimeAb
 			TypeName:                            "NamingUser",
 			runtimeAbstractsActorNodeNamingUser: vv,
 		}
-		return json2.MarshalEncode(enc, &result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsActorNodeOrganization:
 		if vv == nil {
 			return enc.WriteToken(jsontext.Null)
@@ -1222,12 +1245,12 @@ func _octoqlMarshalruntimeAbstractsActorNode(enc *jsontext.Encoder, v *runtimeAb
 			TypeName:                              "Organization",
 			runtimeAbstractsActorNodeOrganization: vv,
 		}
-		return json2.MarshalEncode(enc, &result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsActorNodeOctoqlOther:
 		if vv == nil {
 			return enc.WriteToken(jsontext.Null)
 		}
-		return json2.MarshalEncode(enc, vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
 		return enc.WriteToken(jsontext.Null)
 	default:
@@ -1301,7 +1324,7 @@ func _octoqlUnmarshalruntimeAbstractsNestedNodesNode(dec *jsontext.Decoder, v *r
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err = json2.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1312,7 +1335,7 @@ func _octoqlUnmarshalruntimeAbstractsNestedNodesNode(dec *jsontext.Decoder, v *r
 			"response was missing Node.__typename")
 	default:
 		*v = new(runtimeAbstractsNestedNodesNodeOctoqlOther)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
@@ -1322,7 +1345,7 @@ func _octoqlMarshalruntimeAbstractsNestedNodesNode(enc *jsontext.Encoder, v *run
 		if vv == nil {
 			return enc.WriteToken(jsontext.Null)
 		}
-		return json2.MarshalEncode(enc, vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
 		return enc.WriteToken(jsontext.Null)
 	default:
@@ -1380,7 +1403,7 @@ func _octoqlUnmarshalruntimeAbstractsNode(dec *jsontext.Decoder, v *runtimeAbstr
 	var tn struct {
 		TypeName string `json:"__typename"`
 	}
-	err = json2.Unmarshal(b, &tn)
+	err = json.Unmarshal(b, &tn)
 	if err != nil {
 		return err
 	}
@@ -1388,16 +1411,16 @@ func _octoqlUnmarshalruntimeAbstractsNode(dec *jsontext.Decoder, v *runtimeAbstr
 	switch tn.TypeName {
 	case "OctoqlOther":
 		*v = new(runtimeAbstractsNodeOctoqlOther)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	case "Repository":
 		*v = new(runtimeAbstractsNodeRepository)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	case "":
 		return fmt.Errorf(
 			"response was missing Node.__typename")
 	default:
 		*v = new(runtimeAbstractsNode2OctoqlOther)
-		return json2.Unmarshal(b, *v, dec.Options())
+		return json.Unmarshal(b, *v, dec.Options())
 	}
 }
 
@@ -1415,7 +1438,7 @@ func _octoqlMarshalruntimeAbstractsNode(enc *jsontext.Encoder, v *runtimeAbstrac
 			TypeName:                        "OctoqlOther",
 			runtimeAbstractsNodeOctoqlOther: vv,
 		}
-		return json2.MarshalEncode(enc, &result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsNodeRepository:
 		if vv == nil {
 			return enc.WriteToken(jsontext.Null)
@@ -1428,12 +1451,12 @@ func _octoqlMarshalruntimeAbstractsNode(enc *jsontext.Encoder, v *runtimeAbstrac
 			TypeName:                       "Repository",
 			runtimeAbstractsNodeRepository: vv,
 		}
-		return json2.MarshalEncode(enc, &result)
+		return json.MarshalEncode(enc, &result)
 	case *runtimeAbstractsNode2OctoqlOther:
 		if vv == nil {
 			return enc.WriteToken(jsontext.Null)
 		}
-		return json2.MarshalEncode(enc, vv)
+		return json.MarshalEncode(enc, vv)
 	case nil:
 		return enc.WriteToken(jsontext.Null)
 	default:
@@ -1499,6 +1522,10 @@ type runtimeAbstractsResponse struct {
 	ActorNode   runtimeAbstractsActorNode             `json:"actorNode"`
 }
 
+func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, v)
+}
+
 func (v *runtimeAbstractsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 	if dec.PeekKind() == 'n' {
@@ -1506,27 +1533,34 @@ func (v *runtimeAbstractsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		return err
 	}
 
-	return json2.UnmarshalDecode(
+	return json.UnmarshalDecode(
 		dec,
 		(*_octoqlPremarshalruntimeAbstractsResponse)(v),
-		json2.WithUnmarshalers(json2.JoinUnmarshalers(
-			json2.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsNode),
-			json2.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsNestedNodesNode),
-			json2.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsActorNode),
+		json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsNode),
+			json.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsNestedNodesNode),
+			json.UnmarshalFromFunc(_octoqlUnmarshalruntimeAbstractsActorNode),
 		)),
 	)
 }
 
 type _octoqlPremarshalruntimeAbstractsResponse runtimeAbstractsResponse
 
+func (v *runtimeAbstractsResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		v,
+		json.FormatNilSliceAsNull(true),
+	)
+}
+
 func (v *runtimeAbstractsResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json2.MarshalEncode(
+	return json.MarshalEncode(
 		enc,
 		v._octoqlPremarshalJSON(),
-		json2.WithMarshalers(json2.JoinMarshalers(
-			json2.MarshalToFunc(_octoqlMarshalruntimeAbstractsNode),
-			json2.MarshalToFunc(_octoqlMarshalruntimeAbstractsNestedNodesNode),
-			json2.MarshalToFunc(_octoqlMarshalruntimeAbstractsActorNode),
+		json.WithMarshalers(json.JoinMarshalers(
+			json.MarshalToFunc(_octoqlMarshalruntimeAbstractsNode),
+			json.MarshalToFunc(_octoqlMarshalruntimeAbstractsNestedNodesNode),
+			json.MarshalToFunc(_octoqlMarshalruntimeAbstractsActorNode),
 		)),
 	)
 }
