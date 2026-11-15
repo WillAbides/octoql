@@ -452,7 +452,6 @@ func renderClient(plan *planState) ([]byte, error) {
 		r.imports.importPackage(pkgPath)
 	}
 	reserveClientDeclarations(plan, r.imports)
-	registerBoundTypeImports(plan.typeMap, r.imports)
 
 	var bodyBuf bytes.Buffer
 	err := r.render("runtime.go.tmpl", &bodyBuf, nil)
