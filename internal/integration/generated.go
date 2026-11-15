@@ -1114,7 +1114,6 @@ func _octoqlUnmarshaladdStarAddStarAddStarPayloadStarrable(b []byte, v *addStarA
 }
 
 func _octoqlMarshaladdStarAddStarAddStarPayloadStarrable(v *addStarAddStarAddStarPayloadStarrable) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *addStarAddStarAddStarPayloadStarrableOctoqlOther:
 		if vv == nil {
@@ -1345,20 +1344,17 @@ func _octoqlUnmarshaldirectivesResponseActor(b []byte, v *directivesResponseActo
 }
 
 func _octoqlMarshaldirectivesResponseActor(v *directivesResponseActor) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *directivesResponseActorOrganization:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*directivesResponseActorOrganization
 		}{
-			TypeName:                            typename,
+			TypeName:                            "Organization",
 			directivesResponseActorOrganization: vv,
 		}
 		return json.Marshal(result)
@@ -1439,7 +1435,6 @@ func _octoqlUnmarshaldirectivesResponseActorsActor(b []byte, v *directivesRespon
 }
 
 func _octoqlMarshaldirectivesResponseActorsActor(v *directivesResponseActorsActor) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *directivesResponseActorsActorOctoqlOther:
 		if vv == nil {
@@ -1626,7 +1621,6 @@ func _octoqlUnmarshalgetRepositoryRepositoryOwner(b []byte, v *getRepositoryRepo
 }
 
 func _octoqlMarshalgetRepositoryRepositoryOwner(v *getRepositoryRepositoryOwner) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *getRepositoryRepositoryOwnerOctoqlOther:
 		if vv == nil {
@@ -1707,20 +1701,17 @@ func _octoqlUnmarshalinnerActorFields(b []byte, v *innerActorFields) error {
 }
 
 func _octoqlMarshalinnerActorFields(v *innerActorFields) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *innerActorFieldsUser:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*innerActorFieldsUser
 		}{
-			TypeName:             typename,
+			TypeName:             "User",
 			innerActorFieldsUser: vv,
 		}
 		return json.Marshal(result)
@@ -1799,7 +1790,6 @@ func _octoqlUnmarshalinnerRepositoryOwnerFields(b []byte, v *innerRepositoryOwne
 }
 
 func _octoqlMarshalinnerRepositoryOwnerFields(v *innerRepositoryOwnerFields) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *innerRepositoryOwnerFieldsOctoqlOther:
 		if vv == nil {
@@ -1967,14 +1957,11 @@ func _octoqlUnmarshalorganizationFieldsTopContributorActor(b []byte, v *organiza
 }
 
 func _octoqlMarshalorganizationFieldsTopContributorActor(v *organizationFieldsTopContributorActor) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *organizationFieldsTopContributorOrganization:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -1984,7 +1971,7 @@ func _octoqlMarshalorganizationFieldsTopContributorActor(v *organizationFieldsTo
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalorganizationFieldsTopContributorOrganization
 		}{
-			TypeName: typename,
+			TypeName: "Organization",
 			_octoqlPremarshalorganizationFieldsTopContributorOrganization: premarshaled,
 		}
 		return json.Marshal(result)
@@ -1992,7 +1979,6 @@ func _octoqlMarshalorganizationFieldsTopContributorActor(v *organizationFieldsTo
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -2002,7 +1988,7 @@ func _octoqlMarshalorganizationFieldsTopContributorActor(v *organizationFieldsTo
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalorganizationFieldsTopContributorUser
 		}{
-			TypeName: typename,
+			TypeName: "User",
 			_octoqlPremarshalorganizationFieldsTopContributorUser: premarshaled,
 		}
 		return json.Marshal(result)
@@ -2318,14 +2304,11 @@ func _octoqlUnmarshalqueryFragmentActorsActor(b []byte, v *queryFragmentActorsAc
 }
 
 func _octoqlMarshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *queryFragmentActorsOrganization:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -2335,7 +2318,7 @@ func _octoqlMarshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalqueryFragmentActorsOrganization
 		}{
-			TypeName: typename,
+			TypeName: "Organization",
 			_octoqlPremarshalqueryFragmentActorsOrganization: premarshaled,
 		}
 		return json.Marshal(result)
@@ -2343,7 +2326,6 @@ func _octoqlMarshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -2353,7 +2335,7 @@ func _octoqlMarshalqueryFragmentActorsActor(v *queryFragmentActorsActor) ([]byte
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalqueryFragmentActorsUser
 		}{
-			TypeName:                                 typename,
+			TypeName:                                 "User",
 			_octoqlPremarshalqueryFragmentActorsUser: premarshaled,
 		}
 		return json.Marshal(result)
@@ -2639,20 +2621,17 @@ func _octoqlUnmarshalqueryWithFragmentsActorsActor(b []byte, v *queryWithFragmen
 }
 
 func _octoqlMarshalqueryWithFragmentsActorsActor(v *queryWithFragmentsActorsActor) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *queryWithFragmentsActorsBot:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Bot"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithFragmentsActorsBot
 		}{
-			TypeName:                    typename,
+			TypeName:                    "Bot",
 			queryWithFragmentsActorsBot: vv,
 		}
 		return json.Marshal(result)
@@ -2660,7 +2639,6 @@ func _octoqlMarshalqueryWithFragmentsActorsActor(v *queryWithFragmentsActorsActo
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -2670,7 +2648,7 @@ func _octoqlMarshalqueryWithFragmentsActorsActor(v *queryWithFragmentsActorsActo
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalqueryWithFragmentsActorsOrganization
 		}{
-			TypeName: typename,
+			TypeName: "Organization",
 			_octoqlPremarshalqueryWithFragmentsActorsOrganization: premarshaled,
 		}
 		return json.Marshal(result)
@@ -2678,13 +2656,12 @@ func _octoqlMarshalqueryWithFragmentsActorsActor(v *queryWithFragmentsActorsActo
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithFragmentsActorsUser
 		}{
-			TypeName:                     typename,
+			TypeName:                     "User",
 			queryWithFragmentsActorsUser: vv,
 		}
 		return json.Marshal(result)
@@ -2894,20 +2871,17 @@ func _octoqlUnmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(b [
 }
 
 func _octoqlMarshalqueryWithFragmentsActorsOrganizationTopContributorActor(v *queryWithFragmentsActorsOrganizationTopContributorActor) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *queryWithFragmentsActorsOrganizationTopContributorBot:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Bot"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithFragmentsActorsOrganizationTopContributorBot
 		}{
-			TypeName: typename,
+			TypeName: "Bot",
 			queryWithFragmentsActorsOrganizationTopContributorBot: vv,
 		}
 		return json.Marshal(result)
@@ -2915,13 +2889,12 @@ func _octoqlMarshalqueryWithFragmentsActorsOrganizationTopContributorActor(v *qu
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithFragmentsActorsOrganizationTopContributorOrganization
 		}{
-			TypeName: typename,
+			TypeName: "Organization",
 			queryWithFragmentsActorsOrganizationTopContributorOrganization: vv,
 		}
 		return json.Marshal(result)
@@ -2929,13 +2902,12 @@ func _octoqlMarshalqueryWithFragmentsActorsOrganizationTopContributorActor(v *qu
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithFragmentsActorsOrganizationTopContributorUser
 		}{
-			TypeName: typename,
+			TypeName: "User",
 			queryWithFragmentsActorsOrganizationTopContributorUser: vv,
 		}
 		return json.Marshal(result)
@@ -3194,7 +3166,6 @@ func _octoqlUnmarshalqueryWithInterfaceListFieldActorsActor(b []byte, v *queryWi
 }
 
 func _octoqlMarshalqueryWithInterfaceListFieldActorsActor(v *queryWithInterfaceListFieldActorsActor) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *queryWithInterfaceListFieldActorsActorOctoqlOther:
 		if vv == nil {
@@ -3365,7 +3336,6 @@ func _octoqlUnmarshalqueryWithInterfaceNoFragmentsActor(b []byte, v *queryWithIn
 }
 
 func _octoqlMarshalqueryWithInterfaceNoFragmentsActor(v *queryWithInterfaceNoFragmentsActor) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *queryWithInterfaceNoFragmentsActorOctoqlOther:
 		if vv == nil {
@@ -3530,14 +3500,11 @@ func _octoqlUnmarshalqueryWithNamedFragmentsActorsActor(b []byte, v *queryWithNa
 }
 
 func _octoqlMarshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragmentsActorsActor) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *queryWithNamedFragmentsActorsOrganization:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -3547,7 +3514,7 @@ func _octoqlMarshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragments
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalqueryWithNamedFragmentsActorsOrganization
 		}{
-			TypeName: typename,
+			TypeName: "Organization",
 			_octoqlPremarshalqueryWithNamedFragmentsActorsOrganization: premarshaled,
 		}
 		return json.Marshal(result)
@@ -3555,7 +3522,6 @@ func _octoqlMarshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragments
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -3565,7 +3531,7 @@ func _octoqlMarshalqueryWithNamedFragmentsActorsActor(v *queryWithNamedFragments
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalqueryWithNamedFragmentsActorsUser
 		}{
-			TypeName: typename,
+			TypeName: "User",
 			_octoqlPremarshalqueryWithNamedFragmentsActorsUser: premarshaled,
 		}
 		return json.Marshal(result)
@@ -4076,20 +4042,17 @@ func _octoqlUnmarshalqueryWithSearchSearchSearchResultItem(b []byte, v *queryWit
 }
 
 func _octoqlMarshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearchSearchResultItem) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *queryWithSearchSearchBot:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Bot"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithSearchSearchBot
 		}{
-			TypeName:                 typename,
+			TypeName:                 "Bot",
 			queryWithSearchSearchBot: vv,
 		}
 		return json.Marshal(result)
@@ -4097,13 +4060,12 @@ func _octoqlMarshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearc
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithSearchSearchIssue
 		}{
-			TypeName:                   typename,
+			TypeName:                   "Issue",
 			queryWithSearchSearchIssue: vv,
 		}
 		return json.Marshal(result)
@@ -4111,13 +4073,12 @@ func _octoqlMarshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearc
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithSearchSearchOrganization
 		}{
-			TypeName:                          typename,
+			TypeName:                          "Organization",
 			queryWithSearchSearchOrganization: vv,
 		}
 		return json.Marshal(result)
@@ -4125,13 +4086,12 @@ func _octoqlMarshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearc
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "PullRequest"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithSearchSearchPullRequest
 		}{
-			TypeName:                         typename,
+			TypeName:                         "PullRequest",
 			queryWithSearchSearchPullRequest: vv,
 		}
 		return json.Marshal(result)
@@ -4139,13 +4099,12 @@ func _octoqlMarshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearc
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Repository"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithSearchSearchRepository
 		}{
-			TypeName:                        typename,
+			TypeName:                        "Repository",
 			queryWithSearchSearchRepository: vv,
 		}
 		return json.Marshal(result)
@@ -4153,13 +4112,12 @@ func _octoqlMarshalqueryWithSearchSearchSearchResultItem(v *queryWithSearchSearc
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*queryWithSearchSearchUser
 		}{
-			TypeName:                  typename,
+			TypeName:                  "User",
 			queryWithSearchSearchUser: vv,
 		}
 		return json.Marshal(result)
@@ -4328,7 +4286,6 @@ func _octoqlUnmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(b []byte, v 
 }
 
 func _octoqlMarshalremoveStarRemoveStarRemoveStarPayloadStarrable(v *removeStarRemoveStarRemoveStarPayloadStarrable) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *removeStarRemoveStarRemoveStarPayloadStarrableOctoqlOther:
 		if vv == nil {
@@ -4426,14 +4383,11 @@ func _octoqlUnmarshalrepositoryOwnerFields(b []byte, v *repositoryOwnerFields) e
 }
 
 func _octoqlMarshalrepositoryOwnerFields(v *repositoryOwnerFields) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *repositoryOwnerFieldsUser:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -4443,7 +4397,7 @@ func _octoqlMarshalrepositoryOwnerFields(v *repositoryOwnerFields) ([]byte, erro
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalrepositoryOwnerFieldsUser
 		}{
-			TypeName: typename,
+			TypeName: "User",
 			_octoqlPremarshalrepositoryOwnerFieldsUser: premarshaled,
 		}
 		return json.Marshal(result)

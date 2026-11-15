@@ -23,7 +23,6 @@ type planState struct {
 }
 
 type plannedOperation struct {
-	Type         ast.Operation
 	Name         string
 	Doc          string
 	Body         string
@@ -154,7 +153,6 @@ func (g *planState) addOperation(op *ast.OperationDefinition) error {
 	}
 
 	g.operations = append(g.operations, &plannedOperation{
-		Type:         op.Operation,
 		Name:         op.Name,
 		Doc:          docComment,
 		Body:         "\n" + builder.String(),

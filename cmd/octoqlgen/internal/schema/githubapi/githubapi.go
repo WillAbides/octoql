@@ -1132,20 +1132,17 @@ func _octoqlUnmarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(b []b
 }
 
 func _octoqlMarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(v *LatestCommitRepositoryDefaultBranchRefTargetGitObject) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *LatestCommitRepositoryDefaultBranchRefTargetCommit:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Commit"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*LatestCommitRepositoryDefaultBranchRefTargetCommit
 		}{
-			TypeName: typename,
+			TypeName: "Commit",
 			LatestCommitRepositoryDefaultBranchRefTargetCommit: vv,
 		}
 		return json.Marshal(result)

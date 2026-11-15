@@ -1014,7 +1014,6 @@ func _octoqlUnmarshalActorDetails(b []byte, v *ActorDetails) error {
 }
 
 func _octoqlMarshalActorDetails(v *ActorDetails) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *ActorDetailsOctoqlOther:
 		if vv == nil {
@@ -1098,14 +1097,11 @@ func _octoqlUnmarshalGetActorActor(b []byte, v *GetActorActor) error {
 }
 
 func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *GetActorActorBot:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Bot"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -1115,7 +1111,7 @@ func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorActorBot
 		}{
-			TypeName:                          typename,
+			TypeName:                          "Bot",
 			_octoqlPremarshalGetActorActorBot: premarshaled,
 		}
 		return json.Marshal(result)
@@ -1123,7 +1119,6 @@ func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "EnterpriseUserAccount"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -1133,7 +1128,7 @@ func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorActorEnterpriseUserAccount
 		}{
-			TypeName: typename,
+			TypeName: "EnterpriseUserAccount",
 			_octoqlPremarshalGetActorActorEnterpriseUserAccount: premarshaled,
 		}
 		return json.Marshal(result)
@@ -1141,7 +1136,6 @@ func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -1151,7 +1145,7 @@ func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorActorOrganization
 		}{
-			TypeName: typename,
+			TypeName: "Organization",
 			_octoqlPremarshalGetActorActorOrganization: premarshaled,
 		}
 		return json.Marshal(result)
@@ -1159,7 +1153,6 @@ func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -1169,7 +1162,7 @@ func _octoqlMarshalGetActorActor(v *GetActorActor) ([]byte, error) {
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorActorUser
 		}{
-			TypeName:                           typename,
+			TypeName:                           "User",
 			_octoqlPremarshalGetActorActorUser: premarshaled,
 		}
 		return json.Marshal(result)
@@ -1570,14 +1563,11 @@ func _octoqlUnmarshalGetActorRepositoryOwner(b []byte, v *GetActorRepositoryOwne
 }
 
 func _octoqlMarshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *GetActorRepositoryOwnerEnterpriseUserAccount:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "EnterpriseUserAccount"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -1587,7 +1577,7 @@ func _octoqlMarshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, 
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount
 		}{
-			TypeName: typename,
+			TypeName: "EnterpriseUserAccount",
 			_octoqlPremarshalGetActorRepositoryOwnerEnterpriseUserAccount: premarshaled,
 		}
 		return json.Marshal(result)
@@ -1595,7 +1585,6 @@ func _octoqlMarshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, 
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -1605,7 +1594,7 @@ func _octoqlMarshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, 
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorRepositoryOwnerOrganization
 		}{
-			TypeName: typename,
+			TypeName: "Organization",
 			_octoqlPremarshalGetActorRepositoryOwnerOrganization: premarshaled,
 		}
 		return json.Marshal(result)
@@ -1613,7 +1602,6 @@ func _octoqlMarshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, 
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -1623,7 +1611,7 @@ func _octoqlMarshalGetActorRepositoryOwner(v *GetActorRepositoryOwner) ([]byte, 
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalGetActorRepositoryOwnerUser
 		}{
-			TypeName: typename,
+			TypeName: "User",
 			_octoqlPremarshalGetActorRepositoryOwnerUser: premarshaled,
 		}
 		return json.Marshal(result)
@@ -2116,20 +2104,17 @@ func _octoqlUnmarshalGetNodeNode(b []byte, v *GetNodeNode) error {
 }
 
 func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *GetNodeNodeIssue:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeIssue
 		}{
-			TypeName:         typename,
+			TypeName:         "Issue",
 			GetNodeNodeIssue: vv,
 		}
 		return json.Marshal(result)
@@ -2137,13 +2122,12 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Organization"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeOrganization
 		}{
-			TypeName:                typename,
+			TypeName:                "Organization",
 			GetNodeNodeOrganization: vv,
 		}
 		return json.Marshal(result)
@@ -2151,13 +2135,12 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "PullRequest"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodePullRequest
 		}{
-			TypeName:               typename,
+			TypeName:               "PullRequest",
 			GetNodeNodePullRequest: vv,
 		}
 		return json.Marshal(result)
@@ -2165,13 +2148,12 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Repository"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeRepository
 		}{
-			TypeName:              typename,
+			TypeName:              "Repository",
 			GetNodeNodeRepository: vv,
 		}
 		return json.Marshal(result)
@@ -2179,13 +2161,12 @@ func _octoqlMarshalGetNodeNode(v *GetNodeNode) ([]byte, error) {
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "User"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*GetNodeNodeUser
 		}{
-			TypeName:        typename,
+			TypeName:        "User",
 			GetNodeNodeUser: vv,
 		}
 		return json.Marshal(result)
@@ -2391,7 +2372,6 @@ func _octoqlUnmarshalNestedNodeShapesNestedNodesNode(b []byte, v *NestedNodeShap
 }
 
 func _octoqlMarshalNestedNodeShapesNestedNodesNode(v *NestedNodeShapesNestedNodesNode) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *NestedNodeShapesNestedNodesNodeOctoqlOther:
 		if vv == nil {
@@ -2777,14 +2757,11 @@ func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
 }
 
 func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItem) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEvent:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "RepositoryEvent"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -2794,7 +2771,7 @@ func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(v 
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent
 		}{
-			TypeName: typename,
+			TypeName: "RepositoryEvent",
 			_octoqlPremarshalRepositoryEventCovarianceLatestRepositoryEvent: premarshaled,
 		}
 		return json.Marshal(result)
@@ -2995,7 +2972,6 @@ func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemR
 }
 
 func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNodeOctoqlOther:
 		if vv == nil {
@@ -3065,7 +3041,6 @@ func _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemS
 }
 
 func _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *RepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNodeOctoqlOther:
 		if vv == nil {
@@ -3204,7 +3179,6 @@ func _octoqlUnmarshalRepositoryOwnerDetails(b []byte, v *RepositoryOwnerDetails)
 }
 
 func _octoqlMarshalRepositoryOwnerDetails(v *RepositoryOwnerDetails) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *RepositoryOwnerDetailsOctoqlOther:
 		if vv == nil {
@@ -3523,7 +3497,6 @@ func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesReposito
 }
 
 func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner) ([]byte, error) {
-
 	switch vv := (*v).(type) {
 	case *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwnerOctoqlOther:
 		if vv == nil {
@@ -3614,20 +3587,17 @@ func _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchRe
 }
 
 func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(v *SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem) ([]byte, error) {
-
-	var typename string
 	switch vv := (*v).(type) {
 	case *SearchRepositoriesSearchSearchResultConnectionNodesIssue:
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Issue"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*SearchRepositoriesSearchSearchResultConnectionNodesIssue
 		}{
-			TypeName: typename,
+			TypeName: "Issue",
 			SearchRepositoriesSearchSearchResultConnectionNodesIssue: vv,
 		}
 		return json.Marshal(result)
@@ -3635,13 +3605,12 @@ func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResu
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "PullRequest"
 
 		result := struct {
 			TypeName string `json:"__typename"`
 			*SearchRepositoriesSearchSearchResultConnectionNodesPullRequest
 		}{
-			TypeName: typename,
+			TypeName: "PullRequest",
 			SearchRepositoriesSearchSearchResultConnectionNodesPullRequest: vv,
 		}
 		return json.Marshal(result)
@@ -3649,7 +3618,6 @@ func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResu
 		if vv == nil {
 			return []byte("null"), nil
 		}
-		typename = "Repository"
 
 		premarshaled, err := vv._octoqlPremarshalJSON()
 		if err != nil {
@@ -3659,7 +3627,7 @@ func _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResu
 			TypeName string `json:"__typename"`
 			*_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository
 		}{
-			TypeName: typename,
+			TypeName: "Repository",
 			_octoqlPremarshalSearchRepositoriesSearchSearchResultConnectionNodesRepository: premarshaled,
 		}
 		return json.Marshal(result)
