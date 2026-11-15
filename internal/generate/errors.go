@@ -42,8 +42,6 @@ func (e *octoqlgenError) Unwrap() error {
 }
 
 func errorf(pos *ast.Position, msg string, args ...any) error {
-	// TODO: alternately accept a filename only, or maybe even a go-parser pos
-
 	// We do all our own wrapping, because if the wrapped error already has a
 	// pos, we want to extract it out and put it at the front, not in the
 	// middle.
