@@ -301,6 +301,78 @@ query Value($input: JSON!) {
 	compileModulePackages(t, map[string][]byte{"runtime_import_alias_collision": []byte(source)})
 }
 
+func TestGenerateReservesDeclarationsAndAliasesMismatchedPackageImports(t *testing.T) {
+	t.Parallel()
+
+	rootDir := newModuleTempDir(t)
+	mismatchDir := filepath.Join(rootDir, "pkgdir")
+	versionedDir := filepath.Join(rootDir, "modpkg", "v2")
+	require.NoError(t, os.MkdirAll(mismatchDir, 0o755))
+	require.NoError(t, os.MkdirAll(versionedDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(mismatchDir, "value.go"),
+		[]byte("package actualpkg\n\ntype Value string\n"),
+		0o600,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(versionedDir, "value.go"),
+		[]byte("package modpkg\n\ntype Value string\n"),
+		0o600,
+	))
+	mismatchAbs, err := filepath.Abs(mismatchDir)
+	require.NoError(t, err)
+	versionedAbs, err := filepath.Abs(versionedDir)
+	require.NoError(t, err)
+	mismatchPkg, err := packagePathFromModule(mismatchAbs)
+	require.NoError(t, err)
+	versionedPkg, err := packagePathFromModule(versionedAbs)
+	require.NoError(t, err)
+
+	schemaPath := filepath.Join(rootDir, "schema.graphql")
+	operationPath := filepath.Join(rootDir, "operation.graphql")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`
+scalar Mismatched
+scalar Versioned
+scalar StdV2
+type Box {
+  id: ID!
+}
+type Query {
+  box: Box!
+  mismatched: Mismatched!
+  versioned: Versioned!
+  stdV2: StdV2!
+}
+`), 0o600))
+	require.NoError(t, os.WriteFile(operationPath, []byte(`
+query Inspect {
+  box @octoqlgen(typename: "json") {
+    id
+  }
+  mismatched
+  versioned
+  stdV2
+}
+`), 0o600))
+
+	config := &Config{
+		Schema:               schemaPath,
+		Operations:           []string{operationPath},
+		Generated:            filepath.Join(rootDir, "client", "generated.go"),
+		TestHandlerGenerated: filepath.Join(rootDir, "githubapitest", "generated.go"),
+		TestHandlerTypes:     TestHandlerTypesLocal,
+		Package:              "client",
+		Bindings: map[string]string{
+			"Mismatched": mismatchPkg + ".Value",
+			"Versioned":  versionedPkg + ".Value",
+			"StdV2":      "math/rand/v2.PCG",
+		},
+	}
+	outputs, err := Generate(config)
+	require.NoError(t, err)
+	compileGeneratedOutputs(t, rootDir, outputs)
+}
+
 func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 	t.Parallel()
 

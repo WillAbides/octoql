@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -16,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/config"
+	"github.com/willabides/octoql/internal"
 )
 
 const schemaRevision = "45d83f459620340069df7c375a8867be62616d61"
@@ -234,6 +237,56 @@ func TestGitHubAnonymousFetchAndResolveAuth(t *testing.T) {
 		err,
 		"github graphql authentication is required; set GH_TOKEN, GITHUB_TOKEN, or authenticate with gh",
 	)
+}
+
+func TestDirectiveFileReplacesSymlinkAndHardLinkWithoutModifyingSchema(t *testing.T) {
+	t.Parallel()
+
+	const sdl = "type Query {\n  viewer: String\n}\n"
+
+	t.Run("symlink companion", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		schemaPath := filepath.Join(dir, "schema.graphql")
+		directivePath := filepath.Join(dir, internal.DirectiveFilename)
+		require.NoError(t, os.WriteFile(schemaPath, []byte(sdl), 0o600))
+		require.NoError(t, os.Symlink(schemaPath, directivePath))
+
+		got, err := NewMaterializer().Materialize(t.Context(), &Request{
+			Path:   schemaPath,
+			SHA256: checksum([]byte(sdl)),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, sdl, string(got))
+
+		schemaBytes, err := os.ReadFile(schemaPath)
+		require.NoError(t, err)
+		assert.Equal(t, sdl, string(schemaBytes))
+
+		info, err := os.Lstat(directivePath)
+		require.NoError(t, err)
+		assert.True(t, info.Mode().IsRegular())
+		directiveBytes, err := os.ReadFile(directivePath)
+		require.NoError(t, err)
+		assert.Equal(t, internal.DirectiveFileContents, string(directiveBytes))
+	})
+
+	t.Run("hardlink companion", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		schemaPath := filepath.Join(dir, "schema.graphql")
+		directivePath := filepath.Join(dir, internal.DirectiveFilename)
+		require.NoError(t, os.WriteFile(schemaPath, []byte(sdl), 0o600))
+		require.NoError(t, os.Link(schemaPath, directivePath))
+
+		require.NoError(t, WriteDirectiveFile(WriteFile, schemaPath))
+
+		schemaBytes, err := os.ReadFile(schemaPath)
+		require.NoError(t, err)
+		assert.Equal(t, sdl, string(schemaBytes))
+	})
 }
 
 func checksum(data []byte) string {

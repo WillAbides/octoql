@@ -418,8 +418,30 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 	return plan, nil
 }
 
+func reserveClientDeclarations(plan *generationPlan, scope *importScope) {
+	for _, name := range clientRuntimeDeclarations {
+		scope.usedAliases[name] = true
+	}
+	for name, typ := range plan.typeMap {
+		scope.usedAliases[name] = true
+		enumType, ok := typ.(*goEnumType)
+		if !ok {
+			continue
+		}
+		scope.usedAliases["All"+enumType.GoName] = true
+		for _, val := range enumType.Values {
+			scope.usedAliases[val.GoName] = true
+		}
+	}
+	for _, op := range plan.operations {
+		scope.usedAliases[op.Name+"_Operation"] = true
+		scope.usedAliases[op.Name+"PartialDataError"] = true
+	}
+}
+
 func renderClient(plan *generationPlan) ([]byte, error) {
 	r := newRenderer(plan.config.Package, plan.config.pkgPath, "")
+	reserveClientDeclarations(plan, r.imports)
 	err := registerBoundTypeImports(plan.typeMap, r.imports)
 	if err != nil {
 		return nil, err

@@ -102,9 +102,20 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 		}
 	}
 	typeNames := make([]string, 0, len(plan.typeMap))
-	for name := range plan.typeMap {
+	for name, typ := range plan.typeMap {
 		if token.IsExported(name) {
 			typeNames = append(typeNames, name)
+			continue
+		}
+		if localTypes {
+			r.imports.usedAliases[name] = true
+			enumType, ok := typ.(*goEnumType)
+			if ok {
+				r.imports.usedAliases["All"+enumType.GoName] = true
+				for _, enumValue := range enumType.Values {
+					r.imports.usedAliases[enumValue.GoName] = true
+				}
+			}
 		}
 	}
 	sort.Strings(typeNames)
@@ -119,6 +130,9 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 		}
 		enumType, ok := plan.typeMap[name].(*goEnumType)
 		if ok {
+			if localTypes {
+				r.imports.usedAliases["All"+enumType.GoName] = true
+			}
 			handlerType.EnumValues = enumType.Values
 			for _, enumValue := range enumType.Values {
 				err = addIdentifier(enumValue.GoName, "client enum value alias")

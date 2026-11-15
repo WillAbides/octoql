@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"golang.org/x/mod/module"
 )
 
 // makeIdentifier takes a string and returns a valid go identifier like it.
@@ -165,7 +167,12 @@ func (s *importScope) importPackage(pkgPath string) string {
 	if ok {
 		return alias
 	}
-	pkgName := makeIdentifier(pkgPath[strings.LastIndex(pkgPath, "/")+1:])
+	basePath := pkgPath
+	unversioned, _, splitOK := module.SplitPathVersion(pkgPath)
+	if splitOK {
+		basePath = unversioned
+	}
+	pkgName := makeIdentifier(basePath[strings.LastIndex(basePath, "/")+1:])
 	alias = allocateIdentifier(pkgName, s.usedAliases)
 	s.imports[pkgPath] = alias
 	return alias
@@ -204,7 +211,7 @@ func (s *importScope) declaration() string {
 		}
 		for _, pkgPath := range group {
 			alias := s.imports[pkgPath]
-			if pkgPath == alias || strings.HasSuffix(pkgPath, "/"+alias) {
+			if index == 0 && (pkgPath == alias || strings.HasSuffix(pkgPath, "/"+alias)) {
 				builder.WriteString("\t" + strconv.Quote(pkgPath) + "\n")
 				continue
 			}

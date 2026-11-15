@@ -20,8 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/willabides/octoql/internal/integration/server"
-	"github.com/willabides/octoql/internal/testutil"
+	server "github.com/willabides/octoql/internal/integration/server"
+	testutil "github.com/willabides/octoql/internal/testutil"
 )
 
 // _octoqlNoUnmarshalJSON is for generated code only.

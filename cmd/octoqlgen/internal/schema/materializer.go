@@ -138,9 +138,14 @@ func WriteFile(destination string, data []byte) error {
 }
 
 // WriteDirectiveFile writes octoqlgen's companion directive declaration beside
-// schemaPath using write.
+// schemaPath using write, unlinking any existing entry first so symlinks or
+// hard links cannot overwrite linked files.
 func WriteDirectiveFile(write func(string, []byte) error, schemaPath string) error {
 	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
+	removeErr := os.Remove(path)
+	if removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+		return fmt.Errorf("removing directive file %q: %w", path, removeErr)
+	}
 	err := write(path, []byte(internal.DirectiveFileContents))
 	if err != nil {
 		return fmt.Errorf("writing directive file %q: %w", path, err)
@@ -149,18 +154,26 @@ func WriteDirectiveFile(write func(string, []byte) error, schemaPath string) err
 }
 
 func publishDirectiveFile(schemaPath string) error {
-	return WriteDirectiveFile(writeIfChanged, schemaPath)
-}
-
-func writeIfChanged(path string, wanted []byte) error {
-	existing, err := os.ReadFile(path)
-	if err == nil && bytes.Equal(existing, wanted) {
-		return nil
-	}
+	path := filepath.Join(filepath.Dir(schemaPath), internal.DirectiveFilename)
+	wanted := []byte(internal.DirectiveFileContents)
+	info, err := os.Lstat(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("reading existing file %q: %w", path, err)
+		return fmt.Errorf("checking directive file %q: %w", path, err)
 	}
-	return WriteFile(path, wanted)
+	if err == nil && info.Mode().IsRegular() {
+		schemaInfo, statErr := os.Stat(schemaPath)
+		sameAsSchema := statErr == nil && os.SameFile(info, schemaInfo)
+		if !sameAsSchema {
+			existing, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return fmt.Errorf("reading existing file %q: %w", path, readErr)
+			}
+			if bytes.Equal(existing, wanted) {
+				return nil
+			}
+		}
+	}
+	return WriteDirectiveFile(WriteFile, schemaPath)
 }
 
 type dependencies struct {
