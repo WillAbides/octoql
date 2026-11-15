@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -359,6 +357,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -962,97 +974,6 @@ func _octoqlDecodeData(data json.RawMessage, response any) error {
 
 func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
-}
-
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
 }
 
 // ActorDetails includes the GraphQL fields of Actor requested by the fragment ActorDetails.
@@ -2037,12 +1958,6 @@ type GetActorResponse struct {
 	RepositoryOwner GetActorRepositoryOwner `json:"-"`
 }
 
-// GetActor returns GetActorResponse.Actor, and is useful for accessing the field via an interface.
-func (v *GetActorResponse) GetActor() GetActorActor { return v.Actor }
-
-// GetRepositoryOwner returns GetActorResponse.RepositoryOwner, and is useful for accessing the field via an interface.
-func (v *GetActorResponse) GetRepositoryOwner() GetActorRepositoryOwner { return v.RepositoryOwner }
-
 func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2300,9 +2215,6 @@ func (v *GetNodeNodeIssue) GetTypename() string { return v.Typename }
 // GetId returns GetNodeNodeIssue.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeIssue) GetId() testutil.ID { return v.Id }
 
-// GetTitle returns GetNodeNodeIssue.Title, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeIssue) GetTitle() string { return v.Title }
-
 // GetNodeNodeOctoqlOther represents GetNodeNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
 type GetNodeNodeOctoqlOther struct {
 	Typename string      `json:"__typename"`
@@ -2328,9 +2240,6 @@ func (v *GetNodeNodeOrganization) GetTypename() string { return v.Typename }
 // GetId returns GetNodeNodeOrganization.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOrganization) GetId() testutil.ID { return v.Id }
 
-// GetLogin returns GetNodeNodeOrganization.Login, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeOrganization) GetLogin() string { return v.Login }
-
 // GetNodeNodePullRequest includes the requested fields of the GraphQL type PullRequest.
 type GetNodeNodePullRequest struct {
 	Typename string      `json:"__typename"`
@@ -2343,9 +2252,6 @@ func (v *GetNodeNodePullRequest) GetTypename() string { return v.Typename }
 
 // GetId returns GetNodeNodePullRequest.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodePullRequest) GetId() testutil.ID { return v.Id }
-
-// GetTitle returns GetNodeNodePullRequest.Title, and is useful for accessing the field via an interface.
-func (v *GetNodeNodePullRequest) GetTitle() string { return v.Title }
 
 // GetNodeNodeRepository includes the requested fields of the GraphQL type Repository.
 type GetNodeNodeRepository struct {
@@ -2360,9 +2266,6 @@ func (v *GetNodeNodeRepository) GetTypename() string { return v.Typename }
 // GetId returns GetNodeNodeRepository.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeRepository) GetId() testutil.ID { return v.Id }
 
-// GetNameWithOwner returns GetNodeNodeRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeRepository) GetNameWithOwner() string { return v.NameWithOwner }
-
 // GetNodeNodeUser includes the requested fields of the GraphQL type User.
 type GetNodeNodeUser struct {
 	Typename string      `json:"__typename"`
@@ -2376,16 +2279,10 @@ func (v *GetNodeNodeUser) GetTypename() string { return v.Typename }
 // GetId returns GetNodeNodeUser.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeUser) GetId() testutil.ID { return v.Id }
 
-// GetLogin returns GetNodeNodeUser.Login, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeUser) GetLogin() string { return v.Login }
-
 // GetNodeResponse is returned by GetNode on success.
 type GetNodeResponse struct {
 	Node GetNodeNode `json:"-"`
 }
-
-// GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
-func (v *GetNodeResponse) GetNode() GetNodeNode { return v.Node }
 
 func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 
@@ -2526,11 +2423,6 @@ type NestedNodeShapesResponse struct {
 	NestedNodes [][][]NestedNodeShapesNestedNodesNode `json:"-"`
 }
 
-// GetNestedNodes returns NestedNodeShapesResponse.NestedNodes, and is useful for accessing the field via an interface.
-func (v *NestedNodeShapesResponse) GetNestedNodes() [][][]NestedNodeShapesNestedNodesNode {
-	return v.NestedNodes
-}
-
 func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2661,19 +2553,9 @@ type RecursiveRepositoryRecurRecursive struct {
 	Next *RecursiveRepositoryRecurRecursiveNextRecursive `json:"next"`
 }
 
-// GetNext returns RecursiveRepositoryRecurRecursive.Next, and is useful for accessing the field via an interface.
-func (v *RecursiveRepositoryRecurRecursive) GetNext() *RecursiveRepositoryRecurRecursiveNextRecursive {
-	return v.Next
-}
-
 // RecursiveRepositoryRecurRecursiveNextRecursive includes the requested fields of the GraphQL type Recursive.
 type RecursiveRepositoryRecurRecursiveNextRecursive struct {
 	Next *RecursiveRepositoryRecurRecursiveNextRecursiveNextRecursive `json:"next"`
-}
-
-// GetNext returns RecursiveRepositoryRecurRecursiveNextRecursive.Next, and is useful for accessing the field via an interface.
-func (v *RecursiveRepositoryRecurRecursiveNextRecursive) GetNext() *RecursiveRepositoryRecurRecursiveNextRecursiveNextRecursive {
-	return v.Next
 }
 
 // RecursiveRepositoryRecurRecursiveNextRecursiveNextRecursive includes the requested fields of the GraphQL type Recursive.
@@ -2681,18 +2563,10 @@ type RecursiveRepositoryRecurRecursiveNextRecursiveNextRecursive struct {
 	Id testutil.ID `json:"id"`
 }
 
-// GetId returns RecursiveRepositoryRecurRecursiveNextRecursiveNextRecursive.Id, and is useful for accessing the field via an interface.
-func (v *RecursiveRepositoryRecurRecursiveNextRecursiveNextRecursive) GetId() testutil.ID {
-	return v.Id
-}
-
 // RecursiveRepositoryResponse is returned by RecursiveRepository on success.
 type RecursiveRepositoryResponse struct {
 	Recur *RecursiveRepositoryRecurRecursive `json:"recur"`
 }
-
-// GetRecur returns RecursiveRepositoryResponse.Recur, and is useful for accessing the field via an interface.
-func (v *RecursiveRepositoryResponse) GetRecur() *RecursiveRepositoryRecurRecursive { return v.Recur }
 
 // RecursiveRepositoryVariables contains the variables accepted by RecursiveRepository.
 type RecursiveRepositoryVariables struct {
@@ -2719,16 +2593,6 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetSubject() Repository
 // GetRelatedSubjects returns RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects, and is useful for accessing the field via an interface.
 func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetRelatedSubjects() []RepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode {
 	return v.RelatedSubjects
-}
-
-// GetRepositorySubject returns RepositoryEventCovarianceLatestRepositoryEvent.RepositorySubject, and is useful for accessing the field via an interface.
-func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetRepositorySubject() RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository {
-	return v.RepositorySubject
-}
-
-// GetRelatedRepositories returns RepositoryEventCovarianceLatestRepositoryEvent.RelatedRepositories, and is useful for accessing the field via an interface.
-func (v *RepositoryEventCovarianceLatestRepositoryEvent) GetRelatedRepositories() []RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository {
-	return v.RelatedRepositories
 }
 
 func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte) error {
@@ -2861,19 +2725,9 @@ type RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository
 	NameWithOwner string `json:"nameWithOwner"`
 }
 
-// GetNameWithOwner returns RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *RepositoryEventCovarianceLatestRepositoryEventRelatedRepositoriesRepository) GetNameWithOwner() string {
-	return v.NameWithOwner
-}
-
 // RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository includes the requested fields of the GraphQL type Repository.
 type RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository struct {
 	NameWithOwner string `json:"nameWithOwner"`
-}
-
-// GetNameWithOwner returns RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *RepositoryEventCovarianceLatestRepositoryEventRepositorySubjectRepository) GetNameWithOwner() string {
-	return v.NameWithOwner
 }
 
 // RepositoryEventCovarianceLatestRepositoryEventTimelineItem includes the requested fields of the GraphQL interface TimelineItem.
@@ -3247,11 +3101,6 @@ type RepositoryEventCovarianceResponse struct {
 	LatestRepositoryEvent RepositoryEventCovarianceLatestRepositoryEventTimelineItem `json:"-"`
 }
 
-// GetLatestRepositoryEvent returns RepositoryEventCovarianceResponse.LatestRepositoryEvent, and is useful for accessing the field via an interface.
-func (v *RepositoryEventCovarianceResponse) GetLatestRepositoryEvent() RepositoryEventCovarianceLatestRepositoryEventTimelineItem {
-	return v.LatestRepositoryEvent
-}
-
 func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -3393,19 +3242,9 @@ type RepositoryOwnerDetailsRepositoriesRepositoryConnection struct {
 	Nodes []RepositoryOwnerDetailsRepositoriesRepositoryConnectionNodesRepository `json:"nodes"`
 }
 
-// GetNodes returns RepositoryOwnerDetailsRepositoriesRepositoryConnection.Nodes, and is useful for accessing the field via an interface.
-func (v *RepositoryOwnerDetailsRepositoriesRepositoryConnection) GetNodes() []RepositoryOwnerDetailsRepositoriesRepositoryConnectionNodesRepository {
-	return v.Nodes
-}
-
 // RepositoryOwnerDetailsRepositoriesRepositoryConnectionNodesRepository includes the requested fields of the GraphQL type Repository.
 type RepositoryOwnerDetailsRepositoriesRepositoryConnectionNodesRepository struct {
 	NameWithOwner string `json:"nameWithOwner"`
-}
-
-// GetNameWithOwner returns RepositoryOwnerDetailsRepositoriesRepositoryConnectionNodesRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *RepositoryOwnerDetailsRepositoriesRepositoryConnectionNodesRepository) GetNameWithOwner() string {
-	return v.NameWithOwner
 }
 
 // SearchRepositoriesLatestRelease includes the requested fields of the GraphQL type Release.
@@ -3413,12 +3252,6 @@ type SearchRepositoriesLatestRelease struct {
 	Name        string         `json:"name"`
 	PublishedAt *testutil.Date `json:"publishedAt"`
 }
-
-// GetName returns SearchRepositoriesLatestRelease.Name, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesLatestRelease) GetName() string { return v.Name }
-
-// GetPublishedAt returns SearchRepositoriesLatestRelease.PublishedAt, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesLatestRelease) GetPublishedAt() *testutil.Date { return v.PublishedAt }
 
 // SearchRepositoriesResponse is returned by SearchRepositories on success.
 type SearchRepositoriesResponse struct {
@@ -3428,38 +3261,10 @@ type SearchRepositoriesResponse struct {
 	GetComplexJSON *[]map[string]*[]*map[string]interface{}       `json:"getComplexJSON"`
 }
 
-// GetSearch returns SearchRepositoriesResponse.Search, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesResponse) GetSearch() SearchRepositoriesSearchSearchResultConnection {
-	return v.Search
-}
-
-// GetLatestRelease returns SearchRepositoriesResponse.LatestRelease, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesResponse) GetLatestRelease() *SearchRepositoriesLatestRelease {
-	return v.LatestRelease
-}
-
-// GetGetJSON returns SearchRepositoriesResponse.GetJSON, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesResponse) GetGetJSON() *interface{} { return v.GetJSON }
-
-// GetGetComplexJSON returns SearchRepositoriesResponse.GetComplexJSON, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesResponse) GetGetComplexJSON() *[]map[string]*[]*map[string]interface{} {
-	return v.GetComplexJSON
-}
-
 // SearchRepositoriesSearchSearchResultConnection includes the requested fields of the GraphQL type SearchResultConnection.
 type SearchRepositoriesSearchSearchResultConnection struct {
 	Nodes    []SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem `json:"-"`
 	PageInfo SearchRepositoriesSearchSearchResultConnectionPageInfo                `json:"pageInfo"`
-}
-
-// GetNodes returns SearchRepositoriesSearchSearchResultConnection.Nodes, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnection) GetNodes() []SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem {
-	return v.Nodes
-}
-
-// GetPageInfo returns SearchRepositoriesSearchSearchResultConnection.PageInfo, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnection) GetPageInfo() SearchRepositoriesSearchSearchResultConnectionPageInfo {
-	return v.PageInfo
 }
 
 func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte) error {
@@ -3566,24 +3371,9 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesIssue) GetTypename()
 	return v.Typename
 }
 
-// GetIssueTitle returns SearchRepositoriesSearchSearchResultConnectionNodesIssue.IssueTitle, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesIssue) GetIssueTitle() string {
-	return v.IssueTitle
-}
-
-// GetRepository returns SearchRepositoriesSearchSearchResultConnectionNodesIssue.Repository, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesIssue) GetRepository() SearchRepositoriesSearchSearchResultConnectionNodesIssueRepository {
-	return v.Repository
-}
-
 // SearchRepositoriesSearchSearchResultConnectionNodesIssueRepository includes the requested fields of the GraphQL type Repository.
 type SearchRepositoriesSearchSearchResultConnectionNodesIssueRepository struct {
 	NameWithOwner string `json:"nameWithOwner"`
-}
-
-// GetNameWithOwner returns SearchRepositoriesSearchSearchResultConnectionNodesIssueRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesIssueRepository) GetNameWithOwner() string {
-	return v.NameWithOwner
 }
 
 // SearchRepositoriesSearchSearchResultConnectionNodesPullRequest includes the requested fields of the GraphQL type PullRequest.
@@ -3598,40 +3388,15 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesPullRequest) GetType
 	return v.Typename
 }
 
-// GetPullRequestTitle returns SearchRepositoriesSearchSearchResultConnectionNodesPullRequest.PullRequestTitle, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesPullRequest) GetPullRequestTitle() string {
-	return v.PullRequestTitle
-}
-
-// GetMergeCommit returns SearchRepositoriesSearchSearchResultConnectionNodesPullRequest.MergeCommit, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesPullRequest) GetMergeCommit() *SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommit {
-	return v.MergeCommit
-}
-
 // SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommit includes the requested fields of the GraphQL type Commit.
 type SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommit struct {
 	Oid     string                                                                                   `json:"oid"`
 	Parents []SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommitParentsCommit `json:"parents"`
 }
 
-// GetOid returns SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommit.Oid, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommit) GetOid() string {
-	return v.Oid
-}
-
-// GetParents returns SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommit.Parents, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommit) GetParents() []SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommitParentsCommit {
-	return v.Parents
-}
-
 // SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommitParentsCommit includes the requested fields of the GraphQL type Commit.
 type SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommitParentsCommit struct {
 	Oid string `json:"oid"`
-}
-
-// GetOid returns SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommitParentsCommit.Oid, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesPullRequestMergeCommitParentsCommit) GetOid() string {
-	return v.Oid
 }
 
 // SearchRepositoriesSearchSearchResultConnectionNodesRepository includes the requested fields of the GraphQL type Repository.
@@ -3645,21 +3410,6 @@ type SearchRepositoriesSearchSearchResultConnectionNodesRepository struct {
 // GetTypename returns SearchRepositoriesSearchSearchResultConnectionNodesRepository.Typename, and is useful for accessing the field via an interface.
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) GetTypename() string {
 	return v.Typename
-}
-
-// GetRepoName returns SearchRepositoriesSearchSearchResultConnectionNodesRepository.RepoName, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) GetRepoName() string {
-	return v.RepoName
-}
-
-// GetOwner returns SearchRepositoriesSearchSearchResultConnectionNodesRepository.Owner, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) GetOwner() SearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner {
-	return v.Owner
-}
-
-// GetParent returns SearchRepositoriesSearchSearchResultConnectionNodesRepository.Parent, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) GetParent() *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryParentRepository {
-	return v.Parent
 }
 
 func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) UnmarshalJSON(b []byte) error {
@@ -3809,11 +3559,6 @@ type SearchRepositoriesSearchSearchResultConnectionNodesRepositoryParentReposito
 	NameWithOwner string `json:"nameWithOwner"`
 }
 
-// GetNameWithOwner returns SearchRepositoriesSearchSearchResultConnectionNodesRepositoryParentRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepositoryParentRepository) GetNameWithOwner() string {
-	return v.NameWithOwner
-}
-
 // SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem includes the requested fields of the GraphQL interface SearchResultItem.
 //
 // SearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem is implemented by the following types:
@@ -3947,16 +3692,6 @@ type SearchRepositoriesSearchSearchResultConnectionPageInfo struct {
 	EndCursor   *string `json:"endCursor"`
 }
 
-// GetHasNextPage returns SearchRepositoriesSearchSearchResultConnectionPageInfo.HasNextPage, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionPageInfo) GetHasNextPage() bool {
-	return v.HasNextPage
-}
-
-// GetEndCursor returns SearchRepositoriesSearchSearchResultConnectionPageInfo.EndCursor, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesSearchSearchResultConnectionPageInfo) GetEndCursor() *string {
-	return v.EndCursor
-}
-
 // SearchRepositoriesVariables contains the variables accepted by SearchRepositories.
 type SearchRepositoriesVariables struct {
 	Query          string         `json:"query"`
@@ -3964,9 +3699,6 @@ type SearchRepositoriesVariables struct {
 	After          *string        `json:"after"`
 	PublishedAfter *testutil.Date `json:"publishedAfter"`
 }
-
-// The query executed by GetActor.
-const GetActor_Operation = "\nquery GetActor ($login: String!) {\n\tactor(login: $login) {\n\t\t__typename\n\t\t... ActorDetails\n\t}\n\trepositoryOwner(login: $login) {\n\t\t__typename\n\t\t... RepositoryOwnerDetails\n\t}\n}\nfragment ActorDetails on Actor {\n\tid\n\tlogin\n}\nfragment RepositoryOwnerDetails on RepositoryOwner {\n\tid\n\tlogin\n\trepositories(first: 5) {\n\t\tnodes {\n\t\t\tnameWithOwner\n\t\t}\n\t}\n}\n"
 
 // GetActorPartialDataError contains partial data returned by GetActor.
 type GetActorPartialDataError struct {
@@ -3995,11 +3727,6 @@ func (e *GetActorPartialDataError) PartialData() *GetActorResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *GetActorPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) GetActor(
 	ctx context.Context,
 	vars GetActorVariables,
@@ -4009,7 +3736,7 @@ func (c *Client) GetActor(
 		ctx,
 		_octoqlPayload{
 			OperationName: "GetActor",
-			Query:         GetActor_Operation,
+			Query:         "\nquery GetActor ($login: String!) {\n\tactor(login: $login) {\n\t\t__typename\n\t\t... ActorDetails\n\t}\n\trepositoryOwner(login: $login) {\n\t\t__typename\n\t\t... RepositoryOwnerDetails\n\t}\n}\nfragment ActorDetails on Actor {\n\tid\n\tlogin\n}\nfragment RepositoryOwnerDetails on RepositoryOwner {\n\tid\n\tlogin\n\trepositories(first: 5) {\n\t\tnodes {\n\t\t\tnameWithOwner\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -4025,9 +3752,6 @@ func (c *Client) GetActor(
 	}
 	return &response, nil
 }
-
-// The query executed by GetNode.
-const GetNode_Operation = "\nquery GetNode ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t\t... on Organization {\n\t\t\tlogin\n\t\t}\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t}\n\t\t... on PullRequest {\n\t\t\ttitle\n\t\t}\n\t}\n}\n"
 
 // GetNodePartialDataError contains partial data returned by GetNode.
 type GetNodePartialDataError struct {
@@ -4056,11 +3780,6 @@ func (e *GetNodePartialDataError) PartialData() *GetNodeResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *GetNodePartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) GetNode(
 	ctx context.Context,
 	vars GetNodeVariables,
@@ -4070,7 +3789,7 @@ func (c *Client) GetNode(
 		ctx,
 		_octoqlPayload{
 			OperationName: "GetNode",
-			Query:         GetNode_Operation,
+			Query:         "\nquery GetNode ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\t... on User {\n\t\t\tlogin\n\t\t}\n\t\t... on Organization {\n\t\t\tlogin\n\t\t}\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t}\n\t\t... on PullRequest {\n\t\t\ttitle\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -4086,9 +3805,6 @@ func (c *Client) GetNode(
 	}
 	return &response, nil
 }
-
-// The query executed by NestedNodeShapes.
-const NestedNodeShapes_Operation = "\nquery NestedNodeShapes {\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t}\n}\n"
 
 // NestedNodeShapesPartialDataError contains partial data returned by NestedNodeShapes.
 type NestedNodeShapesPartialDataError struct {
@@ -4117,11 +3833,6 @@ func (e *NestedNodeShapesPartialDataError) PartialData() *NestedNodeShapesRespon
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *NestedNodeShapesPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) NestedNodeShapes(
 	ctx context.Context,
 ) (*NestedNodeShapesResponse, error) {
@@ -4130,7 +3841,7 @@ func (c *Client) NestedNodeShapes(
 		ctx,
 		_octoqlPayload{
 			OperationName: "NestedNodeShapes",
-			Query:         NestedNodeShapes_Operation,
+			Query:         "\nquery NestedNodeShapes {\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,
@@ -4146,9 +3857,6 @@ func (c *Client) NestedNodeShapes(
 	}
 	return &response, nil
 }
-
-// The query executed by RecursiveRepository.
-const RecursiveRepository_Operation = "\nquery RecursiveRepository ($input: RecursiveInput!) {\n\trecur(input: $input) {\n\t\tnext {\n\t\t\tnext {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // RecursiveRepositoryPartialDataError contains partial data returned by RecursiveRepository.
 type RecursiveRepositoryPartialDataError struct {
@@ -4177,11 +3885,6 @@ func (e *RecursiveRepositoryPartialDataError) PartialData() *RecursiveRepository
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *RecursiveRepositoryPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) RecursiveRepository(
 	ctx context.Context,
 	vars RecursiveRepositoryVariables,
@@ -4191,7 +3894,7 @@ func (c *Client) RecursiveRepository(
 		ctx,
 		_octoqlPayload{
 			OperationName: "RecursiveRepository",
-			Query:         RecursiveRepository_Operation,
+			Query:         "\nquery RecursiveRepository ($input: RecursiveInput!) {\n\trecur(input: $input) {\n\t\tnext {\n\t\t\tnext {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -4207,9 +3910,6 @@ func (c *Client) RecursiveRepository(
 	}
 	return &response, nil
 }
-
-// The query executed by RepositoryEventCovariance.
-const RepositoryEventCovariance_Operation = "\nquery RepositoryEventCovariance {\n\tlatestRepositoryEvent {\n\t\t__typename\n\t\tsubject {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\trelatedSubjects {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\t... on RepositoryEvent {\n\t\t\trepositorySubject: subject {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t\trelatedRepositories: relatedSubjects {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // RepositoryEventCovariancePartialDataError contains partial data returned by RepositoryEventCovariance.
 type RepositoryEventCovariancePartialDataError struct {
@@ -4238,11 +3938,6 @@ func (e *RepositoryEventCovariancePartialDataError) PartialData() *RepositoryEve
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *RepositoryEventCovariancePartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) RepositoryEventCovariance(
 	ctx context.Context,
 ) (*RepositoryEventCovarianceResponse, error) {
@@ -4251,7 +3946,7 @@ func (c *Client) RepositoryEventCovariance(
 		ctx,
 		_octoqlPayload{
 			OperationName: "RepositoryEventCovariance",
-			Query:         RepositoryEventCovariance_Operation,
+			Query:         "\nquery RepositoryEventCovariance {\n\tlatestRepositoryEvent {\n\t\t__typename\n\t\tsubject {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\trelatedSubjects {\n\t\t\t__typename\n\t\t\tid\n\t\t}\n\t\t... on RepositoryEvent {\n\t\t\trepositorySubject: subject {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t\trelatedRepositories: relatedSubjects {\n\t\t\t\tnameWithOwner\n\t\t\t}\n\t\t}\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,
@@ -4267,9 +3962,6 @@ func (c *Client) RepositoryEventCovariance(
 	}
 	return &response, nil
 }
-
-// The query executed by SearchRepositories.
-const SearchRepositories_Operation = "\nquery SearchRepositories ($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {\n\tsearch(query: $query, type: REPOSITORY, first: $first, after: $after) {\n\t\tnodes {\n\t\t\t__typename\n\t\t\t... on Repository {\n\t\t\t\trepoName: nameWithOwner\n\t\t\t\towner {\n\t\t\t\t\t__typename\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\tparent {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on Issue {\n\t\t\t\tissueTitle: title\n\t\t\t\trepository {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on PullRequest {\n\t\t\t\tpullRequestTitle: title\n\t\t\t\tmergeCommit {\n\t\t\t\t\toid\n\t\t\t\t\tparents {\n\t\t\t\t\t\toid\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tpageInfo {\n\t\t\thasNextPage\n\t\t\tendCursor\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $publishedAfter) {\n\t\tname\n\t\tpublishedAt\n\t}\n\tgetJSON\n\tgetComplexJSON\n}\n"
 
 // SearchRepositoriesPartialDataError contains partial data returned by SearchRepositories.
 type SearchRepositoriesPartialDataError struct {
@@ -4298,11 +3990,6 @@ func (e *SearchRepositoriesPartialDataError) PartialData() *SearchRepositoriesRe
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *SearchRepositoriesPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) SearchRepositories(
 	ctx context.Context,
 	vars SearchRepositoriesVariables,
@@ -4312,7 +3999,7 @@ func (c *Client) SearchRepositories(
 		ctx,
 		_octoqlPayload{
 			OperationName: "SearchRepositories",
-			Query:         SearchRepositories_Operation,
+			Query:         "\nquery SearchRepositories ($query: String!, $first: Int = 10, $after: String, $publishedAfter: Date) {\n\tsearch(query: $query, type: REPOSITORY, first: $first, after: $after) {\n\t\tnodes {\n\t\t\t__typename\n\t\t\t... on Repository {\n\t\t\t\trepoName: nameWithOwner\n\t\t\t\towner {\n\t\t\t\t\t__typename\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\tparent {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on Issue {\n\t\t\t\tissueTitle: title\n\t\t\t\trepository {\n\t\t\t\t\tnameWithOwner\n\t\t\t\t}\n\t\t\t}\n\t\t\t... on PullRequest {\n\t\t\t\tpullRequestTitle: title\n\t\t\t\tmergeCommit {\n\t\t\t\t\toid\n\t\t\t\t\tparents {\n\t\t\t\t\t\toid\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tpageInfo {\n\t\t\thasNextPage\n\t\t\tendCursor\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $publishedAfter) {\n\t\tname\n\t\tpublishedAt\n\t}\n\tgetJSON\n\tgetComplexJSON\n}\n",
 			Variables:     &vars,
 		},
 		&response,

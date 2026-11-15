@@ -17,7 +17,6 @@ import (
 
 type rateLimitFacet interface {
 	error
-	RateLimitKind() string
 	RetryAt() time.Time
 }
 
@@ -258,7 +257,6 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 				assert.Equal(t, test.wantReset, rateLimitError.RetryAt())
 				var facet rateLimitFacet
 				require.ErrorAs(t, err, &facet)
-				assert.Equal(t, string(wantKind), facet.RateLimitKind())
 				assert.Equal(t, test.wantReset, facet.RetryAt())
 			}
 

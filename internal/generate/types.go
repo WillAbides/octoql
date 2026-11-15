@@ -134,12 +134,6 @@ func (t *goEnumType) WriteDefinition(w io.Writer, _ *renderer) error {
 		fmt.Fprintf(w, "%s %s = %q\n", val.GoName, t.GoName, val.GraphQLName)
 	}
 	fmt.Fprintf(w, ")\n")
-
-	fmt.Fprintf(w, "var All%s = []%s{\n", t.GoName, t.GoName)
-	for _, val := range t.Values {
-		fmt.Fprintf(w, "%s,\n", val.GoName)
-	}
-	fmt.Fprintf(w, "}\n")
 	return nil
 }
 
@@ -149,10 +143,23 @@ func (t *goEnumType) GraphQLTypeName() string                { return t.GraphQLN
 
 // goStructType represents a Go struct type for a GraphQL object or input-object.
 type goStructType struct {
-	GoName  string
-	Fields  []*goStructField
-	IsInput bool
+	GoName           string
+	Fields           []*goStructField
+	InterfaceGetters map[string]bool
+	IsInput          bool
 	descriptionInfo
+}
+
+func (t *goStructType) addInterfaceGetters(fieldNames []string) {
+	if len(fieldNames) == 0 {
+		return
+	}
+	if t.InterfaceGetters == nil {
+		t.InterfaceGetters = make(map[string]bool, len(fieldNames))
+	}
+	for _, name := range fieldNames {
+		t.InterfaceGetters[name] = true
+	}
 }
 
 type goStructField struct {
@@ -267,12 +274,15 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 	}
 	fmt.Fprintf(w, "}\n")
 
-	if !t.IsInput {
+	if !t.IsInput && len(t.InterfaceGetters) > 0 {
 		flattened, err := t.FlattenedFields()
 		if err != nil {
 			return err
 		}
 		for _, field := range flattened {
+			if !t.InterfaceGetters[field.GoName] {
+				continue
+			}
 			typeRef, refErr := r.typeRef(field.GoType)
 			if refErr != nil {
 				return refErr

@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -357,6 +355,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -962,97 +974,6 @@ func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
-}
-
 // LatestCommitRepository includes the requested fields of the GraphQL type Repository.
 // The GraphQL type's documentation follows.
 //
@@ -1062,11 +983,6 @@ type LatestCommitRepository struct {
 	DefaultBranchRef *LatestCommitRepositoryDefaultBranchRef `json:"defaultBranchRef"`
 }
 
-// GetDefaultBranchRef returns LatestCommitRepository.DefaultBranchRef, and is useful for accessing the field via an interface.
-func (v *LatestCommitRepository) GetDefaultBranchRef() *LatestCommitRepositoryDefaultBranchRef {
-	return v.DefaultBranchRef
-}
-
 // LatestCommitRepositoryDefaultBranchRef includes the requested fields of the GraphQL type Ref.
 // The GraphQL type's documentation follows.
 //
@@ -1074,11 +990,6 @@ func (v *LatestCommitRepository) GetDefaultBranchRef() *LatestCommitRepositoryDe
 type LatestCommitRepositoryDefaultBranchRef struct {
 	// The object the ref points to. Returns null when object does not exist.
 	Target LatestCommitRepositoryDefaultBranchRefTargetGitObject `json:"-"`
-}
-
-// GetTarget returns LatestCommitRepositoryDefaultBranchRef.Target, and is useful for accessing the field via an interface.
-func (v *LatestCommitRepositoryDefaultBranchRef) GetTarget() LatestCommitRepositoryDefaultBranchRefTargetGitObject {
-	return v.Target
 }
 
 func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSON(b []byte) error {
@@ -1157,11 +1068,6 @@ type LatestCommitRepositoryDefaultBranchRefTargetCommit struct {
 // GetTypename returns LatestCommitRepositoryDefaultBranchRefTargetCommit.Typename, and is useful for accessing the field via an interface.
 func (v *LatestCommitRepositoryDefaultBranchRefTargetCommit) GetTypename() string { return v.Typename }
 
-// GetHistory returns LatestCommitRepositoryDefaultBranchRefTargetCommit.History, and is useful for accessing the field via an interface.
-func (v *LatestCommitRepositoryDefaultBranchRefTargetCommit) GetHistory() LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection {
-	return v.History
-}
-
 // LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection includes the requested fields of the GraphQL type CommitHistoryConnection.
 // The GraphQL type's documentation follows.
 //
@@ -1171,11 +1077,6 @@ type LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConne
 	Nodes []*LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit `json:"nodes"`
 }
 
-// GetNodes returns LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection.Nodes, and is useful for accessing the field via an interface.
-func (v *LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection) GetNodes() []*LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit {
-	return v.Nodes
-}
-
 // LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit includes the requested fields of the GraphQL type Commit.
 // The GraphQL type's documentation follows.
 //
@@ -1183,11 +1084,6 @@ func (v *LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryC
 type LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit struct {
 	// The Git object ID
 	Oid string `json:"oid"`
-}
-
-// GetOid returns LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit.Oid, and is useful for accessing the field via an interface.
-func (v *LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit) GetOid() string {
-	return v.Oid
 }
 
 // LatestCommitRepositoryDefaultBranchRefTargetGitObject includes the requested fields of the GraphQL interface GitObject.
@@ -1282,18 +1178,12 @@ type LatestCommitResponse struct {
 	Repository *LatestCommitRepository `json:"repository"`
 }
 
-// GetRepository returns LatestCommitResponse.Repository, and is useful for accessing the field via an interface.
-func (v *LatestCommitResponse) GetRepository() *LatestCommitRepository { return v.Repository }
-
 // LatestCommitVariables contains the variables accepted by LatestCommit.
 type LatestCommitVariables struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
 	Path  string `json:"path"`
 }
-
-// The query executed by LatestCommit.
-const LatestCommit_Operation = "\nquery LatestCommit ($owner: String!, $name: String!, $path: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tdefaultBranchRef {\n\t\t\ttarget {\n\t\t\t\t__typename\n\t\t\t\t... on Commit {\n\t\t\t\t\thistory(first: 1, path: $path) {\n\t\t\t\t\t\tnodes {\n\t\t\t\t\t\t\toid\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // LatestCommitPartialDataError contains partial data returned by LatestCommit.
 type LatestCommitPartialDataError struct {
@@ -1322,11 +1212,6 @@ func (e *LatestCommitPartialDataError) PartialData() *LatestCommitResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *LatestCommitPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) LatestCommit(
 	ctx context.Context,
 	vars LatestCommitVariables,
@@ -1336,7 +1221,7 @@ func (c *Client) LatestCommit(
 		ctx,
 		_octoqlPayload{
 			OperationName: "LatestCommit",
-			Query:         LatestCommit_Operation,
+			Query:         "\nquery LatestCommit ($owner: String!, $name: String!, $path: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tdefaultBranchRef {\n\t\t\ttarget {\n\t\t\t\t__typename\n\t\t\t\t... on Commit {\n\t\t\t\t\thistory(first: 1, path: $path) {\n\t\t\t\t\t\tnodes {\n\t\t\t\t\t\t\toid\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,

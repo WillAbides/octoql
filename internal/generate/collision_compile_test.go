@@ -90,9 +90,7 @@ fragment A on Query {
 			wantGenerationErr: "Go identifier A for both field A (GraphQL a) and embedded fragment A",
 		},
 		{
-			// Field getFoo collides with the GetFoo getter octoqlgen generates
-			// for field foo.
-			name: "field and generated getter",
+			name: "object field getFoo without interface",
 			schema: `
 type Query {
   foo: String!
@@ -103,6 +101,34 @@ type Query {
 query Fields {
   foo
   getFoo
+}
+`,
+		},
+		{
+			// Field getFoo on an interface implementation collides with the
+			// GetFoo getter octoqlgen generates for the shared interface field
+			// foo.
+			name: "field and generated getter",
+			schema: `
+interface Node {
+  foo: String!
+}
+type Item implements Node {
+  foo: String!
+  getFoo: String!
+}
+type Query {
+  node: Node!
+}
+`,
+			operations: `
+query Fields {
+  node {
+    foo
+    ... on Item {
+      getFoo
+    }
+  }
 }
 `,
 			wantGenerationErr: "Go identifier GetFoo for both field GetFoo (GraphQL getFoo) and getter GetFoo (for field Foo)",

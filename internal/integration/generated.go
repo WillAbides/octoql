@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -360,6 +358,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -965,115 +977,14 @@ func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
-}
-
 // addCommentAddCommentAddCommentPayload includes the requested fields of the GraphQL type AddCommentPayload.
 type addCommentAddCommentAddCommentPayload struct {
 	CommentEdge *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge `json:"commentEdge"`
 }
 
-// GetCommentEdge returns addCommentAddCommentAddCommentPayload.CommentEdge, and is useful for accessing the field via an interface.
-func (v *addCommentAddCommentAddCommentPayload) GetCommentEdge() *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge {
-	return v.CommentEdge
-}
-
 // addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge includes the requested fields of the GraphQL type IssueCommentEdge.
 type addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge struct {
 	Node *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment `json:"node"`
-}
-
-// GetNode returns addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge.Node, and is useful for accessing the field via an interface.
-func (v *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdge) GetNode() *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment {
-	return v.Node
 }
 
 // addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment includes the requested fields of the GraphQL type IssueComment.
@@ -1082,24 +993,9 @@ type addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueCo
 	Body string `json:"body"`
 }
 
-// GetId returns addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment.Id, and is useful for accessing the field via an interface.
-func (v *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment) GetId() string {
-	return v.Id
-}
-
-// GetBody returns addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment.Body, and is useful for accessing the field via an interface.
-func (v *addCommentAddCommentAddCommentPayloadCommentEdgeIssueCommentEdgeNodeIssueComment) GetBody() string {
-	return v.Body
-}
-
 // addCommentResponse is returned by addComment on success.
 type addCommentResponse struct {
 	AddComment addCommentAddCommentAddCommentPayload `json:"addComment"`
-}
-
-// GetAddComment returns addCommentResponse.AddComment, and is useful for accessing the field via an interface.
-func (v *addCommentResponse) GetAddComment() addCommentAddCommentAddCommentPayload {
-	return v.AddComment
 }
 
 // addCommentVariables contains the variables accepted by addComment.
@@ -1110,11 +1006,6 @@ type addCommentVariables struct {
 // addStarAddStarAddStarPayload includes the requested fields of the GraphQL type AddStarPayload.
 type addStarAddStarAddStarPayload struct {
 	Starrable addStarAddStarAddStarPayloadStarrable `json:"-"`
-}
-
-// GetStarrable returns addStarAddStarAddStarPayload.Starrable, and is useful for accessing the field via an interface.
-func (v *addStarAddStarAddStarPayload) GetStarrable() addStarAddStarAddStarPayloadStarrable {
-	return v.Starrable
 }
 
 func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
@@ -1267,9 +1158,6 @@ type addStarResponse struct {
 	AddStar addStarAddStarAddStarPayload `json:"addStar"`
 }
 
-// GetAddStar returns addStarResponse.AddStar, and is useful for accessing the field via an interface.
-func (v *addStarResponse) GetAddStar() addStarAddStarAddStarPayload { return v.AddStar }
-
 // addStarVariables contains the variables accepted by addStar.
 type addStarVariables struct {
 	Input server.AddStarInput `json:"input"`
@@ -1282,25 +1170,6 @@ type directivesResponse struct {
 	Actors                 []directivesResponseActorsActor             `json:"-"`
 	UsersCreatedOnDates    []directivesResponseUsersCreatedOnDatesUser `json:"usersCreatedOnDates"`
 	structDefaultsFragment `json:"-"`
-}
-
-// GetUser returns directivesResponse.User, and is useful for accessing the field via an interface.
-func (v *directivesResponse) GetUser() *directivesUser { return v.User }
-
-// GetActor returns directivesResponse.Actor, and is useful for accessing the field via an interface.
-func (v *directivesResponse) GetActor() directivesResponseActor { return v.Actor }
-
-// GetActors returns directivesResponse.Actors, and is useful for accessing the field via an interface.
-func (v *directivesResponse) GetActors() []directivesResponseActorsActor { return v.Actors }
-
-// GetUsersCreatedOnDates returns directivesResponse.UsersCreatedOnDates, and is useful for accessing the field via an interface.
-func (v *directivesResponse) GetUsersCreatedOnDates() []directivesResponseUsersCreatedOnDatesUser {
-	return v.UsersCreatedOnDates
-}
-
-// GetStructActor returns directivesResponse.StructActor, and is useful for accessing the field via an interface.
-func (v *directivesResponse) GetStructActor() *structDefaultsFragmentStructActor {
-	return v.structDefaultsFragment.StructActor
 }
 
 func (v *directivesResponse) UnmarshalJSON(b []byte) error {
@@ -1531,9 +1400,6 @@ func (v *directivesResponseActorOrganization) GetTypename() string { return v.Ty
 // GetId returns directivesResponseActorOrganization.Id, and is useful for accessing the field via an interface.
 func (v *directivesResponseActorOrganization) GetId() string { return v.Id }
 
-// GetName returns directivesResponseActorOrganization.Name, and is useful for accessing the field via an interface.
-func (v *directivesResponseActorOrganization) GetName() string { return v.Name }
-
 // directivesResponseActorsActor includes the requested fields of the GraphQL interface Actor.
 //
 // directivesResponseActorsActor is implemented by the following types:
@@ -1605,9 +1471,6 @@ type directivesResponseUsersCreatedOnDatesUser struct {
 	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
-// GetCreatedAt returns directivesResponseUsersCreatedOnDatesUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *directivesResponseUsersCreatedOnDatesUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
-
 // directivesUser includes the requested fields of the GraphQL type User.
 type directivesUser struct {
 	Typename       *string                                `json:"__typename"`
@@ -1623,56 +1486,15 @@ type directivesUser struct {
 	BoundAny       interface{}                            `json:"boundAny"`
 }
 
-// GetTypename returns directivesUser.Typename, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetTypename() *string { return v.Typename }
-
-// GetLogin returns directivesUser.Login, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetLogin() string { return v.Login }
-
-// GetSkippedLogin returns directivesUser.SkippedLogin, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetSkippedLogin() *string { return v.SkippedLogin }
-
-// GetIncludedLogin returns directivesUser.IncludedLogin, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetIncludedLogin() *string { return v.IncludedLogin }
-
-// GetForcedPtrLogin returns directivesUser.ForcedPtrLogin, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetForcedPtrLogin() *string { return v.ForcedPtrLogin }
-
-// GetPlainName returns directivesUser.PlainName, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetPlainName() string { return v.PlainName }
-
-// GetCreatedAt returns directivesUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
-
-// GetStatus returns directivesUser.Status, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetStatus() *directivesUserStatus { return v.Status }
-
-// GetRepositories returns directivesUser.Repositories, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetRepositories() []directivesUserRepositoriesRepository {
-	return v.Repositories
-}
-
-// GetBoundPtr returns directivesUser.BoundPtr, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetBoundPtr() *string { return v.BoundPtr }
-
-// GetBoundAny returns directivesUser.BoundAny, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetBoundAny() interface{} { return v.BoundAny }
-
 // directivesUserRepositoriesRepository includes the requested fields of the GraphQL type Repository.
 type directivesUserRepositoriesRepository struct {
 	Name string `json:"name"`
 }
 
-// GetName returns directivesUserRepositoriesRepository.Name, and is useful for accessing the field via an interface.
-func (v *directivesUserRepositoriesRepository) GetName() string { return v.Name }
-
 // directivesUserStatus includes the requested fields of the GraphQL type UserStatus.
 type directivesUserStatus struct {
 	Emoji *string `json:"emoji"`
 }
-
-// GetEmoji returns directivesUserStatus.Emoji, and is useful for accessing the field via an interface.
-func (v *directivesUserStatus) GetEmoji() *string { return v.Emoji }
 
 // failingQueryResponse is returned by failingQuery on success.
 type failingQueryResponse struct {
@@ -1680,19 +1502,10 @@ type failingQueryResponse struct {
 	Viewer failingQueryViewerUser `json:"viewer"`
 }
 
-// GetFail returns failingQueryResponse.Fail, and is useful for accessing the field via an interface.
-func (v *failingQueryResponse) GetFail() *bool { return v.Fail }
-
-// GetViewer returns failingQueryResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *failingQueryResponse) GetViewer() failingQueryViewerUser { return v.Viewer }
-
 // failingQueryViewerUser includes the requested fields of the GraphQL type User.
 type failingQueryViewerUser struct {
 	Id string `json:"id"`
 }
-
-// GetId returns failingQueryViewerUser.Id, and is useful for accessing the field via an interface.
-func (v *failingQueryViewerUser) GetId() string { return v.Id }
 
 // getRepositoryRepository includes the requested fields of the GraphQL type Repository.
 type getRepositoryRepository struct {
@@ -1701,18 +1514,6 @@ type getRepositoryRepository struct {
 	NameWithOwner string                       `json:"nameWithOwner"`
 	Owner         getRepositoryRepositoryOwner `json:"-"`
 }
-
-// GetId returns getRepositoryRepository.Id, and is useful for accessing the field via an interface.
-func (v *getRepositoryRepository) GetId() string { return v.Id }
-
-// GetName returns getRepositoryRepository.Name, and is useful for accessing the field via an interface.
-func (v *getRepositoryRepository) GetName() string { return v.Name }
-
-// GetNameWithOwner returns getRepositoryRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *getRepositoryRepository) GetNameWithOwner() string { return v.NameWithOwner }
-
-// GetOwner returns getRepositoryRepository.Owner, and is useful for accessing the field via an interface.
-func (v *getRepositoryRepository) GetOwner() getRepositoryRepositoryOwner { return v.Owner }
 
 func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 
@@ -1857,9 +1658,6 @@ type getRepositoryResponse struct {
 	Repository *getRepositoryRepository `json:"repository"`
 }
 
-// GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *getRepositoryResponse) GetRepository() *getRepositoryRepository { return v.Repository }
-
 // getRepositoryVariables contains the variables accepted by getRepository.
 type getRepositoryVariables struct {
 	Owner string `json:"owner"`
@@ -1964,9 +1762,6 @@ func (v *innerActorFieldsUser) GetId() string { return v.Id }
 // GetLogin returns innerActorFieldsUser.Login, and is useful for accessing the field via an interface.
 func (v *innerActorFieldsUser) GetLogin() string { return v.Login }
 
-// GetRepositories returns innerActorFieldsUser.Repositories, and is useful for accessing the field via an interface.
-func (v *innerActorFieldsUser) GetRepositories() []repositoriesFields { return v.Repositories }
-
 // innerRepositoryOwnerFields includes the GraphQL fields of RepositoryOwner requested by the fragment innerRepositoryOwnerFields.
 //
 // innerRepositoryOwnerFields is implemented by the following types:
@@ -2035,36 +1830,16 @@ type moreUserFields struct {
 	Status *moreUserFieldsStatusUserStatus `json:"status"`
 }
 
-// GetId returns moreUserFields.Id, and is useful for accessing the field via an interface.
-func (v *moreUserFields) GetId() string { return v.Id }
-
-// GetStatus returns moreUserFields.Status, and is useful for accessing the field via an interface.
-func (v *moreUserFields) GetStatus() *moreUserFieldsStatusUserStatus { return v.Status }
-
 // moreUserFieldsStatusUserStatus includes the requested fields of the GraphQL type UserStatus.
 type moreUserFieldsStatusUserStatus struct {
 	Emoji *string `json:"emoji"`
 }
-
-// GetEmoji returns moreUserFieldsStatusUserStatus.Emoji, and is useful for accessing the field via an interface.
-func (v *moreUserFieldsStatusUserStatus) GetEmoji() *string { return v.Emoji }
 
 // organizationFields includes the GraphQL fields of Organization requested by the fragment organizationFields.
 type organizationFields struct {
 	Id             string                                `json:"id"`
 	Plan           *organizationFieldsPlan               `json:"plan"`
 	TopContributor organizationFieldsTopContributorActor `json:"-"`
-}
-
-// GetId returns organizationFields.Id, and is useful for accessing the field via an interface.
-func (v *organizationFields) GetId() string { return v.Id }
-
-// GetPlan returns organizationFields.Plan, and is useful for accessing the field via an interface.
-func (v *organizationFields) GetPlan() *organizationFieldsPlan { return v.Plan }
-
-// GetTopContributor returns organizationFields.TopContributor, and is useful for accessing the field via an interface.
-func (v *organizationFields) GetTopContributor() organizationFieldsTopContributorActor {
-	return v.TopContributor
 }
 
 func (v *organizationFields) UnmarshalJSON(b []byte) error {
@@ -2140,9 +1915,6 @@ func (v *organizationFields) _octoqlPremarshalJSON() (*_octoqlPremarshalorganiza
 type organizationFieldsPlan struct {
 	Name server.PlanName `json:"name"`
 }
-
-// GetName returns organizationFieldsPlan.Name, and is useful for accessing the field via an interface.
-func (v *organizationFieldsPlan) GetName() server.PlanName { return v.Name }
 
 // organizationFieldsTopContributorActor includes the requested fields of the GraphQL interface Actor.
 //
@@ -2272,11 +2044,6 @@ func (v *organizationFieldsTopContributorOrganization) GetTypename() string { re
 // GetId returns organizationFieldsTopContributorOrganization.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorOrganization) GetId() string { return v.Id }
 
-// GetContributionCount returns organizationFieldsTopContributorOrganization.ContributionCount, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorOrganization) GetContributionCount() *int {
-	return v.repositoryOwnerFieldsOctoqlOther.ContributionCount
-}
-
 func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2341,16 +2108,6 @@ func (v *organizationFieldsTopContributorUser) GetTypename() string { return v.T
 // GetId returns organizationFieldsTopContributorUser.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorUser) GetId() string { return v.Id }
 
-// GetContributionCount returns organizationFieldsTopContributorUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorUser) GetContributionCount() *int {
-	return v.repositoryOwnerFieldsUser.ContributionCount
-}
-
-// GetStatus returns organizationFieldsTopContributorUser.Status, and is useful for accessing the field via an interface.
-func (v *organizationFieldsTopContributorUser) GetStatus() *moreUserFieldsStatusUserStatus {
-	return v.userFields.moreUserFields.Status
-}
-
 func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2413,9 +2170,6 @@ func (v *organizationFieldsTopContributorUser) _octoqlPremarshalJSON() (*_octoql
 type queryFragment struct {
 	Actors []queryFragmentActorsActor `json:"-"`
 }
-
-// GetActors returns queryFragment.Actors, and is useful for accessing the field via an interface.
-func (v *queryFragment) GetActors() []queryFragmentActorsActor { return v.Actors }
 
 func (v *queryFragment) UnmarshalJSON(b []byte) error {
 
@@ -2631,11 +2385,6 @@ func (v *queryFragmentActorsOrganization) GetTypename() string { return v.Typena
 // GetId returns queryFragmentActorsOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsOrganization) GetId() string { return v.Id }
 
-// GetTopContributor returns queryFragmentActorsOrganization.TopContributor, and is useful for accessing the field via an interface.
-func (v *queryFragmentActorsOrganization) GetTopContributor() innerActorFields {
-	return v.TopContributor
-}
-
 func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2718,11 +2467,6 @@ func (v *queryFragmentActorsUser) GetTypename() string { return v.Typename }
 // GetId returns queryFragmentActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsUser) GetId() string { return v.Id }
 
-// GetContributionCount returns queryFragmentActorsUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryFragmentActorsUser) GetContributionCount() *int {
-	return v.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount
-}
-
 func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2780,30 +2524,12 @@ type queryWithBoundScalarByDateUser struct {
 	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
-// GetId returns queryWithBoundScalarByDateUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarByDateUser) GetId() string { return v.Id }
-
-// GetLogin returns queryWithBoundScalarByDateUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarByDateUser) GetLogin() string { return v.Login }
-
-// GetCreatedAt returns queryWithBoundScalarByDateUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarByDateUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
-
 // queryWithBoundScalarByDatesUser includes the requested fields of the GraphQL type User.
 type queryWithBoundScalarByDatesUser struct {
 	Id        string         `json:"id"`
 	Login     string         `json:"login"`
 	CreatedAt *testutil.Date `json:"createdAt"`
 }
-
-// GetId returns queryWithBoundScalarByDatesUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarByDatesUser) GetId() string { return v.Id }
-
-// GetLogin returns queryWithBoundScalarByDatesUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarByDatesUser) GetLogin() string { return v.Login }
-
-// GetCreatedAt returns queryWithBoundScalarByDatesUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarByDatesUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
 
 // queryWithBoundScalarBySearchUser includes the requested fields of the GraphQL type User.
 type queryWithBoundScalarBySearchUser struct {
@@ -2812,33 +2538,11 @@ type queryWithBoundScalarBySearchUser struct {
 	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
-// GetId returns queryWithBoundScalarBySearchUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarBySearchUser) GetId() string { return v.Id }
-
-// GetLogin returns queryWithBoundScalarBySearchUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarBySearchUser) GetLogin() string { return v.Login }
-
-// GetCreatedAt returns queryWithBoundScalarBySearchUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarBySearchUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
-
 // queryWithBoundScalarResponse is returned by queryWithBoundScalar on success.
 type queryWithBoundScalarResponse struct {
 	ByDate   []queryWithBoundScalarByDateUser    `json:"byDate"`
 	ByDates  []queryWithBoundScalarByDatesUser   `json:"byDates"`
 	BySearch []*queryWithBoundScalarBySearchUser `json:"bySearch"`
-}
-
-// GetByDate returns queryWithBoundScalarResponse.ByDate, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarResponse) GetByDate() []queryWithBoundScalarByDateUser { return v.ByDate }
-
-// GetByDates returns queryWithBoundScalarResponse.ByDates, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarResponse) GetByDates() []queryWithBoundScalarByDatesUser {
-	return v.ByDates
-}
-
-// GetBySearch returns queryWithBoundScalarResponse.BySearch, and is useful for accessing the field via an interface.
-func (v *queryWithBoundScalarResponse) GetBySearch() []*queryWithBoundScalarBySearchUser {
-	return v.BySearch
 }
 
 // queryWithBoundScalarVariables contains the variables accepted by queryWithBoundScalar.
@@ -3033,21 +2737,6 @@ func (v *queryWithFragmentsActorsOrganization) GetId() string { return v.Id }
 // GetLogin returns queryWithFragmentsActorsOrganization.Login, and is useful for accessing the field via an interface.
 func (v *queryWithFragmentsActorsOrganization) GetLogin() string { return v.Login }
 
-// GetPlan returns queryWithFragmentsActorsOrganization.Plan, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganization) GetPlan() *queryWithFragmentsActorsOrganizationPlan {
-	return v.Plan
-}
-
-// GetTopContributor returns queryWithFragmentsActorsOrganization.TopContributor, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganization) GetTopContributor() queryWithFragmentsActorsOrganizationTopContributorActor {
-	return v.TopContributor
-}
-
-// GetContributionCount returns queryWithFragmentsActorsOrganization.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganization) GetContributionCount() *int {
-	return v.ContributionCount
-}
-
 func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -3130,9 +2819,6 @@ func (v *queryWithFragmentsActorsOrganization) _octoqlPremarshalJSON() (*_octoql
 type queryWithFragmentsActorsOrganizationPlan struct {
 	Name server.PlanName `json:"name"`
 }
-
-// GetName returns queryWithFragmentsActorsOrganizationPlan.Name, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganizationPlan) GetName() server.PlanName { return v.Name }
 
 // queryWithFragmentsActorsOrganizationTopContributorActor includes the requested fields of the GraphQL interface Actor.
 //
@@ -3330,11 +3016,6 @@ func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetId() string 
 // GetLogin returns queryWithFragmentsActorsOrganizationTopContributorUser.Login, and is useful for accessing the field via an interface.
 func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetLogin() string { return v.Login }
 
-// GetContributionCount returns queryWithFragmentsActorsOrganizationTopContributorUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsOrganizationTopContributorUser) GetContributionCount() *int {
-	return v.ContributionCount
-}
-
 // queryWithFragmentsActorsUser includes the requested fields of the GraphQL type User.
 type queryWithFragmentsActorsUser struct {
 	Typename          string                              `json:"__typename"`
@@ -3353,29 +3034,15 @@ func (v *queryWithFragmentsActorsUser) GetId() string { return v.Id }
 // GetLogin returns queryWithFragmentsActorsUser.Login, and is useful for accessing the field via an interface.
 func (v *queryWithFragmentsActorsUser) GetLogin() string { return v.Login }
 
-// GetContributionCount returns queryWithFragmentsActorsUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsUser) GetContributionCount() *int { return v.ContributionCount }
-
-// GetStatus returns queryWithFragmentsActorsUser.Status, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsUser) GetStatus() *queryWithFragmentsActorsUserStatus {
-	return v.Status
-}
-
 // queryWithFragmentsActorsUserStatus includes the requested fields of the GraphQL type UserStatus.
 type queryWithFragmentsActorsUserStatus struct {
 	Emoji *string `json:"emoji"`
 }
 
-// GetEmoji returns queryWithFragmentsActorsUserStatus.Emoji, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsActorsUserStatus) GetEmoji() *string { return v.Emoji }
-
 // queryWithFragmentsResponse is returned by queryWithFragments on success.
 type queryWithFragmentsResponse struct {
 	Actors []queryWithFragmentsActorsActor `json:"-"`
 }
-
-// GetActors returns queryWithFragmentsResponse.Actors, and is useful for accessing the field via an interface.
-func (v *queryWithFragmentsResponse) GetActors() []queryWithFragmentsActorsActor { return v.Actors }
 
 func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 
@@ -3546,11 +3213,6 @@ func (v *queryWithInterfaceListFieldActorsActorOctoqlOther) GetLogin() string { 
 // queryWithInterfaceListFieldResponse is returned by queryWithInterfaceListField on success.
 type queryWithInterfaceListFieldResponse struct {
 	Actors []queryWithInterfaceListFieldActorsActor `json:"-"`
-}
-
-// GetActors returns queryWithInterfaceListFieldResponse.Actors, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceListFieldResponse) GetActors() []queryWithInterfaceListFieldActorsActor {
-	return v.Actors
 }
 
 func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
@@ -3725,16 +3387,6 @@ type queryWithInterfaceNoFragmentsResponse struct {
 	Viewer queryWithInterfaceNoFragmentsViewerUser `json:"viewer"`
 }
 
-// GetActor returns queryWithInterfaceNoFragmentsResponse.Actor, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceNoFragmentsResponse) GetActor() queryWithInterfaceNoFragmentsActor {
-	return v.Actor
-}
-
-// GetViewer returns queryWithInterfaceNoFragmentsResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceNoFragmentsResponse) GetViewer() queryWithInterfaceNoFragmentsViewerUser {
-	return v.Viewer
-}
-
 func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -3811,12 +3463,6 @@ type queryWithInterfaceNoFragmentsViewerUser struct {
 	Id    string `json:"id"`
 	Login string `json:"login"`
 }
-
-// GetId returns queryWithInterfaceNoFragmentsViewerUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceNoFragmentsViewerUser) GetId() string { return v.Id }
-
-// GetLogin returns queryWithInterfaceNoFragmentsViewerUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithInterfaceNoFragmentsViewerUser) GetLogin() string { return v.Login }
 
 // queryWithNamedFragmentsActorsActor includes the requested fields of the GraphQL interface Actor.
 //
@@ -3946,16 +3592,6 @@ func (v *queryWithNamedFragmentsActorsOrganization) GetTypename() string { retur
 // GetId returns queryWithNamedFragmentsActorsOrganization.Id, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsOrganization) GetId() string { return v.Id }
 
-// GetPlan returns queryWithNamedFragmentsActorsOrganization.Plan, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsOrganization) GetPlan() *organizationFieldsPlan {
-	return v.organizationFields.Plan
-}
-
-// GetTopContributor returns queryWithNamedFragmentsActorsOrganization.TopContributor, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsOrganization) GetTopContributor() organizationFieldsTopContributorActor {
-	return v.organizationFields.TopContributor
-}
-
 func (v *queryWithNamedFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4031,16 +3667,6 @@ func (v *queryWithNamedFragmentsActorsUser) GetTypename() string { return v.Type
 // GetId returns queryWithNamedFragmentsActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsUser) GetId() string { return v.Id }
 
-// GetContributionCount returns queryWithNamedFragmentsActorsUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsUser) GetContributionCount() *int {
-	return v.userFields.repositoryOwnerFieldsUser.ContributionCount
-}
-
-// GetStatus returns queryWithNamedFragmentsActorsUser.Status, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsActorsUser) GetStatus() *moreUserFieldsStatusUserStatus {
-	return v.userFields.moreUserFields.Status
-}
-
 func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4097,11 +3723,6 @@ func (v *queryWithNamedFragmentsActorsUser) _octoqlPremarshalJSON() (*_octoqlPre
 // queryWithNamedFragmentsResponse is returned by queryWithNamedFragments on success.
 type queryWithNamedFragmentsResponse struct {
 	Actors []queryWithNamedFragmentsActorsActor `json:"-"`
-}
-
-// GetActors returns queryWithNamedFragmentsResponse.Actors, and is useful for accessing the field via an interface.
-func (v *queryWithNamedFragmentsResponse) GetActors() []queryWithNamedFragmentsActorsActor {
-	return v.Actors
 }
 
 func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
@@ -4203,24 +3824,12 @@ type queryWithOmitemptyResponse struct {
 	User *queryWithOmitemptyUser `json:"user"`
 }
 
-// GetUser returns queryWithOmitemptyResponse.User, and is useful for accessing the field via an interface.
-func (v *queryWithOmitemptyResponse) GetUser() *queryWithOmitemptyUser { return v.User }
-
 // queryWithOmitemptyUser includes the requested fields of the GraphQL type User.
 type queryWithOmitemptyUser struct {
 	Id                string `json:"id"`
 	Login             string `json:"login"`
 	ContributionCount *int   `json:"contributionCount"`
 }
-
-// GetId returns queryWithOmitemptyUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithOmitemptyUser) GetId() string { return v.Id }
-
-// GetLogin returns queryWithOmitemptyUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithOmitemptyUser) GetLogin() string { return v.Login }
-
-// GetContributionCount returns queryWithOmitemptyUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithOmitemptyUser) GetContributionCount() *int { return v.ContributionCount }
 
 // queryWithOmitemptyVariables contains the variables accepted by queryWithOmitempty.
 type queryWithOmitemptyVariables struct {
@@ -4230,11 +3839,6 @@ type queryWithOmitemptyVariables struct {
 // queryWithSearchResponse is returned by queryWithSearch on success.
 type queryWithSearchResponse struct {
 	Search []queryWithSearchSearchSearchResultItem `json:"-"`
-}
-
-// GetSearch returns queryWithSearchResponse.Search, and is useful for accessing the field via an interface.
-func (v *queryWithSearchResponse) GetSearch() []queryWithSearchSearchSearchResultItem {
-	return v.Search
 }
 
 func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
@@ -4336,12 +3940,6 @@ type queryWithSearchSearchBot struct {
 // GetTypename returns queryWithSearchSearchBot.Typename, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchBot) GetTypename() string { return v.Typename }
 
-// GetId returns queryWithSearchSearchBot.Id, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchBot) GetId() string { return v.Id }
-
-// GetLogin returns queryWithSearchSearchBot.Login, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchBot) GetLogin() string { return v.Login }
-
 // queryWithSearchSearchIssue includes the requested fields of the GraphQL type Issue.
 type queryWithSearchSearchIssue struct {
 	Typename   string            `json:"__typename"`
@@ -4353,15 +3951,6 @@ type queryWithSearchSearchIssue struct {
 // GetTypename returns queryWithSearchSearchIssue.Typename, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchIssue) GetTypename() string { return v.Typename }
 
-// GetId returns queryWithSearchSearchIssue.Id, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchIssue) GetId() string { return v.Id }
-
-// GetTitle returns queryWithSearchSearchIssue.Title, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchIssue) GetTitle() string { return v.Title }
-
-// GetIssueState returns queryWithSearchSearchIssue.IssueState, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchIssue) GetIssueState() server.IssueState { return v.IssueState }
-
 // queryWithSearchSearchOrganization includes the requested fields of the GraphQL type Organization.
 type queryWithSearchSearchOrganization struct {
 	Typename string `json:"__typename"`
@@ -4371,12 +3960,6 @@ type queryWithSearchSearchOrganization struct {
 
 // GetTypename returns queryWithSearchSearchOrganization.Typename, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchOrganization) GetTypename() string { return v.Typename }
-
-// GetId returns queryWithSearchSearchOrganization.Id, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchOrganization) GetId() string { return v.Id }
-
-// GetLogin returns queryWithSearchSearchOrganization.Login, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchOrganization) GetLogin() string { return v.Login }
 
 // queryWithSearchSearchPullRequest includes the requested fields of the GraphQL type PullRequest.
 type queryWithSearchSearchPullRequest struct {
@@ -4389,17 +3972,6 @@ type queryWithSearchSearchPullRequest struct {
 // GetTypename returns queryWithSearchSearchPullRequest.Typename, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchPullRequest) GetTypename() string { return v.Typename }
 
-// GetId returns queryWithSearchSearchPullRequest.Id, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchPullRequest) GetId() string { return v.Id }
-
-// GetTitle returns queryWithSearchSearchPullRequest.Title, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchPullRequest) GetTitle() string { return v.Title }
-
-// GetPullRequestState returns queryWithSearchSearchPullRequest.PullRequestState, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchPullRequest) GetPullRequestState() server.PullRequestState {
-	return v.PullRequestState
-}
-
 // queryWithSearchSearchRepository includes the requested fields of the GraphQL type Repository.
 type queryWithSearchSearchRepository struct {
 	Typename       string `json:"__typename"`
@@ -4410,15 +3982,6 @@ type queryWithSearchSearchRepository struct {
 
 // GetTypename returns queryWithSearchSearchRepository.Typename, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchRepository) GetTypename() string { return v.Typename }
-
-// GetId returns queryWithSearchSearchRepository.Id, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchRepository) GetId() string { return v.Id }
-
-// GetName returns queryWithSearchSearchRepository.Name, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchRepository) GetName() string { return v.Name }
-
-// GetStargazerCount returns queryWithSearchSearchRepository.StargazerCount, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchRepository) GetStargazerCount() int { return v.StargazerCount }
 
 // queryWithSearchSearchSearchResultItem includes the requested fields of the GraphQL interface SearchResultItem.
 //
@@ -4611,12 +4174,6 @@ type queryWithSearchSearchUser struct {
 // GetTypename returns queryWithSearchSearchUser.Typename, and is useful for accessing the field via an interface.
 func (v *queryWithSearchSearchUser) GetTypename() string { return v.Typename }
 
-// GetId returns queryWithSearchSearchUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchUser) GetId() string { return v.Id }
-
-// GetLogin returns queryWithSearchSearchUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithSearchSearchUser) GetLogin() string { return v.Login }
-
 // queryWithSearchVariables contains the variables accepted by queryWithSearch.
 type queryWithSearchVariables struct {
 	Query      string            `json:"query"`
@@ -4628,24 +4185,12 @@ type queryWithVariablesResponse struct {
 	User *queryWithVariablesUser `json:"user"`
 }
 
-// GetUser returns queryWithVariablesResponse.User, and is useful for accessing the field via an interface.
-func (v *queryWithVariablesResponse) GetUser() *queryWithVariablesUser { return v.User }
-
 // queryWithVariablesUser includes the requested fields of the GraphQL type User.
 type queryWithVariablesUser struct {
 	Id                string `json:"id"`
 	Login             string `json:"login"`
 	ContributionCount *int   `json:"contributionCount"`
 }
-
-// GetId returns queryWithVariablesUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithVariablesUser) GetId() string { return v.Id }
-
-// GetLogin returns queryWithVariablesUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithVariablesUser) GetLogin() string { return v.Login }
-
-// GetContributionCount returns queryWithVariablesUser.ContributionCount, and is useful for accessing the field via an interface.
-func (v *queryWithVariablesUser) GetContributionCount() *int { return v.ContributionCount }
 
 // queryWithVariablesVariables contains the variables accepted by queryWithVariables.
 type queryWithVariablesVariables struct {
@@ -4655,11 +4200,6 @@ type queryWithVariablesVariables struct {
 // removeStarRemoveStarRemoveStarPayload includes the requested fields of the GraphQL type RemoveStarPayload.
 type removeStarRemoveStarRemoveStarPayload struct {
 	Starrable removeStarRemoveStarRemoveStarPayloadStarrable `json:"-"`
-}
-
-// GetStarrable returns removeStarRemoveStarRemoveStarPayload.Starrable, and is useful for accessing the field via an interface.
-func (v *removeStarRemoveStarRemoveStarPayload) GetStarrable() removeStarRemoveStarRemoveStarPayloadStarrable {
-	return v.Starrable
 }
 
 func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
@@ -4814,11 +4354,6 @@ type removeStarResponse struct {
 	RemoveStar removeStarRemoveStarRemoveStarPayload `json:"removeStar"`
 }
 
-// GetRemoveStar returns removeStarResponse.RemoveStar, and is useful for accessing the field via an interface.
-func (v *removeStarResponse) GetRemoveStar() removeStarRemoveStarRemoveStarPayload {
-	return v.RemoveStar
-}
-
 // removeStarVariables contains the variables accepted by removeStar.
 type removeStarVariables struct {
 	Input server.RemoveStarInput `json:"input"`
@@ -4829,12 +4364,6 @@ type repositoriesFields struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
 }
-
-// GetId returns repositoriesFields.Id, and is useful for accessing the field via an interface.
-func (v *repositoriesFields) GetId() string { return v.Id }
-
-// GetName returns repositoriesFields.Name, and is useful for accessing the field via an interface.
-func (v *repositoriesFields) GetName() string { return v.Name }
 
 // repositoryOwnerFields includes the GraphQL fields of RepositoryOwner requested by the fragment repositoryOwnerFields.
 //
@@ -4928,14 +4457,6 @@ type repositoryOwnerFieldsUser struct {
 // GetContributionCount returns repositoryOwnerFieldsUser.ContributionCount, and is useful for accessing the field via an interface.
 func (v *repositoryOwnerFieldsUser) GetContributionCount() *int { return v.ContributionCount }
 
-// GetId returns repositoryOwnerFieldsUser.Id, and is useful for accessing the field via an interface.
-func (v *repositoryOwnerFieldsUser) GetId() string { return v.moreUserFields.Id }
-
-// GetStatus returns repositoryOwnerFieldsUser.Status, and is useful for accessing the field via an interface.
-func (v *repositoryOwnerFieldsUser) GetStatus() *moreUserFieldsStatusUserStatus {
-	return v.moreUserFields.Status
-}
-
 func (v *repositoryOwnerFieldsUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4991,22 +4512,11 @@ type structDefaultsFragment struct {
 	StructActor *structDefaultsFragmentStructActor `json:"structActor"`
 }
 
-// GetStructActor returns structDefaultsFragment.StructActor, and is useful for accessing the field via an interface.
-func (v *structDefaultsFragment) GetStructActor() *structDefaultsFragmentStructActor {
-	return v.StructActor
-}
-
 // structDefaultsFragmentStructActor includes the requested fields of the GraphQL type Actor.
 type structDefaultsFragmentStructActor struct {
 	Typename string `json:"__typename"`
 	Login    string `json:"login"`
 }
-
-// GetTypename returns structDefaultsFragmentStructActor.Typename, and is useful for accessing the field via an interface.
-func (v *structDefaultsFragmentStructActor) GetTypename() string { return v.Typename }
-
-// GetLogin returns structDefaultsFragmentStructActor.Login, and is useful for accessing the field via an interface.
-func (v *structDefaultsFragmentStructActor) GetLogin() string { return v.Login }
 
 // userFields includes the GraphQL fields of User requested by the fragment userFields.
 type userFields struct {
@@ -5014,17 +4524,6 @@ type userFields struct {
 	repositoryOwnerFieldsUser `json:"-"`
 	moreUserFields            `json:"-"`
 }
-
-// GetId returns userFields.Id, and is useful for accessing the field via an interface.
-func (v *userFields) GetId() string { return v.Id }
-
-// GetContributionCount returns userFields.ContributionCount, and is useful for accessing the field via an interface.
-func (v *userFields) GetContributionCount() *int {
-	return v.repositoryOwnerFieldsUser.ContributionCount
-}
-
-// GetStatus returns userFields.Status, and is useful for accessing the field via an interface.
-func (v *userFields) GetStatus() *moreUserFieldsStatusUserStatus { return v.moreUserFields.Status }
 
 func (v *userFields) UnmarshalJSON(b []byte) error {
 
@@ -5081,9 +4580,6 @@ func (v *userFields) _octoqlPremarshalJSON() (*_octoqlPremarshaluserFields, erro
 	return &retval, nil
 }
 
-// The mutation executed by addComment.
-const addComment_Operation = "\nmutation addComment ($input: AddCommentInput!) {\n\taddComment(input: $input) {\n\t\tcommentEdge {\n\t\t\tnode {\n\t\t\t\tid\n\t\t\t\tbody\n\t\t\t}\n\t\t}\n\t}\n}\n"
-
 // addCommentPartialDataError contains partial data returned by addComment.
 type addCommentPartialDataError struct {
 	data *addCommentResponse
@@ -5111,11 +4607,6 @@ func (e *addCommentPartialDataError) PartialData() *addCommentResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *addCommentPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) addComment(
 	ctx context.Context,
 	vars addCommentVariables,
@@ -5125,7 +4616,7 @@ func (c *Client) addComment(
 		ctx,
 		_octoqlPayload{
 			OperationName: "addComment",
-			Query:         addComment_Operation,
+			Query:         "\nmutation addComment ($input: AddCommentInput!) {\n\taddComment(input: $input) {\n\t\tcommentEdge {\n\t\t\tnode {\n\t\t\t\tid\n\t\t\t\tbody\n\t\t\t}\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5141,9 +4632,6 @@ func (c *Client) addComment(
 	}
 	return &response, nil
 }
-
-// The mutation executed by addStar.
-const addStar_Operation = "\nmutation addStar ($input: AddStarInput!) {\n\taddStar(input: $input) {\n\t\tstarrable {\n\t\t\t__typename\n\t\t\tid\n\t\t\tstargazerCount\n\t\t\tviewerHasStarred\n\t\t}\n\t}\n}\n"
 
 // addStarPartialDataError contains partial data returned by addStar.
 type addStarPartialDataError struct {
@@ -5172,11 +4660,6 @@ func (e *addStarPartialDataError) PartialData() *addStarResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *addStarPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) addStar(
 	ctx context.Context,
 	vars addStarVariables,
@@ -5186,7 +4669,7 @@ func (c *Client) addStar(
 		ctx,
 		_octoqlPayload{
 			OperationName: "addStar",
-			Query:         addStar_Operation,
+			Query:         "\nmutation addStar ($input: AddStarInput!) {\n\taddStar(input: $input) {\n\t\tstarrable {\n\t\t\t__typename\n\t\t\tid\n\t\t\tstargazerCount\n\t\t\tviewerHasStarred\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5202,9 +4685,6 @@ func (c *Client) addStar(
 	}
 	return &response, nil
 }
-
-// The query executed by failingQuery.
-const failingQuery_Operation = "\nquery failingQuery {\n\tfail\n\tviewer {\n\t\tid\n\t}\n}\n"
 
 // failingQueryPartialDataError contains partial data returned by failingQuery.
 type failingQueryPartialDataError struct {
@@ -5233,11 +4713,6 @@ func (e *failingQueryPartialDataError) PartialData() *failingQueryResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *failingQueryPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) failingQuery(
 	ctx context.Context,
 ) (*failingQueryResponse, error) {
@@ -5246,7 +4721,7 @@ func (c *Client) failingQuery(
 		ctx,
 		_octoqlPayload{
 			OperationName: "failingQuery",
-			Query:         failingQuery_Operation,
+			Query:         "\nquery failingQuery {\n\tfail\n\tviewer {\n\t\tid\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,
@@ -5262,9 +4737,6 @@ func (c *Client) failingQuery(
 	}
 	return &response, nil
 }
-
-// The query executed by getRepository.
-const getRepository_Operation = "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tid\n\t\tname\n\t\tnameWithOwner\n\t\towner {\n\t\t\t__typename\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
 
 // getRepositoryPartialDataError contains partial data returned by getRepository.
 type getRepositoryPartialDataError struct {
@@ -5293,11 +4765,6 @@ func (e *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *getRepositoryPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) getRepository(
 	ctx context.Context,
 	vars getRepositoryVariables,
@@ -5307,7 +4774,7 @@ func (c *Client) getRepository(
 		ctx,
 		_octoqlPayload{
 			OperationName: "getRepository",
-			Query:         getRepository_Operation,
+			Query:         "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tid\n\t\tname\n\t\tnameWithOwner\n\t\towner {\n\t\t\t__typename\n\t\t\tlogin\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5323,9 +4790,6 @@ func (c *Client) getRepository(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithBoundScalar.
-const queryWithBoundScalar_Operation = "\nquery queryWithBoundScalar ($date: Date!, $dates: [Date!]!, $optionalDate: Date, $login: String) {\n\tbyDate: usersCreatedOn(date: $date) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n\tbyDates: usersCreatedOnDates(dates: $dates) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n\tbySearch: userSearch(createdOn: $optionalDate, login: $login) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n"
 
 // queryWithBoundScalarPartialDataError contains partial data returned by queryWithBoundScalar.
 type queryWithBoundScalarPartialDataError struct {
@@ -5354,11 +4818,6 @@ func (e *queryWithBoundScalarPartialDataError) PartialData() *queryWithBoundScal
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithBoundScalarPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithBoundScalar(
 	ctx context.Context,
 	vars queryWithBoundScalarVariables,
@@ -5368,7 +4827,7 @@ func (c *Client) queryWithBoundScalar(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithBoundScalar",
-			Query:         queryWithBoundScalar_Operation,
+			Query:         "\nquery queryWithBoundScalar ($date: Date!, $dates: [Date!]!, $optionalDate: Date, $login: String) {\n\tbyDate: usersCreatedOn(date: $date) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n\tbyDates: usersCreatedOnDates(dates: $dates) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n\tbySearch: userSearch(createdOn: $optionalDate, login: $login) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5384,9 +4843,6 @@ func (c *Client) queryWithBoundScalar(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithDirectivesAndSkipInclude.
-const queryWithDirectivesAndSkipInclude_Operation = "\nquery queryWithDirectivesAndSkipInclude ($hide: Boolean!, $show: Boolean!, $defaultedId: ID! = \"1\", $optionalLogin: String, $dates: [Date!]!) {\n\tuser(login: $optionalLogin) {\n\t\t__typename @skip(if: $hide)\n\t\tlogin\n\t\tskippedLogin: login @skip(if: $hide)\n\t\tincludedLogin: login @include(if: $show)\n\t\tforcedPtrLogin: login\n\t\tplainName: name\n\t\tcreatedAt @skip(if: $hide)\n\t\tstatus @skip(if: $hide) {\n\t\t\temoji\n\t\t}\n\t\trepositories @skip(if: $hide) {\n\t\t\tname\n\t\t}\n\t\tboundPtr: login @skip(if: $hide)\n\t\tboundAny: login @skip(if: $hide)\n\t}\n\tactor(id: $defaultedId) {\n\t\t__typename\n\t\tid\n\t\t... on Organization {\n\t\t\tname\n\t\t}\n\t}\n\tactors(ids: [\"1\"]) @skip(if: $hide) {\n\t\t__typename\n\t\tid\n\t}\n\tusersCreatedOnDates(dates: $dates) @skip(if: $hide) {\n\t\tcreatedAt\n\t}\n\t... structDefaultsFragment\n}\nfragment structDefaultsFragment on Query {\n\tstructActor: actor(id: \"1\") {\n\t\t__typename\n\t\tlogin\n\t}\n}\n"
 
 // queryWithDirectivesAndSkipIncludePartialDataError contains partial data returned by queryWithDirectivesAndSkipInclude.
 type queryWithDirectivesAndSkipIncludePartialDataError struct {
@@ -5415,11 +4871,6 @@ func (e *queryWithDirectivesAndSkipIncludePartialDataError) PartialData() *direc
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithDirectivesAndSkipIncludePartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithDirectivesAndSkipInclude(
 	ctx context.Context,
 	vars queryWithDirectivesAndSkipIncludeVariables,
@@ -5429,7 +4880,7 @@ func (c *Client) queryWithDirectivesAndSkipInclude(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithDirectivesAndSkipInclude",
-			Query:         queryWithDirectivesAndSkipInclude_Operation,
+			Query:         "\nquery queryWithDirectivesAndSkipInclude ($hide: Boolean!, $show: Boolean!, $defaultedId: ID! = \"1\", $optionalLogin: String, $dates: [Date!]!) {\n\tuser(login: $optionalLogin) {\n\t\t__typename @skip(if: $hide)\n\t\tlogin\n\t\tskippedLogin: login @skip(if: $hide)\n\t\tincludedLogin: login @include(if: $show)\n\t\tforcedPtrLogin: login\n\t\tplainName: name\n\t\tcreatedAt @skip(if: $hide)\n\t\tstatus @skip(if: $hide) {\n\t\t\temoji\n\t\t}\n\t\trepositories @skip(if: $hide) {\n\t\t\tname\n\t\t}\n\t\tboundPtr: login @skip(if: $hide)\n\t\tboundAny: login @skip(if: $hide)\n\t}\n\tactor(id: $defaultedId) {\n\t\t__typename\n\t\tid\n\t\t... on Organization {\n\t\t\tname\n\t\t}\n\t}\n\tactors(ids: [\"1\"]) @skip(if: $hide) {\n\t\t__typename\n\t\tid\n\t}\n\tusersCreatedOnDates(dates: $dates) @skip(if: $hide) {\n\t\tcreatedAt\n\t}\n\t... structDefaultsFragment\n}\nfragment structDefaultsFragment on Query {\n\tstructActor: actor(id: \"1\") {\n\t\t__typename\n\t\tlogin\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5445,9 +4896,6 @@ func (c *Client) queryWithDirectivesAndSkipInclude(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithFlatten.
-const queryWithFlatten_Operation = "\nquery queryWithFlatten ($ids: [ID!]!) {\n\t... queryFragment\n}\nfragment queryFragment on Query {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... flattenedUserFields\n\t\t... on Organization {\n\t\t\ttopContributor {\n\t\t\t\t__typename\n\t\t\t\t... actorFields\n\t\t\t}\n\t\t}\n\t}\n}\nfragment flattenedUserFields on User {\n\t... flattenedRepositoryOwnerFields\n}\nfragment flattenedRepositoryOwnerFields on RepositoryOwner {\n\t... innerRepositoryOwnerFields\n}\nfragment innerRepositoryOwnerFields on RepositoryOwner {\n\tcontributionCount\n}\nfragment actorFields on Actor {\n\t... innerActorFields\n}\nfragment innerActorFields on Actor {\n\tid\n\tlogin\n\t... on User {\n\t\trepositories {\n\t\t\t... repositoriesFields\n\t\t}\n\t}\n}\nfragment repositoriesFields on Repository {\n\tid\n\tname\n}\n"
 
 // queryWithFlattenPartialDataError contains partial data returned by queryWithFlatten.
 type queryWithFlattenPartialDataError struct {
@@ -5476,11 +4924,6 @@ func (e *queryWithFlattenPartialDataError) PartialData() *queryFragment {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithFlattenPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithFlatten(
 	ctx context.Context,
 	vars queryWithFlattenVariables,
@@ -5490,7 +4933,7 @@ func (c *Client) queryWithFlatten(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithFlatten",
-			Query:         queryWithFlatten_Operation,
+			Query:         "\nquery queryWithFlatten ($ids: [ID!]!) {\n\t... queryFragment\n}\nfragment queryFragment on Query {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... flattenedUserFields\n\t\t... on Organization {\n\t\t\ttopContributor {\n\t\t\t\t__typename\n\t\t\t\t... actorFields\n\t\t\t}\n\t\t}\n\t}\n}\nfragment flattenedUserFields on User {\n\t... flattenedRepositoryOwnerFields\n}\nfragment flattenedRepositoryOwnerFields on RepositoryOwner {\n\t... innerRepositoryOwnerFields\n}\nfragment innerRepositoryOwnerFields on RepositoryOwner {\n\tcontributionCount\n}\nfragment actorFields on Actor {\n\t... innerActorFields\n}\nfragment innerActorFields on Actor {\n\tid\n\tlogin\n\t... on User {\n\t\trepositories {\n\t\t\t... repositoriesFields\n\t\t}\n\t}\n}\nfragment repositoriesFields on Repository {\n\tid\n\tname\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5506,9 +4949,6 @@ func (c *Client) queryWithFlatten(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithFragments.
-const queryWithFragments_Operation = "\nquery queryWithFragments ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... on Actor {\n\t\t\tid\n\t\t\tlogin\n\t\t}\n\t\t... on Organization {\n\t\t\tid\n\t\t\tplan {\n\t\t\t\tname\n\t\t\t}\n\t\t\ttopContributor {\n\t\t\t\t__typename\n\t\t\t\tid\n\t\t\t\t... on Actor {\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\t... on User {\n\t\t\t\t\tcontributionCount\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\t... on RepositoryOwner {\n\t\t\tcontributionCount\n\t\t}\n\t\t... on User {\n\t\t\tstatus {\n\t\t\t\temoji\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // queryWithFragmentsPartialDataError contains partial data returned by queryWithFragments.
 type queryWithFragmentsPartialDataError struct {
@@ -5537,11 +4977,6 @@ func (e *queryWithFragmentsPartialDataError) PartialData() *queryWithFragmentsRe
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithFragmentsPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithFragments(
 	ctx context.Context,
 	vars queryWithFragmentsVariables,
@@ -5551,7 +4986,7 @@ func (c *Client) queryWithFragments(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithFragments",
-			Query:         queryWithFragments_Operation,
+			Query:         "\nquery queryWithFragments ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... on Actor {\n\t\t\tid\n\t\t\tlogin\n\t\t}\n\t\t... on Organization {\n\t\t\tid\n\t\t\tplan {\n\t\t\t\tname\n\t\t\t}\n\t\t\ttopContributor {\n\t\t\t\t__typename\n\t\t\t\tid\n\t\t\t\t... on Actor {\n\t\t\t\t\tlogin\n\t\t\t\t}\n\t\t\t\t... on User {\n\t\t\t\t\tcontributionCount\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\t... on RepositoryOwner {\n\t\t\tcontributionCount\n\t\t}\n\t\t... on User {\n\t\t\tstatus {\n\t\t\t\temoji\n\t\t\t}\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5567,9 +5002,6 @@ func (c *Client) queryWithFragments(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithInterfaceListField.
-const queryWithInterfaceListField_Operation = "\nquery queryWithInterfaceListField ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\tlogin\n\t}\n}\n"
 
 // queryWithInterfaceListFieldPartialDataError contains partial data returned by queryWithInterfaceListField.
 type queryWithInterfaceListFieldPartialDataError struct {
@@ -5598,11 +5030,6 @@ func (e *queryWithInterfaceListFieldPartialDataError) PartialData() *queryWithIn
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithInterfaceListFieldPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithInterfaceListField(
 	ctx context.Context,
 	vars queryWithInterfaceListFieldVariables,
@@ -5612,7 +5039,7 @@ func (c *Client) queryWithInterfaceListField(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithInterfaceListField",
-			Query:         queryWithInterfaceListField_Operation,
+			Query:         "\nquery queryWithInterfaceListField ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\tlogin\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5628,9 +5055,6 @@ func (c *Client) queryWithInterfaceListField(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithInterfaceNoFragments.
-const queryWithInterfaceNoFragments_Operation = "\nquery queryWithInterfaceNoFragments ($id: ID!) {\n\tactor(id: $id) {\n\t\t__typename\n\t\tid\n\t\tlogin\n\t}\n\tviewer {\n\t\tid\n\t\tlogin\n\t}\n}\n"
 
 // queryWithInterfaceNoFragmentsPartialDataError contains partial data returned by queryWithInterfaceNoFragments.
 type queryWithInterfaceNoFragmentsPartialDataError struct {
@@ -5659,11 +5083,6 @@ func (e *queryWithInterfaceNoFragmentsPartialDataError) PartialData() *queryWith
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithInterfaceNoFragmentsPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithInterfaceNoFragments(
 	ctx context.Context,
 	vars queryWithInterfaceNoFragmentsVariables,
@@ -5673,7 +5092,7 @@ func (c *Client) queryWithInterfaceNoFragments(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithInterfaceNoFragments",
-			Query:         queryWithInterfaceNoFragments_Operation,
+			Query:         "\nquery queryWithInterfaceNoFragments ($id: ID!) {\n\tactor(id: $id) {\n\t\t__typename\n\t\tid\n\t\tlogin\n\t}\n\tviewer {\n\t\tid\n\t\tlogin\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5689,9 +5108,6 @@ func (c *Client) queryWithInterfaceNoFragments(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithNamedFragments.
-const queryWithNamedFragments_Operation = "\nquery queryWithNamedFragments ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... organizationFields\n\t\t... userFields\n\t}\n}\nfragment organizationFields on Organization {\n\tid\n\tplan {\n\t\tname\n\t}\n\ttopContributor {\n\t\t__typename\n\t\tid\n\t\t... userFields\n\t\t... repositoryOwnerFields\n\t}\n}\nfragment userFields on User {\n\tid\n\t... repositoryOwnerFields\n\t... moreUserFields\n}\nfragment repositoryOwnerFields on RepositoryOwner {\n\t... moreUserFields\n\tcontributionCount\n}\nfragment moreUserFields on User {\n\tid\n\tstatus {\n\t\temoji\n\t}\n}\n"
 
 // queryWithNamedFragmentsPartialDataError contains partial data returned by queryWithNamedFragments.
 type queryWithNamedFragmentsPartialDataError struct {
@@ -5720,11 +5136,6 @@ func (e *queryWithNamedFragmentsPartialDataError) PartialData() *queryWithNamedF
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithNamedFragmentsPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithNamedFragments(
 	ctx context.Context,
 	vars queryWithNamedFragmentsVariables,
@@ -5734,7 +5145,7 @@ func (c *Client) queryWithNamedFragments(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithNamedFragments",
-			Query:         queryWithNamedFragments_Operation,
+			Query:         "\nquery queryWithNamedFragments ($ids: [ID!]!) {\n\tactors(ids: $ids) {\n\t\t__typename\n\t\tid\n\t\t... organizationFields\n\t\t... userFields\n\t}\n}\nfragment organizationFields on Organization {\n\tid\n\tplan {\n\t\tname\n\t}\n\ttopContributor {\n\t\t__typename\n\t\tid\n\t\t... userFields\n\t\t... repositoryOwnerFields\n\t}\n}\nfragment userFields on User {\n\tid\n\t... repositoryOwnerFields\n\t... moreUserFields\n}\nfragment repositoryOwnerFields on RepositoryOwner {\n\t... moreUserFields\n\tcontributionCount\n}\nfragment moreUserFields on User {\n\tid\n\tstatus {\n\t\temoji\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5750,9 +5161,6 @@ func (c *Client) queryWithNamedFragments(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithOmitempty.
-const queryWithOmitempty_Operation = "\nquery queryWithOmitempty ($login: String) {\n\tuser(login: $login) {\n\t\tid\n\t\tlogin\n\t\tcontributionCount\n\t}\n}\n"
 
 // queryWithOmitemptyPartialDataError contains partial data returned by queryWithOmitempty.
 type queryWithOmitemptyPartialDataError struct {
@@ -5781,11 +5189,6 @@ func (e *queryWithOmitemptyPartialDataError) PartialData() *queryWithOmitemptyRe
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithOmitemptyPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithOmitempty(
 	ctx context.Context,
 	vars queryWithOmitemptyVariables,
@@ -5795,7 +5198,7 @@ func (c *Client) queryWithOmitempty(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithOmitempty",
-			Query:         queryWithOmitempty_Operation,
+			Query:         "\nquery queryWithOmitempty ($login: String) {\n\tuser(login: $login) {\n\t\tid\n\t\tlogin\n\t\tcontributionCount\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5811,9 +5214,6 @@ func (c *Client) queryWithOmitempty(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithSearch.
-const queryWithSearch_Operation = "\nquery queryWithSearch ($query: String!, $searchType: SearchType!) {\n\tsearch(query: $query, type: $searchType) {\n\t\t__typename\n\t\t... on Node {\n\t\t\tid\n\t\t}\n\t\t... on Repository {\n\t\t\tname\n\t\t\tstargazerCount\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t\tissueState: state\n\t\t}\n\t\t... on PullRequest {\n\t\t\ttitle\n\t\t\tpullRequestState: state\n\t\t}\n\t\t... on Actor {\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
 
 // queryWithSearchPartialDataError contains partial data returned by queryWithSearch.
 type queryWithSearchPartialDataError struct {
@@ -5842,11 +5242,6 @@ func (e *queryWithSearchPartialDataError) PartialData() *queryWithSearchResponse
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithSearchPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithSearch(
 	ctx context.Context,
 	vars queryWithSearchVariables,
@@ -5856,7 +5251,7 @@ func (c *Client) queryWithSearch(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithSearch",
-			Query:         queryWithSearch_Operation,
+			Query:         "\nquery queryWithSearch ($query: String!, $searchType: SearchType!) {\n\tsearch(query: $query, type: $searchType) {\n\t\t__typename\n\t\t... on Node {\n\t\t\tid\n\t\t}\n\t\t... on Repository {\n\t\t\tname\n\t\t\tstargazerCount\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t\tissueState: state\n\t\t}\n\t\t... on PullRequest {\n\t\t\ttitle\n\t\t\tpullRequestState: state\n\t\t}\n\t\t... on Actor {\n\t\t\tlogin\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5872,9 +5267,6 @@ func (c *Client) queryWithSearch(
 	}
 	return &response, nil
 }
-
-// The query executed by queryWithVariables.
-const queryWithVariables_Operation = "\nquery queryWithVariables ($login: String!) {\n\tuser(login: $login) {\n\t\tid\n\t\tlogin\n\t\tcontributionCount\n\t}\n}\n"
 
 // queryWithVariablesPartialDataError contains partial data returned by queryWithVariables.
 type queryWithVariablesPartialDataError struct {
@@ -5903,11 +5295,6 @@ func (e *queryWithVariablesPartialDataError) PartialData() *queryWithVariablesRe
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithVariablesPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) queryWithVariables(
 	ctx context.Context,
 	vars queryWithVariablesVariables,
@@ -5917,7 +5304,7 @@ func (c *Client) queryWithVariables(
 		ctx,
 		_octoqlPayload{
 			OperationName: "queryWithVariables",
-			Query:         queryWithVariables_Operation,
+			Query:         "\nquery queryWithVariables ($login: String!) {\n\tuser(login: $login) {\n\t\tid\n\t\tlogin\n\t\tcontributionCount\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -5933,9 +5320,6 @@ func (c *Client) queryWithVariables(
 	}
 	return &response, nil
 }
-
-// The mutation executed by removeStar.
-const removeStar_Operation = "\nmutation removeStar ($input: RemoveStarInput!) {\n\tremoveStar(input: $input) {\n\t\tstarrable {\n\t\t\t__typename\n\t\t\tid\n\t\t\tstargazerCount\n\t\t\tviewerHasStarred\n\t\t}\n\t}\n}\n"
 
 // removeStarPartialDataError contains partial data returned by removeStar.
 type removeStarPartialDataError struct {
@@ -5964,11 +5348,6 @@ func (e *removeStarPartialDataError) PartialData() *removeStarResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *removeStarPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) removeStar(
 	ctx context.Context,
 	vars removeStarVariables,
@@ -5978,7 +5357,7 @@ func (c *Client) removeStar(
 		ctx,
 		_octoqlPayload{
 			OperationName: "removeStar",
-			Query:         removeStar_Operation,
+			Query:         "\nmutation removeStar ($input: RemoveStarInput!) {\n\tremoveStar(input: $input) {\n\t\tstarrable {\n\t\t\t__typename\n\t\t\tid\n\t\t\tstargazerCount\n\t\t\tviewerHasStarred\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,

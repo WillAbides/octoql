@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -359,6 +357,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -964,117 +976,15 @@ func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
-}
-
 // CreateGitHubRepositoryCreateRepository includes the requested fields of the GraphQL type Repository.
 type CreateGitHubRepositoryCreateRepository struct {
 	Id            testutil.ID `json:"id"`
 	NameWithOwner string      `json:"nameWithOwner"`
 }
 
-// GetId returns CreateGitHubRepositoryCreateRepository.Id, and is useful for accessing the field via an interface.
-func (v *CreateGitHubRepositoryCreateRepository) GetId() testutil.ID { return v.Id }
-
-// GetNameWithOwner returns CreateGitHubRepositoryCreateRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *CreateGitHubRepositoryCreateRepository) GetNameWithOwner() string { return v.NameWithOwner }
-
 // CreateGitHubRepositoryResponse is returned by CreateGitHubRepository on success.
 type CreateGitHubRepositoryResponse struct {
 	CreateRepository CreateGitHubRepositoryCreateRepository `json:"createRepository"`
-}
-
-// GetCreateRepository returns CreateGitHubRepositoryResponse.CreateRepository, and is useful for accessing the field via an interface.
-func (v *CreateGitHubRepositoryResponse) GetCreateRepository() CreateGitHubRepositoryCreateRepository {
-	return v.CreateRepository
 }
 
 // CreateGitHubRepositoryVariables contains the variables accepted by CreateGitHubRepository.
@@ -1098,58 +1008,19 @@ type GitHubInputResponse struct {
 	ReleasesPublishedOnOptional []GitHubInputResponseReleasesPublishedOnOptionalRelease `json:"releasesPublishedOnOptional"`
 }
 
-// GetRepositoryBySelector returns GitHubInputResponse.RepositoryBySelector, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponse) GetRepositoryBySelector() *GitHubInputResponseRepositoryBySelectorRepository {
-	return v.RepositoryBySelector
-}
-
-// GetLatestRelease returns GitHubInputResponse.LatestRelease, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponse) GetLatestRelease() *GitHubInputResponseLatestRelease {
-	return v.LatestRelease
-}
-
-// GetDefault returns GitHubInputResponse.Default, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponse) GetDefault() *bool { return v.Default }
-
-// GetOmitempty returns GitHubInputResponse.Omitempty, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponse) GetOmitempty() *bool { return v.Omitempty }
-
-// GetReleasesPublishedOn returns GitHubInputResponse.ReleasesPublishedOn, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponse) GetReleasesPublishedOn() []GitHubInputResponseReleasesPublishedOnRelease {
-	return v.ReleasesPublishedOn
-}
-
-// GetReleasesPublishedOnOptional returns GitHubInputResponse.ReleasesPublishedOnOptional, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponse) GetReleasesPublishedOnOptional() []GitHubInputResponseReleasesPublishedOnOptionalRelease {
-	return v.ReleasesPublishedOnOptional
-}
-
 // GitHubInputResponseLatestRelease includes the requested fields of the GraphQL type Release.
 type GitHubInputResponseLatestRelease struct {
 	PublishedAt *testutil.Date `json:"publishedAt"`
 }
-
-// GetPublishedAt returns GitHubInputResponseLatestRelease.PublishedAt, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponseLatestRelease) GetPublishedAt() *testutil.Date { return v.PublishedAt }
 
 // GitHubInputResponseReleasesPublishedOnOptionalRelease includes the requested fields of the GraphQL type Release.
 type GitHubInputResponseReleasesPublishedOnOptionalRelease struct {
 	PublishedAt *testutil.Date `json:"publishedAt"`
 }
 
-// GetPublishedAt returns GitHubInputResponseReleasesPublishedOnOptionalRelease.PublishedAt, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponseReleasesPublishedOnOptionalRelease) GetPublishedAt() *testutil.Date {
-	return v.PublishedAt
-}
-
 // GitHubInputResponseReleasesPublishedOnRelease includes the requested fields of the GraphQL type Release.
 type GitHubInputResponseReleasesPublishedOnRelease struct {
 	PublishedAt *testutil.Date `json:"publishedAt"`
-}
-
-// GetPublishedAt returns GitHubInputResponseReleasesPublishedOnRelease.PublishedAt, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponseReleasesPublishedOnRelease) GetPublishedAt() *testutil.Date {
-	return v.PublishedAt
 }
 
 // GitHubInputResponseRepositoryBySelectorRepository includes the requested fields of the GraphQL type Repository.
@@ -1158,32 +1029,14 @@ type GitHubInputResponseRepositoryBySelectorRepository struct {
 	Issues GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnection `json:"issues"`
 }
 
-// GetId returns GitHubInputResponseRepositoryBySelectorRepository.Id, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponseRepositoryBySelectorRepository) GetId() testutil.ID { return v.Id }
-
-// GetIssues returns GitHubInputResponseRepositoryBySelectorRepository.Issues, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponseRepositoryBySelectorRepository) GetIssues() GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnection {
-	return v.Issues
-}
-
 // GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnection includes the requested fields of the GraphQL type IssueConnection.
 type GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnection struct {
 	Nodes []GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnectionNodesIssue `json:"nodes"`
 }
 
-// GetNodes returns GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnection.Nodes, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnection) GetNodes() []GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnectionNodesIssue {
-	return v.Nodes
-}
-
 // GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnectionNodesIssue includes the requested fields of the GraphQL type Issue.
 type GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnectionNodesIssue struct {
 	Id testutil.ID `json:"id"`
-}
-
-// GetId returns GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnectionNodesIssue.Id, and is useful for accessing the field via an interface.
-func (v *GitHubInputResponseRepositoryBySelectorRepositoryIssuesIssueConnectionNodesIssue) GetId() testutil.ID {
-	return v.Id
 }
 
 // GitHubInputsVariables contains the variables accepted by GitHubInputs.
@@ -1216,11 +1069,6 @@ const (
 	IssueStateClosed IssueState = "CLOSED"
 )
 
-var AllIssueState = []IssueState{
-	IssueStateOpen,
-	IssueStateClosed,
-}
-
 type OmitemptyInput struct {
 	RequiredLabel string  `json:"requiredLabel"`
 	OptionalLabel *string `json:"optionalLabel"`
@@ -1242,28 +1090,14 @@ const (
 	RepositoryVisibilityInternal RepositoryVisibility = "INTERNAL"
 )
 
-var AllRepositoryVisibility = []RepositoryVisibility{
-	RepositoryVisibilityPublic,
-	RepositoryVisibilityPrivate,
-	RepositoryVisibilityInternal,
-}
-
 // UpdateIssueWithCollidingNamesCloseIssue includes the requested fields of the GraphQL type Issue.
 type UpdateIssueWithCollidingNamesCloseIssue struct {
 	Id testutil.ID `json:"id"`
 }
 
-// GetId returns UpdateIssueWithCollidingNamesCloseIssue.Id, and is useful for accessing the field via an interface.
-func (v *UpdateIssueWithCollidingNamesCloseIssue) GetId() testutil.ID { return v.Id }
-
 // UpdateIssueWithCollidingNamesResponse is returned by UpdateIssueWithCollidingNames on success.
 type UpdateIssueWithCollidingNamesResponse struct {
 	CloseIssue *UpdateIssueWithCollidingNamesCloseIssue `json:"closeIssue"`
-}
-
-// GetCloseIssue returns UpdateIssueWithCollidingNamesResponse.CloseIssue, and is useful for accessing the field via an interface.
-func (v *UpdateIssueWithCollidingNamesResponse) GetCloseIssue() *UpdateIssueWithCollidingNamesCloseIssue {
-	return v.CloseIssue
 }
 
 // UpdateIssueWithCollidingNamesVariables contains the variables accepted by UpdateIssueWithCollidingNames.
@@ -1273,9 +1107,6 @@ type UpdateIssueWithCollidingNamesVariables struct {
 	Resp   *int    `json:"resp"`
 	Client *string `json:"client"`
 }
-
-// The mutation executed by CreateGitHubRepository.
-const CreateGitHubRepository_Operation = "\nmutation CreateGitHubRepository ($input: CreateRepositoryInput!) {\n\tcreateRepository(input: $input) {\n\t\tid\n\t\tnameWithOwner\n\t}\n}\n"
 
 // CreateGitHubRepositoryPartialDataError contains partial data returned by CreateGitHubRepository.
 type CreateGitHubRepositoryPartialDataError struct {
@@ -1304,11 +1135,6 @@ func (e *CreateGitHubRepositoryPartialDataError) PartialData() *CreateGitHubRepo
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *CreateGitHubRepositoryPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) CreateGitHubRepository(
 	ctx context.Context,
 	vars CreateGitHubRepositoryVariables,
@@ -1318,7 +1144,7 @@ func (c *Client) CreateGitHubRepository(
 		ctx,
 		_octoqlPayload{
 			OperationName: "CreateGitHubRepository",
-			Query:         CreateGitHubRepository_Operation,
+			Query:         "\nmutation CreateGitHubRepository ($input: CreateRepositoryInput!) {\n\tcreateRepository(input: $input) {\n\t\tid\n\t\tnameWithOwner\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -1334,9 +1160,6 @@ func (c *Client) CreateGitHubRepository(
 	}
 	return &response, nil
 }
-
-// The query executed by GitHubInputs.
-const GitHubInputs_Operation = "\nquery GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $publishedDates: [[[Date!]!]!]!, $optionalPublishedDates: [[[Date!]!]!]) {\n\trepositoryBySelector(input: $repository) {\n\t\tid\n\t\tissues(filter: $filter) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $date) {\n\t\tpublishedAt\n\t}\n\tdefault(input: $defaults)\n\tomitempty(input: $optional)\n\treleasesPublishedOn(dates: $publishedDates) {\n\t\tpublishedAt\n\t}\n\treleasesPublishedOnOptional(dates: $optionalPublishedDates) {\n\t\tpublishedAt\n\t}\n}\n"
 
 // GitHubInputsPartialDataError contains partial data returned by GitHubInputs.
 type GitHubInputsPartialDataError struct {
@@ -1365,11 +1188,6 @@ func (e *GitHubInputsPartialDataError) PartialData() *GitHubInputResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *GitHubInputsPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) GitHubInputs(
 	ctx context.Context,
 	vars GitHubInputsVariables,
@@ -1379,7 +1197,7 @@ func (c *Client) GitHubInputs(
 		ctx,
 		_octoqlPayload{
 			OperationName: "GitHubInputs",
-			Query:         GitHubInputs_Operation,
+			Query:         "\nquery GitHubInputs ($repository: RepositorySelector!, $filter: IssueFilter, $date: Date, $defaults: InputWithDefaults!, $optional: OmitemptyInput, $publishedDates: [[[Date!]!]!]!, $optionalPublishedDates: [[[Date!]!]!]) {\n\trepositoryBySelector(input: $repository) {\n\t\tid\n\t\tissues(filter: $filter) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t}\n\t\t}\n\t}\n\tlatestRelease(publishedAfter: $date) {\n\t\tpublishedAt\n\t}\n\tdefault(input: $defaults)\n\tomitempty(input: $optional)\n\treleasesPublishedOn(dates: $publishedDates) {\n\t\tpublishedAt\n\t}\n\treleasesPublishedOnOptional(dates: $optionalPublishedDates) {\n\t\tpublishedAt\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -1395,9 +1213,6 @@ func (c *Client) GitHubInputs(
 	}
 	return &response, nil
 }
-
-// The mutation executed by UpdateIssueWithCollidingNames.
-const UpdateIssueWithCollidingNames_Operation = "\nmutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $client: String) {\n\tcloseIssue(data: $data, req: $req, resp: $resp, client: $client) {\n\t\tid\n\t}\n}\n"
 
 // UpdateIssueWithCollidingNamesPartialDataError contains partial data returned by UpdateIssueWithCollidingNames.
 type UpdateIssueWithCollidingNamesPartialDataError struct {
@@ -1426,11 +1241,6 @@ func (e *UpdateIssueWithCollidingNamesPartialDataError) PartialData() *UpdateIss
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *UpdateIssueWithCollidingNamesPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) UpdateIssueWithCollidingNames(
 	ctx context.Context,
 	vars UpdateIssueWithCollidingNamesVariables,
@@ -1440,7 +1250,7 @@ func (c *Client) UpdateIssueWithCollidingNames(
 		ctx,
 		_octoqlPayload{
 			OperationName: "UpdateIssueWithCollidingNames",
-			Query:         UpdateIssueWithCollidingNames_Operation,
+			Query:         "\nmutation UpdateIssueWithCollidingNames ($data: String!, $req: Int, $resp: Int, $client: String) {\n\tcloseIssue(data: $data, req: $req, resp: $resp, client: $client) {\n\t\tid\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,

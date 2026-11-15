@@ -101,7 +101,45 @@ func (g *planState) addType(typ goType, goName string, pos *ast.Position) (goTyp
 	return typ, nil
 }
 
+func markInterfaceGetters(typeMap map[string]goType) {
+	for _, typ := range typeMap {
+		iface, ok := typ.(*goInterfaceType)
+		if !ok {
+			continue
+		}
+		getters := interfaceGetterFields(iface, map[string]bool{})
+		for _, impl := range iface.Implementations {
+			impl.addInterfaceGetters(getters)
+		}
+		if iface.OtherImplementation != nil {
+			iface.OtherImplementation.addInterfaceGetters(getters)
+		}
+	}
+}
+
+func interfaceGetterFields(t *goInterfaceType, visited map[string]bool) []string {
+	if visited[t.GoName] {
+		return nil
+	}
+	visited[t.GoName] = true
+
+	var fields []string
+	for _, field := range t.SharedFields {
+		if field.IsEmbedded() {
+			embedded, ok := field.GoType.Unwrap().(*goInterfaceType)
+			if !ok {
+				continue
+			}
+			fields = append(fields, interfaceGetterFields(embedded, visited)...)
+			continue
+		}
+		fields = append(fields, field.GoName)
+	}
+	return fields
+}
+
 func checkGeneratedIdentifiers(typeMap map[string]goType, pkgPath string) error {
+	markInterfaceGetters(typeMap)
 	names := make([]string, 0, len(typeMap))
 	for name := range typeMap {
 		names = append(names, name)
@@ -182,7 +220,7 @@ func checkStructIdentifiers(t *goStructType) error {
 		}
 	}
 
-	if t.IsInput {
+	if t.IsInput || len(t.InterfaceGetters) == 0 {
 		return nil
 	}
 	flattened, err := t.FlattenedFields()
@@ -190,6 +228,9 @@ func checkStructIdentifiers(t *goStructType) error {
 		return err
 	}
 	for _, field := range flattened {
+		if !t.InterfaceGetters[field.GoName] {
+			continue
+		}
 		getter := "Get" + field.GoName
 		err = register(getter,
 			fmt.Sprintf("getter %s (for field %s)", getter, field.GoName),

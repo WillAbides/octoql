@@ -1,6 +1,3 @@
-// The {{.Type}} executed by {{.Name}}.
-const {{.Name}}_Operation = {{printf "%q" $.Body}}
-
 // {{.Name}}PartialDataError contains partial data returned by {{.Name}}.
 type {{.Name}}PartialDataError struct {
     data *{{.ResponseName}}
@@ -28,11 +25,6 @@ func (e *{{.Name}}PartialDataError) PartialData() *{{.ResponseName}} {
     return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *{{.Name}}PartialDataError) PartialDataValue() any {
-    return e.PartialData()
-}
-
 {{.Doc}}
 func (c *Client) {{.Name}}(
     ctx {{ref "context.Context"}},
@@ -45,7 +37,7 @@ func (c *Client) {{.Name}}(
         ctx,
         _octoqlPayload{
             OperationName: "{{.Name}}",
-            Query: {{.Name}}_Operation,
+            Query: {{printf "%q" $.Body}},
             Variables: {{if .Input}}&vars{{else}}nil{{end}},
         },
         &response,
