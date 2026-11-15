@@ -2044,6 +2044,11 @@ func (v *organizationFieldsTopContributorOrganization) GetTypename() string { re
 // GetId returns organizationFieldsTopContributorOrganization.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorOrganization) GetId() string { return v.Id }
 
+// GetContributionCount returns organizationFieldsTopContributorOrganization.ContributionCount, and is useful for accessing the field via an interface.
+func (v *organizationFieldsTopContributorOrganization) GetContributionCount() *int {
+	return v.repositoryOwnerFieldsOctoqlOther.ContributionCount
+}
+
 func (v *organizationFieldsTopContributorOrganization) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2107,6 +2112,11 @@ func (v *organizationFieldsTopContributorUser) GetTypename() string { return v.T
 
 // GetId returns organizationFieldsTopContributorUser.Id, and is useful for accessing the field via an interface.
 func (v *organizationFieldsTopContributorUser) GetId() string { return v.Id }
+
+// GetContributionCount returns organizationFieldsTopContributorUser.ContributionCount, and is useful for accessing the field via an interface.
+func (v *organizationFieldsTopContributorUser) GetContributionCount() *int {
+	return v.repositoryOwnerFieldsUser.ContributionCount
+}
 
 func (v *organizationFieldsTopContributorUser) UnmarshalJSON(b []byte) error {
 
@@ -2466,6 +2476,11 @@ func (v *queryFragmentActorsUser) GetTypename() string { return v.Typename }
 
 // GetId returns queryFragmentActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryFragmentActorsUser) GetId() string { return v.Id }
+
+// GetContributionCount returns queryFragmentActorsUser.ContributionCount, and is useful for accessing the field via an interface.
+func (v *queryFragmentActorsUser) GetContributionCount() *int {
+	return v.innerRepositoryOwnerFieldsOctoqlOther.ContributionCount
+}
 
 func (v *queryFragmentActorsUser) UnmarshalJSON(b []byte) error {
 
@@ -3667,6 +3682,11 @@ func (v *queryWithNamedFragmentsActorsUser) GetTypename() string { return v.Type
 // GetId returns queryWithNamedFragmentsActorsUser.Id, and is useful for accessing the field via an interface.
 func (v *queryWithNamedFragmentsActorsUser) GetId() string { return v.Id }
 
+// GetContributionCount returns queryWithNamedFragmentsActorsUser.ContributionCount, and is useful for accessing the field via an interface.
+func (v *queryWithNamedFragmentsActorsUser) GetContributionCount() *int {
+	return v.userFields.repositoryOwnerFieldsUser.ContributionCount
+}
+
 func (v *queryWithNamedFragmentsActorsUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4523,6 +4543,11 @@ type userFields struct {
 	Id                        string `json:"id"`
 	repositoryOwnerFieldsUser `json:"-"`
 	moreUserFields            `json:"-"`
+}
+
+// GetContributionCount returns userFields.ContributionCount, and is useful for accessing the field via an interface.
+func (v *userFields) GetContributionCount() *int {
+	return v.repositoryOwnerFieldsUser.ContributionCount
 }
 
 func (v *userFields) UnmarshalJSON(b []byte) error {

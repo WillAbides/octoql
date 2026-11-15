@@ -115,6 +115,36 @@ func markInterfaceGetters(typeMap map[string]goType) {
 			iface.OtherImplementation.addInterfaceGetters(getters)
 		}
 	}
+
+	visited := make(map[string]bool, len(typeMap))
+	for _, typ := range typeMap {
+		structTyp, ok := typ.(*goStructType)
+		if !ok {
+			continue
+		}
+		propagateEmbeddedInterfaceGetters(structTyp, visited)
+	}
+}
+
+func propagateEmbeddedInterfaceGetters(t *goStructType, visited map[string]bool) {
+	if visited[t.GoName] {
+		return
+	}
+	visited[t.GoName] = true
+
+	for _, field := range t.Fields {
+		if !field.IsEmbedded() {
+			continue
+		}
+		embedded, ok := field.GoType.Unwrap().(*goStructType)
+		if !ok {
+			continue
+		}
+		propagateEmbeddedInterfaceGetters(embedded, visited)
+		for getter := range embedded.InterfaceGetters {
+			t.addInterfaceGetters([]string{getter})
+		}
+	}
 }
 
 func interfaceGetterFields(t *goInterfaceType, visited map[string]bool) []string {

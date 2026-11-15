@@ -134,6 +134,72 @@ query Fields {
 			wantGenerationErr: "Go identifier GetFoo for both field GetFoo (GraphQL getFoo) and getter GetFoo (for field Foo)",
 		},
 		{
+			// An object struct that embeds multiple interface fragments sharing a
+			// field name emits its own getter on the outer struct, disambiguating
+			// the promoted methods and returning the shallowest field.
+			name: "overlapping embedded interface fragments",
+			schema: `
+interface NodeA {
+  foo: String!
+}
+interface NodeB {
+  foo: String!
+}
+type Item implements NodeA & NodeB {
+  foo: String!
+}
+type Query {
+  item: Item!
+}
+`,
+			operations: `
+query Fields {
+  item {
+    foo
+    ...NodeAFields
+    ...NodeBFields
+  }
+}
+fragment NodeAFields on NodeA {
+  foo
+}
+fragment NodeBFields on NodeB {
+  foo
+}
+`,
+		},
+		{
+			// An object struct that embeds an interface fragment implements that
+			// fragment's interface, so it must emit the interface's getters
+			// using its own shallowest field selector and detect collisions with
+			// its own fields.
+			name: "field and getter from embedded interface fragment",
+			schema: `
+interface Node {
+  foo: String!
+}
+type Item implements Node {
+  foo: String!
+  getFoo: String!
+}
+type Query {
+  item: Item!
+}
+`,
+			operations: `
+query Fields {
+  item {
+    getFoo
+    ...NodeFields
+  }
+}
+fragment NodeFields on Node {
+  foo
+}
+`,
+			wantGenerationErr: "Go identifier GetFoo for both field GetFoo (GraphQL getFoo) and getter GetFoo (for field Foo)",
+		},
+		{
 			// The named fragment's derived implementation type has the same Go
 			// name as the directly-selected Impl type.  The direct selection
 			// (id) and the fragment selection (login) differ, so routing the
