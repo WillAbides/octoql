@@ -151,7 +151,7 @@ query MyQuery($arg: String @octoqlgen(omitempty: true)) { ... }
 octoqlgen generates a variables field like:
 
 ```go
-Arg *string `json:"arg,omitempty"`
+Arg *string `json:"arg,omitzero"`
 ```
 
 A nil pointer omits `arg` from the variables object, while a pointer to `""`

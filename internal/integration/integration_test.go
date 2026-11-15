@@ -142,6 +142,13 @@ func TestOmitempty(t *testing.T) {
 	assert.Equal(t, "1", response.User.Id)
 	assert.Equal(t, "octocat", response.User.Login)
 	assert.Equal(t, 17, requirePtrValue(t, response.User.ContributionCount))
+
+	// an explicit pointer to "" must send "" rather than being omitted
+	response, err = client.queryWithOmitempty(t.Context(), queryWithOmitemptyVariables{
+		Login: new(""),
+	})
+	require.NoError(t, err)
+	assert.Nil(t, response.User)
 }
 
 func TestBoundScalar(t *testing.T) {

@@ -161,6 +161,21 @@ type goStructField struct {
 	Position    *ast.Position
 }
 
+func (f *goStructField) OmitTag() string {
+	if !f.Omitempty {
+		return ""
+	}
+	switch typ := f.GoType.(type) {
+	case *goSliceType:
+		return ",omitempty"
+	case *goOpaqueType:
+		if strings.HasPrefix(typ.Ref.prefix, "[") || strings.HasPrefix(typ.Ref.prefix, "map[") {
+			return ",omitempty"
+		}
+	}
+	return ",omitzero"
+}
+
 func (f *goStructField) IsEmbedded() bool {
 	return f.GoName == ""
 }
@@ -247,11 +262,7 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 	fmt.Fprintf(w, "type %s struct {\n", t.GoName)
 	for _, field := range t.Fields {
 		writeDescription(w, field.Description)
-		jsonTag := `"` + field.JSONName
-		if field.Omitempty {
-			jsonTag += ",omitempty"
-		}
-		jsonTag += `"`
+		jsonTag := `"` + field.JSONName + field.OmitTag() + `"`
 		if field.IsEmbedded() {
 			jsonTag = `"-"`
 		}

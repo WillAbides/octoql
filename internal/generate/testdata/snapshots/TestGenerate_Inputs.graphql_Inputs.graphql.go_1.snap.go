@@ -1041,7 +1041,7 @@ type GitHubInputsVariables struct {
 
 type InputWithDefaults struct {
 	RequiredLabel string  `json:"requiredLabel"`
-	OptionalLabel *string `json:"optionalLabel,omitempty"`
+	OptionalLabel *string `json:"optionalLabel,omitzero"`
 }
 
 type IssueFilter struct {

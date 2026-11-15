@@ -58,7 +58,7 @@ func (v *{{.GoName}}) UnmarshalJSONFrom(dec *{{ref "encoding/json/jsontext.Decod
     var firstPass struct{
         {{range .Fields -}}
         {{if not .IsEmbedded -}}
-        {{.GoName}} {{typeRef .GoType}} `json:"{{.JSONName}}{{if .Omitempty -}},omitempty{{end}}"`
+        {{.GoName}} {{typeRef .GoType}} `json:"{{.JSONName}}{{.OmitTag}}"`
         {{end -}}
         {{end -}}
     }

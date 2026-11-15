@@ -31,7 +31,7 @@
 {{if $hasEmbedded -}}
 type _octoqlPremarshal{{.GoName}} struct{
     {{range .FlattenedFields -}}
-    {{.GoName}} {{typeRef .GoType}} `json:"{{.JSONName}}{{if .Omitempty -}},omitempty{{end}}"`
+    {{.GoName}} {{typeRef .GoType}} `json:"{{.JSONName}}{{.OmitTag}}"`
     {{end}}
 }
 {{else -}}

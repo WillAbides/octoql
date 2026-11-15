@@ -2341,7 +2341,7 @@ type queryWithBoundScalarVariables struct {
 type queryWithDirectivesAndSkipIncludeVariables struct {
 	Hide          bool            `json:"hide"`
 	Show          bool            `json:"show"`
-	DefaultedId   *string         `json:"defaultedId,omitempty"`
+	DefaultedId   *string         `json:"defaultedId,omitzero"`
 	OptionalLogin string          `json:"optionalLogin"`
 	Dates         []testutil.Date `json:"dates"`
 }
@@ -3387,7 +3387,7 @@ type queryWithOmitemptyUser struct {
 
 // queryWithOmitemptyVariables contains the variables accepted by queryWithOmitempty.
 type queryWithOmitemptyVariables struct {
-	Login *string `json:"login,omitempty"`
+	Login *string `json:"login,omitzero"`
 }
 
 // queryWithSearchResponse is returned by queryWithSearch on success.
