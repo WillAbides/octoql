@@ -5,7 +5,8 @@ package clientruntime
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -21,18 +22,6 @@ import (
 	testutil "github.com/willabides/octoql/internal/testutil"
 )
 
-// _octoqlNoUnmarshalJSON is for generated code only.
-//
-// Embedding _octoqlNoUnmarshalJSON alongside a type with an UnmarshalJSON method
-// prevents that sibling method from being promoted.
-type _octoqlNoUnmarshalJSON struct{}
-
-// UnmarshalJSON should never be called. It exists only to prevent a sibling
-// UnmarshalJSON method from being promoted.
-func (_octoqlNoUnmarshalJSON) UnmarshalJSON([]byte) error {
-	panic("_octoqlNoUnmarshalJSON.UnmarshalJSON should never be called!")
-}
-
 const _octoqlMaxResponseErrorRawBody = 64 * 1024
 
 // ErrorType identifies a GitHub GraphQL error category. It is an open string
@@ -45,8 +34,8 @@ type Path []any
 
 // Location identifies a line and column in a GraphQL document.
 type Location struct {
-	Line   int `json:"line,omitempty"`
-	Column int `json:"column,omitempty"`
+	Line   int `json:"line,omitzero"`
+	Column int `json:"column,omitzero"`
 }
 
 // Error describes an error returned in a GraphQL response.
@@ -91,49 +80,49 @@ func (e *ResponseSizeLimitError) Error() string {
 	return fmt.Sprintf("graphql response exceeds %d-byte limit", e.Limit)
 }
 
-// MarshalJSON encodes string and integer path segments in GraphQL wire format.
-func (p Path) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo encodes string and integer path segments in GraphQL wire format.
+func (p Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if p == nil {
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	}
 
-	segments := make([]json.RawMessage, len(p))
+	err := enc.WriteToken(jsontext.BeginArray)
+	if err != nil {
+		return fmt.Errorf("encode graphql path: %w", err)
+	}
 	for index, segment := range p {
-		var encoded []byte
-		var err error
 		switch value := segment.(type) {
 		case string:
-			encoded, err = json.Marshal(value)
+			err = enc.WriteToken(jsontext.String(value))
 		case int:
-			encoded, err = json.Marshal(value)
+			err = enc.WriteToken(jsontext.Int(int64(value)))
 		default:
-			return nil, fmt.Errorf(
+			return fmt.Errorf(
 				"encode graphql path segment %d: expected string or int, got %T",
 				index,
 				segment,
 			)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("encode graphql path segment %d: %w", index, err)
+			return fmt.Errorf("encode graphql path segment %d: %w", index, err)
 		}
-		segments[index] = encoded
 	}
 
-	encoded, err := json.Marshal(segments)
+	err = enc.WriteToken(jsontext.EndArray)
 	if err != nil {
-		return nil, fmt.Errorf("encode graphql path: %w", err)
+		return fmt.Errorf("encode graphql path: %w", err)
 	}
-	return encoded, nil
+	return nil
 }
 
-// UnmarshalJSON decodes GraphQL string and integer path segments.
-func (p *Path) UnmarshalJSON(data []byte) error {
+// UnmarshalJSONFrom decodes GraphQL string and integer path segments.
+func (p *Path) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if p == nil {
 		return errors.New("decode graphql path: nil destination")
 	}
 
-	var rawSegments []json.RawMessage
-	err := json.Unmarshal(data, &rawSegments)
+	var rawSegments []jsontext.Value
+	err := json.UnmarshalDecode(dec, &rawSegments)
 	if err != nil {
 		return fmt.Errorf("decode graphql path: %w", err)
 	}
@@ -144,10 +133,9 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 
 	segments := make(Path, len(rawSegments))
 	for index, rawSegment := range rawSegments {
-		trimmed := bytes.TrimSpace(rawSegment)
-		if len(trimmed) > 0 && trimmed[0] == '"' {
+		if rawSegment.Kind() == '"' {
 			var field string
-			err = json.Unmarshal(trimmed, &field)
+			err = json.Unmarshal(rawSegment, &field)
 			if err != nil {
 				return fmt.Errorf("decode graphql path segment %d: %w", index, err)
 			}
@@ -155,9 +143,8 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 			continue
 		}
 
-		var listIndex int
 		var parsed int64
-		parsed, err = strconv.ParseInt(string(trimmed), 10, strconv.IntSize)
+		parsed, err = strconv.ParseInt(string(rawSegment), 10, strconv.IntSize)
 		if err != nil {
 			return fmt.Errorf(
 				"decode graphql path segment %d: expected string or integer: %w",
@@ -165,8 +152,7 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 				err,
 			)
 		}
-		listIndex = int(parsed)
-		segments[index] = listIndex
+		segments[index] = int(parsed)
 	}
 
 	*p = segments
@@ -728,7 +714,10 @@ func (c *Client) _octoqlExecute(ctx context.Context, payload _octoqlPayload, res
 	if c == nil {
 		return false, errors.New("octoql: client is nil")
 	}
-	body, err := json.Marshal(payload)
+	body, err := json.Marshal(
+		payload,
+		json.FormatNilSliceAsNull(true),
+	)
 	if err != nil {
 		return false, fmt.Errorf("encode graphql request: %w", err)
 	}
@@ -939,10 +928,10 @@ func _octoqlReadAndClose(body io.ReadCloser, limit int64) ([]byte, error, error)
 	return payload, readErr, closeErr
 }
 
-func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
+func _octoqlDecodeResponse(body []byte) (jsontext.Value, Errors, error) {
 	var envelope struct {
-		Data   json.RawMessage `json:"data"`
-		Errors json.RawMessage `json:"errors"`
+		Data   jsontext.Value `json:"data"`
+		Errors jsontext.Value `json:"errors"`
 	}
 	err := json.Unmarshal(body, &envelope)
 	if err != nil {
@@ -964,7 +953,7 @@ func _octoqlDecodeResponse(body []byte) (json.RawMessage, Errors, error) {
 	return envelope.Data, graphqlErrors, err
 }
 
-func _octoqlDecodeData(data json.RawMessage, response any) error {
+func _octoqlDecodeData(data jsontext.Value, response any) error {
 	err := json.Unmarshal(data, response)
 	if err != nil {
 		return fmt.Errorf("decode graphql response data: %w", err)

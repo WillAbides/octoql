@@ -1,7 +1,9 @@
 package githubdefaults
 
 import (
+	"bytes"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"net/http"
 	"strings"
@@ -210,9 +212,10 @@ func TestOmittedImplementationUnmarshal(t *testing.T) {
 			(*runtimeAbstractsNode2OctoqlOther)(nil),
 		} {
 			current := node
-			data, err := _octoqlMarshalruntimeAbstractsNode(&current)
-			require.NoError(t, err)
-			assert.Equal(t, "null", string(data))
+			var buf bytes.Buffer
+			enc := jsontext.NewEncoder(&buf)
+			require.NoError(t, _octoqlMarshalruntimeAbstractsNode(enc, &current))
+			assert.Equal(t, "null", strings.TrimSpace(buf.String()))
 		}
 
 		shapes := namingShapesResponse{

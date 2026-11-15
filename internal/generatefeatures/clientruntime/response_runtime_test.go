@@ -2,6 +2,7 @@ package clientruntime
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -130,7 +131,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 			body:       `{"data":{"repository":"not an object"}}`,
 			check: func(t *testing.T, _ *getRepositoryResponse, err error) {
 				t.Helper()
-				_, hasDecodeError := errors.AsType[*json.UnmarshalTypeError](err)
+				_, hasDecodeError := errors.AsType[*jsonv2.SemanticError](err)
 				assert.True(t, hasDecodeError)
 			},
 		},

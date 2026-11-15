@@ -2,6 +2,8 @@ package clientruntime
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -55,7 +57,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				truncatedBody := []byte(`{"errors":[`)
 				assert.Equal(t, truncatedBody, responseError.RawBody)
 				assert.Equal(t, http.StatusServiceUnavailable, responseError.StatusCode)
-				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
+				_, syntaxErrorFound := errors.AsType[*jsontext.SyntacticError](err)
 				assert.True(t, syntaxErrorFound)
 			},
 		},
@@ -67,7 +69,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			check: func(t *testing.T, err error) {
 				t.Helper()
 				require.Error(t, err)
-				_, syntaxErrorFound := errors.AsType[*json.SyntaxError](err)
+				_, syntaxErrorFound := errors.AsType[*jsontext.SyntacticError](err)
 				assert.True(t, syntaxErrorFound)
 			},
 		},
@@ -84,7 +86,7 @@ func TestDoHTTPResponses(t *testing.T) {
 				require.ErrorAs(t, err, &graphqlErrors)
 				require.Len(t, graphqlErrors, 1)
 				assert.Equal(t, ErrorType("PARTIAL"), graphqlErrors[0].Type)
-				_, typeErrorFound := errors.AsType[*json.UnmarshalTypeError](err)
+				_, typeErrorFound := errors.AsType[*jsonv2.SemanticError](err)
 				assert.True(t, typeErrorFound)
 			},
 		},

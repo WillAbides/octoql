@@ -29,9 +29,6 @@ type goType interface {
 
 	// Unwrap removes slice/pointer wrappers and returns the underlying type.
 	Unwrap() goType
-
-	// SliceDepth counts the outer slice wrappers on this type.
-	SliceDepth() int
 }
 
 var (
@@ -255,7 +252,7 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 			jsonTag += ",omitempty"
 		}
 		jsonTag += `"`
-		if field.NeedsMarshaling() {
+		if field.IsEmbedded() {
 			jsonTag = `"-"`
 		}
 		fmt.Fprintf(w, "\t%s %s `json:%s`\n", field.GoName, r.typeRef(field.GoType), jsonTag)
@@ -369,14 +366,6 @@ func (t *goPointerType) Unwrap() goType            { return t.Elem.Unwrap() }
 func (t *goEnumType) Unwrap() goType               { return t }
 func (t *goStructType) Unwrap() goType             { return t }
 func (t *goInterfaceType) Unwrap() goType          { return t }
-
-func (t *goOpaqueType) SliceDepth() int             { return 0 }
-func (t *goTypenameForBuiltinType) SliceDepth() int { return 0 }
-func (t *goSliceType) SliceDepth() int              { return t.Elem.SliceDepth() + 1 }
-func (t *goPointerType) SliceDepth() int            { return 0 }
-func (t *goEnumType) SliceDepth() int               { return 0 }
-func (t *goStructType) SliceDepth() int             { return 0 }
-func (t *goInterfaceType) SliceDepth() int          { return 0 }
 
 func writeDescription(w io.Writer, desc string) {
 	if desc != "" {

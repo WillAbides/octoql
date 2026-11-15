@@ -296,7 +296,7 @@ query Value($input: JSON!) {
 	require.NoError(t, err)
 
 	assert.Contains(t, source, `"github.com/willabides/octoql/internal/generate/testdata/json"`)
-	assert.Contains(t, source, `json2 "encoding/json"`)
+	assert.Contains(t, source, `json2 "encoding/json/v2"`)
 	assert.Contains(t, source, "Input json.Value")
 	assert.Contains(t, source, "json2.Marshal")
 	compileModulePackages(t, map[string][]byte{"runtime_import_alias_collision": []byte(source)})

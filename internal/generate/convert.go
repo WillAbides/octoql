@@ -232,7 +232,7 @@ func checkStructIdentifiers(t *goStructType) error {
 	}
 
 	if t.NeedsMarshaling() {
-		for _, method := range []string{"MarshalJSON", "UnmarshalJSON"} {
+		for _, method := range []string{"MarshalJSONTo", "UnmarshalJSONFrom"} {
 			err := register(method, method+" method", nil)
 			if err != nil {
 				return err

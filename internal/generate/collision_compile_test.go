@@ -266,28 +266,28 @@ fragment Foo on Foo {
 `,
 		},
 		{
-			// Fields named marshalJSON/unmarshalJSON collide with the
-			// MarshalJSON/UnmarshalJSON methods octoqlgen emits (here forced by
-			// the embedded fragment, which requires custom marshaling).
+			// Fields named marshalJSONTo/unmarshalJSONFrom collide with the
+			// MarshalJSONTo/UnmarshalJSONFrom methods octoqlgen emits (here
+			// forced by the embedded fragment, which requires custom marshaling).
 			name: "field and JSON methods",
 			schema: `
 type Query {
-  marshalJSON: String!
-  unmarshalJSON: String!
+  marshalJSONTo: String!
+  unmarshalJSONFrom: String!
   value: String!
 }
 `,
 			operations: `
 query Methods {
-  marshalJSON
-  unmarshalJSON
+  marshalJSONTo
+  unmarshalJSONFrom
   ...Fields
 }
 fragment Fields on Query {
   value
 }
 `,
-			wantGenerationErr: "Go identifier MarshalJSON for both field MarshalJSON (GraphQL marshalJSON) and MarshalJSON method",
+			wantGenerationErr: "Go identifier MarshalJSONTo for both field MarshalJSONTo (GraphQL marshalJSONTo) and MarshalJSONTo method",
 		},
 		{
 			// Two enum values normalize to the same Go name; caught by the

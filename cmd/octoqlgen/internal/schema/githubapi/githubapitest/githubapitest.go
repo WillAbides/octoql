@@ -3,11 +3,9 @@
 package githubapitest
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -23,8 +21,8 @@ type testTB interface {
 }
 
 type graphqlRequest struct {
-	OperationName string          `json:"operationName"`
-	Variables     json.RawMessage `json:"variables"`
+	OperationName string         `json:"operationName"`
+	Variables     jsontext.Value `json:"variables"`
 }
 
 type operationResult[V any] func(V, http.ResponseWriter) error
@@ -213,7 +211,10 @@ func (s *expectationSet[V]) reset(variables ...V) {
 }
 
 func variableKey[V any](variables V) (string, error) {
-	encoded, err := json.Marshal(variables)
+	encoded, err := json.Marshal(
+		variables,
+		json.FormatNilSliceAsNull(true),
+	)
 	if err != nil {
 		return "", fmt.Errorf("encoding variables: %w", err)
 	}
@@ -221,14 +222,8 @@ func variableKey[V any](variables V) (string, error) {
 }
 
 func variableKeyJSON(encoded []byte) (string, error) {
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.UseNumber()
-	var value any
-	err := decoder.Decode(&value)
-	if err != nil {
-		return "", fmt.Errorf("decoding variables: %w", err)
-	}
-	normalized, err := json.Marshal(value)
+	normalized := append(jsontext.Value(nil), encoded...)
+	err := normalized.Canonicalize(jsontext.CanonicalizeRawInts(false))
 	if err != nil {
 		return "", fmt.Errorf("normalizing variables: %w", err)
 	}
@@ -236,9 +231,7 @@ func variableKeyJSON(encoded []byte) (string, error) {
 }
 
 func decodeVariables(encoded []byte, destination any) error {
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.UseNumber()
-	err := decoder.Decode(destination)
+	err := json.Unmarshal(encoded, destination)
 	if err != nil {
 		return fmt.Errorf("decoding variables: %w", err)
 	}
@@ -389,7 +382,11 @@ func writeGraphQLResponse(
 		payload["errors"] = graphqlErrors
 	}
 	writer.WriteHeader(options.status)
-	err := json.NewEncoder(writer).Encode(payload)
+	err := json.MarshalWrite(
+		writer,
+		payload,
+		json.FormatNilSliceAsNull(true),
+	)
 	if err != nil {
 		return fmt.Errorf("encoding graphql response: %w", err)
 	}
@@ -456,11 +453,11 @@ func (h *TestHandler) ServeHTTP(
 		return
 	}
 
-	decoder := json.NewDecoder(
-		http.MaxBytesReader(writer, request.Body, 8<<20),
-	)
 	var graphqlRequest graphqlRequest
-	err := decoder.Decode(&graphqlRequest)
+	err := json.UnmarshalRead(
+		http.MaxBytesReader(writer, request.Body, 8<<20),
+		&graphqlRequest,
+	)
 	if err != nil {
 		writeErr := writeRequestError(
 			writer,
@@ -469,23 +466,6 @@ func (h *TestHandler) ServeHTTP(
 		)
 		if writeErr != nil {
 			h.tb.Errorf("writing decode error response: %v", writeErr)
-		}
-		return
-	}
-
-	var extra any
-	err = decoder.Decode(&extra)
-	if !errors.Is(err, io.EOF) {
-		if err == nil {
-			err = fmt.Errorf("multiple json values")
-		}
-		writeErr := writeRequestError(
-			writer,
-			http.StatusBadRequest,
-			"decoding graphql request: "+err.Error(),
-		)
-		if writeErr != nil {
-			h.tb.Errorf("writing trailing data error response: %v", writeErr)
 		}
 		return
 	}
@@ -502,7 +482,7 @@ func (h *TestHandler) ServeHTTP(
 		return
 	}
 	if len(graphqlRequest.Variables) == 0 {
-		graphqlRequest.Variables = json.RawMessage("{}")
+		graphqlRequest.Variables = jsontext.Value("{}")
 	}
 
 	switch graphqlRequest.OperationName {

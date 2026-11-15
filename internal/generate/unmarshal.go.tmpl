@@ -1,114 +1,107 @@
-{{/* We need to generate UnmarshalJSON methods for some types that we want to
-     handle specially.  Specifically, we generate an UnmarshalJSON for each
-     struct with a field meeting any of these criteria:
+{{/* We need to generate UnmarshalJSONFrom methods for some types that we want
+     to handle specially.  Specifically, we generate an UnmarshalJSONFrom for
+     each struct with a field meeting any of these criteria:
         - an embedded (anonymous) field, so every embedded fragment struct is
           populated even when fields overlap across the struct and its embeds
         - a field of interface type
      Additionally, since we add `json:"-"` to fields we handle specially, for
-     any field which requires a MarshalJSON, we also generate an UnmarshalJSON,
-     and vice versa.
+     any field which requires a MarshalJSONTo, we also generate an
+     UnmarshalJSONFrom, and vice versa.
 
-     Given that, we want to specially handle the above-described fields, but
-     unmarshal everything else normally.  To handle interface-typed fields,
-     first we unmarshal them into a json.RawMessage, then call the helper
-     we've generated (see unmarshal_helper.go.tmpl).  Embedded fields don't
-     need the json.RawMessage; we just unmarshal our input again into the
-     embedded field. */}}
+     For our first pass, we decode all non-embedded fields (registering
+     type-specific unmarshalers for any interface-typed fields so encoding/json/v2
+     handles arbitrary slice nesting directly), then unmarshal the input again
+     into each embedded field. */}}
 
-func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
-    {{/* Standard convention for unmarshalers is to no-op on null. */}}
+func (v *{{.GoName}}) UnmarshalJSONFrom(dec *{{ref "encoding/json/jsontext.Decoder"}}) error {
+    {{- $hasEmbedded := false -}}
+    {{- $hasNonEmbedded := false -}}
+    {{- $hasInterfaces := false -}}
+    {{- range .Fields -}}
+    {{- if .IsEmbedded -}}
+    {{- $hasEmbedded = true -}}
+    {{- else -}}
+    {{- $hasNonEmbedded = true -}}
+    {{- if .NeedsMarshaling -}}{{- $hasInterfaces = true -}}{{- end -}}
+    {{- end -}}
+    {{- end }}
+
+    {{if not $hasEmbedded -}}
+    if dec.PeekKind() == 'n' {
+        _, err := dec.ReadToken()
+        return err
+    }
+
+    return {{ref "encoding/json/v2.UnmarshalDecode"}}(
+        dec,
+        (*_octoqlPremarshal{{.GoName}})(v),
+        {{if $hasInterfaces -}}
+        {{ref "encoding/json/v2.WithUnmarshalers"}}({{ref "encoding/json/v2.JoinUnmarshalers"}}(
+            {{range .Fields -}}
+            {{if and .NeedsMarshaling (not .IsEmbedded) -}}
+            {{ref "encoding/json/v2.UnmarshalFromFunc"}}(_octoqlUnmarshal{{.GoType.Unwrap.QualifiedRef}}),
+            {{end -}}
+            {{end -}}
+        )),
+        {{end -}}
+    )
+    {{else -}}
+    b, err := dec.ReadValue()
+    if err != nil {
+        return err
+    }
     if string(b) == "null" {
         return nil
     }
 
-    {{/* For our first pass, we ignore embedded fields, unmarshal all the
-         abstract fields into json.RawMessage, and unmarshal everything else
-         normally.  To do this, we want to call json.Unmarshal on the receiver
-         (v).  But if we do that naively on a
-         value of type <.GoName>, it will call this function again, and recurse
-         infinitely.  So we make a wrapper type which embeds both this type and
-         _octoqlNoUnmarshalJSON, which prevents either's UnmarshalJSON method from
-         being promoted.  For more on why this is so difficult, see
-         https://github.com/benjaminjkraft/notes/blob/master/go-json-interfaces.md.
-         (Note there are a few different ways "hide" the method, but this one
-         seems to be the best option that works if this type has embedded types
-         with UnmarshalJSON methods.)
-    */}}
-
+    {{if $hasNonEmbedded -}}
     var firstPass struct{
-        *{{.GoName}}
         {{range .Fields -}}
-        {{if and .NeedsMarshaling (not .IsEmbedded) -}}
-        {{.GoName}} {{ref "encoding/json.RawMessage"}} `json:"{{.JSONName}}"`
+        {{if not .IsEmbedded -}}
+        {{.GoName}} {{typeRef .GoType}} `json:"{{.JSONName}}{{if .Omitempty -}},omitempty{{end}}"`
         {{end -}}
         {{end -}}
-        _octoqlNoUnmarshalJSON
     }
-    firstPass.{{.GoName}} = v
+    {{range .Fields -}}
+    {{if not .IsEmbedded -}}
+    firstPass.{{.GoName}} = v.{{.GoName}}
+    {{end -}}
+    {{end -}}
 
-    err := {{ref "encoding/json.Unmarshal"}}(b, &firstPass)
+    err = {{ref "encoding/json/v2.Unmarshal"}}(
+        b,
+        &firstPass,
+        dec.Options(),
+        {{if $hasInterfaces -}}
+        {{ref "encoding/json/v2.WithUnmarshalers"}}({{ref "encoding/json/v2.JoinUnmarshalers"}}(
+            {{range .Fields -}}
+            {{if and .NeedsMarshaling (not .IsEmbedded) -}}
+            {{ref "encoding/json/v2.UnmarshalFromFunc"}}(_octoqlUnmarshal{{.GoType.Unwrap.QualifiedRef}}),
+            {{end -}}
+            {{end -}}
+        )),
+        {{end -}}
+    )
     if err != nil {
         return err
     }
+    {{range .Fields -}}
+    {{if not .IsEmbedded -}}
+    v.{{.GoName}} = firstPass.{{.GoName}}
+    {{end -}}
+    {{end -}}
+    {{end -}}
 
-    {{/* Now, handle the fields needing special handling. */}}
     {{range $field := .Fields -}}
-    {{if $field.NeedsMarshaling -}}
     {{if $field.IsEmbedded -}}
-    err = {{ref "encoding/json.Unmarshal"}}(
-        b, &v.{{typeRef $field.GoType.Unwrap}})
+    err = {{ref "encoding/json/v2.Unmarshal"}}(
+        b, &v.{{typeRef $field.GoType.Unwrap}}, dec.Options())
     if err != nil {
         return err
     }
-    {{else -}}
-    {
-        dst := &v.{{$field.GoName}}
-        {{if $field.GoType.SliceDepth -}}
-        raw := firstPass.{{$field.GoName}}
-        if len(raw) != 0 {
-            if string(raw) == "null" {
-                *dst = nil
-            }
-            if string(raw) != "null" {
-                var src {{repeat $field.GoType.SliceDepth "[]"}}{{ref "encoding/json.RawMessage"}}
-                err = {{ref "encoding/json.Unmarshal"}}(raw, &src)
-                if err != nil {
-                    return {{ref "fmt.Errorf"}}(
-                        "unable to unmarshal {{$.GoName}}.{{$field.GoName}}: %w", err)
-                }
-        {{else -}}
-        src := firstPass.{{$field.GoName}}
-        if len(src) != 0 && string(src) == "null" {
-            *dst = nil
-        }
-        {{end -}}
-        {{range $i := intRange $field.GoType.SliceDepth -}}
-        if src != nil {
-        *dst = make(
-            {{repeat (sub $field.GoType.SliceDepth $i) "[]"}}{{typeRef $field.GoType.Unwrap}},
-            len(src))
-        for i, src := range src {
-            dst := &(*dst)[i]
-        {{end -}}
-        if len(src) != 0 && string(src) != "null" {
-            err = _octoqlUnmarshal{{$field.GoType.Unwrap.QualifiedRef}}(src, dst)
-            if err != nil {
-                return {{ref "fmt.Errorf"}}(
-                    "unable to unmarshal {{$.GoName}}.{{$field.GoName}}: %w", err)
-            }
-        }
-        {{range $i := intRange $field.GoType.SliceDepth -}}
-        }
-        }
-        {{end -}}
-        {{if $field.GoType.SliceDepth -}}
-            }
-        }
-        {{end -}}
-    }
-    {{end}}{{/* end if/else .IsEmbedded */ -}}
-    {{end}}{{/* end if .NeedsMarshaling */ -}}
-    {{end}}{{/* end range .Fields */ -}}
+    {{end -}}
+    {{end -}}
 
     return nil
+    {{end -}}
 }
