@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -359,6 +357,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -964,97 +976,6 @@ func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
-}
-
 type FirstRepository string
 
 // GitHubNamingResponse is returned by GitHubNaming on success.
@@ -1066,31 +987,9 @@ type GitHubNamingResponse struct {
 	Object          GitHubNamingResponseObjectObjectType  `json:"object"`
 }
 
-// GetAccount returns GitHubNamingResponse.Account, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponse) GetAccount() testutil.Account { return v.Account }
-
-// GetFirst returns GitHubNamingResponse.First, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponse) GetFirst() *GitHubNamingResponseFirstRepository { return v.First }
-
-// GetSecond returns GitHubNamingResponse.Second, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponse) GetSecond() *GitHubNamingResponseSecondRepository { return v.Second }
-
-// GetSnake_case_type returns GitHubNamingResponse.Snake_case_type, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponse) GetSnake_case_type() *GitHubNamingResponseSnake_case_type {
-	return v.Snake_case_type
-}
-
-// GetObject returns GitHubNamingResponse.Object, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponse) GetObject() GitHubNamingResponseObjectObjectType { return v.Object }
-
 // GitHubNamingResponseFirstRepository includes the requested fields of the GraphQL type Repository.
 type GitHubNamingResponseFirstRepository struct {
 	NameWithOwner FirstRepository `json:"nameWithOwner"`
-}
-
-// GetNameWithOwner returns GitHubNamingResponseFirstRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponseFirstRepository) GetNameWithOwner() FirstRepository {
-	return v.NameWithOwner
 }
 
 // GitHubNamingResponseObjectObjectType includes the requested fields of the GraphQL type ObjectType.
@@ -1098,29 +997,14 @@ type GitHubNamingResponseObjectObjectType struct {
 	Snake_case_field *GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type `json:"snake_case_field"`
 }
 
-// GetSnake_case_field returns GitHubNamingResponseObjectObjectType.Snake_case_field, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponseObjectObjectType) GetSnake_case_field() *GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type {
-	return v.Snake_case_field
-}
-
 // GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type includes the requested fields of the GraphQL type snake_case_type.
 type GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type struct {
 	Id testutil.ID `json:"id"`
 }
 
-// GetId returns GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type.Id, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponseObjectObjectTypeSnake_case_fieldSnake_case_type) GetId() testutil.ID {
-	return v.Id
-}
-
 // GitHubNamingResponseSecondRepository includes the requested fields of the GraphQL type Repository.
 type GitHubNamingResponseSecondRepository struct {
 	NameWithOwner SecondRepository `json:"nameWithOwner"`
-}
-
-// GetNameWithOwner returns GitHubNamingResponseSecondRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponseSecondRepository) GetNameWithOwner() SecondRepository {
-	return v.NameWithOwner
 }
 
 // GitHubNamingResponseSnake_case_type includes the requested fields of the GraphQL type snake_case_type.
@@ -1129,12 +1013,6 @@ type GitHubNamingResponseSnake_case_type struct {
 	Name *string     `json:"name"`
 }
 
-// GetId returns GitHubNamingResponseSnake_case_type.Id, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponseSnake_case_type) GetId() testutil.ID { return v.Id }
-
-// GetName returns GitHubNamingResponseSnake_case_type.Name, and is useful for accessing the field via an interface.
-func (v *GitHubNamingResponseSnake_case_type) GetName() *string { return v.Name }
-
 type SecondRepository string
 
 // anyResponse is returned by any on success.
@@ -1142,35 +1020,20 @@ type anyResponse struct {
 	Viewer anyViewerUser `json:"viewer"`
 }
 
-// GetViewer returns anyResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *anyResponse) GetViewer() anyViewerUser { return v.Viewer }
-
 // anyViewerUser includes the requested fields of the GraphQL type User.
 type anyViewerUser struct {
 	Id testutil.ID `json:"id"`
 }
-
-// GetId returns anyViewerUser.Id, and is useful for accessing the field via an interface.
-func (v *anyViewerUser) GetId() testutil.ID { return v.Id }
 
 // newResponse is returned by new on success.
 type newResponse struct {
 	Viewer newViewerUser `json:"viewer"`
 }
 
-// GetViewer returns newResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *newResponse) GetViewer() newViewerUser { return v.Viewer }
-
 // newViewerUser includes the requested fields of the GraphQL type User.
 type newViewerUser struct {
 	Id testutil.ID `json:"id"`
 }
-
-// GetId returns newViewerUser.Id, and is useful for accessing the field via an interface.
-func (v *newViewerUser) GetId() testutil.ID { return v.Id }
-
-// The query executed by GitHubNaming.
-const GitHubNaming_Operation = "\nquery GitHubNaming {\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n\tfirst: repository(owner: \"octo\", name: \"one\") {\n\t\tnameWithOwner\n\t}\n\tsecond: repository(owner: \"octo\", name: \"two\") {\n\t\tnameWithOwner\n\t}\n\tsnake_case_type {\n\t\tid\n\t\tname\n\t}\n\tobject {\n\t\tsnake_case_field {\n\t\t\tid\n\t\t}\n\t}\n}\n"
 
 // GitHubNamingPartialDataError contains partial data returned by GitHubNaming.
 type GitHubNamingPartialDataError struct {
@@ -1199,11 +1062,6 @@ func (e *GitHubNamingPartialDataError) PartialData() *GitHubNamingResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *GitHubNamingPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) GitHubNaming(
 	ctx context.Context,
 ) (*GitHubNamingResponse, error) {
@@ -1212,7 +1070,7 @@ func (c *Client) GitHubNaming(
 		ctx,
 		_octoqlPayload{
 			OperationName: "GitHubNaming",
-			Query:         GitHubNaming_Operation,
+			Query:         "\nquery GitHubNaming {\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n\tfirst: repository(owner: \"octo\", name: \"one\") {\n\t\tnameWithOwner\n\t}\n\tsecond: repository(owner: \"octo\", name: \"two\") {\n\t\tnameWithOwner\n\t}\n\tsnake_case_type {\n\t\tid\n\t\tname\n\t}\n\tobject {\n\t\tsnake_case_field {\n\t\t\tid\n\t\t}\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,
@@ -1228,9 +1086,6 @@ func (c *Client) GitHubNaming(
 	}
 	return &response, nil
 }
-
-// The query executed by any.
-const any_Operation = "\nquery any {\n\tviewer {\n\t\tid\n\t}\n}\n"
 
 // anyPartialDataError contains partial data returned by any.
 type anyPartialDataError struct {
@@ -1259,11 +1114,6 @@ func (e *anyPartialDataError) PartialData() *anyResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *anyPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) any(
 	ctx context.Context,
 ) (*anyResponse, error) {
@@ -1272,7 +1122,7 @@ func (c *Client) any(
 		ctx,
 		_octoqlPayload{
 			OperationName: "any",
-			Query:         any_Operation,
+			Query:         "\nquery any {\n\tviewer {\n\t\tid\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,
@@ -1288,9 +1138,6 @@ func (c *Client) any(
 	}
 	return &response, nil
 }
-
-// The query executed by new.
-const new_Operation = "\nquery new {\n\tviewer {\n\t\tid\n\t}\n}\n"
 
 // newPartialDataError contains partial data returned by new.
 type newPartialDataError struct {
@@ -1319,11 +1166,6 @@ func (e *newPartialDataError) PartialData() *newResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *newPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) new(
 	ctx context.Context,
 ) (*newResponse, error) {
@@ -1332,7 +1174,7 @@ func (c *Client) new(
 		ctx,
 		_octoqlPayload{
 			OperationName: "new",
-			Query:         new_Operation,
+			Query:         "\nquery new {\n\tviewer {\n\t\tid\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,

@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -357,6 +355,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -962,105 +974,11 @@ func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
-}
-
 // getUserResponse is returned by getUser on success.
 type getUserResponse struct {
 	// Lookup a user by login.
 	User *getUserUser `json:"user"`
 }
-
-// GetUser returns getUserResponse.User, and is useful for accessing the field via an interface.
-func (v *getUserResponse) GetUser() *getUserUser { return v.User }
 
 // getUserUser includes the requested fields of the GraphQL type User.
 // The GraphQL type's documentation follows.
@@ -1073,12 +991,6 @@ type getUserUser struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// GetTheirName returns getUserUser.TheirName, and is useful for accessing the field via an interface.
-func (v *getUserUser) GetTheirName() *string { return v.TheirName }
-
-// GetCreatedAt returns getUserUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *getUserUser) GetCreatedAt() time.Time { return v.CreatedAt }
-
 // getUserVariables contains the variables accepted by getUser.
 type getUserVariables struct {
 	Login string `json:"Login"`
@@ -1090,9 +1002,6 @@ type getViewerResponse struct {
 	Viewer getViewerViewerUser `json:"viewer"`
 }
 
-// GetViewer returns getViewerResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *getViewerResponse) GetViewer() getViewerViewerUser { return v.Viewer }
-
 // getViewerViewerUser includes the requested fields of the GraphQL type User.
 // The GraphQL type's documentation follows.
 //
@@ -1103,15 +1012,6 @@ type getViewerViewerUser struct {
 	// Identifies the date and time when the object was created.
 	CreatedAt time.Time `json:"createdAt"`
 }
-
-// GetMyName returns getViewerViewerUser.MyName, and is useful for accessing the field via an interface.
-func (v *getViewerViewerUser) GetMyName() *string { return v.MyName }
-
-// GetCreatedAt returns getViewerViewerUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *getViewerViewerUser) GetCreatedAt() time.Time { return v.CreatedAt }
-
-// The query executed by getUser.
-const getUser_Operation = "\nquery getUser ($Login: String!) {\n\tuser(login: $Login) {\n\t\ttheirName: name\n\t\tcreatedAt\n\t}\n}\n"
 
 // getUserPartialDataError contains partial data returned by getUser.
 type getUserPartialDataError struct {
@@ -1140,11 +1040,6 @@ func (e *getUserPartialDataError) PartialData() *getUserResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *getUserPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 // getUser gets the given user's name from their username.
 func (c *Client) getUser(
 	ctx context.Context,
@@ -1155,7 +1050,7 @@ func (c *Client) getUser(
 		ctx,
 		_octoqlPayload{
 			OperationName: "getUser",
-			Query:         getUser_Operation,
+			Query:         "\nquery getUser ($Login: String!) {\n\tuser(login: $Login) {\n\t\ttheirName: name\n\t\tcreatedAt\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -1171,9 +1066,6 @@ func (c *Client) getUser(
 	}
 	return &response, nil
 }
-
-// The query executed by getViewer.
-const getViewer_Operation = "\nquery getViewer {\n\tviewer {\n\t\tMyName: name\n\t\tcreatedAt\n\t}\n}\n"
 
 // getViewerPartialDataError contains partial data returned by getViewer.
 type getViewerPartialDataError struct {
@@ -1202,11 +1094,6 @@ func (e *getViewerPartialDataError) PartialData() *getViewerResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *getViewerPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) getViewer(
 	ctx context.Context,
 ) (*getViewerResponse, error) {
@@ -1215,7 +1102,7 @@ func (c *Client) getViewer(
 		ctx,
 		_octoqlPayload{
 			OperationName: "getViewer",
-			Query:         getViewer_Operation,
+			Query:         "\nquery getViewer {\n\tviewer {\n\t\tMyName: name\n\t\tcreatedAt\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,

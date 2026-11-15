@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -357,6 +355,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -962,104 +974,10 @@ func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
-}
-
 // getReviewResponse is returned by getReview on success.
 type getReviewResponse struct {
 	Review getReviewReview `json:"review"`
 }
-
-// GetReview returns getReviewResponse.Review, and is useful for accessing the field via an interface.
-func (v *getReviewResponse) GetReview() getReviewReview { return v.Review }
 
 // getReviewReview includes the requested fields of the GraphQL type Review.
 type getReviewReview struct {
@@ -1079,48 +997,6 @@ type getReviewReview struct {
 	Editor         *getReviewReviewEditorActor `json:"editor"`
 }
 
-// GetFullDatabaseId returns getReviewReview.FullDatabaseId, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetFullDatabaseId() string { return v.FullDatabaseId }
-
-// GetCreatedAt returns getReviewReview.CreatedAt, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetCreatedAt() time.Time { return v.CreatedAt }
-
-// GetPublishedOn returns getReviewReview.PublishedOn, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetPublishedOn() string { return v.PublishedOn }
-
-// GetUpdatedAt returns getReviewReview.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetUpdatedAt() time.Time { return v.UpdatedAt }
-
-// GetPushedAt returns getReviewReview.PushedAt, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetPushedAt() time.Time { return v.PushedAt }
-
-// GetOid returns getReviewReview.Oid, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetOid() string { return v.Oid }
-
-// GetRefname returns getReviewReview.Refname, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetRefname() string { return v.Refname }
-
-// GetSshRemote returns getReviewReview.SshRemote, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetSshRemote() string { return v.SshRemote }
-
-// GetBodyHTML returns getReviewReview.BodyHTML, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetBodyHTML() string { return v.BodyHTML }
-
-// GetEncoded returns getReviewReview.Encoded, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetEncoded() string { return v.Encoded }
-
-// GetCertificate returns getReviewReview.Certificate, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetCertificate() string { return v.Certificate }
-
-// GetPropertyValue returns getReviewReview.PropertyValue, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetPropertyValue() *json.RawMessage { return v.PropertyValue }
-
-// GetAuthor returns getReviewReview.Author, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetAuthor() *getReviewReviewAuthorActor { return v.Author }
-
-// GetEditor returns getReviewReview.Editor, and is useful for accessing the field via an interface.
-func (v *getReviewReview) GetEditor() *getReviewReviewEditorActor { return v.Editor }
-
 // getReviewReviewAuthorActor includes the requested fields of the GraphQL type Actor.
 type getReviewReviewAuthorActor struct {
 	Typename string `json:"__typename"`
@@ -1128,30 +1004,12 @@ type getReviewReviewAuthorActor struct {
 	Url      string `json:"url"`
 }
 
-// GetTypename returns getReviewReviewAuthorActor.Typename, and is useful for accessing the field via an interface.
-func (v *getReviewReviewAuthorActor) GetTypename() string { return v.Typename }
-
-// GetLogin returns getReviewReviewAuthorActor.Login, and is useful for accessing the field via an interface.
-func (v *getReviewReviewAuthorActor) GetLogin() string { return v.Login }
-
-// GetUrl returns getReviewReviewAuthorActor.Url, and is useful for accessing the field via an interface.
-func (v *getReviewReviewAuthorActor) GetUrl() string { return v.Url }
-
 // getReviewReviewEditorActor includes the requested fields of the GraphQL type Actor.
 type getReviewReviewEditorActor struct {
 	Typename string `json:"__typename"`
 	Login    string `json:"login"`
 	Url      string `json:"url"`
 }
-
-// GetTypename returns getReviewReviewEditorActor.Typename, and is useful for accessing the field via an interface.
-func (v *getReviewReviewEditorActor) GetTypename() string { return v.Typename }
-
-// GetLogin returns getReviewReviewEditorActor.Login, and is useful for accessing the field via an interface.
-func (v *getReviewReviewEditorActor) GetLogin() string { return v.Login }
-
-// GetUrl returns getReviewReviewEditorActor.Url, and is useful for accessing the field via an interface.
-func (v *getReviewReviewEditorActor) GetUrl() string { return v.Url }
 
 // namingShapesNamingActor includes the requested fields of the GraphQL interface Actor.
 //
@@ -1223,24 +1081,15 @@ type namingShapesNamingUser struct {
 	Id string `json:"id"`
 }
 
-// GetId returns namingShapesNamingUser.Id, and is useful for accessing the field via an interface.
-func (v *namingShapesNamingUser) GetId() string { return v.Id }
-
 // namingShapesQueryNamingUser includes the requested fields of the GraphQL type NamingUser.
 type namingShapesQueryNamingUser struct {
 	Id string `json:"id"`
 }
 
-// GetId returns namingShapesQueryNamingUser.Id, and is useful for accessing the field via an interface.
-func (v *namingShapesQueryNamingUser) GetId() string { return v.Id }
-
 // namingShapesQueryTypedNamingUserQueryNamingUser includes the requested fields of the GraphQL type QueryNamingUser.
 type namingShapesQueryTypedNamingUserQueryNamingUser struct {
 	Id string `json:"id"`
 }
-
-// GetId returns namingShapesQueryTypedNamingUserQueryNamingUser.Id, and is useful for accessing the field via an interface.
-func (v *namingShapesQueryTypedNamingUserQueryNamingUser) GetId() string { return v.Id }
 
 // namingShapesResponse is returned by namingShapes on success.
 type namingShapesResponse struct {
@@ -1248,22 +1097,6 @@ type namingShapesResponse struct {
 	QueryNamingUser      namingShapesQueryNamingUser                     `json:"queryNamingUser"`
 	NamingActor          namingShapesNamingActor                         `json:"-"`
 	QueryTypedNamingUser namingShapesQueryTypedNamingUserQueryNamingUser `json:"queryTypedNamingUser"`
-}
-
-// GetNamingUser returns namingShapesResponse.NamingUser, and is useful for accessing the field via an interface.
-func (v *namingShapesResponse) GetNamingUser() namingShapesNamingUser { return v.NamingUser }
-
-// GetQueryNamingUser returns namingShapesResponse.QueryNamingUser, and is useful for accessing the field via an interface.
-func (v *namingShapesResponse) GetQueryNamingUser() namingShapesQueryNamingUser {
-	return v.QueryNamingUser
-}
-
-// GetNamingActor returns namingShapesResponse.NamingActor, and is useful for accessing the field via an interface.
-func (v *namingShapesResponse) GetNamingActor() namingShapesNamingActor { return v.NamingActor }
-
-// GetQueryTypedNamingUser returns namingShapesResponse.QueryTypedNamingUser, and is useful for accessing the field via an interface.
-func (v *namingShapesResponse) GetQueryTypedNamingUser() namingShapesQueryTypedNamingUserQueryNamingUser {
-	return v.QueryTypedNamingUser
 }
 
 func (v *namingShapesResponse) UnmarshalJSON(b []byte) error {
@@ -1458,9 +1291,6 @@ type runtimeAbstractsActorNodeBot struct {
 // GetTypename returns runtimeAbstractsActorNodeBot.Typename, and is useful for accessing the field via an interface.
 func (v *runtimeAbstractsActorNodeBot) GetTypename() string { return v.Typename }
 
-// GetLogin returns runtimeAbstractsActorNodeBot.Login, and is useful for accessing the field via an interface.
-func (v *runtimeAbstractsActorNodeBot) GetLogin() string { return v.Login }
-
 // runtimeAbstractsActorNodeNamingUser includes the requested fields of the GraphQL type NamingUser.
 type runtimeAbstractsActorNodeNamingUser struct {
 	Typename string `json:"__typename"`
@@ -1469,9 +1299,6 @@ type runtimeAbstractsActorNodeNamingUser struct {
 
 // GetTypename returns runtimeAbstractsActorNodeNamingUser.Typename, and is useful for accessing the field via an interface.
 func (v *runtimeAbstractsActorNodeNamingUser) GetTypename() string { return v.Typename }
-
-// GetLogin returns runtimeAbstractsActorNodeNamingUser.Login, and is useful for accessing the field via an interface.
-func (v *runtimeAbstractsActorNodeNamingUser) GetLogin() string { return v.Login }
 
 // runtimeAbstractsActorNodeOctoqlOther represents runtimeAbstractsActorNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
 type runtimeAbstractsActorNodeOctoqlOther struct {
@@ -1489,9 +1316,6 @@ type runtimeAbstractsActorNodeOrganization struct {
 
 // GetTypename returns runtimeAbstractsActorNodeOrganization.Typename, and is useful for accessing the field via an interface.
 func (v *runtimeAbstractsActorNodeOrganization) GetTypename() string { return v.Typename }
-
-// GetLogin returns runtimeAbstractsActorNodeOrganization.Login, and is useful for accessing the field via an interface.
-func (v *runtimeAbstractsActorNodeOrganization) GetLogin() string { return v.Login }
 
 // runtimeAbstractsNestedNodesNode includes the requested fields of the GraphQL interface Node.
 //
@@ -1692,9 +1516,6 @@ func (v *runtimeAbstractsNodeOctoqlOther) GetId() string { return v.Id }
 // GetUrl returns runtimeAbstractsNodeOctoqlOther.Url, and is useful for accessing the field via an interface.
 func (v *runtimeAbstractsNodeOctoqlOther) GetUrl() string { return v.Url }
 
-// GetValue returns runtimeAbstractsNodeOctoqlOther.Value, and is useful for accessing the field via an interface.
-func (v *runtimeAbstractsNodeOctoqlOther) GetValue() string { return v.Value }
-
 // runtimeAbstractsNodeRepository includes the requested fields of the GraphQL type Repository.
 type runtimeAbstractsNodeRepository struct {
 	Typename      string `json:"__typename"`
@@ -1712,26 +1533,12 @@ func (v *runtimeAbstractsNodeRepository) GetId() string { return v.Id }
 // GetUrl returns runtimeAbstractsNodeRepository.Url, and is useful for accessing the field via an interface.
 func (v *runtimeAbstractsNodeRepository) GetUrl() string { return v.Url }
 
-// GetNameWithOwner returns runtimeAbstractsNodeRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *runtimeAbstractsNodeRepository) GetNameWithOwner() string { return v.NameWithOwner }
-
 // runtimeAbstractsResponse is returned by runtimeAbstracts on success.
 type runtimeAbstractsResponse struct {
 	Node        runtimeAbstractsNode                  `json:"-"`
 	NestedNodes [][][]runtimeAbstractsNestedNodesNode `json:"-"`
 	ActorNode   runtimeAbstractsActorNode             `json:"-"`
 }
-
-// GetNode returns runtimeAbstractsResponse.Node, and is useful for accessing the field via an interface.
-func (v *runtimeAbstractsResponse) GetNode() runtimeAbstractsNode { return v.Node }
-
-// GetNestedNodes returns runtimeAbstractsResponse.NestedNodes, and is useful for accessing the field via an interface.
-func (v *runtimeAbstractsResponse) GetNestedNodes() [][][]runtimeAbstractsNestedNodesNode {
-	return v.NestedNodes
-}
-
-// GetActorNode returns runtimeAbstractsResponse.ActorNode, and is useful for accessing the field via an interface.
-func (v *runtimeAbstractsResponse) GetActorNode() runtimeAbstractsActorNode { return v.ActorNode }
 
 func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 
@@ -1918,9 +1725,6 @@ type variableCollisionsResponse struct {
 	EchoCollision string `json:"echoCollision"`
 }
 
-// GetEchoCollision returns variableCollisionsResponse.EchoCollision, and is useful for accessing the field via an interface.
-func (v *variableCollisionsResponse) GetEchoCollision() string { return v.EchoCollision }
-
 // variableCollisionsVariables contains the variables accepted by variableCollisions.
 type variableCollisionsVariables struct {
 	Ctx      string `json:"ctx"`
@@ -1930,9 +1734,6 @@ type variableCollisionsVariables struct {
 	Response string `json:"response"`
 	HasData  string `json:"hasData"`
 }
-
-// The query executed by getReview.
-const getReview_Operation = "\nquery getReview {\n\treview {\n\t\tfullDatabaseId\n\t\tcreatedAt\n\t\tpublishedOn\n\t\tupdatedAt\n\t\tpushedAt\n\t\toid\n\t\trefname\n\t\tsshRemote\n\t\tbodyHTML\n\t\tencoded\n\t\tcertificate\n\t\tpropertyValue\n\t\tauthor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t\teditor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t}\n}\n"
 
 // getReviewPartialDataError contains partial data returned by getReview.
 type getReviewPartialDataError struct {
@@ -1961,11 +1762,6 @@ func (e *getReviewPartialDataError) PartialData() *getReviewResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *getReviewPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) getReview(
 	ctx context.Context,
 ) (*getReviewResponse, error) {
@@ -1974,7 +1770,7 @@ func (c *Client) getReview(
 		ctx,
 		_octoqlPayload{
 			OperationName: "getReview",
-			Query:         getReview_Operation,
+			Query:         "\nquery getReview {\n\treview {\n\t\tfullDatabaseId\n\t\tcreatedAt\n\t\tpublishedOn\n\t\tupdatedAt\n\t\tpushedAt\n\t\toid\n\t\trefname\n\t\tsshRemote\n\t\tbodyHTML\n\t\tencoded\n\t\tcertificate\n\t\tpropertyValue\n\t\tauthor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t\teditor {\n\t\t\t__typename\n\t\t\tlogin\n\t\t\turl\n\t\t}\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,
@@ -1990,9 +1786,6 @@ func (c *Client) getReview(
 	}
 	return &response, nil
 }
-
-// The query executed by namingShapes.
-const namingShapes_Operation = "\nquery namingShapes {\n\tnamingUser {\n\t\tid\n\t}\n\tqueryNamingUser {\n\t\tid\n\t}\n\tnamingActor {\n\t\t__typename\n\t\tlogin\n\t}\n\tqueryTypedNamingUser {\n\t\tid\n\t}\n}\n"
 
 // namingShapesPartialDataError contains partial data returned by namingShapes.
 type namingShapesPartialDataError struct {
@@ -2021,11 +1814,6 @@ func (e *namingShapesPartialDataError) PartialData() *namingShapesResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *namingShapesPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) namingShapes(
 	ctx context.Context,
 ) (*namingShapesResponse, error) {
@@ -2034,7 +1822,7 @@ func (c *Client) namingShapes(
 		ctx,
 		_octoqlPayload{
 			OperationName: "namingShapes",
-			Query:         namingShapes_Operation,
+			Query:         "\nquery namingShapes {\n\tnamingUser {\n\t\tid\n\t}\n\tqueryNamingUser {\n\t\tid\n\t}\n\tnamingActor {\n\t\t__typename\n\t\tlogin\n\t}\n\tqueryTypedNamingUser {\n\t\tid\n\t}\n}\n",
 			Variables:     nil,
 		},
 		&response,
@@ -2050,9 +1838,6 @@ func (c *Client) namingShapes(
 	}
 	return &response, nil
 }
-
-// The query executed by runtimeAbstracts.
-const runtimeAbstracts_Operation = "\nquery runtimeAbstracts ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\turl\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on OctoqlOther {\n\t\t\tvalue\n\t\t}\n\t}\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t\turl\n\t}\n\tactorNode: node(id: $id) {\n\t\t__typename\n\t\t... on Actor {\n\t\t\tlogin\n\t\t}\n\t}\n}\n"
 
 // runtimeAbstractsPartialDataError contains partial data returned by runtimeAbstracts.
 type runtimeAbstractsPartialDataError struct {
@@ -2081,11 +1866,6 @@ func (e *runtimeAbstractsPartialDataError) PartialData() *runtimeAbstractsRespon
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *runtimeAbstractsPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) runtimeAbstracts(
 	ctx context.Context,
 	vars runtimeAbstractsVariables,
@@ -2095,7 +1875,7 @@ func (c *Client) runtimeAbstracts(
 		ctx,
 		_octoqlPayload{
 			OperationName: "runtimeAbstracts",
-			Query:         runtimeAbstracts_Operation,
+			Query:         "\nquery runtimeAbstracts ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\turl\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on OctoqlOther {\n\t\t\tvalue\n\t\t}\n\t}\n\tnestedNodes {\n\t\t__typename\n\t\tid\n\t\turl\n\t}\n\tactorNode: node(id: $id) {\n\t\t__typename\n\t\t... on Actor {\n\t\t\tlogin\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -2111,9 +1891,6 @@ func (c *Client) runtimeAbstracts(
 	}
 	return &response, nil
 }
-
-// The query executed by variableCollisions.
-const variableCollisions_Operation = "\nquery variableCollisions ($ctx: String!, $client: String!, $err: String!, $vars: String!, $response: String!, $hasData: String!) {\n\techoCollision(ctx: $ctx, client: $client, err: $err, vars: $vars, response: $response, hasData: $hasData)\n}\n"
 
 // variableCollisionsPartialDataError contains partial data returned by variableCollisions.
 type variableCollisionsPartialDataError struct {
@@ -2142,11 +1919,6 @@ func (e *variableCollisionsPartialDataError) PartialData() *variableCollisionsRe
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *variableCollisionsPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) variableCollisions(
 	ctx context.Context,
 	vars variableCollisionsVariables,
@@ -2156,7 +1928,7 @@ func (c *Client) variableCollisions(
 		ctx,
 		_octoqlPayload{
 			OperationName: "variableCollisions",
-			Query:         variableCollisions_Operation,
+			Query:         "\nquery variableCollisions ($ctx: String!, $client: String!, $err: String!, $vars: String!, $response: String!, $hasData: String!) {\n\techoCollision(ctx: $ctx, client: $client, err: $err, vars: $vars, response: $response, hasData: $hasData)\n}\n",
 			Variables:     &vars,
 		},
 		&response,

@@ -111,7 +111,6 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 			r.imports.usedAliases[name] = true
 			enumType, ok := typ.(*goEnumType)
 			if ok {
-				r.imports.usedAliases["All"+enumType.GoName] = true
 				for _, enumValue := range enumType.Values {
 					r.imports.usedAliases[enumValue.GoName] = true
 				}
@@ -130,9 +129,6 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 		}
 		enumType, ok := plan.typeMap[name].(*goEnumType)
 		if ok {
-			if localTypes {
-				r.imports.usedAliases["All"+enumType.GoName] = true
-			}
 			handlerType.EnumValues = enumType.Values
 			for _, enumValue := range enumType.Values {
 				err = addIdentifier(enumValue.GoName, "client enum value alias")

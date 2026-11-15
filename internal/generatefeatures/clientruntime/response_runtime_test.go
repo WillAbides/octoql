@@ -13,17 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type responseErrorFacet interface {
-	error
-	GitHubRequestID() string
-	HTTPStatusCode() int
-}
-
-type partialDataFacet interface {
-	error
-	PartialDataValue() any
-}
-
 func TestGeneratedQueryResponseSemantics(t *testing.T) {
 	tests := []struct {
 		check      func(*testing.T, *getRepositoryResponse, error)
@@ -74,15 +63,6 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 				assert.Equal(t, http.StatusOK, responseError.StatusCode)
 				assert.Equal(t, "request-partial", responseError.RequestID)
 				assert.Empty(t, responseError.RawBody)
-
-				var facet responseErrorFacet
-				require.ErrorAs(t, err, &facet)
-				assert.Equal(t, http.StatusOK, facet.HTTPStatusCode())
-				assert.Equal(t, "request-partial", facet.GitHubRequestID())
-
-				var partialFacet partialDataFacet
-				require.ErrorAs(t, err, &partialFacet)
-				assert.Equal(t, response, partialFacet.PartialDataValue())
 
 				graphqlErrors, ok := errors.AsType[Errors](err)
 				require.True(t, ok)

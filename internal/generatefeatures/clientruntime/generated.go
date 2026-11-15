@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -359,6 +357,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -964,112 +976,15 @@ func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
-}
-
 // getRepositoryRepository includes the requested fields of the GraphQL type Repository.
 type getRepositoryRepository struct {
 	NameWithOwner string `json:"nameWithOwner"`
 }
 
-// GetNameWithOwner returns getRepositoryRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *getRepositoryRepository) GetNameWithOwner() string { return v.NameWithOwner }
-
 // getRepositoryResponse is returned by getRepository on success.
 type getRepositoryResponse struct {
 	Repository *getRepositoryRepository `json:"repository"`
 }
-
-// GetRepository returns getRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *getRepositoryResponse) GetRepository() *getRepositoryRepository { return v.Repository }
 
 // getRepositoryVariables contains the variables accepted by getRepository.
 type getRepositoryVariables struct {
@@ -1085,24 +1000,6 @@ type wireSemanticsResponse struct {
 	RawCreatedAt *string              `json:"rawCreatedAt"`
 	RawProperty  *string              `json:"rawProperty"`
 }
-
-// GetDate returns wireSemanticsResponse.Date, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetDate() *testutil.Date { return v.Date }
-
-// GetDates returns wireSemanticsResponse.Dates, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetDates() [][][]*testutil.Date { return v.Dates }
-
-// GetAccount returns wireSemanticsResponse.Account, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetAccount() *testutil.Account { return v.Account }
-
-// GetRawCreatedAt returns wireSemanticsResponse.RawCreatedAt, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetRawCreatedAt() *string { return v.RawCreatedAt }
-
-// GetRawProperty returns wireSemanticsResponse.RawProperty, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetRawProperty() *string { return v.RawProperty }
-
-// The query executed by getRepository.
-const getRepository_Operation = "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tnameWithOwner\n\t}\n}\n"
 
 // getRepositoryPartialDataError contains partial data returned by getRepository.
 type getRepositoryPartialDataError struct {
@@ -1131,11 +1028,6 @@ func (e *getRepositoryPartialDataError) PartialData() *getRepositoryResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *getRepositoryPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) getRepository(
 	ctx context.Context,
 	vars getRepositoryVariables,
@@ -1145,7 +1037,7 @@ func (c *Client) getRepository(
 		ctx,
 		_octoqlPayload{
 			OperationName: "getRepository",
-			Query:         getRepository_Operation,
+			Query:         "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tnameWithOwner\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -1161,9 +1053,6 @@ func (c *Client) getRepository(
 	}
 	return &response, nil
 }
-
-// The query executed by wireSemantics.
-const wireSemantics_Operation = "\nquery wireSemantics {\n\tdate\n\tdates\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n\trawCreatedAt\n\trawProperty\n}\n"
 
 // wireSemanticsPartialDataError contains partial data returned by wireSemantics.
 type wireSemanticsPartialDataError struct {
@@ -1192,11 +1081,6 @@ func (e *wireSemanticsPartialDataError) PartialData() *wireSemanticsResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *wireSemanticsPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) wireSemantics(
 	ctx context.Context,
 ) (*wireSemanticsResponse, error) {
@@ -1205,7 +1089,7 @@ func (c *Client) wireSemantics(
 		ctx,
 		_octoqlPayload{
 			OperationName: "wireSemantics",
-			Query:         wireSemantics_Operation,
+			Query:         "\nquery wireSemantics {\n\tdate\n\tdates\n\taccount {\n\t\tid\n\t\tlogin\n\t}\n\trawCreatedAt\n\trawProperty\n}\n",
 			Variables:     nil,
 		},
 		&response,

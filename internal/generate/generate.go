@@ -243,15 +243,9 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 		if !ok {
 			continue
 		}
-		name := "All" + enumType.GoName
-		entry := packageSymbols[name]
-		entry.declaration = "a generated enum values variable"
-		packageSymbols[name] = entry
 		for _, value := range enumType.Values {
-			entry = packageSymbols[value.GoName]
-			if entry.declaration != "a generated enum values variable" {
-				entry.declaration = "a generated enum value"
-			}
+			entry := packageSymbols[value.GoName]
+			entry.declaration = "a generated enum value"
 			packageSymbols[value.GoName] = entry
 		}
 	}
@@ -281,7 +275,7 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 			)
 		}
 		entry := packageSymbols[name]
-		if entry.declaration == "a generated enum value" || entry.declaration == "a generated enum values variable" {
+		if entry.declaration == "a generated enum value" {
 			return errorf(
 				nil,
 				"generated runtime declaration %q conflicts with a generated enum declaration",
@@ -428,13 +422,11 @@ func reserveClientDeclarations(plan *generationPlan, scope *importScope) {
 		if !ok {
 			continue
 		}
-		scope.usedAliases["All"+enumType.GoName] = true
 		for _, val := range enumType.Values {
 			scope.usedAliases[val.GoName] = true
 		}
 	}
 	for _, op := range plan.operations {
-		scope.usedAliases[op.Name+"_Operation"] = true
 		scope.usedAliases[op.Name+"PartialDataError"] = true
 	}
 }

@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -357,6 +355,20 @@ func (e *RateLimitError) Unwrap() error {
 		return nil
 	}
 	return e.Err
+}
+
+// RetryAt returns the primary reset time or secondary retry time.
+func (e *RateLimitError) RetryAt() time.Time {
+	if e == nil {
+		return time.Time{}
+	}
+	if e.Kind == RateLimitPrimary {
+		if e.RateLimit == nil {
+			return time.Time{}
+		}
+		return e.RateLimit.Reset
+	}
+	return e.retryAt
 }
 
 var _octoqlRateLimitNow = time.Now
@@ -962,111 +974,10 @@ func _octoqlIsSuccessfulStatus(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-// HTTPStatusCode returns the failed HTTP response status.
-func (e *ResponseError) HTTPStatusCode() int {
-	if e == nil {
-		return 0
-	}
-	return e.StatusCode
-}
-
-// GitHubRequestID returns the response's X-GitHub-Request-ID value.
-func (e *ResponseError) GitHubRequestID() string {
-	if e == nil {
-		return ""
-	}
-	return e.RequestID
-}
-
-// ResponseSizeLimit returns the configured response-size limit.
-func (e *ResponseSizeLimitError) ResponseSizeLimit() int64 {
-	if e == nil {
-		return 0
-	}
-	return e.Limit
-}
-
-// RateLimitKind returns the kind of rate limit that rejected the request.
-func (e *RateLimitError) RateLimitKind() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Kind)
-}
-
-// RetryAt returns the primary reset time or secondary retry time.
-func (e *RateLimitError) RetryAt() time.Time {
-	if e == nil {
-		return time.Time{}
-	}
-	if e.Kind == RateLimitPrimary {
-		if e.RateLimit == nil {
-			return time.Time{}
-		}
-		return e.RateLimit.Reset
-	}
-	return e.retryAt
-}
-
-// GraphQLErrorCount returns the number of GraphQL errors.
-func (e Errors) GraphQLErrorCount() int {
-	return len(e)
-}
-
-// GraphQLError returns one GraphQL error as a package-neutral error value.
-func (e Errors) GraphQLError(index int) error {
-	if index < 0 || index >= len(e) {
-		return nil
-	}
-	return e[index]
-}
-
-// GraphQLType returns GitHub's GraphQL error category.
-func (e *Error) GraphQLType() string {
-	if e == nil {
-		return ""
-	}
-	return string(e.Type)
-}
-
-// GraphQLMessage returns the GraphQL error message.
-func (e *Error) GraphQLMessage() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
-// GraphQLPath returns a defensive copy of the GraphQL response path.
-func (e *Error) GraphQLPath() []any {
-	if e == nil {
-		return nil
-	}
-	return slices.Clone(e.Path)
-}
-
-// GraphQLExtensions returns a shallow clone of the GraphQL error extensions.
-func (e *Error) GraphQLExtensions() map[string]any {
-	if e == nil {
-		return nil
-	}
-	return maps.Clone(e.Extensions)
-}
-
 // CreateRepositoryCreateRepositoryCreateRepositoryPayload includes the requested fields of the GraphQL type CreateRepositoryPayload.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayload struct {
 	Repository       *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository `json:"repository"`
 	ClientMutationId *string                                                            `json:"clientMutationId"`
-}
-
-// GetRepository returns CreateRepositoryCreateRepositoryCreateRepositoryPayload.Repository, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetRepository() *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository {
-	return v.Repository
-}
-
-// GetClientMutationId returns CreateRepositoryCreateRepositoryCreateRepositoryPayload.ClientMutationId, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetClientMutationId() *string {
-	return v.ClientMutationId
 }
 
 // CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository includes the requested fields of the GraphQL type Repository.
@@ -1077,44 +988,14 @@ type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository struct {
 	Issues        CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection `json:"issues"`
 }
 
-// GetId returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.Id, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetId() string {
-	return v.Id
-}
-
-// GetNameWithOwner returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetNameWithOwner() string {
-	return v.NameWithOwner
-}
-
-// GetUpdatedAt returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetUpdatedAt() time.Time {
-	return v.UpdatedAt
-}
-
-// GetIssues returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.Issues, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetIssues() CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection {
-	return v.Issues
-}
-
 // CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection includes the requested fields of the GraphQL type IssueConnection.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection struct {
 	PageInfo CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo `json:"pageInfo"`
 }
 
-// GetPageInfo returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection.PageInfo, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection) GetPageInfo() CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo {
-	return v.PageInfo
-}
-
 // CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo includes the requested fields of the GraphQL type PageInfo.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo struct {
 	HasNextPage bool `json:"hasNextPage"`
-}
-
-// GetHasNextPage returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo.HasNextPage, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo) GetHasNextPage() bool {
-	return v.HasNextPage
 }
 
 type CreateRepositoryInput struct {
@@ -1129,11 +1010,6 @@ type CreateRepositoryResponse struct {
 	CreateRepository CreateRepositoryCreateRepositoryCreateRepositoryPayload `json:"createRepository"`
 }
 
-// GetCreateRepository returns CreateRepositoryResponse.CreateRepository, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryResponse) GetCreateRepository() CreateRepositoryCreateRepositoryCreateRepositoryPayload {
-	return v.CreateRepository
-}
-
 // CreateRepositoryVariables contains the variables accepted by CreateRepository.
 type CreateRepositoryVariables struct {
 	Input CreateRepositoryInput `json:"input"`
@@ -1143,9 +1019,6 @@ type CreateRepositoryVariables struct {
 type EchoAnyResponse struct {
 	EchoAny interface{} `json:"echoAny"`
 }
-
-// GetEchoAny returns EchoAnyResponse.EchoAny, and is useful for accessing the field via an interface.
-func (v *EchoAnyResponse) GetEchoAny() interface{} { return v.EchoAny }
 
 // EchoAnyVariables contains the variables accepted by EchoAny.
 type EchoAnyVariables struct {
@@ -1157,9 +1030,6 @@ type EchoAtResponse struct {
 	EchoAt time.Time `json:"echoAt"`
 }
 
-// GetEchoAt returns EchoAtResponse.EchoAt, and is useful for accessing the field via an interface.
-func (v *EchoAtResponse) GetEchoAt() time.Time { return v.EchoAt }
-
 // EchoAtVariables contains the variables accepted by EchoAt.
 type EchoAtVariables struct {
 	Value time.Time `json:"value"`
@@ -1169,9 +1039,6 @@ type EchoAtVariables struct {
 type EchoPropertyResponse struct {
 	EchoProperty json.RawMessage `json:"echoProperty"`
 }
-
-// GetEchoProperty returns EchoPropertyResponse.EchoProperty, and is useful for accessing the field via an interface.
-func (v *EchoPropertyResponse) GetEchoProperty() json.RawMessage { return v.EchoProperty }
 
 // EchoPropertyVariables contains the variables accepted by EchoProperty.
 type EchoPropertyVariables struct {
@@ -1283,9 +1150,6 @@ func (v *GetNodeNodeIssue) GetTypename() string { return v.Typename }
 // GetId returns GetNodeNodeIssue.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeIssue) GetId() string { return v.Id }
 
-// GetTitle returns GetNodeNodeIssue.Title, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeIssue) GetTitle() string { return v.Title }
-
 // GetNodeNodeOctoqlOther represents GetNodeNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
 type GetNodeNodeOctoqlOther struct {
 	Typename string `json:"__typename"`
@@ -1311,16 +1175,10 @@ func (v *GetNodeNodeRepository) GetTypename() string { return v.Typename }
 // GetId returns GetNodeNodeRepository.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeRepository) GetId() string { return v.Id }
 
-// GetNameWithOwner returns GetNodeNodeRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeRepository) GetNameWithOwner() string { return v.NameWithOwner }
-
 // GetNodeResponse is returned by GetNode on success.
 type GetNodeResponse struct {
 	Node GetNodeNode `json:"-"`
 }
-
-// GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
-func (v *GetNodeResponse) GetNode() GetNodeNode { return v.Node }
 
 func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 
@@ -1399,37 +1257,10 @@ type GetRepositoryRepository struct {
 	Issues        GetRepositoryRepositoryIssuesIssueConnection `json:"issues"`
 }
 
-// GetId returns GetRepositoryRepository.Id, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetId() string { return v.Id }
-
-// GetFullName returns GetRepositoryRepository.FullName, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetFullName() string { return v.FullName }
-
-// GetUpdatedAt returns GetRepositoryRepository.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetUpdatedAt() time.Time { return v.UpdatedAt }
-
-// GetPropertyValue returns GetRepositoryRepository.PropertyValue, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetPropertyValue() json.RawMessage { return v.PropertyValue }
-
-// GetIssues returns GetRepositoryRepository.Issues, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetIssues() GetRepositoryRepositoryIssuesIssueConnection {
-	return v.Issues
-}
-
 // GetRepositoryRepositoryIssuesIssueConnection includes the requested fields of the GraphQL type IssueConnection.
 type GetRepositoryRepositoryIssuesIssueConnection struct {
 	Nodes    []GetRepositoryRepositoryIssuesIssueConnectionNodesIssue `json:"nodes"`
 	PageInfo GetRepositoryRepositoryIssuesIssueConnectionPageInfo     `json:"pageInfo"`
-}
-
-// GetNodes returns GetRepositoryRepositoryIssuesIssueConnection.Nodes, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnection) GetNodes() []GetRepositoryRepositoryIssuesIssueConnectionNodesIssue {
-	return v.Nodes
-}
-
-// GetPageInfo returns GetRepositoryRepositoryIssuesIssueConnection.PageInfo, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnection) GetPageInfo() GetRepositoryRepositoryIssuesIssueConnectionPageInfo {
-	return v.PageInfo
 }
 
 // GetRepositoryRepositoryIssuesIssueConnectionNodesIssue includes the requested fields of the GraphQL type Issue.
@@ -1438,35 +1269,16 @@ type GetRepositoryRepositoryIssuesIssueConnectionNodesIssue struct {
 	Title string `json:"title"`
 }
 
-// GetId returns GetRepositoryRepositoryIssuesIssueConnectionNodesIssue.Id, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionNodesIssue) GetId() string { return v.Id }
-
-// GetTitle returns GetRepositoryRepositoryIssuesIssueConnectionNodesIssue.Title, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionNodesIssue) GetTitle() string { return v.Title }
-
 // GetRepositoryRepositoryIssuesIssueConnectionPageInfo includes the requested fields of the GraphQL type PageInfo.
 type GetRepositoryRepositoryIssuesIssueConnectionPageInfo struct {
 	HasNextPage bool    `json:"hasNextPage"`
 	EndCursor   *string `json:"endCursor"`
 }
 
-// GetHasNextPage returns GetRepositoryRepositoryIssuesIssueConnectionPageInfo.HasNextPage, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionPageInfo) GetHasNextPage() bool {
-	return v.HasNextPage
-}
-
-// GetEndCursor returns GetRepositoryRepositoryIssuesIssueConnectionPageInfo.EndCursor, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionPageInfo) GetEndCursor() *string {
-	return v.EndCursor
-}
-
 // GetRepositoryResponse is returned by GetRepository on success.
 type GetRepositoryResponse struct {
 	Repository *GetRepositoryRepository `json:"repository"`
 }
-
-// GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *GetRepositoryResponse) GetRepository() *GetRepositoryRepository { return v.Repository }
 
 // GetRepositoryVariables contains the variables accepted by GetRepository.
 type GetRepositoryVariables struct {
@@ -1483,18 +1295,10 @@ const (
 	RepositoryVisibilityPublic  RepositoryVisibility = "PUBLIC"
 )
 
-var AllRepositoryVisibility = []RepositoryVisibility{
-	RepositoryVisibilityPrivate,
-	RepositoryVisibilityPublic,
-}
-
 // SearchResponse is returned by Search on success.
 type SearchResponse struct {
 	Search []SearchSearchSearchResultItem `json:"-"`
 }
-
-// GetSearch returns SearchResponse.Search, and is useful for accessing the field via an interface.
-func (v *SearchResponse) GetSearch() []SearchSearchSearchResultItem { return v.Search }
 
 func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 
@@ -1595,12 +1399,6 @@ type SearchSearchIssue struct {
 // GetTypename returns SearchSearchIssue.Typename, and is useful for accessing the field via an interface.
 func (v *SearchSearchIssue) GetTypename() string { return v.Typename }
 
-// GetId returns SearchSearchIssue.Id, and is useful for accessing the field via an interface.
-func (v *SearchSearchIssue) GetId() string { return v.Id }
-
-// GetTitle returns SearchSearchIssue.Title, and is useful for accessing the field via an interface.
-func (v *SearchSearchIssue) GetTitle() string { return v.Title }
-
 // SearchSearchRepository includes the requested fields of the GraphQL type Repository.
 type SearchSearchRepository struct {
 	Typename      string `json:"__typename"`
@@ -1610,12 +1408,6 @@ type SearchSearchRepository struct {
 
 // GetTypename returns SearchSearchRepository.Typename, and is useful for accessing the field via an interface.
 func (v *SearchSearchRepository) GetTypename() string { return v.Typename }
-
-// GetId returns SearchSearchRepository.Id, and is useful for accessing the field via an interface.
-func (v *SearchSearchRepository) GetId() string { return v.Id }
-
-// GetNameWithOwner returns SearchSearchRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *SearchSearchRepository) GetNameWithOwner() string { return v.NameWithOwner }
 
 // SearchSearchSearchResultItem includes the requested fields of the GraphQL interface SearchResultItem.
 //
@@ -1726,31 +1518,16 @@ type ViewerResponse struct {
 	Viewer ViewerViewerUser `json:"viewer"`
 }
 
-// GetViewer returns ViewerResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *ViewerResponse) GetViewer() ViewerViewerUser { return v.Viewer }
-
 // ViewerVariables includes the GraphQL fields of User requested by the fragment ViewerVariables.
 type ViewerVariables struct {
 	Id    string `json:"id"`
 	Login string `json:"login"`
 }
 
-// GetId returns ViewerVariables.Id, and is useful for accessing the field via an interface.
-func (v *ViewerVariables) GetId() string { return v.Id }
-
-// GetLogin returns ViewerVariables.Login, and is useful for accessing the field via an interface.
-func (v *ViewerVariables) GetLogin() string { return v.Login }
-
 // ViewerViewerUser includes the requested fields of the GraphQL type User.
 type ViewerViewerUser struct {
 	ViewerVariables `json:"-"`
 }
-
-// GetId returns ViewerViewerUser.Id, and is useful for accessing the field via an interface.
-func (v *ViewerViewerUser) GetId() string { return v.ViewerVariables.Id }
-
-// GetLogin returns ViewerViewerUser.Login, and is useful for accessing the field via an interface.
-func (v *ViewerViewerUser) GetLogin() string { return v.ViewerVariables.Login }
 
 func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 
@@ -1799,9 +1576,6 @@ func (v *ViewerViewerUser) _octoqlPremarshalJSON() (*_octoqlPremarshalViewerView
 	return &retval, nil
 }
 
-// The mutation executed by CreateRepository.
-const CreateRepository_Operation = "\nmutation CreateRepository ($input: CreateRepositoryInput!) {\n\tcreateRepository(input: $input) {\n\t\trepository {\n\t\t\tid\n\t\t\tnameWithOwner\n\t\t\tupdatedAt\n\t\t\tissues(first: 1) {\n\t\t\t\tpageInfo {\n\t\t\t\t\thasNextPage\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tclientMutationId\n\t}\n}\n"
-
 // CreateRepositoryPartialDataError contains partial data returned by CreateRepository.
 type CreateRepositoryPartialDataError struct {
 	data *CreateRepositoryResponse
@@ -1829,11 +1603,6 @@ func (e *CreateRepositoryPartialDataError) PartialData() *CreateRepositoryRespon
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *CreateRepositoryPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) CreateRepository(
 	ctx context.Context,
 	vars CreateRepositoryVariables,
@@ -1843,7 +1612,7 @@ func (c *Client) CreateRepository(
 		ctx,
 		_octoqlPayload{
 			OperationName: "CreateRepository",
-			Query:         CreateRepository_Operation,
+			Query:         "\nmutation CreateRepository ($input: CreateRepositoryInput!) {\n\tcreateRepository(input: $input) {\n\t\trepository {\n\t\t\tid\n\t\t\tnameWithOwner\n\t\t\tupdatedAt\n\t\t\tissues(first: 1) {\n\t\t\t\tpageInfo {\n\t\t\t\t\thasNextPage\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tclientMutationId\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -1859,9 +1628,6 @@ func (c *Client) CreateRepository(
 	}
 	return &response, nil
 }
-
-// The query executed by EchoAny.
-const EchoAny_Operation = "\nquery EchoAny ($value: ArbitraryJSON!) {\n\techoAny(value: $value)\n}\n"
 
 // EchoAnyPartialDataError contains partial data returned by EchoAny.
 type EchoAnyPartialDataError struct {
@@ -1890,11 +1656,6 @@ func (e *EchoAnyPartialDataError) PartialData() *EchoAnyResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *EchoAnyPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) EchoAny(
 	ctx context.Context,
 	vars EchoAnyVariables,
@@ -1904,7 +1665,7 @@ func (c *Client) EchoAny(
 		ctx,
 		_octoqlPayload{
 			OperationName: "EchoAny",
-			Query:         EchoAny_Operation,
+			Query:         "\nquery EchoAny ($value: ArbitraryJSON!) {\n\techoAny(value: $value)\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -1920,9 +1681,6 @@ func (c *Client) EchoAny(
 	}
 	return &response, nil
 }
-
-// The query executed by EchoAt.
-const EchoAt_Operation = "\nquery EchoAt ($value: DateTime!) {\n\techoAt(value: $value)\n}\n"
 
 // EchoAtPartialDataError contains partial data returned by EchoAt.
 type EchoAtPartialDataError struct {
@@ -1951,11 +1709,6 @@ func (e *EchoAtPartialDataError) PartialData() *EchoAtResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *EchoAtPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) EchoAt(
 	ctx context.Context,
 	vars EchoAtVariables,
@@ -1965,7 +1718,7 @@ func (c *Client) EchoAt(
 		ctx,
 		_octoqlPayload{
 			OperationName: "EchoAt",
-			Query:         EchoAt_Operation,
+			Query:         "\nquery EchoAt ($value: DateTime!) {\n\techoAt(value: $value)\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -1981,9 +1734,6 @@ func (c *Client) EchoAt(
 	}
 	return &response, nil
 }
-
-// The query executed by EchoProperty.
-const EchoProperty_Operation = "\nquery EchoProperty ($value: CustomPropertyValue!) {\n\techoProperty(value: $value)\n}\n"
 
 // EchoPropertyPartialDataError contains partial data returned by EchoProperty.
 type EchoPropertyPartialDataError struct {
@@ -2012,11 +1762,6 @@ func (e *EchoPropertyPartialDataError) PartialData() *EchoPropertyResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *EchoPropertyPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) EchoProperty(
 	ctx context.Context,
 	vars EchoPropertyVariables,
@@ -2026,7 +1771,7 @@ func (c *Client) EchoProperty(
 		ctx,
 		_octoqlPayload{
 			OperationName: "EchoProperty",
-			Query:         EchoProperty_Operation,
+			Query:         "\nquery EchoProperty ($value: CustomPropertyValue!) {\n\techoProperty(value: $value)\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -2042,9 +1787,6 @@ func (c *Client) EchoProperty(
 	}
 	return &response, nil
 }
-
-// The query executed by GetNode.
-const GetNode_Operation = "\nquery GetNode ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t}\n\t}\n}\n"
 
 // GetNodePartialDataError contains partial data returned by GetNode.
 type GetNodePartialDataError struct {
@@ -2073,11 +1815,6 @@ func (e *GetNodePartialDataError) PartialData() *GetNodeResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *GetNodePartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) GetNode(
 	ctx context.Context,
 	vars GetNodeVariables,
@@ -2087,7 +1824,7 @@ func (c *Client) GetNode(
 		ctx,
 		_octoqlPayload{
 			OperationName: "GetNode",
-			Query:         GetNode_Operation,
+			Query:         "\nquery GetNode ($id: ID!) {\n\tnode(id: $id) {\n\t\t__typename\n\t\tid\n\t\t... on Repository {\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\ttitle\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -2103,9 +1840,6 @@ func (c *Client) GetNode(
 	}
 	return &response, nil
 }
-
-// The query executed by GetRepository.
-const GetRepository_Operation = "\nquery GetRepository ($owner: String!, $name: String!, $first: Int!, $after: String) {\n\trepository(owner: $owner, name: $name, first: $first, after: $after) {\n\t\tid\n\t\tfullName: nameWithOwner\n\t\tupdatedAt\n\t\tpropertyValue\n\t\tissues(first: $first, after: $after) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t}\n\t\t\tpageInfo {\n\t\t\t\thasNextPage\n\t\t\t\tendCursor\n\t\t\t}\n\t\t}\n\t}\n}\n"
 
 // GetRepositoryPartialDataError contains partial data returned by GetRepository.
 type GetRepositoryPartialDataError struct {
@@ -2134,11 +1868,6 @@ func (e *GetRepositoryPartialDataError) PartialData() *GetRepositoryResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *GetRepositoryPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) GetRepository(
 	ctx context.Context,
 	vars GetRepositoryVariables,
@@ -2148,7 +1877,7 @@ func (c *Client) GetRepository(
 		ctx,
 		_octoqlPayload{
 			OperationName: "GetRepository",
-			Query:         GetRepository_Operation,
+			Query:         "\nquery GetRepository ($owner: String!, $name: String!, $first: Int!, $after: String) {\n\trepository(owner: $owner, name: $name, first: $first, after: $after) {\n\t\tid\n\t\tfullName: nameWithOwner\n\t\tupdatedAt\n\t\tpropertyValue\n\t\tissues(first: $first, after: $after) {\n\t\t\tnodes {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t}\n\t\t\tpageInfo {\n\t\t\t\thasNextPage\n\t\t\t\tendCursor\n\t\t\t}\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -2164,9 +1893,6 @@ func (c *Client) GetRepository(
 	}
 	return &response, nil
 }
-
-// The query executed by Search.
-const Search_Operation = "\nquery Search ($query: String!) {\n\tsearch(query: $query) {\n\t\t__typename\n\t\t... on Repository {\n\t\t\tid\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\tid\n\t\t\ttitle\n\t\t}\n\t}\n}\n"
 
 // SearchPartialDataError contains partial data returned by Search.
 type SearchPartialDataError struct {
@@ -2195,11 +1921,6 @@ func (e *SearchPartialDataError) PartialData() *SearchResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *SearchPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) Search(
 	ctx context.Context,
 	vars SearchVariables,
@@ -2209,7 +1930,7 @@ func (c *Client) Search(
 		ctx,
 		_octoqlPayload{
 			OperationName: "Search",
-			Query:         Search_Operation,
+			Query:         "\nquery Search ($query: String!) {\n\tsearch(query: $query) {\n\t\t__typename\n\t\t... on Repository {\n\t\t\tid\n\t\t\tnameWithOwner\n\t\t}\n\t\t... on Issue {\n\t\t\tid\n\t\t\ttitle\n\t\t}\n\t}\n}\n",
 			Variables:     &vars,
 		},
 		&response,
@@ -2225,9 +1946,6 @@ func (c *Client) Search(
 	}
 	return &response, nil
 }
-
-// The query executed by Viewer.
-const Viewer_Operation = "\nquery Viewer {\n\tviewer {\n\t\t... ViewerVariables\n\t}\n}\nfragment ViewerVariables on User {\n\tid\n\tlogin\n}\n"
 
 // ViewerPartialDataError contains partial data returned by Viewer.
 type ViewerPartialDataError struct {
@@ -2256,11 +1974,6 @@ func (e *ViewerPartialDataError) PartialData() *ViewerResponse {
 	return e.data
 }
 
-// PartialDataValue returns the partial response as an untyped value.
-func (e *ViewerPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
 func (c *Client) Viewer(
 	ctx context.Context,
 ) (*ViewerResponse, error) {
@@ -2269,7 +1982,7 @@ func (c *Client) Viewer(
 		ctx,
 		_octoqlPayload{
 			OperationName: "Viewer",
-			Query:         Viewer_Operation,
+			Query:         "\nquery Viewer {\n\tviewer {\n\t\t... ViewerVariables\n\t}\n}\nfragment ViewerVariables on User {\n\tid\n\tlogin\n}\n",
 			Variables:     nil,
 		},
 		&response,

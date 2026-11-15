@@ -90,9 +90,7 @@ fragment A on Query {
 			wantGenerationErr: "Go identifier A for both field A (GraphQL a) and embedded fragment A",
 		},
 		{
-			// Field getFoo collides with the GetFoo getter octoqlgen generates
-			// for field foo.
-			name: "field and generated getter",
+			name: "object field getFoo without interface",
 			schema: `
 type Query {
   foo: String!
@@ -103,6 +101,100 @@ type Query {
 query Fields {
   foo
   getFoo
+}
+`,
+		},
+		{
+			// Field getFoo on an interface implementation collides with the
+			// GetFoo getter octoqlgen generates for the shared interface field
+			// foo.
+			name: "field and generated getter",
+			schema: `
+interface Node {
+  foo: String!
+}
+type Item implements Node {
+  foo: String!
+  getFoo: String!
+}
+type Query {
+  node: Node!
+}
+`,
+			operations: `
+query Fields {
+  node {
+    foo
+    ... on Item {
+      getFoo
+    }
+  }
+}
+`,
+			wantGenerationErr: "Go identifier GetFoo for both field GetFoo (GraphQL getFoo) and getter GetFoo (for field Foo)",
+		},
+		{
+			// An object struct that embeds multiple interface fragments sharing a
+			// field name emits its own getter on the outer struct, disambiguating
+			// the promoted methods and returning the shallowest field.
+			name: "overlapping embedded interface fragments",
+			schema: `
+interface NodeA {
+  foo: String!
+}
+interface NodeB {
+  foo: String!
+}
+type Item implements NodeA & NodeB {
+  foo: String!
+}
+type Query {
+  item: Item!
+}
+`,
+			operations: `
+query Fields {
+  item {
+    foo
+    ...NodeAFields
+    ...NodeBFields
+  }
+}
+fragment NodeAFields on NodeA {
+  foo
+}
+fragment NodeBFields on NodeB {
+  foo
+}
+`,
+		},
+		{
+			// An object struct that embeds an interface fragment implements that
+			// fragment's interface, so it must emit the interface's getters
+			// using its own shallowest field selector and detect collisions with
+			// its own fields.
+			name: "field and getter from embedded interface fragment",
+			schema: `
+interface Node {
+  foo: String!
+}
+type Item implements Node {
+  foo: String!
+  getFoo: String!
+}
+type Query {
+  item: Item!
+}
+`,
+			operations: `
+query Fields {
+  item {
+    getFoo
+    ...NodeFields
+  }
+}
+fragment NodeFields on Node {
+  foo
 }
 `,
 			wantGenerationErr: "Go identifier GetFoo for both field GetFoo (GraphQL getFoo) and getter GetFoo (for field Foo)",

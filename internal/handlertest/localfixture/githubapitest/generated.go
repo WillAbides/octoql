@@ -21,16 +21,6 @@ type CreateRepositoryCreateRepositoryCreateRepositoryPayload struct {
 	ClientMutationId *string                                                            `json:"clientMutationId"`
 }
 
-// GetRepository returns CreateRepositoryCreateRepositoryCreateRepositoryPayload.Repository, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetRepository() *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository {
-	return v.Repository
-}
-
-// GetClientMutationId returns CreateRepositoryCreateRepositoryCreateRepositoryPayload.ClientMutationId, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayload) GetClientMutationId() *string {
-	return v.ClientMutationId
-}
-
 // CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository includes the requested fields of the GraphQL type Repository.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository struct {
 	Id            string                                                                                 `json:"id"`
@@ -39,44 +29,14 @@ type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository struct {
 	Issues        CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection `json:"issues"`
 }
 
-// GetId returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.Id, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetId() string {
-	return v.Id
-}
-
-// GetNameWithOwner returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetNameWithOwner() string {
-	return v.NameWithOwner
-}
-
-// GetUpdatedAt returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetUpdatedAt() time.Time {
-	return v.UpdatedAt
-}
-
-// GetIssues returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository.Issues, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository) GetIssues() CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection {
-	return v.Issues
-}
-
 // CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection includes the requested fields of the GraphQL type IssueConnection.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection struct {
 	PageInfo CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo `json:"pageInfo"`
 }
 
-// GetPageInfo returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection.PageInfo, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection) GetPageInfo() CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo {
-	return v.PageInfo
-}
-
 // CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo includes the requested fields of the GraphQL type PageInfo.
 type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo struct {
 	HasNextPage bool `json:"hasNextPage"`
-}
-
-// GetHasNextPage returns CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo.HasNextPage, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo) GetHasNextPage() bool {
-	return v.HasNextPage
 }
 
 type CreateRepositoryInput struct {
@@ -91,11 +51,6 @@ type CreateRepositoryResponse struct {
 	CreateRepository CreateRepositoryCreateRepositoryCreateRepositoryPayload `json:"createRepository"`
 }
 
-// GetCreateRepository returns CreateRepositoryResponse.CreateRepository, and is useful for accessing the field via an interface.
-func (v *CreateRepositoryResponse) GetCreateRepository() CreateRepositoryCreateRepositoryCreateRepositoryPayload {
-	return v.CreateRepository
-}
-
 // CreateRepositoryVariables contains the variables accepted by CreateRepository.
 type CreateRepositoryVariables struct {
 	Input CreateRepositoryInput `json:"input"`
@@ -105,9 +60,6 @@ type CreateRepositoryVariables struct {
 type EchoAnyResponse struct {
 	EchoAny interface{} `json:"echoAny"`
 }
-
-// GetEchoAny returns EchoAnyResponse.EchoAny, and is useful for accessing the field via an interface.
-func (v *EchoAnyResponse) GetEchoAny() interface{} { return v.EchoAny }
 
 // EchoAnyVariables contains the variables accepted by EchoAny.
 type EchoAnyVariables struct {
@@ -119,9 +71,6 @@ type EchoAtResponse struct {
 	EchoAt time.Time `json:"echoAt"`
 }
 
-// GetEchoAt returns EchoAtResponse.EchoAt, and is useful for accessing the field via an interface.
-func (v *EchoAtResponse) GetEchoAt() time.Time { return v.EchoAt }
-
 // EchoAtVariables contains the variables accepted by EchoAt.
 type EchoAtVariables struct {
 	Value time.Time `json:"value"`
@@ -131,9 +80,6 @@ type EchoAtVariables struct {
 type EchoPropertyResponse struct {
 	EchoProperty json.RawMessage `json:"echoProperty"`
 }
-
-// GetEchoProperty returns EchoPropertyResponse.EchoProperty, and is useful for accessing the field via an interface.
-func (v *EchoPropertyResponse) GetEchoProperty() json.RawMessage { return v.EchoProperty }
 
 // EchoPropertyVariables contains the variables accepted by EchoProperty.
 type EchoPropertyVariables struct {
@@ -245,9 +191,6 @@ func (v *GetNodeNodeIssue) GetTypename() string { return v.Typename }
 // GetId returns GetNodeNodeIssue.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeIssue) GetId() string { return v.Id }
 
-// GetTitle returns GetNodeNodeIssue.Title, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeIssue) GetTitle() string { return v.Title }
-
 // GetNodeNodeOctoqlOther represents GetNodeNode implementations not explicitly selected by a fragment. Use GetTypename to identify the concrete GraphQL type.
 type GetNodeNodeOctoqlOther struct {
 	Typename string `json:"__typename"`
@@ -273,16 +216,10 @@ func (v *GetNodeNodeRepository) GetTypename() string { return v.Typename }
 // GetId returns GetNodeNodeRepository.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeRepository) GetId() string { return v.Id }
 
-// GetNameWithOwner returns GetNodeNodeRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *GetNodeNodeRepository) GetNameWithOwner() string { return v.NameWithOwner }
-
 // GetNodeResponse is returned by GetNode on success.
 type GetNodeResponse struct {
 	Node GetNodeNode `json:"-"`
 }
-
-// GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
-func (v *GetNodeResponse) GetNode() GetNodeNode { return v.Node }
 
 func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 
@@ -361,37 +298,10 @@ type GetRepositoryRepository struct {
 	Issues        GetRepositoryRepositoryIssuesIssueConnection `json:"issues"`
 }
 
-// GetId returns GetRepositoryRepository.Id, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetId() string { return v.Id }
-
-// GetFullName returns GetRepositoryRepository.FullName, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetFullName() string { return v.FullName }
-
-// GetUpdatedAt returns GetRepositoryRepository.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetUpdatedAt() time.Time { return v.UpdatedAt }
-
-// GetPropertyValue returns GetRepositoryRepository.PropertyValue, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetPropertyValue() json.RawMessage { return v.PropertyValue }
-
-// GetIssues returns GetRepositoryRepository.Issues, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepository) GetIssues() GetRepositoryRepositoryIssuesIssueConnection {
-	return v.Issues
-}
-
 // GetRepositoryRepositoryIssuesIssueConnection includes the requested fields of the GraphQL type IssueConnection.
 type GetRepositoryRepositoryIssuesIssueConnection struct {
 	Nodes    []GetRepositoryRepositoryIssuesIssueConnectionNodesIssue `json:"nodes"`
 	PageInfo GetRepositoryRepositoryIssuesIssueConnectionPageInfo     `json:"pageInfo"`
-}
-
-// GetNodes returns GetRepositoryRepositoryIssuesIssueConnection.Nodes, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnection) GetNodes() []GetRepositoryRepositoryIssuesIssueConnectionNodesIssue {
-	return v.Nodes
-}
-
-// GetPageInfo returns GetRepositoryRepositoryIssuesIssueConnection.PageInfo, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnection) GetPageInfo() GetRepositoryRepositoryIssuesIssueConnectionPageInfo {
-	return v.PageInfo
 }
 
 // GetRepositoryRepositoryIssuesIssueConnectionNodesIssue includes the requested fields of the GraphQL type Issue.
@@ -400,35 +310,16 @@ type GetRepositoryRepositoryIssuesIssueConnectionNodesIssue struct {
 	Title string `json:"title"`
 }
 
-// GetId returns GetRepositoryRepositoryIssuesIssueConnectionNodesIssue.Id, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionNodesIssue) GetId() string { return v.Id }
-
-// GetTitle returns GetRepositoryRepositoryIssuesIssueConnectionNodesIssue.Title, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionNodesIssue) GetTitle() string { return v.Title }
-
 // GetRepositoryRepositoryIssuesIssueConnectionPageInfo includes the requested fields of the GraphQL type PageInfo.
 type GetRepositoryRepositoryIssuesIssueConnectionPageInfo struct {
 	HasNextPage bool    `json:"hasNextPage"`
 	EndCursor   *string `json:"endCursor"`
 }
 
-// GetHasNextPage returns GetRepositoryRepositoryIssuesIssueConnectionPageInfo.HasNextPage, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionPageInfo) GetHasNextPage() bool {
-	return v.HasNextPage
-}
-
-// GetEndCursor returns GetRepositoryRepositoryIssuesIssueConnectionPageInfo.EndCursor, and is useful for accessing the field via an interface.
-func (v *GetRepositoryRepositoryIssuesIssueConnectionPageInfo) GetEndCursor() *string {
-	return v.EndCursor
-}
-
 // GetRepositoryResponse is returned by GetRepository on success.
 type GetRepositoryResponse struct {
 	Repository *GetRepositoryRepository `json:"repository"`
 }
-
-// GetRepository returns GetRepositoryResponse.Repository, and is useful for accessing the field via an interface.
-func (v *GetRepositoryResponse) GetRepository() *GetRepositoryRepository { return v.Repository }
 
 // GetRepositoryVariables contains the variables accepted by GetRepository.
 type GetRepositoryVariables struct {
@@ -445,18 +336,10 @@ const (
 	RepositoryVisibilityPublic  RepositoryVisibility = "PUBLIC"
 )
 
-var AllRepositoryVisibility = []RepositoryVisibility{
-	RepositoryVisibilityPrivate,
-	RepositoryVisibilityPublic,
-}
-
 // SearchResponse is returned by Search on success.
 type SearchResponse struct {
 	Search []SearchSearchSearchResultItem `json:"-"`
 }
-
-// GetSearch returns SearchResponse.Search, and is useful for accessing the field via an interface.
-func (v *SearchResponse) GetSearch() []SearchSearchSearchResultItem { return v.Search }
 
 func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 
@@ -557,12 +440,6 @@ type SearchSearchIssue struct {
 // GetTypename returns SearchSearchIssue.Typename, and is useful for accessing the field via an interface.
 func (v *SearchSearchIssue) GetTypename() string { return v.Typename }
 
-// GetId returns SearchSearchIssue.Id, and is useful for accessing the field via an interface.
-func (v *SearchSearchIssue) GetId() string { return v.Id }
-
-// GetTitle returns SearchSearchIssue.Title, and is useful for accessing the field via an interface.
-func (v *SearchSearchIssue) GetTitle() string { return v.Title }
-
 // SearchSearchRepository includes the requested fields of the GraphQL type Repository.
 type SearchSearchRepository struct {
 	Typename      string `json:"__typename"`
@@ -572,12 +449,6 @@ type SearchSearchRepository struct {
 
 // GetTypename returns SearchSearchRepository.Typename, and is useful for accessing the field via an interface.
 func (v *SearchSearchRepository) GetTypename() string { return v.Typename }
-
-// GetId returns SearchSearchRepository.Id, and is useful for accessing the field via an interface.
-func (v *SearchSearchRepository) GetId() string { return v.Id }
-
-// GetNameWithOwner returns SearchSearchRepository.NameWithOwner, and is useful for accessing the field via an interface.
-func (v *SearchSearchRepository) GetNameWithOwner() string { return v.NameWithOwner }
 
 // SearchSearchSearchResultItem includes the requested fields of the GraphQL interface SearchResultItem.
 //
@@ -688,31 +559,16 @@ type ViewerResponse struct {
 	Viewer ViewerViewerUser `json:"viewer"`
 }
 
-// GetViewer returns ViewerResponse.Viewer, and is useful for accessing the field via an interface.
-func (v *ViewerResponse) GetViewer() ViewerViewerUser { return v.Viewer }
-
 // ViewerVariables includes the GraphQL fields of User requested by the fragment ViewerVariables.
 type ViewerVariables struct {
 	Id    string `json:"id"`
 	Login string `json:"login"`
 }
 
-// GetId returns ViewerVariables.Id, and is useful for accessing the field via an interface.
-func (v *ViewerVariables) GetId() string { return v.Id }
-
-// GetLogin returns ViewerVariables.Login, and is useful for accessing the field via an interface.
-func (v *ViewerVariables) GetLogin() string { return v.Login }
-
 // ViewerViewerUser includes the requested fields of the GraphQL type User.
 type ViewerViewerUser struct {
 	ViewerVariables `json:"-"`
 }
-
-// GetId returns ViewerViewerUser.Id, and is useful for accessing the field via an interface.
-func (v *ViewerViewerUser) GetId() string { return v.ViewerVariables.Id }
-
-// GetLogin returns ViewerViewerUser.Login, and is useful for accessing the field via an interface.
-func (v *ViewerViewerUser) GetLogin() string { return v.ViewerVariables.Login }
 
 func (v *ViewerViewerUser) UnmarshalJSON(b []byte) error {
 

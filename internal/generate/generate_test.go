@@ -201,7 +201,13 @@ func TestGenerate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			assert.NotContains(t, string(generated[goFilename]), "func (v *GitHubInputsVariables) Get")
+			source := string(generated[goFilename])
+			assert.NotContains(t, source, "func (v *GitHubInputsVariables) Get")
+			assert.NotContains(t, source, "Response) Get")
+			assert.NotContains(t, source, "_Operation =")
+			assert.NotContains(t, source, "var All")
+			assert.NotContains(t, source, "PartialDataValue()")
+			assert.NotContains(t, source, "HTTPStatusCode()")
 
 			t.Run(goFilename, func(t *testing.T) {
 				snapshot := matchGeneratedSnapshot(t, generated[goFilename])
@@ -386,12 +392,6 @@ func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 			name:      "runtime method collision",
 			operation: "query RateLimit {\n  value\n}\n",
 			wantError: `generated Client method "RateLimit" conflicts with operation "RateLimit"`,
-		},
-		{
-			name:      "partial data error enum values variable collision",
-			schema:    "enum PartialDataError {\n  VALUE\n}\ntype Query {\n  value: PartialDataError!\n}\n",
-			operation: "query All {\n  value\n}\n",
-			wantError: `generated partial data error "AllPartialDataError" conflicts with a generated enum values variable`,
 		},
 		{
 			name:      "partial data error type collision",
@@ -783,19 +783,19 @@ query FooVariables($value: String!) {
 			wantError: `generated variables type "FooVariables" conflicts with operation "FooVariables"`,
 		},
 		{
-			name: "variables alias and enum values variable",
-			schema: `enum Variables {
-  VALUE
+			name: "variables alias and enum value",
+			schema: `enum Foo {
+  VARIABLES
 }
 type Query {
-  viewer(value: Variables!): String!
+  viewer(value: Foo!): String!
 }
 `,
-			operation: `query All($value: Variables!) {
+			operation: `query Foo($value: Foo!) {
   viewer(value: $value)
 }
 `,
-			wantError: `generated variables type "AllVariables" conflicts with a generated enum values variable`,
+			wantError: `generated variables type "FooVariables" conflicts with a generated enum value`,
 		},
 	}
 	for _, test := range tests {

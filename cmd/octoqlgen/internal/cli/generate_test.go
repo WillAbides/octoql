@@ -90,9 +90,10 @@ func TestRunGenerate(t *testing.T) {
 		assert.Contains(t, string(clientSource), "IssueStateOpen")
 		assert.Contains(t, string(clientSource), `"net/url"`)
 		assert.Contains(t, string(clientSource), "url.URL")
-		assert.Contains(t, string(clientSource), `const Viewer_Operation = "\nquery Viewer`)
+		assert.Contains(t, string(clientSource), `Query:         "\nquery Viewer`)
 		assert.Contains(t, string(clientSource), "contains ` backtick")
-		assert.NotContains(t, string(clientSource), "const Viewer_Operation = `")
+		assert.NotContains(t, string(clientSource), "Query:         `")
+		assert.NotContains(t, string(clientSource), "Viewer_Operation")
 
 		handlerSource, err := os.ReadFile(filepath.Join(directory, "githubapitest", "generated.go"))
 		require.NoError(t, err)
