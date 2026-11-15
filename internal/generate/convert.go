@@ -612,7 +612,6 @@ func (g *planState) getStructReference(def *ast.Definition) bool {
 
 func (g *planState) resolveConfiguredBinding(
 	def *ast.Definition,
-	pos *ast.Position,
 	selectionSet ast.SelectionSet,
 	options *fieldOptions,
 ) (*goOpaqueType, error) {
@@ -625,10 +624,6 @@ func (g *planState) resolveConfiguredBinding(
 		}
 		if def.Kind == ast.Object || def.Kind == ast.Interface || def.Kind == ast.Union {
 			err := rejectConditionalDirectivesInBoundSelection(def.Name, selectionSet)
-			if err != nil {
-				return nil, err
-			}
-			err = validateBindingSelection(def.Name, globalBinding, pos, selectionSet)
 			if err != nil {
 				return nil, err
 			}
@@ -749,7 +744,7 @@ func (g *planState) convertInputDefinition(
 	pos *ast.Position,
 	options *fieldOptions,
 ) (goType, bool, error) {
-	bound, err := g.resolveConfiguredBinding(def, pos, nil, options)
+	bound, err := g.resolveConfiguredBinding(def, nil, options)
 	if bound != nil || err != nil {
 		return bound, bound != nil, err
 	}
@@ -912,7 +907,7 @@ func (g *planState) convertOutputDefinition(spec *outputDefinitionSpec) (goType,
 	selectionSet := spec.selectionSet
 	options := spec.options
 	defaults := spec.defaults
-	bound, err := g.resolveConfiguredBinding(def, pos, selectionSet, options)
+	bound, err := g.resolveConfiguredBinding(def, selectionSet, options)
 	if bound != nil || err != nil {
 		return bound, bound != nil, err
 	}

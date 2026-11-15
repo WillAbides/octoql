@@ -136,10 +136,9 @@ Type: `string` · Required
 The file to write the generated client to, relative to `octoqlgen.yaml`.
 
 The generated client is self-contained. It uses only the standard library
-by default. External types named by `bindings`, `package_bindings`, or an
-operation's `@octoqlgen(bind: ...)` directive can add imports for the
-packages they name. Application code never imports
-`github.com/willabides/octoql`.
+by default. External types named by `bindings` or an operation's
+`@octoqlgen(bind: ...)` directive can add imports for the packages they
+name. Application code never imports `github.com/willabides/octoql`.
 
 Example: `githubapi/generated.go`
 
@@ -242,24 +241,6 @@ such as `interface {/* hi */}` or `map[  string      ]T`.
 
 Example: `time.Time`
 
-#### `bindings.<name>.expect_exact_fields`
-
-Type: `string` · Optional
-
-A GraphQL selection that must exactly match the fields requested
-wherever this type is used. Only applies when the GraphQL type is a
-composite output type: an object, interface, or union.
-
-This is useful when the bound type is a struct whose `UnmarshalJSON`
-or other methods expect that certain fields were requested. For
-example, with `expect_exact_fields: "{ id name }"`, octoqlgen rejects
-the selection `{ fieldOfMyType { id title } }`.
-
-Fields must match exactly, including ordering, so `{ name id }` is
-also rejected. Arguments and directives, if any, need not match.
-
-Example: `{ id name }`
-
 #### `bindings.<name>.marshaler`
 
 Type: `string` · Optional
@@ -306,40 +287,6 @@ func UnmarshalMyType(b []byte, v *MyType) error
 The default is ordinary JSON unmarshaling.
 
 Example: `github.com/you/yourpkg.UnmarshalMyType`
-
-## `package_bindings`
-
-Type: `array` · Optional
-
-A list of packages for which octoqlgen automatically generates bindings.
-
-This is equivalent to adding an entry to `bindings` mapping each exported
-type in the package to its own name:
-
-```yaml
-bindings:
-  TypeName:
-    type: github.com/you/yourpkg/models.TypeName
-```
-
-Multiple packages may be specified. When more than one package exports the
-same type name, the earlier package wins. Explicit entries in `bindings`
-take precedence over all package bindings.
-
-Take care that this is not the package holding the generated code, or the
-result is circular.
-
-### `package_bindings[]`
-
-A single entry in `package_bindings`.
-
-#### `package_bindings[].package`
-
-Type: `string` · Required
-
-The import path of the package whose exported types become bindings.
-
-Example: `github.com/you/yourpkg/models`
 
 ## `casing`
 

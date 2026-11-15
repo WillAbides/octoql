@@ -86,19 +86,11 @@ func generateConfig(source *config.Config) *generate.Config {
 				continue
 			}
 			bindings[name] = &generate.TypeBinding{
-				Type:              stringValue(binding.Type),
-				ExpectExactFields: stringValue(binding.ExpectExactFields),
-				Marshaler:         stringValue(binding.Marshaler),
-				Unmarshaler:       stringValue(binding.Unmarshaler),
+				Type:        stringValue(binding.Type),
+				Marshaler:   stringValue(binding.Marshaler),
+				Unmarshaler: stringValue(binding.Unmarshaler),
 			}
 		}
-	}
-
-	packageBindings := make([]*generate.PackageBinding, 0, len(source.PackageBindings))
-	for _, binding := range source.PackageBindings {
-		packageBindings = append(packageBindings, &generate.PackageBinding{
-			Package: binding.Package,
-		})
 	}
 
 	var casing generate.Casing
@@ -125,7 +117,6 @@ func generateConfig(source *config.Config) *generate.Config {
 		Package:                         stringValue(source.Package),
 		ExportOperations:                source.ExportOperationsPath(),
 		Bindings:                        bindings,
-		PackageBindings:                 packageBindings,
 		Casing:                          casing,
 		StructReferences:                boolValue(source.UseStructReferences),
 		OmitUnreferencedImplementations: source.OmitUnreferencedImplementations,

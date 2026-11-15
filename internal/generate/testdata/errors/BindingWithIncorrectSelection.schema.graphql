@@ -1,8 +1,0 @@
-type Query {
-  account: Account
-}
-
-type Account {
-  id: ID!
-  login: String!
-}

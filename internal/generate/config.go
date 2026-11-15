@@ -13,7 +13,6 @@ import (
 
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
-	"golang.org/x/tools/go/packages"
 )
 
 // Config contains generator settings. Generate normalizes unspecified values
@@ -28,7 +27,6 @@ type Config struct {
 	Package                         string
 	ExportOperations                string
 	Bindings                        map[string]*TypeBinding
-	PackageBindings                 []*PackageBinding
 	Casing                          Casing
 	StructReferences                bool
 	OmitUnreferencedImplementations *bool
@@ -65,15 +63,9 @@ func (s TestHandlerTypeStrategy) validate() error {
 
 // A TypeBinding represents a Go type to which octoqlgen binds a GraphQL type.
 type TypeBinding struct {
-	Type              string
-	ExpectExactFields string
-	Marshaler         string
-	Unmarshaler       string
-}
-
-// A PackageBinding represents a Go package whose exported types become bindings.
-type PackageBinding struct {
-	Package string
+	Type        string
+	Marshaler   string
+	Unmarshaler string
 }
 
 // CasingAlgorithm represents a GraphQL-to-Go name conversion algorithm.
@@ -270,12 +262,6 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if err != nil {
 		return err
 	}
-	for _, binding := range c.PackageBindings {
-		err = c.validatePackageBinding(binding)
-		if err != nil {
-			return err
-		}
-	}
 
 	if c.Casing.Default == "" {
 		c.Casing.Default = CasingDefault
@@ -360,55 +346,6 @@ func (c *Config) validatePackageNameAndPath() error {
 	}
 	c.testHandlerPackage = handlerPackage
 	c.testHandlerPkgPath = handlerPkgPath
-	return nil
-}
-
-func (c *Config) validatePackageBinding(binding *PackageBinding) error {
-	if strings.HasSuffix(binding.Package, ".go") {
-		// total heuristic -- but this is an easy mistake to make and
-		// results in rather bizarre behavior from go/packages.
-		return errorf(
-			nil,
-			"package %v looks like a file, but should be a package-name",
-			binding.Package,
-		)
-	}
-
-	if binding.Package == c.pkgPath {
-		fmt.Fprintln(c.Warnings, errorf(nil, "warning: package_bindings set to the same package as your generated "+
-			"code ('%v'); this may cause nondeterministic output due to circularity", c.pkgPath))
-	}
-
-	pkgs, err := packages.Load(&packages.Config{
-		Mode: packages.NeedDeps | packages.NeedTypes,
-	}, binding.Package)
-	if err != nil {
-		return err
-	}
-
-	if c.Bindings == nil {
-		c.Bindings = map[string]*TypeBinding{}
-	}
-
-	for _, pkg := range pkgs {
-		p := pkg.Types
-		if p == nil || p.Scope() == nil || p.Scope().Len() == 0 {
-			return errorf(nil, "unable to bind package %s: no types found", binding.Package)
-		}
-
-		for _, typ := range p.Scope().Names() {
-			if !token.IsExported(typ) {
-				continue
-			}
-			_, exist := c.Bindings[typ]
-			if exist {
-				continue
-			}
-			c.Bindings[typ] = &TypeBinding{
-				Type: fmt.Sprintf("%s.%s", p.Path(), typ),
-			}
-		}
-	}
 	return nil
 }
 

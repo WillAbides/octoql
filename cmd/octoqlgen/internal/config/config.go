@@ -90,11 +90,6 @@ func validateRequiredFields(content []byte, loaded *Config) error {
 	if loaded.TestHandler != nil && loaded.TestHandler.Generated == "" {
 		return errors.New("test_handler.generated is required")
 	}
-	for index, binding := range loaded.PackageBindings {
-		if binding.Package == "" {
-			return fmt.Errorf("package_bindings[%d].package is required", index)
-		}
-	}
 	source := loaded.Schema.Source
 	if source == nil {
 		return nil

@@ -5,12 +5,9 @@ schema:
 operations:
   - operation.graphql
 generated: generated.go
-package_bindings:
-  - package: github.com/willabides/octoql/internal/testutil
 bindings:
   Account:
     type: github.com/willabides/octoql/internal/testutil.Account
-    expect_exact_fields: "{ id login }"
   CustomPropertyValue:
     type: string
   Date:

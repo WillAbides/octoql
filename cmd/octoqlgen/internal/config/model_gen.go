@@ -3,20 +3,15 @@
 package config
 
 type Binding struct {
-	ExpectExactFields *string `json:"expect_exact_fields" yaml:"expect_exact_fields"`
-	Marshaler         *string `json:"marshaler" yaml:"marshaler"`
-	Type              *string `json:"type" yaml:"type"`
-	Unmarshaler       *string `json:"unmarshaler" yaml:"unmarshaler"`
+	Marshaler   *string `json:"marshaler" yaml:"marshaler"`
+	Type        *string `json:"type" yaml:"type"`
+	Unmarshaler *string `json:"unmarshaler" yaml:"unmarshaler"`
 }
 
 type Casing struct {
 	AllEnums *string            `json:"all_enums" yaml:"all_enums"`
 	Default  *string            `json:"default" yaml:"default"`
 	Enums    *map[string]string `json:"enums" yaml:"enums"`
-}
-
-type PackageBinding struct {
-	Package string `json:"package" yaml:"package"`
 }
 
 type Source struct {
@@ -44,7 +39,6 @@ type Config struct {
 	OmitUnreferencedImplementations *bool                `json:"omit_unreferenced_implementations" yaml:"omit_unreferenced_implementations"`
 	Operations                      []string             `json:"operations" yaml:"operations"`
 	Package                         *string              `json:"package" yaml:"package"`
-	PackageBindings                 []PackageBinding     `json:"package_bindings" yaml:"package_bindings"`
 	Schema                          Schema               `json:"schema" yaml:"schema"`
 	TestHandler                     *TestHandler         `json:"test_handler" yaml:"test_handler"`
 	UseStructReferences             *bool                `json:"use_struct_references" yaml:"use_struct_references"`

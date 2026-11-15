@@ -1009,10 +1009,6 @@ func TestGenerateErrors(t *testing.T) {
 				Bindings: map[string]*TypeBinding{
 					"ValidScalar":   {Type: "string"},
 					"InvalidScalar": {Type: "bogus"},
-					"Account": {
-						Type:              "github.com/willabides/octoql/internal/testutil.Account",
-						ExpectExactFields: "{ id login }",
-					},
 				},
 			})
 			if err == nil {
@@ -1020,8 +1016,6 @@ func TestGenerateErrors(t *testing.T) {
 			}
 
 			switch sourceFilename {
-			case "BindingWithIncorrectSelection.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("invalid selection for type-binding Account: testdata/errors/BindingWithIncorrectSelection.graphql:2: expected field 1 to be login, got id"))
 			case "ConflictingDirectiveArguments.graphql":
 				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/ConflictingDirectiveArguments.graphql:1: query-spec does not match schema: There can be only one argument named "pointer".`))
 			case "ConflictingDirectives.graphql":

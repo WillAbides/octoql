@@ -1,3 +1,0 @@
-query GetAccountWrongFields {
-  account { id id }
-}

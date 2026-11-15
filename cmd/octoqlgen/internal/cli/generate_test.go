@@ -442,9 +442,14 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			wantErr: "test_handler.generated is required",
 		},
 		{
-			name:    "missing package binding package",
-			yaml:    baseYAML + "package_bindings:\n  - {}\n",
-			wantErr: "package_bindings[0].package is required",
+			name:    "removed package_bindings option",
+			yaml:    baseYAML + "package_bindings: []\n",
+			wantErr: "field package_bindings not found in type config.Config",
+		},
+		{
+			name:    "removed expect_exact_fields option",
+			yaml:    baseYAML + "bindings:\n  DateTime:\n    expect_exact_fields: \"{ id }\"\n",
+			wantErr: "field expect_exact_fields not found in type config.Binding",
 		},
 		{
 			name:    "missing source repository",
