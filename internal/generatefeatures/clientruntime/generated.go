@@ -1079,18 +1079,18 @@ type getRepositoryVariables struct {
 
 // wireSemanticsResponse is returned by wireSemantics on success.
 type wireSemanticsResponse struct {
-	Date         *time.Time        `json:"-"`
-	Dates        [][][]*time.Time  `json:"-"`
-	Account      *testutil.Account `json:"account"`
-	RawCreatedAt *string           `json:"rawCreatedAt"`
-	RawProperty  *string           `json:"rawProperty"`
+	Date         *testutil.Date       `json:"date"`
+	Dates        [][][]*testutil.Date `json:"dates"`
+	Account      *testutil.Account    `json:"account"`
+	RawCreatedAt *string              `json:"rawCreatedAt"`
+	RawProperty  *string              `json:"rawProperty"`
 }
 
 // GetDate returns wireSemanticsResponse.Date, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetDate() *time.Time { return v.Date }
+func (v *wireSemanticsResponse) GetDate() *testutil.Date { return v.Date }
 
 // GetDates returns wireSemanticsResponse.Dates, and is useful for accessing the field via an interface.
-func (v *wireSemanticsResponse) GetDates() [][][]*time.Time { return v.Dates }
+func (v *wireSemanticsResponse) GetDates() [][][]*testutil.Date { return v.Dates }
 
 // GetAccount returns wireSemanticsResponse.Account, and is useful for accessing the field via an interface.
 func (v *wireSemanticsResponse) GetAccount() *testutil.Account { return v.Account }
@@ -1100,176 +1100,6 @@ func (v *wireSemanticsResponse) GetRawCreatedAt() *string { return v.RawCreatedA
 
 // GetRawProperty returns wireSemanticsResponse.RawProperty, and is useful for accessing the field via an interface.
 func (v *wireSemanticsResponse) GetRawProperty() *string { return v.RawProperty }
-
-func (v *wireSemanticsResponse) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*wireSemanticsResponse
-		Date  json.RawMessage `json:"date"`
-		Dates json.RawMessage `json:"dates"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.wireSemanticsResponse = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Date
-		src := firstPass.Date
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal wireSemanticsResponse.Date: %w", err)
-			}
-		}
-	}
-
-	{
-		dst := &v.Dates
-		raw := firstPass.Dates
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src [][][]json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal wireSemanticsResponse.Dates: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[][][]*time.Time,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if src != nil {
-							*dst = make(
-								[][]*time.Time,
-								len(src))
-							for i, src := range src {
-								dst := &(*dst)[i]
-								if src != nil {
-									*dst = make(
-										[]*time.Time,
-										len(src))
-									for i, src := range src {
-										dst := &(*dst)[i]
-										if len(src) != 0 && string(src) != "null" {
-											*dst = new(time.Time)
-											err = testutil.UnmarshalDate(
-												src, *dst)
-											if err != nil {
-												return fmt.Errorf(
-													"unable to unmarshal wireSemanticsResponse.Dates: %w", err)
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalwireSemanticsResponse struct {
-	Date json.RawMessage `json:"date"`
-
-	Dates [][][]json.RawMessage `json:"dates"`
-
-	Account *testutil.Account `json:"account"`
-
-	RawCreatedAt *string `json:"rawCreatedAt"`
-
-	RawProperty *string `json:"rawProperty"`
-}
-
-func (v *wireSemanticsResponse) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *wireSemanticsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalwireSemanticsResponse, error) {
-	var retval _octoqlPremarshalwireSemanticsResponse
-
-	{
-
-		dst := &retval.Date
-		src := v.Date
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal wireSemanticsResponse.Date: %w", err)
-			}
-		}
-	}
-	{
-
-		dst := &retval.Dates
-		src := v.Dates
-		if src != nil {
-			*dst = make(
-				[][][]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				if src != nil {
-					*dst = make(
-						[][]json.RawMessage,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if src != nil {
-							*dst = make(
-								[]json.RawMessage,
-								len(src))
-							for i, src := range src {
-								dst := &(*dst)[i]
-								if src != nil {
-									var err error
-									*dst, err = testutil.MarshalDate(
-										src)
-									if err != nil {
-										return nil, fmt.Errorf(
-											"unable to marshal wireSemanticsResponse.Dates: %w", err)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	retval.Account = v.Account
-	retval.RawCreatedAt = v.RawCreatedAt
-	retval.RawProperty = v.RawProperty
-	return &retval, nil
-}
 
 // The query executed by getRepository.
 const getRepository_Operation = "\nquery getRepository ($owner: String!, $name: String!) {\n\trepository(owner: $owner, name: $name) {\n\t\tnameWithOwner\n\t}\n}\n"

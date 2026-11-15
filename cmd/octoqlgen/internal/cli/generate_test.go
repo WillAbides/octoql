@@ -66,10 +66,8 @@ func TestRunGenerate(t *testing.T) {
 				"generated: githubapi/generated.go\n"+
 				"package: githubapi\n"+
 				"bindings:\n"+
-				"  CustomID:\n"+
-				"    type: string\n"+
-				"  URI:\n"+
-				"    type: net/url.URL\n"+
+				"  CustomID: string\n"+
+				"  URI: net/url.URL\n"+
 				"casing:\n"+
 				"  default: auto_camel_case\n"+
 				"  enums:\n"+
@@ -399,9 +397,14 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			wantErr: "field omit_unreferenced_implementations not found in type config.Config",
 		},
 		{
-			name:    "unknown binding field",
-			yaml:    baseYAML + "bindings:\n  DateTime:\n    unknown: true\n",
-			wantErr: "field unknown not found in type config.Binding",
+			name:    "nested binding mapping rejected",
+			yaml:    baseYAML + "bindings:\n  DateTime:\n    type: time.Time\n",
+			wantErr: "cannot construct !!map into string",
+		},
+		{
+			name:    "empty binding value",
+			yaml:    baseYAML + "bindings:\n  DateTime: \"\"\n",
+			wantErr: "bindings.DateTime must not be empty",
 		},
 		{
 			name:    "unknown casing field",
@@ -447,11 +450,6 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			name:    "removed package_bindings option",
 			yaml:    baseYAML + "package_bindings: []\n",
 			wantErr: "field package_bindings not found in type config.Config",
-		},
-		{
-			name:    "removed expect_exact_fields option",
-			yaml:    baseYAML + "bindings:\n  DateTime:\n    expect_exact_fields: \"{ id }\"\n",
-			wantErr: "field expect_exact_fields not found in type config.Binding",
 		},
 		{
 			name:    "missing source repository",

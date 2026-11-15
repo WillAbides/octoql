@@ -10,5 +10,4 @@ test_handler:
   generated: githubapitest/generated.go
   types: local
 bindings:
-  ArbitraryJSON:
-    type: any
+  ArbitraryJSON: any

@@ -6,21 +6,11 @@ operations:
   - operations.graphql
 generated: generated.go
 bindings:
-  AddCommentInput:
-    type: github.com/willabides/octoql/internal/integration/server.AddCommentInput
-  AddStarInput:
-    type: github.com/willabides/octoql/internal/integration/server.AddStarInput
-  Date:
-    type: time.Time
-    marshaler: github.com/willabides/octoql/internal/testutil.MarshalDate
-    unmarshaler: github.com/willabides/octoql/internal/testutil.UnmarshalDate
-  IssueState:
-    type: github.com/willabides/octoql/internal/integration/server.IssueState
-  PlanName:
-    type: github.com/willabides/octoql/internal/integration/server.PlanName
-  PullRequestState:
-    type: github.com/willabides/octoql/internal/integration/server.PullRequestState
-  RemoveStarInput:
-    type: github.com/willabides/octoql/internal/integration/server.RemoveStarInput
-  SearchType:
-    type: github.com/willabides/octoql/internal/integration/server.SearchType
+  AddCommentInput: github.com/willabides/octoql/internal/integration/server.AddCommentInput
+  AddStarInput: github.com/willabides/octoql/internal/integration/server.AddStarInput
+  Date: github.com/willabides/octoql/internal/testutil.Date
+  IssueState: github.com/willabides/octoql/internal/integration/server.IssueState
+  PlanName: github.com/willabides/octoql/internal/integration/server.PlanName
+  PullRequestState: github.com/willabides/octoql/internal/integration/server.PullRequestState
+  RemoveStarInput: github.com/willabides/octoql/internal/integration/server.RemoveStarInput
+  SearchType: github.com/willabides/octoql/internal/integration/server.SearchType

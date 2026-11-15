@@ -90,6 +90,13 @@ func validateRequiredFields(content []byte, loaded *Config) error {
 	if loaded.TestHandler != nil && loaded.TestHandler.Generated == "" {
 		return errors.New("test_handler.generated is required")
 	}
+	if loaded.Bindings != nil {
+		for name, goType := range *loaded.Bindings {
+			if goType == "" {
+				return fmt.Errorf("bindings.%s must not be empty", name)
+			}
+		}
+	}
 	source := loaded.Schema.Source
 	if source == nil {
 		return nil

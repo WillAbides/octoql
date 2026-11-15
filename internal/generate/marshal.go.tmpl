@@ -52,7 +52,6 @@ func (v *{{.GoName}}) _octoqlPremarshalJSON() (*_octoqlPremarshal{{.GoName}}, er
     {{range $field := .FlattenedFields -}}
     {{if $field.NeedsMarshaling -}}
     {
-        {{/* Here dst is the json.RawMessage, and src is the Go type. */}}
         dst := &retval.{{$field.GoName}}
         src := v.{{$field.Selector}}
         {{range $i := intRange $field.GoType.SliceDepth -}}
@@ -63,26 +62,12 @@ func (v *{{.GoName}}) _octoqlPremarshalJSON() (*_octoqlPremarshal{{.GoName}}, er
         for i, src := range src {
             dst := &(*dst)[i]
         {{end -}}
-        {{/* src now has type <GoType>; dst is json.RawMessage */ -}}
-        {{if $field.GoType.IsPointer -}}
-        {{/* If you passed a pointer, and it's nil, don't call the
-             marshaler.  This matches json.Marshal's behavior. */ -}}
-        if src != nil {
-        {{end -}}
         var err error
-        *dst, err = {{marshaler $field}}(
-            {{/* src is the struct-field (or field-element, etc.).
-                 We want to pass a pointer to the type you specified, so if
-                 there's a pointer on the field that's exactly what we want,
-                 and if not we need to take the address. */ -}}
-            {{if not $field.GoType.IsPointer}}&{{end}}src)
+        *dst, err = _octoqlMarshal{{$field.GoType.Unwrap.QualifiedRef}}(&src)
         if err != nil {
             return nil, {{ref "fmt.Errorf"}}(
                 "unable to marshal {{$.GoName}}.{{$field.Selector}}: %w", err)
         }
-        {{if $field.GoType.IsPointer -}}
-        }{{/* end if src != nil */}}
-        {{end -}}
         {{range $i := intRange $field.GoType.SliceDepth -}}
         }
         }

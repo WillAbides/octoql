@@ -32,7 +32,7 @@ type User {
 `
 
 	tests := []struct {
-		bindings  map[string]*TypeBinding
+		bindings  map[string]string
 		name      string
 		schema    string
 		operation string
@@ -83,8 +83,8 @@ query QInline($hide: Boolean!) {
 		{
 			name:   "globally bound composite",
 			schema: boundSchema,
-			bindings: map[string]*TypeBinding{
-				"User": {Type: "github.com/willabides/octoql/internal/testutil.Account"},
+			bindings: map[string]string{
+				"User": "github.com/willabides/octoql/internal/testutil.Account",
 			},
 			operation: `
 query Q($hide: Boolean!) {

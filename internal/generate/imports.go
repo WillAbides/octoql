@@ -59,10 +59,6 @@ type goRef struct {
 	localName string
 }
 
-func (r goRef) isZero() bool {
-	return r.localName == ""
-}
-
 func (r goRef) qualified() string {
 	if r.pkgPath == "" {
 		return r.prefix + r.localName

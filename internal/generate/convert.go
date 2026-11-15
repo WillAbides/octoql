@@ -628,29 +628,13 @@ func (g *planState) resolveConfiguredBinding(
 				return nil, err
 			}
 		}
-		parsedType, err := parseRef(globalBinding.Type)
+		parsedType, err := parseRef(globalBinding)
 		if err != nil {
 			return nil, err
-		}
-		var marshalerRef goRef
-		if globalBinding.Marshaler != "" {
-			marshalerRef, err = parseRef(globalBinding.Marshaler)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var unmarshalerRef goRef
-		if globalBinding.Unmarshaler != "" {
-			unmarshalerRef, err = parseRef(globalBinding.Unmarshaler)
-			if err != nil {
-				return nil, err
-			}
 		}
 		return &goOpaqueType{
 			Ref:         parsedType,
 			GraphQLName: def.Name,
-			Marshaler:   marshalerRef,
-			Unmarshaler: unmarshalerRef,
 		}, nil
 	}
 

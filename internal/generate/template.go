@@ -12,14 +12,6 @@ import (
 //go:embed *.tmpl
 var templates embed.FS
 
-type fieldMarshaler interface {
-	Marshaler(*importScope) (string, error)
-}
-
-type fieldUnmarshaler interface {
-	Unmarshaler(*importScope) (string, error)
-}
-
 // renderer renders Go declarations and templates into one target package using
 // an isolated importScope, leaving the shared generationPlan untouched.
 type renderer struct {
@@ -62,13 +54,11 @@ func (r *renderer) render(tmplRelFilename string, w io.Writer, data any) error {
 	tmpl := r.templateCache[tmplRelFilename]
 	if tmpl == nil {
 		funcMap := template.FuncMap{
-			"ref":         r.imports.ref,
-			"typeRef":     r.typeRef,
-			"repeat":      repeat,
-			"intRange":    intRange,
-			"sub":         sub,
-			"marshaler":   func(field fieldMarshaler) (string, error) { return field.Marshaler(r.imports) },
-			"unmarshaler": func(field fieldUnmarshaler) (string, error) { return field.Unmarshaler(r.imports) },
+			"ref":      r.imports.ref,
+			"typeRef":  r.typeRef,
+			"repeat":   repeat,
+			"intRange": intRange,
+			"sub":      sub,
 		}
 		var err error
 		tmpl, err = template.New(tmplRelFilename).Funcs(funcMap).ParseFS(templates, tmplRelFilename)

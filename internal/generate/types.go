@@ -32,9 +32,6 @@ type goType interface {
 
 	// SliceDepth counts the outer slice wrappers on this type.
 	SliceDepth() int
-
-	// IsPointer reports whether Unwrap removes a pointer wrapper.
-	IsPointer() bool
 }
 
 var (
@@ -52,8 +49,6 @@ type (
 	goOpaqueType struct {
 		Ref         goRef
 		GraphQLName string
-		Marshaler   goRef
-		Unmarshaler goRef
 	}
 	// goTypenameForBuiltinType represents a builtin type given a distinct Go
 	// type declaration via @octoqlgen(typename: ...).
@@ -170,11 +165,6 @@ type goStructField struct {
 	Position    *ast.Position
 }
 
-func (f *goStructField) IsAbstract() bool {
-	_, ok := f.GoType.Unwrap().(*goInterfaceType)
-	return ok
-}
-
 func (f *goStructField) IsEmbedded() bool {
 	return f.GoName == ""
 }
@@ -186,45 +176,14 @@ func (f *goStructField) Selector() string {
 	return f.GoType.Unwrap().QualifiedRef()
 }
 
-func (f *goStructField) Unmarshaler(scope *importScope) (string, error) {
-	switch typ := f.GoType.Unwrap().(type) {
-	case *goOpaqueType:
-		if !typ.Unmarshaler.isZero() {
-			return typ.Unmarshaler.render(scope)
-		}
-	case *goInterfaceType:
-		return "_octoqlUnmarshal" + typ.GoName, nil
-	}
-	return scope.ref("encoding/json.Unmarshal")
-}
-
-func (f *goStructField) Marshaler(scope *importScope) (string, error) {
-	switch typ := f.GoType.Unwrap().(type) {
-	case *goOpaqueType:
-		if !typ.Marshaler.isZero() {
-			return typ.Marshaler.render(scope)
-		}
-	case *goInterfaceType:
-		return "_octoqlMarshal" + typ.GoName, nil
-	}
-	return scope.ref("encoding/json.Marshal")
-}
-
 // NeedsMarshaling reports whether this field requires custom JSON
-// marshaling/unmarshaling (embedded fragments, abstract fields, or custom
-// marshaler/unmarshaler bindings).
+// marshaling/unmarshaling (embedded fragments or abstract interface fields).
 func (f *goStructField) NeedsMarshaling() bool {
 	if f.IsEmbedded() {
 		return true
 	}
-	switch typ := f.GoType.Unwrap().(type) {
-	case *goOpaqueType:
-		return !typ.Marshaler.isZero() || !typ.Unmarshaler.isZero()
-	case *goInterfaceType:
-		return true
-	default:
-		return false
-	}
+	_, isInterface := f.GoType.Unwrap().(*goInterfaceType)
+	return isInterface
 }
 
 func (t *goStructType) NeedsMarshaling() bool {
@@ -427,14 +386,6 @@ func (t *goPointerType) SliceDepth() int            { return 0 }
 func (t *goEnumType) SliceDepth() int               { return 0 }
 func (t *goStructType) SliceDepth() int             { return 0 }
 func (t *goInterfaceType) SliceDepth() int          { return 0 }
-
-func (t *goOpaqueType) IsPointer() bool             { return false }
-func (t *goTypenameForBuiltinType) IsPointer() bool { return false }
-func (t *goSliceType) IsPointer() bool              { return t.Elem.IsPointer() }
-func (t *goPointerType) IsPointer() bool            { return true }
-func (t *goEnumType) IsPointer() bool               { return false }
-func (t *goStructType) IsPointer() bool             { return false }
-func (t *goInterfaceType) IsPointer() bool          { return false }
 
 func writeDescription(w io.Writer, desc string) {
 	if desc != "" {

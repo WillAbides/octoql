@@ -2069,15 +2069,13 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalGetActorActor(
-				src, dst)
+			err = _octoqlUnmarshalGetActorActor(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetActorResponse.Actor: %w", err)
 			}
 		}
 	}
-
 	{
 		dst := &v.RepositoryOwner
 		src := firstPass.RepositoryOwner
@@ -2085,8 +2083,7 @@ func (v *GetActorResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalGetActorRepositoryOwner(
-				src, dst)
+			err = _octoqlUnmarshalGetActorRepositoryOwner(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetActorResponse.RepositoryOwner: %w", err)
@@ -2114,24 +2111,20 @@ func (v *GetActorResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalGetActorRe
 	var retval _octoqlPremarshalGetActorResponse
 
 	{
-
 		dst := &retval.Actor
 		src := v.Actor
 		var err error
-		*dst, err = _octoqlMarshalGetActorActor(
-			&src)
+		*dst, err = _octoqlMarshalGetActorActor(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal GetActorResponse.Actor: %w", err)
 		}
 	}
 	{
-
 		dst := &retval.RepositoryOwner
 		src := v.RepositoryOwner
 		var err error
-		*dst, err = _octoqlMarshalGetActorRepositoryOwner(
-			&src)
+		*dst, err = _octoqlMarshalGetActorRepositoryOwner(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal GetActorResponse.RepositoryOwner: %w", err)
@@ -2419,8 +2412,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalGetNodeNode(
-				src, dst)
+			err = _octoqlUnmarshalGetNodeNode(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetNodeResponse.Node: %w", err)
@@ -2446,12 +2438,10 @@ func (v *GetNodeResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalGetNodeResp
 	var retval _octoqlPremarshalGetNodeResponse
 
 	{
-
 		dst := &retval.Node
 		src := v.Node
 		var err error
-		*dst, err = _octoqlMarshalGetNodeNode(
-			&src)
+		*dst, err = _octoqlMarshalGetNodeNode(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal GetNodeResponse.Node: %w", err)
@@ -2592,8 +2582,7 @@ func (v *NestedNodeShapesResponse) UnmarshalJSON(b []byte) error {
 									for i, src := range src {
 										dst := &(*dst)[i]
 										if len(src) != 0 && string(src) != "null" {
-											err = _octoqlUnmarshalNestedNodeShapesNestedNodesNode(
-												src, dst)
+											err = _octoqlUnmarshalNestedNodeShapesNestedNodesNode(src, dst)
 											if err != nil {
 												return fmt.Errorf(
 													"unable to unmarshal NestedNodeShapesResponse.NestedNodes: %w", err)
@@ -2627,7 +2616,6 @@ func (v *NestedNodeShapesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalNe
 	var retval _octoqlPremarshalNestedNodeShapesResponse
 
 	{
-
 		dst := &retval.NestedNodes
 		src := v.NestedNodes
 		if src != nil {
@@ -2649,8 +2637,7 @@ func (v *NestedNodeShapesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalNe
 							for i, src := range src {
 								dst := &(*dst)[i]
 								var err error
-								*dst, err = _octoqlMarshalNestedNodeShapesNestedNodesNode(
-									&src)
+								*dst, err = _octoqlMarshalNestedNodeShapesNestedNodesNode(&src)
 								if err != nil {
 									return nil, fmt.Errorf(
 										"unable to marshal NestedNodeShapesResponse.NestedNodes: %w", err)
@@ -2770,15 +2757,13 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
-				src, dst)
+			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.Subject: %w", err)
 			}
 		}
 	}
-
 	{
 		dst := &v.RelatedSubjects
 		raw := firstPass.RelatedSubjects
@@ -2800,8 +2785,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) UnmarshalJSON(b []byte)
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-								src, dst)
+							err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
@@ -2840,19 +2824,16 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) _octoqlPremarshalJSON()
 
 	retval.Typename = v.Typename
 	{
-
 		dst := &retval.Subject
 		src := v.Subject
 		var err error
-		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
-			&src)
+		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal RepositoryEventCovarianceLatestRepositoryEvent.Subject: %w", err)
 		}
 	}
 	{
-
 		dst := &retval.RelatedSubjects
 		src := v.RelatedSubjects
 		if src != nil {
@@ -2862,8 +2843,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEvent) _octoqlPremarshalJSON()
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-					&src)
+				*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal RepositoryEventCovarianceLatestRepositoryEvent.RelatedSubjects: %w", err)
@@ -3029,15 +3009,13 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
-				src, dst)
+			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.Subject: %w", err)
 			}
 		}
 	}
-
 	{
 		dst := &v.RelatedSubjects
 		raw := firstPass.RelatedSubjects
@@ -3059,8 +3037,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-								src, dst)
+							err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
@@ -3095,19 +3072,16 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 
 	retval.Typename = v.Typename
 	{
-
 		dst := &retval.Subject
 		src := v.Subject
 		var err error
-		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(
-			&src)
+		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemSubjectNode(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.Subject: %w", err)
 		}
 	}
 	{
-
 		dst := &retval.RelatedSubjects
 		src := v.RelatedSubjects
 		if src != nil {
@@ -3117,8 +3091,7 @@ func (v *RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther) 
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(
-					&src)
+				*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItemRelatedSubjectsNode(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal RepositoryEventCovarianceLatestRepositoryEventTimelineItemOctoqlOther.RelatedSubjects: %w", err)
@@ -3304,8 +3277,7 @@ func (v *RepositoryEventCovarianceResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
-				src, dst)
+			err = _octoqlUnmarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal RepositoryEventCovarianceResponse.LatestRepositoryEvent: %w", err)
@@ -3331,12 +3303,10 @@ func (v *RepositoryEventCovarianceResponse) _octoqlPremarshalJSON() (*_octoqlPre
 	var retval _octoqlPremarshalRepositoryEventCovarianceResponse
 
 	{
-
 		dst := &retval.LatestRepositoryEvent
 		src := v.LatestRepositoryEvent
 		var err error
-		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(
-			&src)
+		*dst, err = _octoqlMarshalRepositoryEventCovarianceLatestRepositoryEventTimelineItem(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal RepositoryEventCovarianceResponse.LatestRepositoryEvent: %w", err)
@@ -3440,87 +3410,15 @@ func (v *RepositoryOwnerDetailsRepositoriesRepositoryConnectionNodesRepository) 
 
 // SearchRepositoriesLatestRelease includes the requested fields of the GraphQL type Release.
 type SearchRepositoriesLatestRelease struct {
-	Name        string     `json:"name"`
-	PublishedAt *time.Time `json:"-"`
+	Name        string         `json:"name"`
+	PublishedAt *testutil.Date `json:"publishedAt"`
 }
 
 // GetName returns SearchRepositoriesLatestRelease.Name, and is useful for accessing the field via an interface.
 func (v *SearchRepositoriesLatestRelease) GetName() string { return v.Name }
 
 // GetPublishedAt returns SearchRepositoriesLatestRelease.PublishedAt, and is useful for accessing the field via an interface.
-func (v *SearchRepositoriesLatestRelease) GetPublishedAt() *time.Time { return v.PublishedAt }
-
-func (v *SearchRepositoriesLatestRelease) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*SearchRepositoriesLatestRelease
-		PublishedAt json.RawMessage `json:"publishedAt"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.SearchRepositoriesLatestRelease = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.PublishedAt
-		src := firstPass.PublishedAt
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal SearchRepositoriesLatestRelease.PublishedAt: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalSearchRepositoriesLatestRelease struct {
-	Name string `json:"name"`
-
-	PublishedAt json.RawMessage `json:"publishedAt"`
-}
-
-func (v *SearchRepositoriesLatestRelease) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *SearchRepositoriesLatestRelease) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRepositoriesLatestRelease, error) {
-	var retval _octoqlPremarshalSearchRepositoriesLatestRelease
-
-	retval.Name = v.Name
-	{
-
-		dst := &retval.PublishedAt
-		src := v.PublishedAt
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal SearchRepositoriesLatestRelease.PublishedAt: %w", err)
-			}
-		}
-	}
-	return &retval, nil
-}
+func (v *SearchRepositoriesLatestRelease) GetPublishedAt() *testutil.Date { return v.PublishedAt }
 
 // SearchRepositoriesResponse is returned by SearchRepositories on success.
 type SearchRepositoriesResponse struct {
@@ -3603,8 +3501,7 @@ func (v *SearchRepositoriesSearchSearchResultConnection) UnmarshalJSON(b []byte)
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
-								src, dst)
+							err = _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
@@ -3636,7 +3533,6 @@ func (v *SearchRepositoriesSearchSearchResultConnection) _octoqlPremarshalJSON()
 	var retval _octoqlPremarshalSearchRepositoriesSearchSearchResultConnection
 
 	{
-
 		dst := &retval.Nodes
 		src := v.Nodes
 		if src != nil {
@@ -3646,8 +3542,7 @@ func (v *SearchRepositoriesSearchSearchResultConnection) _octoqlPremarshalJSON()
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(
-					&src)
+				*dst, err = _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesSearchResultItem(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal SearchRepositoriesSearchSearchResultConnection.Nodes: %w", err)
@@ -3792,8 +3687,7 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) Unmarsha
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(
-				src, dst)
+			err = _octoqlUnmarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal SearchRepositoriesSearchSearchResultConnectionNodesRepository.Owner: %w", err)
@@ -3827,12 +3721,10 @@ func (v *SearchRepositoriesSearchSearchResultConnectionNodesRepository) _octoqlP
 	retval.Typename = v.Typename
 	retval.RepoName = v.RepoName
 	{
-
 		dst := &retval.Owner
 		src := v.Owner
 		var err error
-		*dst, err = _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(
-			&src)
+		*dst, err = _octoqlMarshalSearchRepositoriesSearchSearchResultConnectionNodesRepositoryOwner(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal SearchRepositoriesSearchSearchResultConnectionNodesRepository.Owner: %w", err)
@@ -4067,88 +3959,10 @@ func (v *SearchRepositoriesSearchSearchResultConnectionPageInfo) GetEndCursor() 
 
 // SearchRepositoriesVariables contains the variables accepted by SearchRepositories.
 type SearchRepositoriesVariables struct {
-	Query          string     `json:"query"`
-	First          *int       `json:"first"`
-	After          *string    `json:"after"`
-	PublishedAfter *time.Time `json:"-"`
-}
-
-func (v *SearchRepositoriesVariables) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*SearchRepositoriesVariables
-		PublishedAfter json.RawMessage `json:"publishedAfter"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.SearchRepositoriesVariables = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.PublishedAfter
-		src := firstPass.PublishedAfter
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal SearchRepositoriesVariables.PublishedAfter: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalSearchRepositoriesVariables struct {
-	Query string `json:"query"`
-
-	First *int `json:"first"`
-
-	After *string `json:"after"`
-
-	PublishedAfter json.RawMessage `json:"publishedAfter"`
-}
-
-func (v *SearchRepositoriesVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *SearchRepositoriesVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRepositoriesVariables, error) {
-	var retval _octoqlPremarshalSearchRepositoriesVariables
-
-	retval.Query = v.Query
-	retval.First = v.First
-	retval.After = v.After
-	{
-
-		dst := &retval.PublishedAfter
-		src := v.PublishedAfter
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal SearchRepositoriesVariables.PublishedAfter: %w", err)
-			}
-		}
-	}
-	return &retval, nil
+	Query          string         `json:"query"`
+	First          *int           `json:"first"`
+	After          *string        `json:"after"`
+	PublishedAfter *testutil.Date `json:"publishedAfter"`
 }
 
 // The query executed by GetActor.

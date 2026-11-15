@@ -1291,8 +1291,7 @@ func (v *namingShapesResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalnamingShapesNamingActor(
-				src, dst)
+			err = _octoqlUnmarshalnamingShapesNamingActor(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal namingShapesResponse.NamingActor: %w", err)
@@ -1326,12 +1325,10 @@ func (v *namingShapesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalnaming
 	retval.NamingUser = v.NamingUser
 	retval.QueryNamingUser = v.QueryNamingUser
 	{
-
 		dst := &retval.NamingActor
 		src := v.NamingActor
 		var err error
-		*dst, err = _octoqlMarshalnamingShapesNamingActor(
-			&src)
+		*dst, err = _octoqlMarshalnamingShapesNamingActor(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal namingShapesResponse.NamingActor: %w", err)
@@ -1763,15 +1760,13 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalruntimeAbstractsNode(
-				src, dst)
+			err = _octoqlUnmarshalruntimeAbstractsNode(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal runtimeAbstractsResponse.Node: %w", err)
 			}
 		}
 	}
-
 	{
 		dst := &v.NestedNodes
 		raw := firstPass.NestedNodes
@@ -1805,8 +1800,7 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 									for i, src := range src {
 										dst := &(*dst)[i]
 										if len(src) != 0 && string(src) != "null" {
-											err = _octoqlUnmarshalruntimeAbstractsNestedNodesNode(
-												src, dst)
+											err = _octoqlUnmarshalruntimeAbstractsNestedNodesNode(src, dst)
 											if err != nil {
 												return fmt.Errorf(
 													"unable to unmarshal runtimeAbstractsResponse.NestedNodes: %w", err)
@@ -1821,7 +1815,6 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 			}
 		}
 	}
-
 	{
 		dst := &v.ActorNode
 		src := firstPass.ActorNode
@@ -1829,8 +1822,7 @@ func (v *runtimeAbstractsResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalruntimeAbstractsActorNode(
-				src, dst)
+			err = _octoqlUnmarshalruntimeAbstractsActorNode(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal runtimeAbstractsResponse.ActorNode: %w", err)
@@ -1860,19 +1852,16 @@ func (v *runtimeAbstractsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalru
 	var retval _octoqlPremarshalruntimeAbstractsResponse
 
 	{
-
 		dst := &retval.Node
 		src := v.Node
 		var err error
-		*dst, err = _octoqlMarshalruntimeAbstractsNode(
-			&src)
+		*dst, err = _octoqlMarshalruntimeAbstractsNode(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal runtimeAbstractsResponse.Node: %w", err)
 		}
 	}
 	{
-
 		dst := &retval.NestedNodes
 		src := v.NestedNodes
 		if src != nil {
@@ -1894,8 +1883,7 @@ func (v *runtimeAbstractsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalru
 							for i, src := range src {
 								dst := &(*dst)[i]
 								var err error
-								*dst, err = _octoqlMarshalruntimeAbstractsNestedNodesNode(
-									&src)
+								*dst, err = _octoqlMarshalruntimeAbstractsNestedNodesNode(&src)
 								if err != nil {
 									return nil, fmt.Errorf(
 										"unable to marshal runtimeAbstractsResponse.NestedNodes: %w", err)
@@ -1908,12 +1896,10 @@ func (v *runtimeAbstractsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalru
 		}
 	}
 	{
-
 		dst := &retval.ActorNode
 		src := v.ActorNode
 		var err error
-		*dst, err = _octoqlMarshalruntimeAbstractsActorNode(
-			&src)
+		*dst, err = _octoqlMarshalruntimeAbstractsActorNode(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal runtimeAbstractsResponse.ActorNode: %w", err)

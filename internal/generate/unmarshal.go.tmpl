@@ -63,58 +63,12 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
     {{range $field := .Fields -}}
     {{if $field.NeedsMarshaling -}}
     {{if $field.IsEmbedded -}}
-    {{/* Embedded fields are easier: we just unmarshal the same input into
-         them.  (They're also easier because they can't be lists, since they
-         arise from GraphQL fragment spreads.)
-         
-         Note that our behavior if you have two fields of the same name via
-         different embeds differs from ordinary json-unmarshaling: we unmarshal
-         into *all* of the fields.  See goStructType.FlattenedFields in
-         types.go for more discussion of embedding and visibility. */ -}}
-    err = {{unmarshaler $field}}(
+    err = {{ref "encoding/json.Unmarshal"}}(
         b, &v.{{typeRef $field.GoType.Unwrap}})
     if err != nil {
         return err
     }
     {{else -}}
-    {{/* For other fields (abstract or custom unmarshaler), first, call the
-         unmarshaler (our unmarshal-helper, or the user-specified one,
-         respectively).  This gets a little complicated because we may have
-         a slice field.  So what we do is basically, for each field of type
-         `[][]...[]MyType`:
-
-            dst := &v.MyField         // *[][]...[]MyType
-            raw := firstPass.MyField  // json.RawMessage
-            var src [][]...[]json.RawMessage
-            json.Unmarshal(raw, &src)
-
-            // repeat the following three lines n times; each time, inside
-            // the loop we have one less layer of slice on src and dst
-            *dst = make([][]...[]MyType, len(src))
-            for i, src := range src {
-                // We need the &(*dst)[i] because at each stage we want to
-                // keep dst as a pointer.  (It only really has to be a
-                // pointer at the innermost level, but it's easiest to be
-                // consistent.)
-                dst := &(*dst)[i]
-           
-                // (now we have `dst *MyType` and `src json.RawMessage`)
-                _octoqlUnmarshalMyType(dst, src)
-
-            } // (also n times)
-
-         Note that if the field also uses a pointer (`[][]...[]*MyType`), we
-         now pass around `*[][]...[]*MyType`; again in principle
-         `[][]...[]*MyType` would work but require more special-casing.  Thus
-         in the innermost loop, `dst` is of type `**MyType`, so we have to
-         pass `*dst` to the unmarshaler.  Of course, since MyType is an
-         interface, I'm not sure why you'd any of that anyway.
-
-         One additional trick is we wrap everything above in a block ({ ... }),
-         so that the variables dst and src may take on different types for
-         each field we are handling, which would otherwise conflict.  (We could
-         instead suffix the names, but that makes things much harder to read.)
-    */}}
     {
         dst := &v.{{$field.GoName}}
         {{if $field.GoType.SliceDepth -}}
@@ -132,34 +86,20 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
                 }
         {{else -}}
         src := firstPass.{{$field.GoName}}
-        {{if or $field.GoType.IsPointer $field.IsAbstract -}}
         if len(src) != 0 && string(src) == "null" {
             *dst = nil
         }
         {{end -}}
-        {{end -}}
         {{range $i := intRange $field.GoType.SliceDepth -}}
         if src != nil {
         *dst = make(
-            {{repeat (sub $field.GoType.SliceDepth $i) "[]"}}{{if $field.GoType.IsPointer}}*{{end}}{{typeRef $field.GoType.Unwrap}},
+            {{repeat (sub $field.GoType.SliceDepth $i) "[]"}}{{typeRef $field.GoType.Unwrap}},
             len(src))
         for i, src := range src {
             dst := &(*dst)[i]
         {{end -}}
-        {{/* dst now has type *<GoType>; dst is json.RawMessage */ -}}
-        {{/* If the field is null in the input, skip calling unmarshaler.
-             (This matches json.Unmarshal.)  If the field is missing entirely
-             from the input, we will have an uninitialized json.RawMessage;
-             handle that likewise. */ -}}
         if len(src) != 0 && string(src) != "null" {
-            {{if $field.GoType.IsPointer -}}
-            {{/* In this case, the parent for loop did `make([]*MyType, ...)`
-                 and we have a pointer into that list.  But we actually still
-                 need to initialize the *elements* of the list. */ -}}
-            *dst = new({{typeRef $field.GoType.Unwrap}})
-            {{end -}}
-            err = {{unmarshaler $field}}(
-                src, {{if $field.GoType.IsPointer}}*{{end}}dst)
+            err = _octoqlUnmarshal{{$field.GoType.Unwrap.QualifiedRef}}(src, dst)
             if err != nil {
                 return {{ref "fmt.Errorf"}}(
                     "unable to unmarshal {{$.GoName}}.{{$field.GoName}}: %w", err)

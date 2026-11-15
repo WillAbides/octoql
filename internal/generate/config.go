@@ -25,7 +25,7 @@ type Config struct {
 	TestHandlerGenerated string
 	TestHandlerTypes     TestHandlerTypeStrategy
 	Package              string
-	Bindings             map[string]*TypeBinding
+	Bindings             map[string]string
 	Casing               Casing
 	StructReferences     bool
 	Warnings             io.Writer // Warnings are discarded when nil.
@@ -57,13 +57,6 @@ func (s TestHandlerTypeStrategy) validate() error {
 	default:
 		return errorf(nil, "test_handler.types must be one of: 'client' or 'local'")
 	}
-}
-
-// A TypeBinding represents a Go type to which octoqlgen binds a GraphQL type.
-type TypeBinding struct {
-	Type        string
-	Marshaler   string
-	Unmarshaler string
 }
 
 // CasingAlgorithm represents a GraphQL-to-Go name conversion algorithm.

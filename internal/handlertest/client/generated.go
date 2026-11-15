@@ -1347,8 +1347,7 @@ func (v *GetNodeResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalGetNodeNode(
-				src, dst)
+			err = _octoqlUnmarshalGetNodeNode(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal GetNodeResponse.Node: %w", err)
@@ -1374,12 +1373,10 @@ func (v *GetNodeResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalGetNodeResp
 	var retval _octoqlPremarshalGetNodeResponse
 
 	{
-
 		dst := &retval.Node
 		src := v.Node
 		var err error
-		*dst, err = _octoqlMarshalGetNodeNode(
-			&src)
+		*dst, err = _octoqlMarshalGetNodeNode(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal GetNodeResponse.Node: %w", err)
@@ -1538,8 +1535,7 @@ func (v *SearchResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalSearchSearchSearchResultItem(
-								src, dst)
+							err = _octoqlUnmarshalSearchSearchSearchResultItem(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal SearchResponse.Search: %w", err)
@@ -1569,7 +1565,6 @@ func (v *SearchResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRespon
 	var retval _octoqlPremarshalSearchResponse
 
 	{
-
 		dst := &retval.Search
 		src := v.Search
 		if src != nil {
@@ -1579,8 +1574,7 @@ func (v *SearchResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalSearchRespon
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalSearchSearchSearchResultItem(
-					&src)
+				*dst, err = _octoqlMarshalSearchSearchSearchResultItem(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal SearchResponse.Search: %w", err)

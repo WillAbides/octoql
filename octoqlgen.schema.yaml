@@ -91,6 +91,20 @@ properties:
       `URI`, and `X509Certificate` map to `string`. This setting extends or
       overrides all of those mappings.
 
+      Each value is the fully qualified Go type expression to bind to, such as
+      `time.Time`, `map[string]interface{}`, or
+      `github.com/you/yourpkg/subpkg.MyType`:
+
+      ```yaml
+      bindings:
+        URI: net/url.URL
+      ```
+
+      Values may be any named type qualified by its full package path, any
+      predeclared basic type (such as `string` or `int`), `interface{}`, or
+      `*T`, `[]T`, `[N]T`, and `map[string]T` of those. Inline struct or
+      interface types and maps with non-`string` keys are not supported.
+
       When a binding is used, octoqlgen checks that its type name is a supported
       type expression, but it does not check the type's JSON behavior. Bound
       types must define whatever logic is needed, such as
@@ -107,9 +121,9 @@ properties:
       `@octoqlgen(typename: ...)`, which maps a builtin scalar to a nonstandard
       type that octoqlgen defines for you.
     type: object
-    x-go-type: map[string]*Binding
+    x-go-type: map[string]string
     additionalProperties:
-      $ref: '#/$defs/binding'
+      type: string
   casing:
     $ref: '#/$defs/casing'
   use_struct_references:
@@ -126,79 +140,6 @@ properties:
   test_handler:
     $ref: '#/$defs/testHandler'
 $defs:
-  binding:
-    description: Go binding for a GraphQL type.
-    x-doc: |
-      A single entry in `bindings`, describing the Go type to use for one
-      GraphQL type and how to convert it to and from JSON.
-    type: object
-    additionalProperties: false
-    properties:
-      type:
-        description: Fully qualified Go type.
-        x-doc: |
-          The fully qualified name of the Go type to bind to, for example
-          `time.Time`, `map[string]interface{}`, or
-          `github.com/you/yourpkg/subpkg.MyType`.
-
-          This may be any of the following expressions:
-
-          - any named type, qualified by the full package path
-          - any predeclared basic type, such as `string` or `int`
-          - `interface{}`
-          - for any allowed type `T`: `*T`, `[]T`, `[N]T`, and `map[string]T`
-
-          It may not be an inline (unnamed) struct or interface type, a map
-          whose key type is not `string`, or a nonstandard spelling of those,
-          such as `interface {/* hi */}` or `map[  string      ]T`.
-        type: string
-        examples:
-          - time.Time
-      marshaler:
-        description: Fully qualified custom marshaler function.
-        x-doc: |
-          The fully qualified name of the function to use when marshaling this
-          type.
-
-          This is useful when binding to a standard type but using nonstandard
-          marshaling, for example when making requests to a server that is not
-          compatible with Go's default time format. It is only used for values
-          passed as arguments: input types, scalars, and enums.
-
-          The function should have a signature similar to `json.Marshal`. It is
-          passed one argument, a pointer to a value of the given type, and
-          returns the JSON as a `[]byte` and an error:
-
-          ```go
-          func MarshalMyType(v *MyType) ([]byte, error)
-          ```
-
-          The `omitempty` option is ignored for types with custom marshalers. A
-          custom marshaler can encode `"null"`, but that sends an explicit
-          GraphQL null rather than omitting the variable.
-
-          The default is ordinary JSON marshaling.
-        type: string
-        examples:
-          - github.com/you/yourpkg.MarshalMyType
-      unmarshaler:
-        description: Fully qualified custom unmarshaler function.
-        x-doc: |
-          The fully qualified name of the function to use when unmarshaling this
-          type.
-
-          The function should have a signature similar to `json.Unmarshal`. It
-          is passed a `[]byte` of JSON and a pointer to a value of the given
-          type, and returns an error:
-
-          ```go
-          func UnmarshalMyType(b []byte, v *MyType) error
-          ```
-
-          The default is ordinary JSON unmarshaling.
-        type: string
-        examples:
-          - github.com/you/yourpkg.UnmarshalMyType
   casing:
     description: GraphQL-to-Go name casing configuration.
     x-doc: |

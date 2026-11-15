@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"path/filepath"
 	"sort"
 
@@ -78,19 +79,9 @@ func (cmd *generateCommand) Run() error {
 }
 
 func generateConfig(source *config.Config) *generate.Config {
-	bindings := map[string]*generate.TypeBinding{}
+	var bindings map[string]string
 	if source.Bindings != nil {
-		for name, binding := range *source.Bindings {
-			if binding == nil {
-				bindings[name] = &generate.TypeBinding{}
-				continue
-			}
-			bindings[name] = &generate.TypeBinding{
-				Type:        stringValue(binding.Type),
-				Marshaler:   stringValue(binding.Marshaler),
-				Unmarshaler: stringValue(binding.Unmarshaler),
-			}
-		}
+		bindings = maps.Clone(*source.Bindings)
 	}
 
 	var casing generate.Casing

@@ -1106,8 +1106,7 @@ func (v *LatestCommitRepositoryDefaultBranchRef) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(
-				src, dst)
+			err = _octoqlUnmarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal LatestCommitRepositoryDefaultBranchRef.Target: %w", err)
@@ -1133,12 +1132,10 @@ func (v *LatestCommitRepositoryDefaultBranchRef) _octoqlPremarshalJSON() (*_octo
 	var retval _octoqlPremarshalLatestCommitRepositoryDefaultBranchRef
 
 	{
-
 		dst := &retval.Target
 		src := v.Target
 		var err error
-		*dst, err = _octoqlMarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(
-			&src)
+		*dst, err = _octoqlMarshalLatestCommitRepositoryDefaultBranchRefTargetGitObject(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal LatestCommitRepositoryDefaultBranchRef.Target: %w", err)

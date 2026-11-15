@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gqlserver "github.com/willabides/octoql/internal/integration/server"
+	"github.com/willabides/octoql/internal/testutil"
 )
 
 //go:generate go run github.com/willabides/octoql/cmd/octoqlgen generate --config octoqlgen.yaml
@@ -147,7 +148,7 @@ func TestCustomMarshal(t *testing.T) {
 	client := newTestClient(t)
 
 	response, err := client.queryWithCustomMarshal(t.Context(), queryWithCustomMarshalVariables{
-		Date: time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC),
+		Date: testutil.Date(time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)),
 	})
 
 	require.NoError(t, err)
@@ -157,11 +158,11 @@ func TestCustomMarshal(t *testing.T) {
 	assert.Equal(t, "1", user.Id)
 	assert.Equal(t, "octocat", user.Login)
 	assert.Equal(t,
-		time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+		testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)),
 		requirePtrValue(t, user.CreatedAt))
 
 	response, err = client.queryWithCustomMarshal(t.Context(), queryWithCustomMarshalVariables{
-		Date: time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC),
+		Date: testutil.Date(time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)),
 	})
 
 	require.NoError(t, err)
@@ -172,7 +173,7 @@ func TestCustomMarshalSlice(t *testing.T) {
 	client := newTestClient(t)
 
 	response, err := client.queryWithCustomMarshalSlice(t.Context(), queryWithCustomMarshalSliceVariables{
-		Dates: []time.Time{time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)},
+		Dates: []testutil.Date{testutil.Date(time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))},
 	})
 
 	require.NoError(t, err)
@@ -182,11 +183,11 @@ func TestCustomMarshalSlice(t *testing.T) {
 	assert.Equal(t, "1", user.Id)
 	assert.Equal(t, "octocat", user.Login)
 	assert.Equal(t,
-		time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+		testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)),
 		requirePtrValue(t, user.CreatedAt))
 
 	response, err = client.queryWithCustomMarshalSlice(t.Context(), queryWithCustomMarshalSliceVariables{
-		Dates: []time.Time{time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)},
+		Dates: []testutil.Date{testutil.Date(time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC))},
 	})
 
 	require.NoError(t, err)
@@ -196,7 +197,7 @@ func TestCustomMarshalSlice(t *testing.T) {
 func TestCustomMarshalOptional(t *testing.T) {
 	client := newTestClient(t)
 
-	date := time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)
+	date := testutil.Date(time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))
 	response, err := client.queryWithCustomMarshalOptional(t.Context(), queryWithCustomMarshalOptionalVariables{
 		Date: &date,
 	})
@@ -209,7 +210,7 @@ func TestCustomMarshalOptional(t *testing.T) {
 	assert.Equal(t, "1", user.Id)
 	assert.Equal(t, "octocat", user.Login)
 	assert.Equal(t,
-		time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+		testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)),
 		requirePtrValue(t, user.CreatedAt))
 
 	login := "raven"
@@ -531,7 +532,7 @@ func TestSearch(t *testing.T) {
 
 func TestDirectivesNullabilityAndSkipInclude(t *testing.T) {
 	client := newTestClient(t)
-	queryDate := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
+	queryDate := testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC))
 
 	skipped, err := client.queryWithDirectivesAndSkipInclude(
 		t.Context(),
@@ -539,7 +540,7 @@ func TestDirectivesNullabilityAndSkipInclude(t *testing.T) {
 			Hide:          true,
 			Show:          false,
 			OptionalLogin: "octocat",
-			Dates:         []time.Time{queryDate},
+			Dates:         []testutil.Date{queryDate},
 		},
 	)
 	require.NoError(t, err)
@@ -569,7 +570,7 @@ func TestDirectivesNullabilityAndSkipInclude(t *testing.T) {
 			Show:          true,
 			DefaultedId:   new("3"),
 			OptionalLogin: "octocat",
-			Dates:         []time.Time{queryDate},
+			Dates:         []testutil.Date{queryDate},
 		},
 	)
 	require.NoError(t, err)

@@ -1142,8 +1142,7 @@ func (v *addStarAddStarAddStarPayload) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshaladdStarAddStarAddStarPayloadStarrable(
-				src, dst)
+			err = _octoqlUnmarshaladdStarAddStarAddStarPayloadStarrable(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal addStarAddStarAddStarPayload.Starrable: %w", err)
@@ -1169,12 +1168,10 @@ func (v *addStarAddStarAddStarPayload) _octoqlPremarshalJSON() (*_octoqlPremarsh
 	var retval _octoqlPremarshaladdStarAddStarAddStarPayload
 
 	{
-
 		dst := &retval.Starrable
 		src := v.Starrable
 		var err error
-		*dst, err = _octoqlMarshaladdStarAddStarAddStarPayloadStarrable(
-			&src)
+		*dst, err = _octoqlMarshaladdStarAddStarAddStarPayloadStarrable(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal addStarAddStarAddStarPayload.Starrable: %w", err)
@@ -1332,15 +1329,13 @@ func (v *directivesResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshaldirectivesResponseActor(
-				src, dst)
+			err = _octoqlUnmarshaldirectivesResponseActor(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal directivesResponse.Actor: %w", err)
 			}
 		}
 	}
-
 	{
 		dst := &v.Actors
 		raw := firstPass.Actors
@@ -1362,8 +1357,7 @@ func (v *directivesResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshaldirectivesResponseActorsActor(
-								src, dst)
+							err = _octoqlUnmarshaldirectivesResponseActorsActor(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal directivesResponse.Actors: %w", err)
@@ -1407,19 +1401,16 @@ func (v *directivesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshaldirectiv
 
 	retval.User = v.User
 	{
-
 		dst := &retval.Actor
 		src := v.Actor
 		var err error
-		*dst, err = _octoqlMarshaldirectivesResponseActor(
-			&src)
+		*dst, err = _octoqlMarshaldirectivesResponseActor(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal directivesResponse.Actor: %w", err)
 		}
 	}
 	{
-
 		dst := &retval.Actors
 		src := v.Actors
 		if src != nil {
@@ -1429,8 +1420,7 @@ func (v *directivesResponse) _octoqlPremarshalJSON() (*_octoqlPremarshaldirectiv
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshaldirectivesResponseActorsActor(
-					&src)
+				*dst, err = _octoqlMarshaldirectivesResponseActorsActor(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal directivesResponse.Actors: %w", err)
@@ -1612,80 +1602,11 @@ func (v *directivesResponseActorsActorOctoqlOther) GetId() string { return v.Id 
 
 // directivesResponseUsersCreatedOnDatesUser includes the requested fields of the GraphQL type User.
 type directivesResponseUsersCreatedOnDatesUser struct {
-	CreatedAt *time.Time `json:"-"`
+	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
 // GetCreatedAt returns directivesResponseUsersCreatedOnDatesUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *directivesResponseUsersCreatedOnDatesUser) GetCreatedAt() *time.Time { return v.CreatedAt }
-
-func (v *directivesResponseUsersCreatedOnDatesUser) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*directivesResponseUsersCreatedOnDatesUser
-		CreatedAt json.RawMessage `json:"createdAt"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.directivesResponseUsersCreatedOnDatesUser = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.CreatedAt
-		src := firstPass.CreatedAt
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal directivesResponseUsersCreatedOnDatesUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshaldirectivesResponseUsersCreatedOnDatesUser struct {
-	CreatedAt json.RawMessage `json:"createdAt"`
-}
-
-func (v *directivesResponseUsersCreatedOnDatesUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *directivesResponseUsersCreatedOnDatesUser) _octoqlPremarshalJSON() (*_octoqlPremarshaldirectivesResponseUsersCreatedOnDatesUser, error) {
-	var retval _octoqlPremarshaldirectivesResponseUsersCreatedOnDatesUser
-
-	{
-
-		dst := &retval.CreatedAt
-		src := v.CreatedAt
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal directivesResponseUsersCreatedOnDatesUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return &retval, nil
-}
+func (v *directivesResponseUsersCreatedOnDatesUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
 
 // directivesUser includes the requested fields of the GraphQL type User.
 type directivesUser struct {
@@ -1695,7 +1616,7 @@ type directivesUser struct {
 	IncludedLogin  *string                                `json:"includedLogin"`
 	ForcedPtrLogin *string                                `json:"forcedPtrLogin"`
 	PlainName      string                                 `json:"plainName"`
-	CreatedAt      *time.Time                             `json:"-"`
+	CreatedAt      *testutil.Date                         `json:"createdAt"`
 	Status         *directivesUserStatus                  `json:"status"`
 	Repositories   []directivesUserRepositoriesRepository `json:"repositories"`
 	BoundPtr       *string                                `json:"boundPtr"`
@@ -1721,7 +1642,7 @@ func (v *directivesUser) GetForcedPtrLogin() *string { return v.ForcedPtrLogin }
 func (v *directivesUser) GetPlainName() string { return v.PlainName }
 
 // GetCreatedAt returns directivesUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *directivesUser) GetCreatedAt() *time.Time { return v.CreatedAt }
+func (v *directivesUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
 
 // GetStatus returns directivesUser.Status, and is useful for accessing the field via an interface.
 func (v *directivesUser) GetStatus() *directivesUserStatus { return v.Status }
@@ -1736,105 +1657,6 @@ func (v *directivesUser) GetBoundPtr() *string { return v.BoundPtr }
 
 // GetBoundAny returns directivesUser.BoundAny, and is useful for accessing the field via an interface.
 func (v *directivesUser) GetBoundAny() interface{} { return v.BoundAny }
-
-func (v *directivesUser) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*directivesUser
-		CreatedAt json.RawMessage `json:"createdAt"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.directivesUser = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.CreatedAt
-		src := firstPass.CreatedAt
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal directivesUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshaldirectivesUser struct {
-	Typename *string `json:"__typename"`
-
-	Login string `json:"login"`
-
-	SkippedLogin *string `json:"skippedLogin"`
-
-	IncludedLogin *string `json:"includedLogin"`
-
-	ForcedPtrLogin *string `json:"forcedPtrLogin"`
-
-	PlainName string `json:"plainName"`
-
-	CreatedAt json.RawMessage `json:"createdAt"`
-
-	Status *directivesUserStatus `json:"status"`
-
-	Repositories []directivesUserRepositoriesRepository `json:"repositories"`
-
-	BoundPtr *string `json:"boundPtr"`
-
-	BoundAny interface{} `json:"boundAny"`
-}
-
-func (v *directivesUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *directivesUser) _octoqlPremarshalJSON() (*_octoqlPremarshaldirectivesUser, error) {
-	var retval _octoqlPremarshaldirectivesUser
-
-	retval.Typename = v.Typename
-	retval.Login = v.Login
-	retval.SkippedLogin = v.SkippedLogin
-	retval.IncludedLogin = v.IncludedLogin
-	retval.ForcedPtrLogin = v.ForcedPtrLogin
-	retval.PlainName = v.PlainName
-	{
-
-		dst := &retval.CreatedAt
-		src := v.CreatedAt
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal directivesUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	retval.Status = v.Status
-	retval.Repositories = v.Repositories
-	retval.BoundPtr = v.BoundPtr
-	retval.BoundAny = v.BoundAny
-	return &retval, nil
-}
 
 // directivesUserRepositoriesRepository includes the requested fields of the GraphQL type Repository.
 type directivesUserRepositoriesRepository struct {
@@ -1917,8 +1739,7 @@ func (v *getRepositoryRepository) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalgetRepositoryRepositoryOwner(
-				src, dst)
+			err = _octoqlUnmarshalgetRepositoryRepositoryOwner(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal getRepositoryRepository.Owner: %w", err)
@@ -1953,12 +1774,10 @@ func (v *getRepositoryRepository) _octoqlPremarshalJSON() (*_octoqlPremarshalget
 	retval.Name = v.Name
 	retval.NameWithOwner = v.NameWithOwner
 	{
-
 		dst := &retval.Owner
 		src := v.Owner
 		var err error
-		*dst, err = _octoqlMarshalgetRepositoryRepositoryOwner(
-			&src)
+		*dst, err = _octoqlMarshalgetRepositoryRepositoryOwner(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal getRepositoryRepository.Owner: %w", err)
@@ -2273,8 +2092,7 @@ func (v *organizationFields) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalorganizationFieldsTopContributorActor(
-				src, dst)
+			err = _octoqlUnmarshalorganizationFieldsTopContributorActor(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal organizationFields.TopContributor: %w", err)
@@ -2306,12 +2124,10 @@ func (v *organizationFields) _octoqlPremarshalJSON() (*_octoqlPremarshalorganiza
 	retval.Id = v.Id
 	retval.Plan = v.Plan
 	{
-
 		dst := &retval.TopContributor
 		src := v.TopContributor
 		var err error
-		*dst, err = _octoqlMarshalorganizationFieldsTopContributorActor(
-			&src)
+		*dst, err = _octoqlMarshalorganizationFieldsTopContributorActor(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal organizationFields.TopContributor: %w", err)
@@ -2640,8 +2456,7 @@ func (v *queryFragment) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalqueryFragmentActorsActor(
-								src, dst)
+							err = _octoqlUnmarshalqueryFragmentActorsActor(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal queryFragment.Actors: %w", err)
@@ -2671,7 +2486,6 @@ func (v *queryFragment) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryFragment
 	var retval _octoqlPremarshalqueryFragment
 
 	{
-
 		dst := &retval.Actors
 		src := v.Actors
 		if src != nil {
@@ -2681,8 +2495,7 @@ func (v *queryFragment) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryFragment
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalqueryFragmentActorsActor(
-					&src)
+				*dst, err = _octoqlMarshalqueryFragmentActorsActor(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal queryFragment.Actors: %w", err)
@@ -2848,8 +2661,7 @@ func (v *queryFragmentActorsOrganization) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalinnerActorFields(
-				src, dst)
+			err = _octoqlUnmarshalinnerActorFields(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryFragmentActorsOrganization.TopContributor: %w", err)
@@ -2881,12 +2693,10 @@ func (v *queryFragmentActorsOrganization) _octoqlPremarshalJSON() (*_octoqlPrema
 	retval.Typename = v.Typename
 	retval.Id = v.Id
 	{
-
 		dst := &retval.TopContributor
 		src := v.TopContributor
 		var err error
-		*dst, err = _octoqlMarshalinnerActorFields(
-			&src)
+		*dst, err = _octoqlMarshalinnerActorFields(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal queryFragmentActorsOrganization.TopContributor: %w", err)
@@ -2975,9 +2785,9 @@ func (v *queryWithCustomMarshalOptionalResponse) GetUserSearch() []*queryWithCus
 
 // queryWithCustomMarshalOptionalUserSearchUser includes the requested fields of the GraphQL type User.
 type queryWithCustomMarshalOptionalUserSearchUser struct {
-	Id        string     `json:"id"`
-	Login     string     `json:"login"`
-	CreatedAt *time.Time `json:"-"`
+	Id        string         `json:"id"`
+	Login     string         `json:"login"`
+	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
 // GetId returns queryWithCustomMarshalOptionalUserSearchUser.Id, and is useful for accessing the field via an interface.
@@ -2987,159 +2797,14 @@ func (v *queryWithCustomMarshalOptionalUserSearchUser) GetId() string { return v
 func (v *queryWithCustomMarshalOptionalUserSearchUser) GetLogin() string { return v.Login }
 
 // GetCreatedAt returns queryWithCustomMarshalOptionalUserSearchUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalOptionalUserSearchUser) GetCreatedAt() *time.Time { return v.CreatedAt }
-
-func (v *queryWithCustomMarshalOptionalUserSearchUser) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*queryWithCustomMarshalOptionalUserSearchUser
-		CreatedAt json.RawMessage `json:"createdAt"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.queryWithCustomMarshalOptionalUserSearchUser = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.CreatedAt
-		src := firstPass.CreatedAt
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal queryWithCustomMarshalOptionalUserSearchUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalqueryWithCustomMarshalOptionalUserSearchUser struct {
-	Id string `json:"id"`
-
-	Login string `json:"login"`
-
-	CreatedAt json.RawMessage `json:"createdAt"`
-}
-
-func (v *queryWithCustomMarshalOptionalUserSearchUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *queryWithCustomMarshalOptionalUserSearchUser) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalOptionalUserSearchUser, error) {
-	var retval _octoqlPremarshalqueryWithCustomMarshalOptionalUserSearchUser
-
-	retval.Id = v.Id
-	retval.Login = v.Login
-	{
-
-		dst := &retval.CreatedAt
-		src := v.CreatedAt
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithCustomMarshalOptionalUserSearchUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return &retval, nil
+func (v *queryWithCustomMarshalOptionalUserSearchUser) GetCreatedAt() *testutil.Date {
+	return v.CreatedAt
 }
 
 // queryWithCustomMarshalOptionalVariables contains the variables accepted by queryWithCustomMarshalOptional.
 type queryWithCustomMarshalOptionalVariables struct {
-	Date  *time.Time `json:"-"`
-	Login *string    `json:"login"`
-}
-
-func (v *queryWithCustomMarshalOptionalVariables) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*queryWithCustomMarshalOptionalVariables
-		Date json.RawMessage `json:"date"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.queryWithCustomMarshalOptionalVariables = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Date
-		src := firstPass.Date
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal queryWithCustomMarshalOptionalVariables.Date: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalqueryWithCustomMarshalOptionalVariables struct {
-	Date json.RawMessage `json:"date"`
-
-	Login *string `json:"login"`
-}
-
-func (v *queryWithCustomMarshalOptionalVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *queryWithCustomMarshalOptionalVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalOptionalVariables, error) {
-	var retval _octoqlPremarshalqueryWithCustomMarshalOptionalVariables
-
-	{
-
-		dst := &retval.Date
-		src := v.Date
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithCustomMarshalOptionalVariables.Date: %w", err)
-			}
-		}
-	}
-	retval.Login = v.Login
-	return &retval, nil
+	Date  *testutil.Date `json:"date"`
+	Login *string        `json:"login"`
 }
 
 // queryWithCustomMarshalResponse is returned by queryWithCustomMarshal on success.
@@ -3164,9 +2829,9 @@ func (v *queryWithCustomMarshalSliceResponse) GetUsersCreatedOnDates() []queryWi
 
 // queryWithCustomMarshalSliceUsersCreatedOnDatesUser includes the requested fields of the GraphQL type User.
 type queryWithCustomMarshalSliceUsersCreatedOnDatesUser struct {
-	Id        string     `json:"id"`
-	Login     string     `json:"login"`
-	CreatedAt *time.Time `json:"-"`
+	Id        string         `json:"id"`
+	Login     string         `json:"login"`
+	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
 // GetId returns queryWithCustomMarshalSliceUsersCreatedOnDatesUser.Id, and is useful for accessing the field via an interface.
@@ -3176,187 +2841,20 @@ func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetId() string { re
 func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetLogin() string { return v.Login }
 
 // GetCreatedAt returns queryWithCustomMarshalSliceUsersCreatedOnDatesUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetCreatedAt() *time.Time {
+func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetCreatedAt() *testutil.Date {
 	return v.CreatedAt
-}
-
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*queryWithCustomMarshalSliceUsersCreatedOnDatesUser
-		CreatedAt json.RawMessage `json:"createdAt"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.queryWithCustomMarshalSliceUsersCreatedOnDatesUser = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.CreatedAt
-		src := firstPass.CreatedAt
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal queryWithCustomMarshalSliceUsersCreatedOnDatesUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser struct {
-	Id string `json:"id"`
-
-	Login string `json:"login"`
-
-	CreatedAt json.RawMessage `json:"createdAt"`
-}
-
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser, error) {
-	var retval _octoqlPremarshalqueryWithCustomMarshalSliceUsersCreatedOnDatesUser
-
-	retval.Id = v.Id
-	retval.Login = v.Login
-	{
-
-		dst := &retval.CreatedAt
-		src := v.CreatedAt
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithCustomMarshalSliceUsersCreatedOnDatesUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return &retval, nil
 }
 
 // queryWithCustomMarshalSliceVariables contains the variables accepted by queryWithCustomMarshalSlice.
 type queryWithCustomMarshalSliceVariables struct {
-	Dates []time.Time `json:"-"`
-}
-
-func (v *queryWithCustomMarshalSliceVariables) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*queryWithCustomMarshalSliceVariables
-		Dates json.RawMessage `json:"dates"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.queryWithCustomMarshalSliceVariables = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Dates
-		raw := firstPass.Dates
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src []json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[]time.Time,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if len(src) != 0 && string(src) != "null" {
-							err = testutil.UnmarshalDate(
-								src, dst)
-							if err != nil {
-								return fmt.Errorf(
-									"unable to unmarshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalqueryWithCustomMarshalSliceVariables struct {
-	Dates []json.RawMessage `json:"dates"`
-}
-
-func (v *queryWithCustomMarshalSliceVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *queryWithCustomMarshalSliceVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalSliceVariables, error) {
-	var retval _octoqlPremarshalqueryWithCustomMarshalSliceVariables
-
-	{
-
-		dst := &retval.Dates
-		src := v.Dates
-		if src != nil {
-			*dst = make(
-				[]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				var err error
-				*dst, err = testutil.MarshalDate(
-					&src)
-				if err != nil {
-					return nil, fmt.Errorf(
-						"unable to marshal queryWithCustomMarshalSliceVariables.Dates: %w", err)
-				}
-			}
-		}
-	}
-	return &retval, nil
+	Dates []testutil.Date `json:"dates"`
 }
 
 // queryWithCustomMarshalUsersCreatedOnUser includes the requested fields of the GraphQL type User.
 type queryWithCustomMarshalUsersCreatedOnUser struct {
-	Id        string     `json:"id"`
-	Login     string     `json:"login"`
-	CreatedAt *time.Time `json:"-"`
+	Id        string         `json:"id"`
+	Login     string         `json:"login"`
+	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
 // GetId returns queryWithCustomMarshalUsersCreatedOnUser.Id, and is useful for accessing the field via an interface.
@@ -3366,262 +2864,20 @@ func (v *queryWithCustomMarshalUsersCreatedOnUser) GetId() string { return v.Id 
 func (v *queryWithCustomMarshalUsersCreatedOnUser) GetLogin() string { return v.Login }
 
 // GetCreatedAt returns queryWithCustomMarshalUsersCreatedOnUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalUsersCreatedOnUser) GetCreatedAt() *time.Time { return v.CreatedAt }
-
-func (v *queryWithCustomMarshalUsersCreatedOnUser) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*queryWithCustomMarshalUsersCreatedOnUser
-		CreatedAt json.RawMessage `json:"createdAt"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.queryWithCustomMarshalUsersCreatedOnUser = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.CreatedAt
-		src := firstPass.CreatedAt
-		if len(src) != 0 && string(src) == "null" {
-			*dst = nil
-		}
-		if len(src) != 0 && string(src) != "null" {
-			*dst = new(time.Time)
-			err = testutil.UnmarshalDate(
-				src, *dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal queryWithCustomMarshalUsersCreatedOnUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalqueryWithCustomMarshalUsersCreatedOnUser struct {
-	Id string `json:"id"`
-
-	Login string `json:"login"`
-
-	CreatedAt json.RawMessage `json:"createdAt"`
-}
-
-func (v *queryWithCustomMarshalUsersCreatedOnUser) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *queryWithCustomMarshalUsersCreatedOnUser) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalUsersCreatedOnUser, error) {
-	var retval _octoqlPremarshalqueryWithCustomMarshalUsersCreatedOnUser
-
-	retval.Id = v.Id
-	retval.Login = v.Login
-	{
-
-		dst := &retval.CreatedAt
-		src := v.CreatedAt
-		if src != nil {
-			var err error
-			*dst, err = testutil.MarshalDate(
-				src)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"unable to marshal queryWithCustomMarshalUsersCreatedOnUser.CreatedAt: %w", err)
-			}
-		}
-	}
-	return &retval, nil
-}
+func (v *queryWithCustomMarshalUsersCreatedOnUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
 
 // queryWithCustomMarshalVariables contains the variables accepted by queryWithCustomMarshal.
 type queryWithCustomMarshalVariables struct {
-	Date time.Time `json:"-"`
-}
-
-func (v *queryWithCustomMarshalVariables) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*queryWithCustomMarshalVariables
-		Date json.RawMessage `json:"date"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.queryWithCustomMarshalVariables = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Date
-		src := firstPass.Date
-		if len(src) != 0 && string(src) != "null" {
-			err = testutil.UnmarshalDate(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal queryWithCustomMarshalVariables.Date: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalqueryWithCustomMarshalVariables struct {
-	Date json.RawMessage `json:"date"`
-}
-
-func (v *queryWithCustomMarshalVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *queryWithCustomMarshalVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithCustomMarshalVariables, error) {
-	var retval _octoqlPremarshalqueryWithCustomMarshalVariables
-
-	{
-
-		dst := &retval.Date
-		src := v.Date
-		var err error
-		*dst, err = testutil.MarshalDate(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal queryWithCustomMarshalVariables.Date: %w", err)
-		}
-	}
-	return &retval, nil
+	Date testutil.Date `json:"date"`
 }
 
 // queryWithDirectivesAndSkipIncludeVariables contains the variables accepted by queryWithDirectivesAndSkipInclude.
 type queryWithDirectivesAndSkipIncludeVariables struct {
-	Hide          bool        `json:"hide"`
-	Show          bool        `json:"show"`
-	DefaultedId   *string     `json:"defaultedId,omitempty"`
-	OptionalLogin string      `json:"optionalLogin"`
-	Dates         []time.Time `json:"-"`
-}
-
-func (v *queryWithDirectivesAndSkipIncludeVariables) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*queryWithDirectivesAndSkipIncludeVariables
-		Dates json.RawMessage `json:"dates"`
-		_octoqlNoUnmarshalJSON
-	}
-	firstPass.queryWithDirectivesAndSkipIncludeVariables = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.Dates
-		raw := firstPass.Dates
-		if len(raw) != 0 {
-			if string(raw) == "null" {
-				*dst = nil
-			}
-			if string(raw) != "null" {
-				var src []json.RawMessage
-				err = json.Unmarshal(raw, &src)
-				if err != nil {
-					return fmt.Errorf(
-						"unable to unmarshal queryWithDirectivesAndSkipIncludeVariables.Dates: %w", err)
-				}
-				if src != nil {
-					*dst = make(
-						[]time.Time,
-						len(src))
-					for i, src := range src {
-						dst := &(*dst)[i]
-						if len(src) != 0 && string(src) != "null" {
-							err = testutil.UnmarshalDate(
-								src, dst)
-							if err != nil {
-								return fmt.Errorf(
-									"unable to unmarshal queryWithDirectivesAndSkipIncludeVariables.Dates: %w", err)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
-type _octoqlPremarshalqueryWithDirectivesAndSkipIncludeVariables struct {
-	Hide bool `json:"hide"`
-
-	Show bool `json:"show"`
-
-	DefaultedId *string `json:"defaultedId,omitempty"`
-
-	OptionalLogin string `json:"optionalLogin"`
-
-	Dates []json.RawMessage `json:"dates"`
-}
-
-func (v *queryWithDirectivesAndSkipIncludeVariables) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v._octoqlPremarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *queryWithDirectivesAndSkipIncludeVariables) _octoqlPremarshalJSON() (*_octoqlPremarshalqueryWithDirectivesAndSkipIncludeVariables, error) {
-	var retval _octoqlPremarshalqueryWithDirectivesAndSkipIncludeVariables
-
-	retval.Hide = v.Hide
-	retval.Show = v.Show
-	retval.DefaultedId = v.DefaultedId
-	retval.OptionalLogin = v.OptionalLogin
-	{
-
-		dst := &retval.Dates
-		src := v.Dates
-		if src != nil {
-			*dst = make(
-				[]json.RawMessage,
-				len(src))
-			for i, src := range src {
-				dst := &(*dst)[i]
-				var err error
-				*dst, err = testutil.MarshalDate(
-					&src)
-				if err != nil {
-					return nil, fmt.Errorf(
-						"unable to marshal queryWithDirectivesAndSkipIncludeVariables.Dates: %w", err)
-				}
-			}
-		}
-	}
-	return &retval, nil
+	Hide          bool            `json:"hide"`
+	Show          bool            `json:"show"`
+	DefaultedId   *string         `json:"defaultedId,omitempty"`
+	OptionalLogin string          `json:"optionalLogin"`
+	Dates         []testutil.Date `json:"dates"`
 }
 
 // queryWithFlattenVariables contains the variables accepted by queryWithFlatten.
@@ -3839,8 +3095,7 @@ func (v *queryWithFragmentsActorsOrganization) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(
-				src, dst)
+			err = _octoqlUnmarshalqueryWithFragmentsActorsOrganizationTopContributorActor(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryWithFragmentsActorsOrganization.TopContributor: %w", err)
@@ -3880,12 +3135,10 @@ func (v *queryWithFragmentsActorsOrganization) _octoqlPremarshalJSON() (*_octoql
 	retval.Login = v.Login
 	retval.Plan = v.Plan
 	{
-
 		dst := &retval.TopContributor
 		src := v.TopContributor
 		var err error
-		*dst, err = _octoqlMarshalqueryWithFragmentsActorsOrganizationTopContributorActor(
-			&src)
+		*dst, err = _octoqlMarshalqueryWithFragmentsActorsOrganizationTopContributorActor(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal queryWithFragmentsActorsOrganization.TopContributor: %w", err)
@@ -4185,8 +3438,7 @@ func (v *queryWithFragmentsResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalqueryWithFragmentsActorsActor(
-								src, dst)
+							err = _octoqlUnmarshalqueryWithFragmentsActorsActor(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal queryWithFragmentsResponse.Actors: %w", err)
@@ -4216,7 +3468,6 @@ func (v *queryWithFragmentsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshal
 	var retval _octoqlPremarshalqueryWithFragmentsResponse
 
 	{
-
 		dst := &retval.Actors
 		src := v.Actors
 		if src != nil {
@@ -4226,8 +3477,7 @@ func (v *queryWithFragmentsResponse) _octoqlPremarshalJSON() (*_octoqlPremarshal
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalqueryWithFragmentsActorsActor(
-					&src)
+				*dst, err = _octoqlMarshalqueryWithFragmentsActorsActor(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal queryWithFragmentsResponse.Actors: %w", err)
@@ -4364,8 +3614,7 @@ func (v *queryWithInterfaceListFieldResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalqueryWithInterfaceListFieldActorsActor(
-								src, dst)
+							err = _octoqlUnmarshalqueryWithInterfaceListFieldActorsActor(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal queryWithInterfaceListFieldResponse.Actors: %w", err)
@@ -4395,7 +3644,6 @@ func (v *queryWithInterfaceListFieldResponse) _octoqlPremarshalJSON() (*_octoqlP
 	var retval _octoqlPremarshalqueryWithInterfaceListFieldResponse
 
 	{
-
 		dst := &retval.Actors
 		src := v.Actors
 		if src != nil {
@@ -4405,8 +3653,7 @@ func (v *queryWithInterfaceListFieldResponse) _octoqlPremarshalJSON() (*_octoqlP
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalqueryWithInterfaceListFieldActorsActor(
-					&src)
+				*dst, err = _octoqlMarshalqueryWithInterfaceListFieldActorsActor(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal queryWithInterfaceListFieldResponse.Actors: %w", err)
@@ -4535,8 +3782,7 @@ func (v *queryWithInterfaceNoFragmentsResponse) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalqueryWithInterfaceNoFragmentsActor(
-				src, dst)
+			err = _octoqlUnmarshalqueryWithInterfaceNoFragmentsActor(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal queryWithInterfaceNoFragmentsResponse.Actor: %w", err)
@@ -4564,12 +3810,10 @@ func (v *queryWithInterfaceNoFragmentsResponse) _octoqlPremarshalJSON() (*_octoq
 	var retval _octoqlPremarshalqueryWithInterfaceNoFragmentsResponse
 
 	{
-
 		dst := &retval.Actor
 		src := v.Actor
 		var err error
-		*dst, err = _octoqlMarshalqueryWithInterfaceNoFragmentsActor(
-			&src)
+		*dst, err = _octoqlMarshalqueryWithInterfaceNoFragmentsActor(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal queryWithInterfaceNoFragmentsResponse.Actor: %w", err)
@@ -4784,12 +4028,10 @@ func (v *queryWithNamedFragmentsActorsOrganization) _octoqlPremarshalJSON() (*_o
 	retval.Id = v.Id
 	retval.Plan = v.organizationFields.Plan
 	{
-
 		dst := &retval.TopContributor
 		src := v.organizationFields.TopContributor
 		var err error
-		*dst, err = _octoqlMarshalorganizationFieldsTopContributorActor(
-			&src)
+		*dst, err = _octoqlMarshalorganizationFieldsTopContributorActor(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal queryWithNamedFragmentsActorsOrganization.organizationFields.TopContributor: %w", err)
@@ -4923,8 +4165,7 @@ func (v *queryWithNamedFragmentsResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalqueryWithNamedFragmentsActorsActor(
-								src, dst)
+							err = _octoqlUnmarshalqueryWithNamedFragmentsActorsActor(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal queryWithNamedFragmentsResponse.Actors: %w", err)
@@ -4954,7 +4195,6 @@ func (v *queryWithNamedFragmentsResponse) _octoqlPremarshalJSON() (*_octoqlPrema
 	var retval _octoqlPremarshalqueryWithNamedFragmentsResponse
 
 	{
-
 		dst := &retval.Actors
 		src := v.Actors
 		if src != nil {
@@ -4964,8 +4204,7 @@ func (v *queryWithNamedFragmentsResponse) _octoqlPremarshalJSON() (*_octoqlPrema
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalqueryWithNamedFragmentsActorsActor(
-					&src)
+				*dst, err = _octoqlMarshalqueryWithNamedFragmentsActorsActor(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal queryWithNamedFragmentsResponse.Actors: %w", err)
@@ -5059,8 +4298,7 @@ func (v *queryWithSearchResponse) UnmarshalJSON(b []byte) error {
 					for i, src := range src {
 						dst := &(*dst)[i]
 						if len(src) != 0 && string(src) != "null" {
-							err = _octoqlUnmarshalqueryWithSearchSearchSearchResultItem(
-								src, dst)
+							err = _octoqlUnmarshalqueryWithSearchSearchSearchResultItem(src, dst)
 							if err != nil {
 								return fmt.Errorf(
 									"unable to unmarshal queryWithSearchResponse.Search: %w", err)
@@ -5090,7 +4328,6 @@ func (v *queryWithSearchResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalque
 	var retval _octoqlPremarshalqueryWithSearchResponse
 
 	{
-
 		dst := &retval.Search
 		src := v.Search
 		if src != nil {
@@ -5100,8 +4337,7 @@ func (v *queryWithSearchResponse) _octoqlPremarshalJSON() (*_octoqlPremarshalque
 			for i, src := range src {
 				dst := &(*dst)[i]
 				var err error
-				*dst, err = _octoqlMarshalqueryWithSearchSearchSearchResultItem(
-					&src)
+				*dst, err = _octoqlMarshalqueryWithSearchSearchSearchResultItem(&src)
 				if err != nil {
 					return nil, fmt.Errorf(
 						"unable to marshal queryWithSearchResponse.Search: %w", err)
@@ -5473,8 +4709,7 @@ func (v *removeStarRemoveStarRemoveStarPayload) UnmarshalJSON(b []byte) error {
 			*dst = nil
 		}
 		if len(src) != 0 && string(src) != "null" {
-			err = _octoqlUnmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(
-				src, dst)
+			err = _octoqlUnmarshalremoveStarRemoveStarRemoveStarPayloadStarrable(src, dst)
 			if err != nil {
 				return fmt.Errorf(
 					"unable to unmarshal removeStarRemoveStarRemoveStarPayload.Starrable: %w", err)
@@ -5500,12 +4735,10 @@ func (v *removeStarRemoveStarRemoveStarPayload) _octoqlPremarshalJSON() (*_octoq
 	var retval _octoqlPremarshalremoveStarRemoveStarRemoveStarPayload
 
 	{
-
 		dst := &retval.Starrable
 		src := v.Starrable
 		var err error
-		*dst, err = _octoqlMarshalremoveStarRemoveStarRemoveStarPayloadStarrable(
-			&src)
+		*dst, err = _octoqlMarshalremoveStarRemoveStarRemoveStarPayloadStarrable(&src)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to marshal removeStarRemoveStarRemoveStarPayload.Starrable: %w", err)

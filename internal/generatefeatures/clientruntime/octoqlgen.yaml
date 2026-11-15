@@ -6,13 +6,7 @@ operations:
   - operation.graphql
 generated: generated.go
 bindings:
-  Account:
-    type: github.com/willabides/octoql/internal/testutil.Account
-  CustomPropertyValue:
-    type: string
-  Date:
-    type: time.Time
-    marshaler: github.com/willabides/octoql/internal/testutil.MarshalDate
-    unmarshaler: github.com/willabides/octoql/internal/testutil.UnmarshalDate
-  DateTime:
-    type: string
+  Account: github.com/willabides/octoql/internal/testutil.Account
+  CustomPropertyValue: string
+  Date: github.com/willabides/octoql/internal/testutil.Date
+  DateTime: string
