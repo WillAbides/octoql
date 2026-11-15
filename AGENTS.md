@@ -103,7 +103,11 @@
   operation parser, type conversion, or abstract-type analysis.
 - Preserve destination-neutral binding and marshal-helper references in the
   shared plan, then resolve imports per renderer. Local handlers reject
-  reachable references owned by the generated client package.
+  reachable references owned by the generated client package. Field equivalence
+  in `generatedTypeFieldsMatch` compares destination-neutral `QualifiedRef()`
+  strings directly because `bind` targets handwritten types rather than
+  generated types and collapsing client-qualified bindings with local generated
+  types would make `types: local` validation depend on operation order.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
 - Keep the generator in the root module. Generated application packages compile

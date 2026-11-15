@@ -50,7 +50,10 @@ func generatedTypeFieldsMatch(existing, candidate goType) error {
 }
 
 // structFieldsMatch compares two lists of struct fields by their generated Go
-// output: GoName, GoType.QualifiedRef(), JSONName, and Omitempty.
+// output: GoName, destination-neutral GoType.QualifiedRef(), JSONName, and
+// Omitempty. Package qualifiers are preserved so generated types never collapse
+// with client-package bind targets, keeping local test-handler validation
+// independent of operation order.
 func structFieldsMatch(existing, candidate []*goStructField) error {
 	if len(existing) != len(candidate) {
 		return fmt.Errorf("field count changed: %d fields vs %d fields",
