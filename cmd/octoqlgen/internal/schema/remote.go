@@ -50,16 +50,12 @@ func (m *Materializer) Resolve(ctx context.Context, source config.Source) (Remot
 	if err != nil {
 		return RemoteResult{}, err
 	}
-	return remoteResult(data, revision), nil
-}
-
-func remoteResult(data []byte, revision string) RemoteResult {
 	sum := sha256.Sum256(data)
 	return RemoteResult{
 		Data:     data,
 		Revision: revision,
 		SHA256:   hex.EncodeToString(sum[:]),
-	}
+	}, nil
 }
 
 func (m *Materializer) latestRevision(
@@ -71,7 +67,7 @@ func (m *Materializer) latestRevision(
 	if err != nil {
 		return "", err
 	}
-	token, err := discoverToken(ctx, "github.com", deps.lookupEnvironment, deps.commandRunner)
+	token, err := discoverToken(ctx, deps.lookupEnvironment, deps.commandRunner)
 	if err != nil {
 		return "", err
 	}
@@ -80,7 +76,7 @@ func (m *Materializer) latestRevision(
 			"github graphql authentication is required; set GH_TOKEN, GITHUB_TOKEN, or authenticate with gh",
 		)
 	}
-	client := githubapi.NewClient(deps.githubGraphQLEndpoint("github.com"), &http.Client{
+	client := githubapi.NewClient(deps.githubGraphQLEndpoint, &http.Client{
 		Transport: httpClientTransport{client: deps.httpClient},
 	})
 	err = client.SetBearerToken(token)

@@ -80,12 +80,8 @@ func newGitHubStubServer(t *testing.T, contents map[string][]byte) *gitHubStubSe
 		}
 		return "", false
 	}
-	mat.GitHubAPIBaseURL = func(string) string {
-		return server.URL
-	}
-	mat.GitHubGraphQLEndpoint = func(string) string {
-		return server.URL + "/graphql"
-	}
+	mat.GitHubAPIBaseURL = server.URL
+	mat.GitHubGraphQLEndpoint = server.URL + "/graphql"
 	stub.materializer = mat
 	return stub
 }
@@ -601,7 +597,7 @@ func TestRunSchema(t *testing.T) {
 
 				mat := schema.NewMaterializer()
 				mat.HTTPClient = server.Client()
-				mat.GitHubAPIBaseURL = func(string) string { return server.URL }
+				mat.GitHubAPIBaseURL = server.URL
 				token := test.token
 				if token == "" {
 					token = "github_pat_test"

@@ -138,7 +138,6 @@ func (m *Materializer) fetch(
 ) ([]byte, error) {
 	token, err := discoverToken(
 		ctx,
-		"github.com",
 		deps.lookupEnvironment,
 		deps.commandRunner,
 	)
@@ -147,7 +146,7 @@ func (m *Materializer) fetch(
 	}
 
 	requestURL, err := githubContentsURL(
-		deps.githubAPIBaseURL("github.com"),
+		deps.githubAPIBaseURL,
 		source,
 	)
 	if err != nil {
@@ -159,7 +158,6 @@ func (m *Materializer) fetch(
 		fetchRequest{
 			url:              requestURL,
 			token:            token,
-			isGitHub:         true,
 			maxResponseBytes: deps.maxResponseBytes,
 		},
 	)
@@ -168,7 +166,6 @@ func (m *Materializer) fetch(
 type fetchRequest struct {
 	url              string
 	token            string
-	isGitHub         bool
 	maxResponseBytes int64
 }
 
@@ -177,9 +174,7 @@ func fetchURL(ctx context.Context, client httpDoer, req fetchRequest) (_ []byte,
 	if err != nil {
 		return nil, fmt.Errorf("creating schema request: %w", sanitizeURLDiagnostic(err, req.url))
 	}
-	if req.isGitHub {
-		request.Header.Set("Accept", "application/vnd.github.raw+json")
-	}
+	request.Header.Set("Accept", "application/vnd.github.raw+json")
 	if req.token != "" {
 		request.Header.Set("Authorization", "Bearer "+req.token)
 	}
@@ -221,9 +216,9 @@ func githubContentsURL(baseURL string, source config.Source) (string, error) {
 		return "", fmt.Errorf("parsing github api base url: %w", err)
 	}
 
-	owner, name, ok := strings.Cut(source.Repository, "/")
-	if !ok || owner == "" || name == "" || strings.Contains(name, "/") {
-		return "", errors.New("github repository must be an owner/name pair")
+	owner, name, err := githubRepositoryParts(source.Repository)
+	if err != nil {
+		return "", err
 	}
 	pathParts := strings.Split(source.Path, "/")
 	base.Path = strings.TrimSuffix(base.Path, "/") +
@@ -234,12 +229,4 @@ func githubContentsURL(baseURL string, source config.Source) (string, error) {
 	query.Set("ref", source.Revision)
 	base.RawQuery = query.Encode()
 	return base.String(), nil
-}
-
-func defaultGitHubAPIBaseURL(string) string {
-	return "https://api.github.com"
-}
-
-func defaultGitHubGraphQLEndpoint(string) string {
-	return "https://api.github.com/graphql"
 }
