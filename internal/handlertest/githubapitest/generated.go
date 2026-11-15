@@ -17,87 +17,6 @@ import (
 	githubapi "github.com/willabides/octoql/internal/handlertest/client"
 )
 
-type Error = githubapi.Error
-type ErrorType = githubapi.ErrorType
-type Location = githubapi.Location
-type Path = githubapi.Path
-type RateLimit = githubapi.RateLimit
-
-type CreateRepositoryCreateRepositoryCreateRepositoryPayload = githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayload
-
-type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository = githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository
-
-type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection = githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnection
-
-type CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo = githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepositoryIssuesIssueConnectionPageInfo
-
-type CreateRepositoryInput = githubapi.CreateRepositoryInput
-
-type CreateRepositoryResponse = githubapi.CreateRepositoryResponse
-
-type CreateRepositoryVariables = githubapi.CreateRepositoryVariables
-
-type EchoAnyResponse = githubapi.EchoAnyResponse
-
-type EchoAnyVariables = githubapi.EchoAnyVariables
-
-type EchoAtResponse = githubapi.EchoAtResponse
-
-type EchoAtVariables = githubapi.EchoAtVariables
-
-type EchoPropertyResponse = githubapi.EchoPropertyResponse
-
-type EchoPropertyVariables = githubapi.EchoPropertyVariables
-
-type GetNodeNode = githubapi.GetNodeNode
-
-type GetNodeNodeIssue = githubapi.GetNodeNodeIssue
-
-type GetNodeNodeOctoqlOther = githubapi.GetNodeNodeOctoqlOther
-
-type GetNodeNodeRepository = githubapi.GetNodeNodeRepository
-
-type GetNodeResponse = githubapi.GetNodeResponse
-
-type GetNodeVariables = githubapi.GetNodeVariables
-
-type GetRepositoryRepository = githubapi.GetRepositoryRepository
-
-type GetRepositoryRepositoryIssuesIssueConnection = githubapi.GetRepositoryRepositoryIssuesIssueConnection
-
-type GetRepositoryRepositoryIssuesIssueConnectionNodesIssue = githubapi.GetRepositoryRepositoryIssuesIssueConnectionNodesIssue
-
-type GetRepositoryRepositoryIssuesIssueConnectionPageInfo = githubapi.GetRepositoryRepositoryIssuesIssueConnectionPageInfo
-
-type GetRepositoryResponse = githubapi.GetRepositoryResponse
-
-type GetRepositoryVariables = githubapi.GetRepositoryVariables
-
-type RepositoryVisibility = githubapi.RepositoryVisibility
-
-const (
-	RepositoryVisibilityPrivate = githubapi.RepositoryVisibilityPrivate
-	RepositoryVisibilityPublic  = githubapi.RepositoryVisibilityPublic
-)
-
-type SearchResponse = githubapi.SearchResponse
-
-type SearchSearchIssue = githubapi.SearchSearchIssue
-
-type SearchSearchRepository = githubapi.SearchSearchRepository
-
-type SearchSearchSearchResultItem = githubapi.SearchSearchSearchResultItem
-
-type SearchSearchSearchResultItemOctoqlOther = githubapi.SearchSearchSearchResultItemOctoqlOther
-
-type SearchVariables = githubapi.SearchVariables
-
-type ViewerResponse = githubapi.ViewerResponse
-
-type ViewerVariables = githubapi.ViewerVariables
-
-type ViewerViewerUser = githubapi.ViewerViewerUser
-
 type testTB interface {
 	Cleanup(func())
 	Errorf(string, ...any)
@@ -381,7 +300,7 @@ func WithHeaders(header http.Header) ResponseOption {
 	}
 }
 
-func WithPrimaryRateLimit(rateLimit RateLimit) ResponseOption {
+func WithPrimaryRateLimit(rateLimit githubapi.RateLimit) ResponseOption {
 	return func(options *responseOptions) {
 		hasNegativeValue := rateLimit.Limit < 0 ||
 			rateLimit.Remaining < 0 ||
@@ -450,7 +369,7 @@ func combineResponseOptions(
 func writeGraphQLResponse(
 	writer http.ResponseWriter,
 	data any,
-	graphqlErrors []Error,
+	graphqlErrors []githubapi.Error,
 	options responseOptions,
 ) error {
 	if options.err != nil {
@@ -485,20 +404,20 @@ func writeRequestError(
 	return writeGraphQLResponse(
 		writer,
 		nil,
-		[]Error{{Message: message}},
+		[]githubapi.Error{{Message: message}},
 		buildResponseOptions(WithStatus(status)),
 	)
 }
 
 type TestHandler struct {
 	tb         testTB
-	operation0 expectationSet[CreateRepositoryVariables]
-	operation1 expectationSet[EchoAnyVariables]
-	operation2 expectationSet[EchoAtVariables]
-	operation3 expectationSet[EchoPropertyVariables]
-	operation4 expectationSet[GetNodeVariables]
-	operation5 expectationSet[GetRepositoryVariables]
-	operation6 expectationSet[SearchVariables]
+	operation0 expectationSet[githubapi.CreateRepositoryVariables]
+	operation1 expectationSet[githubapi.EchoAnyVariables]
+	operation2 expectationSet[githubapi.EchoAtVariables]
+	operation3 expectationSet[githubapi.EchoPropertyVariables]
+	operation4 expectationSet[githubapi.GetNodeVariables]
+	operation5 expectationSet[githubapi.GetRepositoryVariables]
+	operation6 expectationSet[githubapi.SearchVariables]
 	operation7 expectationSet[struct{}]
 }
 
@@ -510,40 +429,40 @@ func NewTestHandler(testingTB testing.TB) *TestHandler {
 
 func newTestHandler(testingTB testTB) *TestHandler {
 	h := &TestHandler{tb: testingTB}
-	h.operation0 = expectationSet[CreateRepositoryVariables]{
+	h.operation0 = expectationSet[githubapi.CreateRepositoryVariables]{
 		tb:           testingTB,
 		operation:    "CreateRepository",
-		expectations: []*expectation[CreateRepositoryVariables]{},
+		expectations: []*expectation[githubapi.CreateRepositoryVariables]{},
 	}
-	h.operation1 = expectationSet[EchoAnyVariables]{
+	h.operation1 = expectationSet[githubapi.EchoAnyVariables]{
 		tb:           testingTB,
 		operation:    "EchoAny",
-		expectations: []*expectation[EchoAnyVariables]{},
+		expectations: []*expectation[githubapi.EchoAnyVariables]{},
 	}
-	h.operation2 = expectationSet[EchoAtVariables]{
+	h.operation2 = expectationSet[githubapi.EchoAtVariables]{
 		tb:           testingTB,
 		operation:    "EchoAt",
-		expectations: []*expectation[EchoAtVariables]{},
+		expectations: []*expectation[githubapi.EchoAtVariables]{},
 	}
-	h.operation3 = expectationSet[EchoPropertyVariables]{
+	h.operation3 = expectationSet[githubapi.EchoPropertyVariables]{
 		tb:           testingTB,
 		operation:    "EchoProperty",
-		expectations: []*expectation[EchoPropertyVariables]{},
+		expectations: []*expectation[githubapi.EchoPropertyVariables]{},
 	}
-	h.operation4 = expectationSet[GetNodeVariables]{
+	h.operation4 = expectationSet[githubapi.GetNodeVariables]{
 		tb:           testingTB,
 		operation:    "GetNode",
-		expectations: []*expectation[GetNodeVariables]{},
+		expectations: []*expectation[githubapi.GetNodeVariables]{},
 	}
-	h.operation5 = expectationSet[GetRepositoryVariables]{
+	h.operation5 = expectationSet[githubapi.GetRepositoryVariables]{
 		tb:           testingTB,
 		operation:    "GetRepository",
-		expectations: []*expectation[GetRepositoryVariables]{},
+		expectations: []*expectation[githubapi.GetRepositoryVariables]{},
 	}
-	h.operation6 = expectationSet[SearchVariables]{
+	h.operation6 = expectationSet[githubapi.SearchVariables]{
 		tb:           testingTB,
 		operation:    "Search",
-		expectations: []*expectation[SearchVariables]{},
+		expectations: []*expectation[githubapi.SearchVariables]{},
 	}
 	h.operation7 = expectationSet[struct{}]{
 		tb:           testingTB,
@@ -644,7 +563,7 @@ func (h *TestHandler) ServeHTTP(
 
 	switch graphqlRequest.OperationName {
 	case "CreateRepository":
-		var variables CreateRepositoryVariables
+		var variables githubapi.CreateRepositoryVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			h.tb.Errorf("decoding CreateRepository variables: %v", err)
@@ -680,7 +599,7 @@ func (h *TestHandler) ServeHTTP(
 			h.tb.Errorf("serving CreateRepository response: %v", err)
 		}
 	case "EchoAny":
-		var variables EchoAnyVariables
+		var variables githubapi.EchoAnyVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			h.tb.Errorf("decoding EchoAny variables: %v", err)
@@ -716,7 +635,7 @@ func (h *TestHandler) ServeHTTP(
 			h.tb.Errorf("serving EchoAny response: %v", err)
 		}
 	case "EchoAt":
-		var variables EchoAtVariables
+		var variables githubapi.EchoAtVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			h.tb.Errorf("decoding EchoAt variables: %v", err)
@@ -752,7 +671,7 @@ func (h *TestHandler) ServeHTTP(
 			h.tb.Errorf("serving EchoAt response: %v", err)
 		}
 	case "EchoProperty":
-		var variables EchoPropertyVariables
+		var variables githubapi.EchoPropertyVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			h.tb.Errorf("decoding EchoProperty variables: %v", err)
@@ -788,7 +707,7 @@ func (h *TestHandler) ServeHTTP(
 			h.tb.Errorf("serving EchoProperty response: %v", err)
 		}
 	case "GetNode":
-		var variables GetNodeVariables
+		var variables githubapi.GetNodeVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			h.tb.Errorf("decoding GetNode variables: %v", err)
@@ -824,7 +743,7 @@ func (h *TestHandler) ServeHTTP(
 			h.tb.Errorf("serving GetNode response: %v", err)
 		}
 	case "GetRepository":
-		var variables GetRepositoryVariables
+		var variables githubapi.GetRepositoryVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			h.tb.Errorf("decoding GetRepository variables: %v", err)
@@ -860,7 +779,7 @@ func (h *TestHandler) ServeHTTP(
 			h.tb.Errorf("serving GetRepository response: %v", err)
 		}
 	case "Search":
-		var variables SearchVariables
+		var variables githubapi.SearchVariables
 		err = decodeVariables(graphqlRequest.Variables, &variables)
 		if err != nil {
 			h.tb.Errorf("decoding Search variables: %v", err)
@@ -944,13 +863,13 @@ func (h *TestHandler) ServeHTTP(
 }
 
 type CreateRepositoryExpectation struct {
-	set      *expectationSet[CreateRepositoryVariables]
-	expected *expectation[CreateRepositoryVariables]
+	set      *expectationSet[githubapi.CreateRepositoryVariables]
+	expected *expectation[githubapi.CreateRepositoryVariables]
 	options  []ResponseOption
 }
 
 func (h *TestHandler) ExpectCreateRepository(
-	variables CreateRepositoryVariables,
+	variables githubapi.CreateRepositoryVariables,
 	options ...ExpectOption,
 ) *CreateRepositoryExpectation {
 	return &CreateRepositoryExpectation{
@@ -971,7 +890,7 @@ func (h *TestHandler) DefaultCreateRepository() *CreateRepositoryExpectation {
 	}
 }
 
-func (h *TestHandler) ResetCreateRepository(variables ...CreateRepositoryVariables) {
+func (h *TestHandler) ResetCreateRepository(variables ...githubapi.CreateRepositoryVariables) {
 	h.operation0.reset(variables...)
 }
 
@@ -983,32 +902,32 @@ func (b *CreateRepositoryExpectation) WithOptions(
 }
 
 func (b *CreateRepositoryExpectation) Respond(
-	data CreateRepositoryResponse,
+	data githubapi.CreateRepositoryResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ CreateRepositoryVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.CreateRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
 func (b *CreateRepositoryExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ CreateRepositoryVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.CreateRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1016,13 +935,13 @@ func (b *CreateRepositoryExpectation) RespondError(
 }
 
 func (b *CreateRepositoryExpectation) RespondDataAndErrors(
-	data CreateRepositoryResponse,
-	graphqlErrors ...Error,
+	data githubapi.CreateRepositoryResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ CreateRepositoryVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.CreateRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -1034,13 +953,13 @@ func (b *CreateRepositoryExpectation) RespondDataAndErrors(
 }
 
 func (b *CreateRepositoryExpectation) Handle(
-	handler func(CreateRepositoryVariables, http.ResponseWriter),
+	handler func(githubapi.CreateRepositoryVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("CreateRepository dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ CreateRepositoryVariables, _ http.ResponseWriter) error {
+			func(_ githubapi.CreateRepositoryVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("CreateRepository dynamic handler is nil")
 			},
 		)
@@ -1048,7 +967,7 @@ func (b *CreateRepositoryExpectation) Handle(
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables CreateRepositoryVariables, writer http.ResponseWriter) error {
+		func(variables githubapi.CreateRepositoryVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
 		},
@@ -1056,13 +975,13 @@ func (b *CreateRepositoryExpectation) Handle(
 }
 
 type EchoAnyExpectation struct {
-	set      *expectationSet[EchoAnyVariables]
-	expected *expectation[EchoAnyVariables]
+	set      *expectationSet[githubapi.EchoAnyVariables]
+	expected *expectation[githubapi.EchoAnyVariables]
 	options  []ResponseOption
 }
 
 func (h *TestHandler) ExpectEchoAny(
-	variables EchoAnyVariables,
+	variables githubapi.EchoAnyVariables,
 	options ...ExpectOption,
 ) *EchoAnyExpectation {
 	return &EchoAnyExpectation{
@@ -1083,7 +1002,7 @@ func (h *TestHandler) DefaultEchoAny() *EchoAnyExpectation {
 	}
 }
 
-func (h *TestHandler) ResetEchoAny(variables ...EchoAnyVariables) {
+func (h *TestHandler) ResetEchoAny(variables ...githubapi.EchoAnyVariables) {
 	h.operation1.reset(variables...)
 }
 
@@ -1095,32 +1014,32 @@ func (b *EchoAnyExpectation) WithOptions(
 }
 
 func (b *EchoAnyExpectation) Respond(
-	data EchoAnyResponse,
+	data githubapi.EchoAnyResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoAnyVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoAnyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
 func (b *EchoAnyExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoAnyVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoAnyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1128,13 +1047,13 @@ func (b *EchoAnyExpectation) RespondError(
 }
 
 func (b *EchoAnyExpectation) RespondDataAndErrors(
-	data EchoAnyResponse,
-	graphqlErrors ...Error,
+	data githubapi.EchoAnyResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoAnyVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoAnyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -1146,13 +1065,13 @@ func (b *EchoAnyExpectation) RespondDataAndErrors(
 }
 
 func (b *EchoAnyExpectation) Handle(
-	handler func(EchoAnyVariables, http.ResponseWriter),
+	handler func(githubapi.EchoAnyVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("EchoAny dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ EchoAnyVariables, _ http.ResponseWriter) error {
+			func(_ githubapi.EchoAnyVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("EchoAny dynamic handler is nil")
 			},
 		)
@@ -1160,7 +1079,7 @@ func (b *EchoAnyExpectation) Handle(
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables EchoAnyVariables, writer http.ResponseWriter) error {
+		func(variables githubapi.EchoAnyVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
 		},
@@ -1168,13 +1087,13 @@ func (b *EchoAnyExpectation) Handle(
 }
 
 type EchoAtExpectation struct {
-	set      *expectationSet[EchoAtVariables]
-	expected *expectation[EchoAtVariables]
+	set      *expectationSet[githubapi.EchoAtVariables]
+	expected *expectation[githubapi.EchoAtVariables]
 	options  []ResponseOption
 }
 
 func (h *TestHandler) ExpectEchoAt(
-	variables EchoAtVariables,
+	variables githubapi.EchoAtVariables,
 	options ...ExpectOption,
 ) *EchoAtExpectation {
 	return &EchoAtExpectation{
@@ -1195,7 +1114,7 @@ func (h *TestHandler) DefaultEchoAt() *EchoAtExpectation {
 	}
 }
 
-func (h *TestHandler) ResetEchoAt(variables ...EchoAtVariables) {
+func (h *TestHandler) ResetEchoAt(variables ...githubapi.EchoAtVariables) {
 	h.operation2.reset(variables...)
 }
 
@@ -1207,32 +1126,32 @@ func (b *EchoAtExpectation) WithOptions(
 }
 
 func (b *EchoAtExpectation) Respond(
-	data EchoAtResponse,
+	data githubapi.EchoAtResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoAtVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoAtVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
 func (b *EchoAtExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoAtVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoAtVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1240,13 +1159,13 @@ func (b *EchoAtExpectation) RespondError(
 }
 
 func (b *EchoAtExpectation) RespondDataAndErrors(
-	data EchoAtResponse,
-	graphqlErrors ...Error,
+	data githubapi.EchoAtResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoAtVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoAtVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -1258,13 +1177,13 @@ func (b *EchoAtExpectation) RespondDataAndErrors(
 }
 
 func (b *EchoAtExpectation) Handle(
-	handler func(EchoAtVariables, http.ResponseWriter),
+	handler func(githubapi.EchoAtVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("EchoAt dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ EchoAtVariables, _ http.ResponseWriter) error {
+			func(_ githubapi.EchoAtVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("EchoAt dynamic handler is nil")
 			},
 		)
@@ -1272,7 +1191,7 @@ func (b *EchoAtExpectation) Handle(
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables EchoAtVariables, writer http.ResponseWriter) error {
+		func(variables githubapi.EchoAtVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
 		},
@@ -1280,13 +1199,13 @@ func (b *EchoAtExpectation) Handle(
 }
 
 type EchoPropertyExpectation struct {
-	set      *expectationSet[EchoPropertyVariables]
-	expected *expectation[EchoPropertyVariables]
+	set      *expectationSet[githubapi.EchoPropertyVariables]
+	expected *expectation[githubapi.EchoPropertyVariables]
 	options  []ResponseOption
 }
 
 func (h *TestHandler) ExpectEchoProperty(
-	variables EchoPropertyVariables,
+	variables githubapi.EchoPropertyVariables,
 	options ...ExpectOption,
 ) *EchoPropertyExpectation {
 	return &EchoPropertyExpectation{
@@ -1307,7 +1226,7 @@ func (h *TestHandler) DefaultEchoProperty() *EchoPropertyExpectation {
 	}
 }
 
-func (h *TestHandler) ResetEchoProperty(variables ...EchoPropertyVariables) {
+func (h *TestHandler) ResetEchoProperty(variables ...githubapi.EchoPropertyVariables) {
 	h.operation3.reset(variables...)
 }
 
@@ -1319,32 +1238,32 @@ func (b *EchoPropertyExpectation) WithOptions(
 }
 
 func (b *EchoPropertyExpectation) Respond(
-	data EchoPropertyResponse,
+	data githubapi.EchoPropertyResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoPropertyVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoPropertyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
 func (b *EchoPropertyExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoPropertyVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoPropertyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1352,13 +1271,13 @@ func (b *EchoPropertyExpectation) RespondError(
 }
 
 func (b *EchoPropertyExpectation) RespondDataAndErrors(
-	data EchoPropertyResponse,
-	graphqlErrors ...Error,
+	data githubapi.EchoPropertyResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ EchoPropertyVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.EchoPropertyVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -1370,13 +1289,13 @@ func (b *EchoPropertyExpectation) RespondDataAndErrors(
 }
 
 func (b *EchoPropertyExpectation) Handle(
-	handler func(EchoPropertyVariables, http.ResponseWriter),
+	handler func(githubapi.EchoPropertyVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("EchoProperty dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ EchoPropertyVariables, _ http.ResponseWriter) error {
+			func(_ githubapi.EchoPropertyVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("EchoProperty dynamic handler is nil")
 			},
 		)
@@ -1384,7 +1303,7 @@ func (b *EchoPropertyExpectation) Handle(
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables EchoPropertyVariables, writer http.ResponseWriter) error {
+		func(variables githubapi.EchoPropertyVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
 		},
@@ -1392,13 +1311,13 @@ func (b *EchoPropertyExpectation) Handle(
 }
 
 type GetNodeExpectation struct {
-	set      *expectationSet[GetNodeVariables]
-	expected *expectation[GetNodeVariables]
+	set      *expectationSet[githubapi.GetNodeVariables]
+	expected *expectation[githubapi.GetNodeVariables]
 	options  []ResponseOption
 }
 
 func (h *TestHandler) ExpectGetNode(
-	variables GetNodeVariables,
+	variables githubapi.GetNodeVariables,
 	options ...ExpectOption,
 ) *GetNodeExpectation {
 	return &GetNodeExpectation{
@@ -1419,7 +1338,7 @@ func (h *TestHandler) DefaultGetNode() *GetNodeExpectation {
 	}
 }
 
-func (h *TestHandler) ResetGetNode(variables ...GetNodeVariables) {
+func (h *TestHandler) ResetGetNode(variables ...githubapi.GetNodeVariables) {
 	h.operation4.reset(variables...)
 }
 
@@ -1431,32 +1350,32 @@ func (b *GetNodeExpectation) WithOptions(
 }
 
 func (b *GetNodeExpectation) Respond(
-	data GetNodeResponse,
+	data githubapi.GetNodeResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ GetNodeVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.GetNodeVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
 func (b *GetNodeExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ GetNodeVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.GetNodeVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1464,13 +1383,13 @@ func (b *GetNodeExpectation) RespondError(
 }
 
 func (b *GetNodeExpectation) RespondDataAndErrors(
-	data GetNodeResponse,
-	graphqlErrors ...Error,
+	data githubapi.GetNodeResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ GetNodeVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.GetNodeVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -1482,13 +1401,13 @@ func (b *GetNodeExpectation) RespondDataAndErrors(
 }
 
 func (b *GetNodeExpectation) Handle(
-	handler func(GetNodeVariables, http.ResponseWriter),
+	handler func(githubapi.GetNodeVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("GetNode dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ GetNodeVariables, _ http.ResponseWriter) error {
+			func(_ githubapi.GetNodeVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("GetNode dynamic handler is nil")
 			},
 		)
@@ -1496,7 +1415,7 @@ func (b *GetNodeExpectation) Handle(
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables GetNodeVariables, writer http.ResponseWriter) error {
+		func(variables githubapi.GetNodeVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
 		},
@@ -1504,13 +1423,13 @@ func (b *GetNodeExpectation) Handle(
 }
 
 type GetRepositoryExpectation struct {
-	set      *expectationSet[GetRepositoryVariables]
-	expected *expectation[GetRepositoryVariables]
+	set      *expectationSet[githubapi.GetRepositoryVariables]
+	expected *expectation[githubapi.GetRepositoryVariables]
 	options  []ResponseOption
 }
 
 func (h *TestHandler) ExpectGetRepository(
-	variables GetRepositoryVariables,
+	variables githubapi.GetRepositoryVariables,
 	options ...ExpectOption,
 ) *GetRepositoryExpectation {
 	return &GetRepositoryExpectation{
@@ -1531,7 +1450,7 @@ func (h *TestHandler) DefaultGetRepository() *GetRepositoryExpectation {
 	}
 }
 
-func (h *TestHandler) ResetGetRepository(variables ...GetRepositoryVariables) {
+func (h *TestHandler) ResetGetRepository(variables ...githubapi.GetRepositoryVariables) {
 	h.operation5.reset(variables...)
 }
 
@@ -1543,32 +1462,32 @@ func (b *GetRepositoryExpectation) WithOptions(
 }
 
 func (b *GetRepositoryExpectation) Respond(
-	data GetRepositoryResponse,
+	data githubapi.GetRepositoryResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ GetRepositoryVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.GetRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
 func (b *GetRepositoryExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ GetRepositoryVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.GetRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1576,13 +1495,13 @@ func (b *GetRepositoryExpectation) RespondError(
 }
 
 func (b *GetRepositoryExpectation) RespondDataAndErrors(
-	data GetRepositoryResponse,
-	graphqlErrors ...Error,
+	data githubapi.GetRepositoryResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ GetRepositoryVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.GetRepositoryVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -1594,13 +1513,13 @@ func (b *GetRepositoryExpectation) RespondDataAndErrors(
 }
 
 func (b *GetRepositoryExpectation) Handle(
-	handler func(GetRepositoryVariables, http.ResponseWriter),
+	handler func(githubapi.GetRepositoryVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("GetRepository dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ GetRepositoryVariables, _ http.ResponseWriter) error {
+			func(_ githubapi.GetRepositoryVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("GetRepository dynamic handler is nil")
 			},
 		)
@@ -1608,7 +1527,7 @@ func (b *GetRepositoryExpectation) Handle(
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables GetRepositoryVariables, writer http.ResponseWriter) error {
+		func(variables githubapi.GetRepositoryVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
 		},
@@ -1616,13 +1535,13 @@ func (b *GetRepositoryExpectation) Handle(
 }
 
 type SearchExpectation struct {
-	set      *expectationSet[SearchVariables]
-	expected *expectation[SearchVariables]
+	set      *expectationSet[githubapi.SearchVariables]
+	expected *expectation[githubapi.SearchVariables]
 	options  []ResponseOption
 }
 
 func (h *TestHandler) ExpectSearch(
-	variables SearchVariables,
+	variables githubapi.SearchVariables,
 	options ...ExpectOption,
 ) *SearchExpectation {
 	return &SearchExpectation{
@@ -1643,7 +1562,7 @@ func (h *TestHandler) DefaultSearch() *SearchExpectation {
 	}
 }
 
-func (h *TestHandler) ResetSearch(variables ...SearchVariables) {
+func (h *TestHandler) ResetSearch(variables ...githubapi.SearchVariables) {
 	h.operation6.reset(variables...)
 }
 
@@ -1655,32 +1574,32 @@ func (b *SearchExpectation) WithOptions(
 }
 
 func (b *SearchExpectation) Respond(
-	data SearchResponse,
+	data githubapi.SearchResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ SearchVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.SearchVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(writer, &data, nil, responseConfig)
 		},
 	)
 }
 
 func (b *SearchExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
 	responseConfig := buildResponseOptions(combined...)
 	b.set.setResult(
 		b.expected,
-		func(_ SearchVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.SearchVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1688,13 +1607,13 @@ func (b *SearchExpectation) RespondError(
 }
 
 func (b *SearchExpectation) RespondDataAndErrors(
-	data SearchResponse,
-	graphqlErrors ...Error,
+	data githubapi.SearchResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(
 		b.expected,
-		func(_ SearchVariables, writer http.ResponseWriter) error {
+		func(_ githubapi.SearchVariables, writer http.ResponseWriter) error {
 			return writeGraphQLResponse(
 				writer,
 				&data,
@@ -1706,13 +1625,13 @@ func (b *SearchExpectation) RespondDataAndErrors(
 }
 
 func (b *SearchExpectation) Handle(
-	handler func(SearchVariables, http.ResponseWriter),
+	handler func(githubapi.SearchVariables, http.ResponseWriter),
 ) {
 	if handler == nil {
 		b.set.tb.Errorf("Search dynamic handler must not be nil")
 		b.set.setResult(
 			b.expected,
-			func(_ SearchVariables, _ http.ResponseWriter) error {
+			func(_ githubapi.SearchVariables, _ http.ResponseWriter) error {
 				return fmt.Errorf("Search dynamic handler is nil")
 			},
 		)
@@ -1720,7 +1639,7 @@ func (b *SearchExpectation) Handle(
 	}
 	b.set.setResult(
 		b.expected,
-		func(variables SearchVariables, writer http.ResponseWriter) error {
+		func(variables githubapi.SearchVariables, writer http.ResponseWriter) error {
 			handler(variables, writer)
 			return nil
 		},
@@ -1766,7 +1685,7 @@ func (b *ViewerExpectation) WithOptions(
 }
 
 func (b *ViewerExpectation) Respond(
-	data ViewerResponse,
+	data githubapi.ViewerResponse,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -1780,7 +1699,7 @@ func (b *ViewerExpectation) Respond(
 }
 
 func (b *ViewerExpectation) RespondError(
-	graphqlError Error,
+	graphqlError githubapi.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -1791,7 +1710,7 @@ func (b *ViewerExpectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]githubapi.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -1799,8 +1718,8 @@ func (b *ViewerExpectation) RespondError(
 }
 
 func (b *ViewerExpectation) RespondDataAndErrors(
-	data ViewerResponse,
-	graphqlErrors ...Error,
+	data githubapi.ViewerResponse,
+	graphqlErrors ...githubapi.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(

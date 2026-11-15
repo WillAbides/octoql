@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema"
+	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi"
 	"github.com/willabides/octoql/cmd/octoqlgen/internal/schema/githubapi/githubapitest"
 	"github.com/willabides/octoql/internal"
 )
@@ -90,16 +91,16 @@ func newGitHubStubServer(t *testing.T, contents map[string][]byte) *gitHubStubSe
 }
 
 func (s *gitHubStubServer) expectDocsCommit(path, oid string) {
-	s.graphql.ExpectLatestCommit(githubapitest.LatestCommitVariables{
+	s.graphql.ExpectLatestCommit(githubapi.LatestCommitVariables{
 		Owner: "github",
 		Name:  "docs",
 		Path:  path,
-	}).Respond(githubapitest.LatestCommitResponse{
-		Repository: &githubapitest.LatestCommitRepository{
-			DefaultBranchRef: &githubapitest.LatestCommitRepositoryDefaultBranchRef{
-				Target: &githubapitest.LatestCommitRepositoryDefaultBranchRefTargetCommit{
-					History: githubapitest.LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection{
-						Nodes: []*githubapitest.LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit{
+	}).Respond(githubapi.LatestCommitResponse{
+		Repository: &githubapi.LatestCommitRepository{
+			DefaultBranchRef: &githubapi.LatestCommitRepositoryDefaultBranchRef{
+				Target: &githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommit{
+					History: githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnection{
+						Nodes: []*githubapi.LatestCommitRepositoryDefaultBranchRefTargetCommitHistoryCommitHistoryConnectionNodesCommit{
 							{Oid: oid},
 						},
 					},

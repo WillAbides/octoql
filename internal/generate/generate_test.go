@@ -522,6 +522,8 @@ func testGenerateWithTestHandlerUsesOnePlan(
 		assert.Contains(t, handlerSource, "type SearchRepositoriesResponse struct")
 	default:
 		assert.Contains(t, handlerSource, clientImport)
+		assert.NotContains(t, handlerSource, "type Error =")
+		assert.NotContains(t, handlerSource, "type SearchRepositoriesResponse =")
 	}
 
 	return outputs
@@ -719,9 +721,10 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 		wantError string
 	}{
 		{
-			name:      "typename collision with test handler runtime",
+			name:      "typename collision with test handler runtime in local mode",
 			schema:    "type Query { value: String! }\n",
 			operation: "query Value @octoqlgen(typename: \"TestHandler\") {\n  value\n}\n",
+			types:     TestHandlerTypesLocal,
 			wantError: "conflicts with test handler runtime",
 		},
 		{
@@ -739,7 +742,7 @@ func TestGenerateTestHandlerIdentifierValidation(t *testing.T) {
 			wantError: `test handler operation "getViewer" must begin with an uppercase letter`,
 		},
 		{
-			name: "enum value and expectation",
+			name: "enum value and expectation in local mode",
 			schema: `enum Get {
   NODE_EXPECTATION
 }
@@ -748,10 +751,11 @@ type Query {
 }
 `,
 			operation: "query GetNode { value }\n",
+			types:     TestHandlerTypesLocal,
 			wantError: `generated identifier "GetNodeExpectation"`,
 		},
 		{
-			name: "client type and runtime",
+			name: "local type and runtime",
 			schema: `type NewTestHandler {
   id: ID!
 }
@@ -768,6 +772,7 @@ query Value {
   }
 }
 `,
+			types:     TestHandlerTypesLocal,
 			wantError: `generated identifier "NewTestHandler"`,
 		},
 		{
@@ -837,8 +842,7 @@ func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) 
 	compiledOutputs := make(map[string][]byte)
 
 	for _, packageName := range []string{
-		"StatusReady",
-		"StatusQueryResponse",
+		"StatusQueryExpectation",
 		"ExpectStatusQuery",
 		"DefaultStatusQuery",
 		"ResetStatusQuery",

@@ -647,7 +647,6 @@ type RateLimit struct {
 	Reset     time.Time
 	Resource  string
 }
-
 type testTB interface {
 	Cleanup(func())
 	Errorf(string, ...any)

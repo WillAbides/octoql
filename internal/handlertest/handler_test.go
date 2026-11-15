@@ -21,9 +21,9 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	t.Cleanup(server.Close)
 	client := githubapi.NewClient(server.URL, http.DefaultClient)
 
-	handler.ExpectViewer().Respond(githubapitest.ViewerResponse{
-		Viewer: githubapitest.ViewerViewerUser{
-			ViewerVariables: githubapitest.ViewerVariables{
+	handler.ExpectViewer().Respond(githubapi.ViewerResponse{
+		Viewer: githubapi.ViewerViewerUser{
+			ViewerVariables: githubapi.ViewerVariables{
 				Id:    "U1",
 				Login: "octocat",
 			},
@@ -33,12 +33,12 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "octocat", viewerResponse.Viewer.Login)
 
-	dynamicVariables := githubapitest.EchoPropertyVariables{
+	dynamicVariables := githubapi.EchoPropertyVariables{
 		Value: json.RawMessage(`"dynamic"`),
 	}
-	receivedVariables := make(chan githubapitest.EchoPropertyVariables, 1)
+	receivedVariables := make(chan githubapi.EchoPropertyVariables, 1)
 	handler.ExpectEchoProperty(dynamicVariables).Handle(func(
-		variables githubapitest.EchoPropertyVariables,
+		variables githubapi.EchoPropertyVariables,
 		writer http.ResponseWriter,
 	) {
 		receivedVariables <- variables
@@ -52,7 +52,7 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	assert.JSONEq(t, `"handled"`, string(dynamicResponse.EchoProperty))
 	assert.JSONEq(t, string(dynamicVariables.Value), string((<-receivedVariables).Value))
 
-	errorVariables := githubapitest.GetNodeVariables{Id: "missing"}
+	errorVariables := githubapi.GetNodeVariables{Id: "missing"}
 	handler.ExpectGetNode(errorVariables).RespondError(githubapi.Error{
 		Type:    "NOT_FOUND",
 		Message: "repository not found",
@@ -87,24 +87,24 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	_, wrongOperation := errors.AsType[*githubapi.GetNodePartialDataError](err)
 	assert.False(t, wrongOperation)
 
-	fifoVars := githubapitest.EchoPropertyVariables{Value: json.RawMessage(`"fifo"`)}
-	stubVars := githubapitest.EchoPropertyVariables{Value: json.RawMessage(`"stub"`)}
-	fallbackVars := githubapitest.EchoPropertyVariables{Value: json.RawMessage(`"fallback"`)}
+	fifoVars := githubapi.EchoPropertyVariables{Value: json.RawMessage(`"fifo"`)}
+	stubVars := githubapi.EchoPropertyVariables{Value: json.RawMessage(`"stub"`)}
+	fallbackVars := githubapi.EchoPropertyVariables{Value: json.RawMessage(`"fallback"`)}
 	handler.DefaultEchoProperty().Handle(func(
-		vars githubapitest.EchoPropertyVariables,
+		vars githubapi.EchoPropertyVariables,
 		writer http.ResponseWriter,
 	) {
 		writer.Header().Set("Content-Type", "application/json")
 		_, writeErr := writer.Write([]byte(`{"data":{"echoProperty":` + string(vars.Value) + `}}`))
 		assert.NoError(t, writeErr)
 	})
-	handler.ExpectEchoProperty(fifoVars).Respond(githubapitest.EchoPropertyResponse{
+	handler.ExpectEchoProperty(fifoVars).Respond(githubapi.EchoPropertyResponse{
 		EchoProperty: json.RawMessage(`"first"`),
 	})
-	handler.ExpectEchoProperty(fifoVars).Respond(githubapitest.EchoPropertyResponse{
+	handler.ExpectEchoProperty(fifoVars).Respond(githubapi.EchoPropertyResponse{
 		EchoProperty: json.RawMessage(`"second"`),
 	})
-	handler.ExpectEchoProperty(stubVars, githubapitest.MinTimes(0)).Respond(githubapitest.EchoPropertyResponse{})
+	handler.ExpectEchoProperty(stubVars, githubapitest.MinTimes(0)).Respond(githubapi.EchoPropertyResponse{})
 
 	firstResp, err := client.EchoProperty(t.Context(), fifoVars)
 	require.NoError(t, err)
@@ -116,8 +116,8 @@ func TestGeneratedHandlerOperationsAndErrors(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `"fallback"`, string(fallbackResp.EchoProperty))
 
-	resetVars := githubapitest.GetNodeVariables{Id: "reset"}
-	handler.ExpectGetNode(resetVars, githubapitest.Times(2)).Respond(githubapitest.GetNodeResponse{})
+	resetVars := githubapi.GetNodeVariables{Id: "reset"}
+	handler.ExpectGetNode(resetVars, githubapitest.Times(2)).Respond(githubapi.GetNodeResponse{})
 	handler.ResetGetNode(resetVars)
 }
 
@@ -127,7 +127,7 @@ func TestGeneratedHandlerRateLimits(t *testing.T) {
 		server := httptest.NewServer(handler)
 		t.Cleanup(server.Close)
 		client := githubapi.NewClient(server.URL, http.DefaultClient)
-		variables := githubapitest.GetNodeVariables{Id: "primary"}
+		variables := githubapi.GetNodeVariables{Id: "primary"}
 		reset := time.Date(2026, time.July, 19, 13, 0, 0, 0, time.UTC)
 		handler.ExpectGetNode(variables).RespondError(
 			githubapi.Error{
@@ -160,7 +160,7 @@ func TestGeneratedHandlerRateLimits(t *testing.T) {
 		server := httptest.NewServer(handler)
 		t.Cleanup(server.Close)
 		client := githubapi.NewClient(server.URL, http.DefaultClient)
-		variables := githubapitest.GetNodeVariables{Id: "primary-no-headers"}
+		variables := githubapi.GetNodeVariables{Id: "primary-no-headers"}
 		handler.ExpectGetNode(variables).RespondError(
 			githubapi.Error{
 				Type:    "RATE_LIMITED",
@@ -188,7 +188,7 @@ func TestGeneratedHandlerRateLimits(t *testing.T) {
 			server := httptest.NewServer(handler)
 			t.Cleanup(server.Close)
 			client := githubapi.NewClient(server.URL, http.DefaultClient)
-			variables := githubapitest.GetNodeVariables{Id: http.StatusText(status)}
+			variables := githubapi.GetNodeVariables{Id: http.StatusText(status)}
 			handler.ExpectGetNode(variables).RespondError(
 				githubapi.Error{Type: "ABUSE_DETECTED", Message: "slow down"},
 				githubapitest.WithSecondaryRateLimit(30*time.Second),
@@ -215,13 +215,13 @@ func TestGeneratedHandlerConcurrentRequests(t *testing.T) {
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 	client := githubapi.NewClient(server.URL, http.DefaultClient)
-	variables := githubapitest.EchoPropertyVariables{
+	variables := githubapi.EchoPropertyVariables{
 		Value: json.RawMessage(`"concurrent"`),
 	}
 	handler.ExpectEchoProperty(
 		variables,
 		githubapitest.Times(requestCount),
-	).Respond(githubapitest.EchoPropertyResponse{
+	).Respond(githubapi.EchoPropertyResponse{
 		EchoProperty: variables.Value,
 	})
 
@@ -240,8 +240,8 @@ func TestGeneratedHandlerConcurrentRequests(t *testing.T) {
 	}
 }
 
-func repositoryVariables() githubapitest.GetRepositoryVariables {
-	return githubapitest.GetRepositoryVariables{
+func repositoryVariables() githubapi.GetRepositoryVariables {
+	return githubapi.GetRepositoryVariables{
 		Owner: "octo-org",
 		Name:  "octo-repo",
 		First: 2,
@@ -249,19 +249,19 @@ func repositoryVariables() githubapitest.GetRepositoryVariables {
 	}
 }
 
-func repositoryData() githubapitest.GetRepositoryResponse {
-	return githubapitest.GetRepositoryResponse{
-		Repository: new(githubapitest.GetRepositoryRepository{
+func repositoryData() githubapi.GetRepositoryResponse {
+	return githubapi.GetRepositoryResponse{
+		Repository: new(githubapi.GetRepositoryRepository{
 			Id:            "R1",
 			FullName:      "octo-org/octo-repo",
 			UpdatedAt:     time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC),
 			PropertyValue: json.RawMessage(`["red","blue"]`),
-			Issues: githubapitest.GetRepositoryRepositoryIssuesIssueConnection{
-				Nodes: []githubapitest.GetRepositoryRepositoryIssuesIssueConnectionNodesIssue{{
+			Issues: githubapi.GetRepositoryRepositoryIssuesIssueConnection{
+				Nodes: []githubapi.GetRepositoryRepositoryIssuesIssueConnectionNodesIssue{{
 					Id:    "I1",
 					Title: "bug",
 				}},
-				PageInfo: githubapitest.GetRepositoryRepositoryIssuesIssueConnectionPageInfo{
+				PageInfo: githubapi.GetRepositoryRepositoryIssuesIssueConnectionPageInfo{
 					HasNextPage: true,
 					EndCursor:   new("cursor-2"),
 				},

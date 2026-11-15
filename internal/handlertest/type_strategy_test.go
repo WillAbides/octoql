@@ -56,7 +56,7 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 					clienttypes.WithHeaders(http.Header{
 						"x-handler-mode": {"client"},
 					}),
-					clienttypes.WithPrimaryRateLimit(clienttypes.RateLimit{
+					clienttypes.WithPrimaryRateLimit(githubapi.RateLimit{
 						Limit:     5000,
 						Remaining: 4999,
 						Used:      1,
@@ -104,16 +104,16 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 		{
 			name: "mutation input and enum",
 			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectCreateRepository(clienttypes.CreateRepositoryVariables{
-					Input: clienttypes.CreateRepositoryInput{
+				handler.ExpectCreateRepository(githubapi.CreateRepositoryVariables{
+					Input: githubapi.CreateRepositoryInput{
 						Name:             "created",
 						OwnerId:          new("O1"),
-						Visibility:       new(clienttypes.RepositoryVisibilityPrivate),
+						Visibility:       new(githubapi.RepositoryVisibilityPrivate),
 						ClientMutationId: new("mutation-1"),
 					},
-				}).Respond(clienttypes.CreateRepositoryResponse{
-					CreateRepository: clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
-						Repository: new(clienttypes.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
+				}).Respond(githubapi.CreateRepositoryResponse{
+					CreateRepository: githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayload{
+						Repository: new(githubapi.CreateRepositoryCreateRepositoryCreateRepositoryPayloadRepository{
 							Id:            "R2",
 							NameWithOwner: "octo-org/created",
 							UpdatedAt:     updatedAt,
@@ -159,9 +159,9 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 		{
 			name: "node catch all actual typename",
 			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "user"}).
-					Respond(clienttypes.GetNodeResponse{
-						Node: &clienttypes.GetNodeNodeOctoqlOther{
+				handler.ExpectGetNode(githubapi.GetNodeVariables{Id: "user"}).
+					Respond(githubapi.GetNodeResponse{
+						Node: &githubapi.GetNodeNodeOctoqlOther{
 							Typename: "User",
 							Id:       "U1",
 						},
@@ -189,15 +189,15 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 		{
 			name: "search union list and catch all",
 			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectSearch(clienttypes.SearchVariables{Query: "octo"}).
-					Respond(clienttypes.SearchResponse{
-						Search: []clienttypes.SearchSearchSearchResultItem{
-							&clienttypes.SearchSearchRepository{
+				handler.ExpectSearch(githubapi.SearchVariables{Query: "octo"}).
+					Respond(githubapi.SearchResponse{
+						Search: []githubapi.SearchSearchSearchResultItem{
+							&githubapi.SearchSearchRepository{
 								Id:            "R1",
 								NameWithOwner: "octo-org/octo-repo",
 							},
-							&clienttypes.SearchSearchIssue{Id: "I1", Title: "bug"},
-							&clienttypes.SearchSearchSearchResultItemOctoqlOther{
+							&githubapi.SearchSearchIssue{Id: "I1", Title: "bug"},
+							&githubapi.SearchSearchSearchResultItemOctoqlOther{
 								Typename: "User",
 							},
 						},
@@ -235,8 +235,8 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 			name: "custom property value array",
 			configureClient: func(handler *clienttypes.TestHandler) {
 				value := json.RawMessage(`["one","two"]`)
-				handler.ExpectEchoProperty(clienttypes.EchoPropertyVariables{Value: value}).
-					Respond(clienttypes.EchoPropertyResponse{EchoProperty: value})
+				handler.ExpectEchoProperty(githubapi.EchoPropertyVariables{Value: value}).
+					Respond(githubapi.EchoPropertyResponse{EchoProperty: value})
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
 				value := json.RawMessage(`["one","two"]`)
@@ -254,8 +254,8 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 		{
 			name: "date time binding",
 			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectEchoAt(clienttypes.EchoAtVariables{Value: updatedAt}).
-					Respond(clienttypes.EchoAtResponse{EchoAt: updatedAt})
+				handler.ExpectEchoAt(githubapi.EchoAtVariables{Value: updatedAt}).
+					Respond(githubapi.EchoAtResponse{EchoAt: updatedAt})
 			},
 			configureLocal: func(handler *localtypes.TestHandler) {
 				handler.ExpectEchoAt(localtypes.EchoAtVariables{Value: updatedAt}).
@@ -271,8 +271,8 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 		{
 			name: "large integer and arbitrary json",
 			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectEchoAny(clienttypes.EchoAnyVariables{Value: largeInteger}).
-					Respond(clienttypes.EchoAnyResponse{EchoAny: map[string]any{
+				handler.ExpectEchoAny(githubapi.EchoAnyVariables{Value: largeInteger}).
+					Respond(githubapi.EchoAnyResponse{EchoAny: map[string]any{
 						"count": 42,
 						"items": []any{"one", true},
 					}})
@@ -297,22 +297,22 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 		{
 			name: "partial data graphql error and per error extensions",
 			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectGetRepository(clienttypes.GetRepositoryVariables{
+				handler.ExpectGetRepository(githubapi.GetRepositoryVariables{
 					Owner: "octo-org",
 					Name:  "partial",
 					First: 1,
 					After: new(""),
 				}).RespondDataAndErrors(
-					clienttypes.GetRepositoryResponse{
-						Repository: new(clienttypes.GetRepositoryRepository{
+					githubapi.GetRepositoryResponse{
+						Repository: new(githubapi.GetRepositoryRepository{
 							Id:       "R1",
 							FullName: "octo-org/partial",
 						}),
 					},
-					clienttypes.Error{
+					githubapi.Error{
 						Type:       "FORBIDDEN",
 						Message:    "field hidden",
-						Path:       clienttypes.Path{"repository", "propertyValue"},
+						Path:       githubapi.Path{"repository", "propertyValue"},
 						Extensions: map[string]any{"code": "hidden"},
 					},
 				)
@@ -376,9 +376,9 @@ func TestHandlerTypeStrategiesWireParity(t *testing.T) {
 				},
 			},
 			configureClient: func(handler *clienttypes.TestHandler) {
-				handler.ExpectGetNode(clienttypes.GetNodeVariables{Id: "secondary-200"}).
+				handler.ExpectGetNode(githubapi.GetNodeVariables{Id: "secondary-200"}).
 					RespondError(
-						clienttypes.Error{
+						githubapi.Error{
 							Type:    "ABUSE_DETECTED",
 							Message: "slow down",
 						},

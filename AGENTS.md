@@ -96,8 +96,8 @@
   config load, schema parse, operation parser, abstract-type analysis, or
   subscription path.
 - Generated test handlers use `test_handler.types: client` by default to import
-  and alias generated client types. `types: local` emits distinct operation
-  types in the handler package without importing the client package.
+  and use generated client types directly. `types: local` emits distinct
+  operation types in the handler package without importing the client package.
 - Both test-handler type strategies render from the same immutable generation
   plan and shared type renderer. Do not add a second config load, schema parse,
   operation parser, type conversion, or abstract-type analysis.

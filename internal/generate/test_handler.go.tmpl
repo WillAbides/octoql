@@ -30,27 +30,6 @@ type RateLimit struct {
 	Reset     {{ref "time.Time"}}
 	Resource  string
 }
-
-{{range .LocalAliases -}}
-type {{.Name}} = {{.ClientName}}
-{{end}}
-{{else -}}
-type Error = {{.ClientPackage}}.Error
-type ErrorType = {{.ClientPackage}}.ErrorType
-type Location = {{.ClientPackage}}.Location
-type Path = {{.ClientPackage}}.Path
-type RateLimit = {{.ClientPackage}}.RateLimit
-
-{{range .Types -}}
-type {{.Name}} = {{$.ClientPackage}}.{{.ClientName}}
-{{if .EnumValues}}
-const (
-	{{range .EnumValues -}}
-	{{.GoName}} = {{$.ClientPackage}}.{{.GoName}}
-	{{end -}}
-)
-{{end}}
-{{end -}}
 {{end -}}
 
 type testTB interface {
@@ -336,7 +315,7 @@ func WithHeaders(header {{ref "net/http.Header"}}) ResponseOption {
 	}
 }
 
-func WithPrimaryRateLimit(rateLimit RateLimit) ResponseOption {
+func WithPrimaryRateLimit(rateLimit {{.RateLimitType}}) ResponseOption {
 	return func(options *responseOptions) {
 		hasNegativeValue := rateLimit.Limit < 0 ||
 			rateLimit.Remaining < 0 ||
@@ -405,7 +384,7 @@ func combineResponseOptions(
 func writeGraphQLResponse(
 	writer {{ref "net/http.ResponseWriter"}},
 	data any,
-	graphqlErrors []Error,
+	graphqlErrors []{{.ErrorType}},
 	options responseOptions,
 ) error {
 	if options.err != nil {
@@ -440,7 +419,7 @@ func writeRequestError(
 	return writeGraphQLResponse(
 		writer,
 		nil,
-		[]Error{ {Message: message} },
+		[]{{.ErrorType}}{ {Message: message} },
 		buildResponseOptions(WithStatus(status)),
 	)
 }
@@ -661,7 +640,7 @@ func (b *{{.Name}}Expectation) Respond(
 }
 
 func (b *{{.Name}}Expectation) RespondError(
-	graphqlError Error,
+	graphqlError {{$.ErrorType}},
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -672,7 +651,7 @@ func (b *{{.Name}}Expectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]Error{graphqlError},
+				[]{{$.ErrorType}}{graphqlError},
 				responseConfig,
 			)
 		},
@@ -681,7 +660,7 @@ func (b *{{.Name}}Expectation) RespondError(
 
 func (b *{{.Name}}Expectation) RespondDataAndErrors(
 	data {{.ResponseName}},
-	graphqlErrors ...Error,
+	graphqlErrors ...{{$.ErrorType}},
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(

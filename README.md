@@ -370,14 +370,14 @@ handler := githubapitest.NewTestHandler(t)
 server := httptest.NewServer(handler)
 t.Cleanup(server.Close)
 
-variables := githubapitest.GetRepositoryVariables{
+variables := githubapi.GetRepositoryVariables{
 	Owner: "octo-org",
 	Name:  "octo-repo",
 	First: 1,
 }
 handler.ExpectGetRepository(variables).
-	Respond(githubapitest.GetRepositoryResponse{
-		Repository: &githubapitest.GetRepositoryRepository{
+	Respond(githubapi.GetRepositoryResponse{
+		Repository: &githubapi.GetRepositoryRepository{
 			NameWithOwner: "octo-org/octo-repo",
 		},
 	})
@@ -407,7 +407,7 @@ exercise error and rate-limit paths directly:
 ```go
 handler.ExpectGetRepository(variables).
 	RespondError(
-		githubapitest.Error{Message: "API rate limit exceeded"},
+		githubapi.Error{Message: "API rate limit exceeded"},
 		githubapitest.WithSecondaryRateLimit(30*time.Second),
 	)
 ```

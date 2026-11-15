@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	githubapi "github.com/willabides/octoql/internal/handlertest/client"
 )
 
 type fakeTB struct {
@@ -52,8 +53,8 @@ func TestCleanupAndUnexpectedOperationFailures(t *testing.T) {
 	t.Run("unmet minimum count", func(t *testing.T) {
 		fake := &fakeTB{}
 		handler := newTestHandler(fake)
-		required := EchoPropertyVariables{Value: json.RawMessage(`"required"`)}
-		handler.ExpectEchoProperty(required, MinTimes(2)).Respond(EchoPropertyResponse{})
+		required := githubapi.EchoPropertyVariables{Value: json.RawMessage(`"required"`)}
+		handler.ExpectEchoProperty(required, MinTimes(2)).Respond(githubapi.EchoPropertyResponse{})
 
 		postOperation(t, handler, "EchoProperty", required)
 		fake.runCleanups()
@@ -64,9 +65,9 @@ func TestCleanupAndUnexpectedOperationFailures(t *testing.T) {
 	t.Run("unexpected variables unknown operation and unmet expectation", func(t *testing.T) {
 		fake := &fakeTB{}
 		handler := newTestHandler(fake)
-		handler.ExpectGetNode(GetNodeVariables{Id: "expected"}).Respond(GetNodeResponse{})
+		handler.ExpectGetNode(githubapi.GetNodeVariables{Id: "expected"}).Respond(githubapi.GetNodeResponse{})
 
-		known := postOperation(t, handler, "GetNode", GetNodeVariables{Id: "different"})
+		known := postOperation(t, handler, "GetNode", githubapi.GetNodeVariables{Id: "different"})
 		assert.Contains(t, known.Body.String(), "no expectation found")
 		require.Len(t, fake.errorMessages(), 1)
 
@@ -81,7 +82,7 @@ func TestCleanupAndUnexpectedOperationFailures(t *testing.T) {
 }
 
 func TestWithPrimaryRateLimitRejectsNegativeValues(t *testing.T) {
-	tests := map[string]RateLimit{
+	tests := map[string]githubapi.RateLimit{
 		"negative limit": {
 			Limit: -1,
 		},

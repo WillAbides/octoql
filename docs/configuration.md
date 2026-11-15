@@ -237,11 +237,10 @@ Type: `string` · Optional · Default: `client` · Values: `client`, `local`
 
 Where the handler's operation types come from.
 
-`client`, the default, imports the generated client package and
-exposes aliases for its response, input, enum, abstract variant, and
-`OctoqlOther` types. Handler response values are then assignable to
-generated client types. Because another package aliases the generated
-client operation types, this also requires exported operation names.
+`client`, the default, imports the generated client package and uses
+its response, variables, `Error`, and `RateLimit` types directly.
+Because another package references the generated client operation
+types, this also requires exported operation names.
 
 `local` emits distinct but wire-equivalent operation types directly in
 the handler package, without importing the client. Local values are
