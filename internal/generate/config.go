@@ -27,7 +27,6 @@ type Config struct {
 	TestHandlerTypes                TestHandlerTypeStrategy
 	Package                         string
 	ExportOperations                string
-	ContextType                     string
 	Bindings                        map[string]*TypeBinding
 	PackageBindings                 []*PackageBinding
 	Casing                          Casing
@@ -261,7 +260,6 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if err != nil {
 		return err
 	}
-	c.ContextType = cmp.Or(c.ContextType, "context.Context")
 	c.OmitUnreferencedImplementations = cmp.Or(c.OmitUnreferencedImplementations, new(true))
 	c.TestHandlerTypes = cmp.Or(c.TestHandlerTypes, TestHandlerTypesClient)
 	err = c.TestHandlerTypes.validate()

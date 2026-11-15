@@ -66,7 +66,6 @@ func TestRunGenerate(t *testing.T) {
 				"generated: githubapi/generated.go\n"+
 				"package: githubapi\n"+
 				"export_operations: githubapi/operations.json\n"+
-				"context_type: \"-\"\n"+
 				"bindings:\n"+
 				"  CustomID:\n"+
 				"    type: string\n"+
@@ -96,7 +95,7 @@ func TestRunGenerate(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(clientSource), "package githubapi")
 		assert.Contains(t, string(clientSource), "func (c *Client) Viewer(")
-		assert.Contains(t, string(clientSource), "context.Background()")
+		assert.Contains(t, string(clientSource), "ctx context.Context")
 		assert.Contains(t, string(clientSource), "IssueState_OPEN")
 		assert.Contains(t, string(clientSource), "type ViewerIpAddressListSnakeCaseType struct")
 		assert.Contains(t, string(clientSource), `"net/url"`)
@@ -216,8 +215,7 @@ func TestRunGenerate(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(rootDir, "viewer.graphql"), []byte("query Viewer { viewer }\n"), 0o600))
 		configPath := filepath.Join(subDir, config.DefaultFilename)
 		require.NoError(t, os.WriteFile(configPath, []byte(
-			"schema:\n  path: ../schema.graphql\noperations:\n  - ../viewer.graphql\ngenerated: generated.go\n"+
-				"context_type: github.com/willabides/octoql/internal/testutil.MyContext\n",
+			"schema:\n  path: ../schema.graphql\noperations:\n  - ../viewer.graphql\ngenerated: generated.go\n",
 		), 0o600))
 
 		err := Run([]string{"generate", "--config", configPath}, "v1.2.3", &Dependencies{
@@ -227,8 +225,6 @@ func TestRunGenerate(t *testing.T) {
 		generated, err := os.ReadFile(filepath.Join(subDir, "generated.go"))
 		require.NoError(t, err)
 		assert.Contains(t, string(generated), "package subpackage")
-		assert.Contains(t, string(generated), `"github.com/willabides/octoql/internal/testutil"`)
-		assert.Contains(t, string(generated), "ctx testutil.MyContext")
 	})
 }
 
@@ -394,6 +390,11 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			name:    "removed legacy option",
 			yaml:    baseYAML + "use_extensions: true\n",
 			wantErr: "field use_extensions not found in type config.Config",
+		},
+		{
+			name:    "removed context_type option",
+			yaml:    baseYAML + "context_type: \"-\"\n",
+			wantErr: "field context_type not found in type config.Config",
 		},
 		{
 			name:    "unknown binding field",

@@ -1172,10 +1172,12 @@ func (e *GitHubNamingPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) GitHubNaming() (*GitHubNamingResponse, error) {
+func (c *Client) GitHubNaming(
+	ctx context.Context,
+) (*GitHubNamingResponse, error) {
 	var response GitHubNamingResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "GitHubNaming",
 			Query:         GitHubNaming_Operation,

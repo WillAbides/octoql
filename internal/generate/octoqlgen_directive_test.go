@@ -304,7 +304,7 @@ func TestDirectiveFilesAreCurrent(t *testing.T) {
 		"example/" + internal.DirectiveFilename,
 		"internal/generate/testdata/queries/" + internal.DirectiveFilename,
 		"internal/generatefeatures/githubdefaults/" + internal.DirectiveFilename,
-		"internal/generatefeatures/nocontext/" + internal.DirectiveFilename,
+		"internal/generatefeatures/clientruntime/" + internal.DirectiveFilename,
 		"internal/handlertest/" + internal.DirectiveFilename,
 		"internal/integration/" + internal.DirectiveFilename,
 	} {

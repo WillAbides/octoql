@@ -1,21 +1,12 @@
 package testutil
 
-import (
-	"context"
-	"time"
-)
+import "time"
 
 type ID string
 
 type Account struct {
 	ID    ID     `json:"id"`
 	Login string `json:"login"`
-}
-
-type MyContext interface {
-	context.Context
-
-	MyMethod()
 }
 
 const dateFormat = "2006-01-02"

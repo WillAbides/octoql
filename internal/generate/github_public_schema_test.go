@@ -34,11 +34,10 @@ func TestGenerateGitHubPublicSchema(t *testing.T) {
 
 	generatedFilename := filepath.Join(t.TempDir(), "generated.go")
 	generated, err := Generate(&Config{
-		Schema:      schemaFilename,
-		Operations:  []string{filepath.Join(githubPublicSchemaDir, "operations.graphql")},
-		Generated:   generatedFilename,
-		Package:     "githubschema",
-		ContextType: "-",
+		Schema:     schemaFilename,
+		Operations: []string{filepath.Join(githubPublicSchemaDir, "operations.graphql")},
+		Generated:  generatedFilename,
+		Package:    "githubschema",
 	})
 	require.NoError(t, err)
 

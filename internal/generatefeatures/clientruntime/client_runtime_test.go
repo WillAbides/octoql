@@ -1,4 +1,4 @@
-package nocontext
+package clientruntime
 
 import (
 	"encoding/json"
@@ -103,7 +103,7 @@ func TestDoHTTPResponses(t *testing.T) {
 			defer server.Close()
 
 			client := NewClient(server.URL, nil)
-			response, err := invokeRepositoryQuery(client)
+			response, err := invokeRepositoryQuery(t, client)
 			assert.Nil(t, response)
 			test.check(t, err)
 
@@ -151,7 +151,7 @@ func TestDoRequestAndAuth(t *testing.T) {
 	client := NewClient("https://github.example/api/graphql", httpClient)
 	err := client.SetBearerToken("github_pat_first")
 	require.NoError(t, err)
-	_, err = invokeRepositoryQuery(client)
+	_, err = invokeRepositoryQuery(t, client)
 	require.NoError(t, err)
 	withVariables := <-requests
 	assert.Equal(t, http.MethodPost, withVariables.method)
@@ -166,7 +166,7 @@ func TestDoRequestAndAuth(t *testing.T) {
 
 	err = client.SetBearerToken("github_pat_second")
 	require.NoError(t, err)
-	_, err = client.wireSemantics()
+	_, err = client.wireSemantics(t.Context())
 	require.NoError(t, err)
 	withoutVariables := <-requests
 	assert.Equal(t, "Bearer github_pat_second", withoutVariables.header.Get("Authorization"))
@@ -192,7 +192,7 @@ func TestDoRequestAndAuth(t *testing.T) {
 	require.EqualError(t, nilClient.SetBearerToken("github_pat_valid"), "octoql: client is nil")
 	require.EqualError(t, nilClient.SetAllowRedirects(true), "octoql: client is nil")
 	assert.False(t, nilClient.AllowRedirects())
-	response, err := invokeRepositoryQuery(nilClient)
+	response, err := invokeRepositoryQuery(t, nilClient)
 	assert.Nil(t, response)
 	require.EqualError(t, err, "octoql: client is nil")
 }
@@ -260,7 +260,7 @@ func TestDoFailurePhases(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response, err := invokeRepositoryQuery(test.client)
+			response, err := invokeRepositoryQuery(t, test.client)
 			require.Error(t, err)
 			assert.Nil(t, response)
 			require.ErrorIs(t, err, test.wantCause)
@@ -299,7 +299,7 @@ func TestClientRedirectPolicy(t *testing.T) {
 				writer.WriteHeader(http.StatusFound)
 			}))
 			client := NewClient(origin.URL, nil)
-			response, err := client.wireSemantics()
+			response, err := client.wireSemantics(t.Context())
 			origin.Close()
 
 			require.Error(t, err)
@@ -319,7 +319,7 @@ func TestClientRedirectPolicy(t *testing.T) {
 		}))
 		defer zeroOrigin.Close()
 		zeroClient := Client{endpoint: zeroOrigin.URL}
-		_, err := zeroClient.wireSemantics()
+		_, err := zeroClient.wireSemantics(t.Context())
 		require.ErrorContains(t, err, "redirect refused")
 
 		select {
@@ -361,13 +361,13 @@ func TestClientRedirectPolicy(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, client.AllowRedirects())
 
-		response, err := client.wireSemantics()
+		response, err := client.wireSemantics(t.Context())
 		require.NoError(t, err)
 		assert.NotNil(t, response)
 
 		loopClient := NewClient(server.URL+"/loop", nil)
 		require.NoError(t, loopClient.SetAllowRedirects(true))
-		_, err = loopClient.wireSemantics()
+		_, err = loopClient.wireSemantics(t.Context())
 		require.ErrorContains(t, err, "stopped after 10 redirects")
 	})
 
@@ -402,7 +402,7 @@ func TestClientRedirectPolicy(t *testing.T) {
 			client := NewClient(origin.URL, nil)
 			require.NoError(t, client.SetBearerToken("github_pat_token"))
 			require.NoError(t, client.SetAllowRedirects(true))
-			response, err := client.wireSemantics()
+			response, err := client.wireSemantics(t.Context())
 			origin.Close()
 			target.Close()
 
@@ -438,7 +438,7 @@ func TestClientSetAllowRedirectsConcurrentWithRequests(t *testing.T) {
 		}()
 		go func() {
 			defer waitGroup.Done()
-			_, err := client.wireSemantics()
+			_, err := client.wireSemantics(t.Context())
 			results <- err
 		}()
 	}

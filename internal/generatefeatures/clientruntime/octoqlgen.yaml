@@ -5,7 +5,6 @@ schema:
 operations:
   - operation.graphql
 generated: generated.go
-context_type: "-"
 package_bindings:
   - package: github.com/willabides/octoql/internal/testutil
 bindings:

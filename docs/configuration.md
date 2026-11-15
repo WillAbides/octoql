@@ -136,10 +136,10 @@ Type: `string` · Required
 The file to write the generated client to, relative to `octoqlgen.yaml`.
 
 The generated client is self-contained. It uses only the standard library
-by default; external types named by `bindings`, `package_bindings`, a
-custom `context_type`, or an operation's `@octoqlgen(bind: ...)`
-directive can add imports for the packages they name. Application code
-never imports `github.com/willabides/octoql`.
+by default. External types named by `bindings`, `package_bindings`, or an
+operation's `@octoqlgen(bind: ...)` directive can add imports for the
+packages they name. Application code never imports
+`github.com/willabides/octoql`.
 
 Example: `githubapi/generated.go`
 
@@ -179,19 +179,6 @@ static analysis. The JSON is an object of the form:
 Keys may be added in the future. By default no such file is written.
 
 Example: `operations.json`
-
-## `context_type`
-
-Type: `string` · Optional
-
-The fully qualified name of a Go type that generated helpers accept and
-use as the `context.Context` for HTTP requests.
-
-Defaults to `context.Context`. Set it to `-` to omit the context argument
-entirely, in which case generated helpers use `context.Background()`. Any
-other value must be a type that implements `context.Context`.
-
-Example: `context.Context`
 
 ## `bindings`
 

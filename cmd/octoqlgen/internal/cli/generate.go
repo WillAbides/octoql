@@ -124,7 +124,6 @@ func generateConfig(source *config.Config) *generate.Config {
 		TestHandlerTypes:                generate.TestHandlerTypeStrategy(source.TestHandlerTypesValue()),
 		Package:                         stringValue(source.Package),
 		ExportOperations:                source.ExportOperationsPath(),
-		ContextType:                     stringValue(source.ContextType),
 		Bindings:                        bindings,
 		PackageBindings:                 packageBindings,
 		Casing:                          casing,

@@ -1,4 +1,4 @@
-package nocontext
+package clientruntime
 
 import (
 	"errors"
@@ -228,7 +228,7 @@ func TestDoClassifiesRateLimits(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := newResponseClient(test.statusCode, test.header, test.body)
-			response, err := invokeRepositoryQuery(client)
+			response, err := invokeRepositoryQuery(t, client)
 
 			if err == nil {
 				assert.Equal(t, test.wantData, response != nil)
@@ -305,7 +305,7 @@ func TestDoAnchorsRetryAfterToResponseArrival(t *testing.T) {
 		http.Header{},
 		`{"data":{}}`,
 	)
-	_, err := successClient.wireSemantics()
+	_, err := successClient.wireSemantics(t.Context())
 	require.NoError(t, err)
 	assert.Zero(t, clockReads)
 
@@ -322,7 +322,7 @@ func TestDoAnchorsRetryAfterToResponseArrival(t *testing.T) {
 		}),
 	)
 
-	_, err = slowFailureClient.wireSemantics()
+	_, err = slowFailureClient.wireSemantics(t.Context())
 	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)
 	assert.Equal(t, 30*time.Second, rateLimitError.RetryAfter)
@@ -343,7 +343,7 @@ func TestRateLimitErrorsDoNotAliasHeaders(t *testing.T) {
 		`{"errors":[{"message":"rate limited"}]}`,
 	)
 
-	response, err := client.wireSemantics()
+	response, err := client.wireSemantics(t.Context())
 	assert.Nil(t, response)
 	rateLimitError, ok := errors.AsType[*RateLimitError](err)
 	require.True(t, ok)

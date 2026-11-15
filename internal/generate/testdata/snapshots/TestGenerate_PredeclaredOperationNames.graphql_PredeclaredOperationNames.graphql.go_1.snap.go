@@ -1122,10 +1122,12 @@ func (e *anyPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) any() (*anyResponse, error) {
+func (c *Client) any(
+	ctx context.Context,
+) (*anyResponse, error) {
 	var response anyResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "any",
 			Query:         any_Operation,
@@ -1180,10 +1182,12 @@ func (e *newPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) new() (*newResponse, error) {
+func (c *Client) new(
+	ctx context.Context,
+) (*newResponse, error) {
 	var response newResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "new",
 			Query:         new_Operation,

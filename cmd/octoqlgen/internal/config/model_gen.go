@@ -39,7 +39,6 @@ type TestHandler struct {
 type Config struct {
 	Bindings                        *map[string]*Binding `json:"bindings" yaml:"bindings"`
 	Casing                          *Casing              `json:"casing" yaml:"casing"`
-	ContextType                     *string              `json:"context_type" yaml:"context_type"`
 	ExportOperations                *string              `json:"export_operations" yaml:"export_operations"`
 	Generated                       string               `json:"generated" yaml:"generated"`
 	OmitUnreferencedImplementations *bool                `json:"omit_unreferenced_implementations" yaml:"omit_unreferenced_implementations"`

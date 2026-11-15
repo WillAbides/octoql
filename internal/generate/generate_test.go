@@ -64,7 +64,6 @@ func generateTestSource(t *testing.T, spec *testGenerateSpec) (string, error) {
 		Operations:                      []string{operationPath},
 		Generated:                       filepath.Join(dir, "generated.go"),
 		Package:                         packageName,
-		ContextType:                     "-",
 		Casing:                          spec.casing,
 		Bindings:                        spec.bindings,
 		OmitUnreferencedImplementations: spec.omitUnreferencedImplementations,
@@ -214,7 +213,6 @@ func TestGenerate(t *testing.T) {
 				Package:          "test",
 				Generated:        goFilename,
 				ExportOperations: queriesFilename,
-				ContextType:      "-",
 				Bindings:         testBindings(),
 			})
 			if err != nil {
@@ -406,7 +404,6 @@ func testGenerateWithTestHandlerUsesOnePlan(
 		Generated:            filepath.Join(tempDir, "client", "generated.go"),
 		TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
 		TestHandlerTypes:     strategy,
-		ContextType:          "-",
 		Bindings:             testBindings(),
 	}
 	err := config.ValidateAndFillDefaults("")
@@ -488,7 +485,6 @@ func TestGenerateLocalTestHandlerBindings(t *testing.T) {
 			TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
 			TestHandlerTypes:     TestHandlerTypesLocal,
 			Package:              "client",
-			ContextType:          "-",
 		}
 		err = config.ValidateAndFillDefaults("")
 		require.NoError(t, err)
@@ -824,7 +820,6 @@ type Query {
 				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
 				TestHandlerTypes:     test.types,
 				Package:              "client",
-				ContextType:          "-",
 			}
 			require.NoError(t, config.ValidateAndFillDefaults(tempDir))
 
@@ -876,7 +871,6 @@ func TestGenerateTestHandlerClientImportAliasAvoidsGeneratedNames(t *testing.T) 
 				Generated:            filepath.Join(tempDir, "client", "generated.go"),
 				TestHandlerGenerated: filepath.Join(tempDir, "githubapitest", "generated.go"),
 				Package:              packageName,
-				ContextType:          "-",
 			}
 			require.NoError(t, config.ValidateAndFillDefaults(""))
 
@@ -941,7 +935,6 @@ func TestOmitUnreferencedImplementations(t *testing.T) {
 			Operations:                      []string{filepath.Join(githubGenerationDefaultsDir, "operations.graphql")},
 			Generated:                       "generated.go",
 			Package:                         "githubdefaults",
-			ContextType:                     "-",
 			OmitUnreferencedImplementations: omit,
 		}
 		generated, err := Generate(config)
@@ -1009,11 +1002,10 @@ func TestGenerateErrors(t *testing.T) {
 
 		t.Run(testFilename, func(t *testing.T) {
 			_, err := Generate(&Config{
-				Schema:      filepath.Join(errorsDir, schemaFilename),
-				Operations:  []string{filepath.Join(errorsDir, sourceFilename)},
-				Package:     "test",
-				Generated:   os.DevNull,
-				ContextType: "context.Context",
+				Schema:     filepath.Join(errorsDir, schemaFilename),
+				Operations: []string{filepath.Join(errorsDir, sourceFilename)},
+				Package:    "test",
+				Generated:  os.DevNull,
 				Bindings: map[string]*TypeBinding{
 					"ValidScalar":   {Type: "string"},
 					"InvalidScalar": {Type: "bogus"},

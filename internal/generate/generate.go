@@ -34,11 +34,6 @@ type plannedOperation struct {
 	SourceFilename string        `json:"sourceLocation"`
 }
 
-type operationTemplateData struct {
-	*plannedOperation
-	ContextType string
-}
-
 type exportedOperations struct {
 	Operations []*plannedOperation `json:"operations"`
 }
@@ -444,23 +439,6 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 	}
 
 	var bodyBuf bytes.Buffer
-	if plan.config.ContextType != "-" && plan.config.ContextType != "context.Context" {
-		ctxIface, ctxErr := r.imports.ref("context.Context")
-		if ctxErr != nil {
-			return nil, ctxErr
-		}
-		customCtx, customErr := r.imports.ref(plan.config.ContextType)
-		if customErr != nil {
-			return nil, customErr
-		}
-		fmt.Fprintf(
-			&bodyBuf,
-			"// Check that context_type from octoqlgen.yaml implements context.Context.\nvar _ %s = (%s)(nil)\n\n",
-			ctxIface,
-			customCtx,
-		)
-	}
-
 	err = r.render("runtime.go.tmpl", &bodyBuf, nil)
 	if err != nil {
 		return nil, err
@@ -468,10 +446,7 @@ func renderClient(plan *generationPlan) ([]byte, error) {
 	bodyBuf.Write(typeDefinitions)
 
 	for _, op := range plan.operations {
-		err = r.render("operation.go.tmpl", &bodyBuf, operationTemplateData{
-			plannedOperation: op,
-			ContextType:      plan.config.ContextType,
-		})
+		err = r.render("operation.go.tmpl", &bodyBuf, op)
 		if err != nil {
 			return nil, err
 		}

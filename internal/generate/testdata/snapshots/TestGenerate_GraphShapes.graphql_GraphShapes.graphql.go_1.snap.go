@@ -4187,11 +4187,12 @@ func (e *GetActorPartialDataError) PartialDataValue() any {
 }
 
 func (c *Client) GetActor(
+	ctx context.Context,
 	vars GetActorVariables,
 ) (*GetActorResponse, error) {
 	var response GetActorResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "GetActor",
 			Query:         GetActor_Operation,
@@ -4247,11 +4248,12 @@ func (e *GetNodePartialDataError) PartialDataValue() any {
 }
 
 func (c *Client) GetNode(
+	ctx context.Context,
 	vars GetNodeVariables,
 ) (*GetNodeResponse, error) {
 	var response GetNodeResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "GetNode",
 			Query:         GetNode_Operation,
@@ -4306,10 +4308,12 @@ func (e *NestedNodeShapesPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) NestedNodeShapes() (*NestedNodeShapesResponse, error) {
+func (c *Client) NestedNodeShapes(
+	ctx context.Context,
+) (*NestedNodeShapesResponse, error) {
 	var response NestedNodeShapesResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "NestedNodeShapes",
 			Query:         NestedNodeShapes_Operation,
@@ -4365,11 +4369,12 @@ func (e *RecursiveRepositoryPartialDataError) PartialDataValue() any {
 }
 
 func (c *Client) RecursiveRepository(
+	ctx context.Context,
 	vars RecursiveRepositoryVariables,
 ) (*RecursiveRepositoryResponse, error) {
 	var response RecursiveRepositoryResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "RecursiveRepository",
 			Query:         RecursiveRepository_Operation,
@@ -4424,10 +4429,12 @@ func (e *RepositoryEventCovariancePartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) RepositoryEventCovariance() (*RepositoryEventCovarianceResponse, error) {
+func (c *Client) RepositoryEventCovariance(
+	ctx context.Context,
+) (*RepositoryEventCovarianceResponse, error) {
 	var response RepositoryEventCovarianceResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "RepositoryEventCovariance",
 			Query:         RepositoryEventCovariance_Operation,
@@ -4483,11 +4490,12 @@ func (e *SearchRepositoriesPartialDataError) PartialDataValue() any {
 }
 
 func (c *Client) SearchRepositories(
+	ctx context.Context,
 	vars SearchRepositoriesVariables,
 ) (*SearchRepositoriesResponse, error) {
 	var response SearchRepositoriesResponse
 	hasData, err := c._octoqlExecute(
-		context.Background(),
+		ctx,
 		_octoqlPayload{
 			OperationName: "SearchRepositories",
 			Query:         SearchRepositories_Operation,

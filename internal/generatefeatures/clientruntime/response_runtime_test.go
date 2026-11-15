@@ -1,4 +1,4 @@
-package nocontext
+package clientruntime
 
 import (
 	"encoding/json"
@@ -159,7 +159,7 @@ func TestGeneratedQueryResponseSemantics(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := newResponseClient(test.statusCode, test.header, test.body)
-			response, err := invokeRepositoryQuery(client)
+			response, err := invokeRepositoryQuery(t, client)
 
 			if err == nil {
 				assert.Equal(t, test.wantData, response != nil)
@@ -185,7 +185,7 @@ func TestResponseErrorBoundsRawBody(t *testing.T) {
 		body,
 	)
 
-	_, err := invokeRepositoryQuery(client)
+	_, err := invokeRepositoryQuery(t, client)
 
 	responseError, ok := errors.AsType[*ResponseError](err)
 	require.True(t, ok)
@@ -216,7 +216,7 @@ func TestClientResponseSizeLimit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, responseSizeLimit, client.ResponseSizeLimit())
 
-	response, err := invokeRepositoryQuery(client)
+	response, err := invokeRepositoryQuery(t, client)
 
 	require.Error(t, err)
 	assert.Nil(t, response)
@@ -278,7 +278,7 @@ func TestDoRejectsMissingDataAndErrorsResponses(t *testing.T) {
 				test.body,
 			)
 
-			response, err := invokeRepositoryQuery(client)
+			response, err := invokeRepositoryQuery(t, client)
 
 			assert.Nil(t, response)
 			responseError, ok := errors.AsType[*ResponseError](err)
@@ -321,7 +321,7 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.False(t, known)
 	assert.Equal(t, RateLimit{}, rateLimit)
 
-	_, err := invokeRepositoryQuery(client)
+	_, err := invokeRepositoryQuery(t, client)
 	require.NoError(t, err)
 	rateLimit, known = client.RateLimit()
 	require.True(t, known)
@@ -330,7 +330,7 @@ func TestClientRateLimitSnapshot(t *testing.T) {
 	assert.Equal(t, 1, rateLimit.Used)
 	assert.Equal(t, "graphql", rateLimit.Resource)
 
-	_, err = invokeRepositoryQuery(client)
+	_, err = invokeRepositoryQuery(t, client)
 	require.NoError(t, err)
 	preserved, known := client.RateLimit()
 	require.True(t, known)
@@ -382,8 +382,8 @@ func TestSpecialSliceWireSemantics(t *testing.T) {
 	}
 }
 
-func invokeRepositoryQuery(client *Client) (*getRepositoryResponse, error) {
-	return client.getRepository(getRepositoryVariables{
+func invokeRepositoryQuery(t *testing.T, client *Client) (*getRepositoryResponse, error) {
+	return client.getRepository(t.Context(), getRepositoryVariables{
 		Owner: "octo-org",
 		Name:  "octo-repo",
 	})
