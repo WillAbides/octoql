@@ -16,14 +16,6 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-func (c *Config) warn(err error) error {
-	_, writeErr := fmt.Fprintln(c.Warnings, err)
-	if writeErr != nil {
-		return fmt.Errorf("writing warning: %w", writeErr)
-	}
-	return nil
-}
-
 // Config contains generator settings. Generate normalizes unspecified values
 // automatically, or callers can validate them before materializing the schema.
 type Config struct {
@@ -276,136 +268,14 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	if err != nil {
 		return err
 	}
-
-	if c.Package != "" && !token.IsIdentifier(c.Package) {
-		// No need for link here -- if you're already setting the package
-		// you know where to set the package.
-		return errorf(nil, "invalid package in octoqlgen.yaml: '%v' is not a valid identifier", c.Package)
+	err = c.validatePackageNameAndPath()
+	if err != nil {
+		return err
 	}
-
-	pkgName, pkgPath, err := getPackageNameAndPath(c.Generated, c.Package)
-	switch {
-	case err != nil && c.Package != "":
-		warnErr := c.warn(errorf(nil, "warning: unable to identify current package-path "+
-			"(using 'package' config '%v'): %v\n", c.Package, err))
-		if warnErr != nil {
-			return warnErr
-		}
-	case err != nil && pkgName != "":
-		warnErr := c.warn(errorf(nil, "warning: unable to identify current package-path "+
-			"(using directory name '%v': %v\n", pkgName, err))
-		if warnErr != nil {
-			return warnErr
-		}
-		c.Package = pkgName
-	case err != nil:
-		return errorf(nil, "unable to guess package-name: %v"+
-			"\nSet package name in octoqlgen.yaml"+
-			"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", err)
-	case c.Package == pkgName || c.Package == "":
-		c.Package = pkgName
-	default:
-		warnErr := c.warn(errorf(nil, "warning: package setting in octoqlgen.yaml '%v' looks wrong "+
-			"('%v' is in package '%v') but proceeding with '%v' anyway\n",
-			c.Package, c.Generated, pkgName, c.Package))
-		if warnErr != nil {
-			return warnErr
-		}
-	}
-	// This is a no-op in some of the error cases, but it still doesn't hurt.
-	c.pkgPath = pkgPath
-
-	if c.TestHandlerGenerated != "" {
-		if c.TestHandlerTypes == TestHandlerTypesClient && c.pkgPath == "" {
-			return errorf(
-				nil,
-				"unable to generate test handler without identifying the generated client package path",
-			)
-		}
-		if c.TestHandlerTypes == TestHandlerTypesClient && c.Package == "main" {
-			return errorf(
-				nil,
-				"test handler cannot import a generated client in package main",
-			)
-		}
-
-		handlerPackage, handlerPkgPath, handlerErr := getPackageNameAndPath(c.TestHandlerGenerated, "")
-		if handlerErr != nil {
-			return errorf(
-				nil,
-				"unable to identify test handler package for %q: %v",
-				c.TestHandlerGenerated,
-				handlerErr,
-			)
-		}
-		if handlerPackage == "" || handlerPkgPath == "" {
-			return errorf(
-				nil,
-				"unable to identify test handler package for %q",
-				c.TestHandlerGenerated,
-			)
-		}
-		sameDirectory := filepath.Dir(c.TestHandlerGenerated) == filepath.Dir(c.Generated)
-		samePackagePath := c.pkgPath != "" && handlerPkgPath == c.pkgPath
-		if sameDirectory || samePackagePath {
-			return errorf(
-				nil,
-				"test handler must be generated in a separate package from the client",
-			)
-		}
-		c.testHandlerPackage = handlerPackage
-		c.testHandlerPkgPath = handlerPkgPath
-	}
-
-	if len(c.PackageBindings) > 0 {
-		for _, binding := range c.PackageBindings {
-			if strings.HasSuffix(binding.Package, ".go") {
-				// total heuristic -- but this is an easy mistake to make and
-				// results in rather bizarre behavior from go/packages.
-				return errorf(nil,
-					"package %v looks like a file, but should be a package-name",
-					binding.Package)
-			}
-
-			if binding.Package == c.pkgPath {
-				warnErr := c.warn(errorf(nil, "warning: package_bindings set to the same package as your generated "+
-					"code ('%v'); this may cause nondeterministic output due to circularity", c.pkgPath))
-				if warnErr != nil {
-					return warnErr
-				}
-			}
-
-			mode := packages.NeedDeps | packages.NeedTypes
-			pkgs, loadErr := packages.Load(&packages.Config{
-				Mode: mode,
-			}, binding.Package)
-			if loadErr != nil {
-				return loadErr
-			}
-
-			if c.Bindings == nil {
-				c.Bindings = map[string]*TypeBinding{}
-			}
-
-			for _, pkg := range pkgs {
-				p := pkg.Types
-				if p == nil || p.Scope() == nil || p.Scope().Len() == 0 {
-					return errorf(nil, "unable to bind package %s: no types found", binding.Package)
-				}
-
-				for _, typ := range p.Scope().Names() {
-					if token.IsExported(typ) {
-						// Check if type is a manual binding
-						_, exist := c.Bindings[typ]
-						if !exist {
-							pathType := fmt.Sprintf("%s.%s", p.Path(), typ)
-							c.Bindings[typ] = &TypeBinding{
-								Type: pathType,
-							}
-						}
-					}
-				}
-			}
+	for _, binding := range c.PackageBindings {
+		err = c.validatePackageBinding(binding)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -418,6 +288,129 @@ func (c *Config) ValidateAndFillDefaults(baseDir string) error {
 	}
 
 	c.normalized = true
+	return nil
+}
+
+func (c *Config) validatePackageNameAndPath() error {
+	if c.Package != "" && !token.IsIdentifier(c.Package) {
+		// No need for link here -- if you're already setting the package
+		// you know where to set the package.
+		return errorf(nil, "invalid package in octoqlgen.yaml: '%v' is not a valid identifier", c.Package)
+	}
+
+	pkgName, pkgPath, err := getPackageNameAndPath(c.Generated, c.Package)
+	switch {
+	case err != nil && c.Package != "":
+		fmt.Fprintln(c.Warnings, errorf(nil, "warning: unable to identify current package-path "+
+			"(using 'package' config '%v'): %v\n", c.Package, err))
+	case err != nil && pkgName != "":
+		fmt.Fprintln(c.Warnings, errorf(nil, "warning: unable to identify current package-path "+
+			"(using directory name '%v': %v\n", pkgName, err))
+		c.Package = pkgName
+	case err != nil:
+		return errorf(nil, "unable to guess package-name: %v"+
+			"\nSet package name in octoqlgen.yaml"+
+			"\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml", err)
+	case c.Package == pkgName || c.Package == "":
+		c.Package = pkgName
+	default:
+		fmt.Fprintln(c.Warnings, errorf(nil, "warning: package setting in octoqlgen.yaml '%v' looks wrong "+
+			"('%v' is in package '%v') but proceeding with '%v' anyway\n",
+			c.Package, c.Generated, pkgName, c.Package))
+	}
+	c.pkgPath = pkgPath
+
+	if c.TestHandlerGenerated == "" {
+		return nil
+	}
+	if c.TestHandlerTypes == TestHandlerTypesClient && c.pkgPath == "" {
+		return errorf(
+			nil,
+			"unable to generate test handler without identifying the generated client package path",
+		)
+	}
+	if c.TestHandlerTypes == TestHandlerTypesClient && c.Package == "main" {
+		return errorf(
+			nil,
+			"test handler cannot import a generated client in package main",
+		)
+	}
+
+	handlerPackage, handlerPkgPath, handlerErr := getPackageNameAndPath(c.TestHandlerGenerated, "")
+	if handlerErr != nil {
+		return errorf(
+			nil,
+			"unable to identify test handler package for %q: %v",
+			c.TestHandlerGenerated,
+			handlerErr,
+		)
+	}
+	if handlerPackage == "" || handlerPkgPath == "" {
+		return errorf(
+			nil,
+			"unable to identify test handler package for %q",
+			c.TestHandlerGenerated,
+		)
+	}
+	sameDirectory := filepath.Dir(c.TestHandlerGenerated) == filepath.Dir(c.Generated)
+	samePackagePath := c.pkgPath != "" && handlerPkgPath == c.pkgPath
+	if sameDirectory || samePackagePath {
+		return errorf(
+			nil,
+			"test handler must be generated in a separate package from the client",
+		)
+	}
+	c.testHandlerPackage = handlerPackage
+	c.testHandlerPkgPath = handlerPkgPath
+	return nil
+}
+
+func (c *Config) validatePackageBinding(binding *PackageBinding) error {
+	if strings.HasSuffix(binding.Package, ".go") {
+		// total heuristic -- but this is an easy mistake to make and
+		// results in rather bizarre behavior from go/packages.
+		return errorf(
+			nil,
+			"package %v looks like a file, but should be a package-name",
+			binding.Package,
+		)
+	}
+
+	if binding.Package == c.pkgPath {
+		fmt.Fprintln(c.Warnings, errorf(nil, "warning: package_bindings set to the same package as your generated "+
+			"code ('%v'); this may cause nondeterministic output due to circularity", c.pkgPath))
+	}
+
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.NeedDeps | packages.NeedTypes,
+	}, binding.Package)
+	if err != nil {
+		return err
+	}
+
+	if c.Bindings == nil {
+		c.Bindings = map[string]*TypeBinding{}
+	}
+
+	for _, pkg := range pkgs {
+		p := pkg.Types
+		if p == nil || p.Scope() == nil || p.Scope().Len() == 0 {
+			return errorf(nil, "unable to bind package %s: no types found", binding.Package)
+		}
+
+		for _, typ := range p.Scope().Names() {
+			if !token.IsExported(typ) {
+				continue
+			}
+			_, exist := c.Bindings[typ]
+			if exist {
+				continue
+			}
+			c.Bindings[typ] = &TypeBinding{
+				Type: fmt.Sprintf("%s.%s", p.Path(), typ),
+			}
+		}
+	}
 	return nil
 }
 
