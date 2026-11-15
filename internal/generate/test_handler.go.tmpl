@@ -281,7 +281,7 @@ func WithHeaders(header {{ref "net/http.Header"}}) ResponseOption {
 	}
 }
 
-func WithPrimaryRateLimit(rateLimit {{.RateLimitType}}) ResponseOption {
+func WithPrimaryRateLimit(rateLimit {{.ClientPackage}}.RateLimit) ResponseOption {
 	return func(options *responseOptions) {
 		hasNegativeValue := rateLimit.Limit < 0 ||
 			rateLimit.Remaining < 0 ||
@@ -350,7 +350,7 @@ func combineResponseOptions(
 func writeGraphQLResponse(
 	writer {{ref "net/http.ResponseWriter"}},
 	data any,
-	graphqlErrors []{{.ErrorType}},
+	graphqlErrors []{{.ClientPackage}}.Error,
 	options responseOptions,
 ) error {
 	if options.err != nil {
@@ -385,7 +385,7 @@ func writeRequestError(
 	return writeGraphQLResponse(
 		writer,
 		nil,
-		[]{{.ErrorType}}{ {Message: message} },
+		[]{{.ClientPackage}}.Error{ {Message: message} },
 		buildResponseOptions(WithStatus(status)),
 	)
 }
@@ -606,7 +606,7 @@ func (b *{{.Name}}Expectation) Respond(
 }
 
 func (b *{{.Name}}Expectation) RespondError(
-	graphqlError {{$.ErrorType}},
+	graphqlError {{$.ClientPackage}}.Error,
 	options ...ResponseOption,
 ) {
 	combined := combineResponseOptions(b.options, options)
@@ -617,7 +617,7 @@ func (b *{{.Name}}Expectation) RespondError(
 			return writeGraphQLResponse(
 				writer,
 				nil,
-				[]{{$.ErrorType}}{graphqlError},
+				[]{{$.ClientPackage}}.Error{graphqlError},
 				responseConfig,
 			)
 		},
@@ -626,7 +626,7 @@ func (b *{{.Name}}Expectation) RespondError(
 
 func (b *{{.Name}}Expectation) RespondDataAndErrors(
 	data {{.ResponseName}},
-	graphqlErrors ...{{$.ErrorType}},
+	graphqlErrors ...{{$.ClientPackage}}.Error,
 ) {
 	responseConfig := buildResponseOptions(b.options...)
 	b.set.setResult(

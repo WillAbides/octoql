@@ -11,17 +11,17 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// goType represents a destination-neutral Go type in the generation plan.
+// goType represents a Go type in the generation plan.
 type goType interface {
 	WriteDefinition(io.Writer, *renderer) error
 
-	// QualifiedRef returns the canonical destination-neutral spelling of this
-	// type, such as []*MyStruct or []github.com/pkg.Type.
+	// QualifiedRef returns the canonical spelling of this type, such as
+	// []*MyStruct or []github.com/pkg.Type.
 	QualifiedRef() string
 
 	// renderRef formats this type relative to scope, registering any external
 	// imports needed by bound types.
-	renderRef(*importScope) (string, error)
+	renderRef(*importScope) string
 
 	// GraphQLTypeName returns the name of the GraphQL type to which this Go type
 	// corresponds.
@@ -82,28 +82,20 @@ func (t *goTypenameForBuiltinType) QualifiedRef() string { return t.GoTypeName }
 func (t *goSliceType) QualifiedRef() string              { return "[]" + t.Elem.QualifiedRef() }
 func (t *goPointerType) QualifiedRef() string            { return "*" + t.Elem.QualifiedRef() }
 
-func (t *goOpaqueType) renderRef(scope *importScope) (string, error) {
+func (t *goOpaqueType) renderRef(scope *importScope) string {
 	return t.Ref.render(scope)
 }
 
-func (t *goTypenameForBuiltinType) renderRef(*importScope) (string, error) {
-	return t.GoTypeName, nil
+func (t *goTypenameForBuiltinType) renderRef(*importScope) string {
+	return t.GoTypeName
 }
 
-func (t *goSliceType) renderRef(scope *importScope) (string, error) {
-	elem, err := t.Elem.renderRef(scope)
-	if err != nil {
-		return "", err
-	}
-	return "[]" + elem, nil
+func (t *goSliceType) renderRef(scope *importScope) string {
+	return "[]" + t.Elem.renderRef(scope)
 }
 
-func (t *goPointerType) renderRef(scope *importScope) (string, error) {
-	elem, err := t.Elem.renderRef(scope)
-	if err != nil {
-		return "", err
-	}
-	return "*" + elem, nil
+func (t *goPointerType) renderRef(scope *importScope) string {
+	return "*" + t.Elem.renderRef(scope)
 }
 
 func (t *goOpaqueType) GraphQLTypeName() string             { return t.GraphQLName }
@@ -137,9 +129,9 @@ func (t *goEnumType) WriteDefinition(w io.Writer, _ *renderer) error {
 	return nil
 }
 
-func (t *goEnumType) QualifiedRef() string                   { return t.GoName }
-func (t *goEnumType) renderRef(*importScope) (string, error) { return t.GoName, nil }
-func (t *goEnumType) GraphQLTypeName() string                { return t.GraphQLName }
+func (t *goEnumType) QualifiedRef() string          { return t.GoName }
+func (t *goEnumType) renderRef(*importScope) string { return t.GoName }
+func (t *goEnumType) GraphQLTypeName() string       { return t.GraphQLName }
 
 // goStructType represents a Go struct type for a GraphQL object or input-object.
 type goStructType struct {
@@ -266,11 +258,7 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 		if field.NeedsMarshaling() {
 			jsonTag = `"-"`
 		}
-		typeRef, err := r.typeRef(field.GoType)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(w, "\t%s %s `json:%s`\n", field.GoName, typeRef, jsonTag)
+		fmt.Fprintf(w, "\t%s %s `json:%s`\n", field.GoName, r.typeRef(field.GoType), jsonTag)
 	}
 	fmt.Fprintf(w, "}\n")
 
@@ -283,17 +271,13 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 			if !t.InterfaceGetters[field.GoName] {
 				continue
 			}
-			typeRef, refErr := r.typeRef(field.GoType)
-			if refErr != nil {
-				return refErr
-			}
 			description := fmt.Sprintf(
 				"Get%s returns %s.%s, and is useful for accessing the field via an interface.",
 				field.GoName, t.GoName, field.GoName,
 			)
 			writeDescription(w, description)
 			fmt.Fprintf(w, "func (v *%s) Get%s() %s { return v.%s }\n",
-				t.GoName, field.GoName, typeRef, field.Selector)
+				t.GoName, field.GoName, r.typeRef(field.GoType), field.Selector)
 		}
 	}
 
@@ -310,9 +294,9 @@ func (t *goStructType) WriteDefinition(w io.Writer, r *renderer) error {
 	return nil
 }
 
-func (t *goStructType) QualifiedRef() string                   { return t.GoName }
-func (t *goStructType) renderRef(*importScope) (string, error) { return t.GoName, nil }
-func (t *goStructType) GraphQLTypeName() string                { return t.GraphQLName }
+func (t *goStructType) QualifiedRef() string          { return t.GoName }
+func (t *goStructType) renderRef(*importScope) string { return t.GoName }
+func (t *goStructType) GraphQLTypeName() string       { return t.GraphQLName }
 
 // goInterfaceType represents a Go interface type for a GraphQL interface or union.
 type goInterfaceType struct {
@@ -333,10 +317,7 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 	fmt.Fprintf(w, "type %s interface {\n", t.GoName)
 	fmt.Fprintf(w, "\t%s()\n", t.markerMethodName())
 	for _, field := range t.SharedFields {
-		ref, err := r.typeRef(field.GoType)
-		if err != nil {
-			return err
-		}
+		ref := r.typeRef(field.GoType)
 		if field.IsEmbedded() {
 			fmt.Fprintf(w, "\t%s\n", ref)
 			continue
@@ -377,9 +358,9 @@ func (t *goInterfaceType) WriteDefinition(w io.Writer, r *renderer) error {
 	return r.render("marshal_helper.go.tmpl", w, t)
 }
 
-func (t *goInterfaceType) QualifiedRef() string                   { return t.GoName }
-func (t *goInterfaceType) renderRef(*importScope) (string, error) { return t.GoName, nil }
-func (t *goInterfaceType) GraphQLTypeName() string                { return t.GraphQLName }
+func (t *goInterfaceType) QualifiedRef() string          { return t.GoName }
+func (t *goInterfaceType) renderRef(*importScope) string { return t.GoName }
+func (t *goInterfaceType) GraphQLTypeName() string       { return t.GraphQLName }
 
 func (t *goOpaqueType) Unwrap() goType             { return t }
 func (t *goTypenameForBuiltinType) Unwrap() goType { return t }

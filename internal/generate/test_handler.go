@@ -16,8 +16,7 @@ type testHandlerOperation struct {
 }
 
 type testHandlerTemplateData struct {
-	ErrorType     string
-	RateLimitType string
+	ClientPackage string
 	Operations    []testHandlerOperation
 }
 
@@ -49,65 +48,41 @@ var testHandlerReservedNames = []string{
 	"writeRequestError",
 }
 
-func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplateData, error) {
-	r := newRenderer(
-		plan.config.testHandlerPackage,
-		plan.config.testHandlerPkgPath,
-	)
-
-	data := testHandlerTemplateData{
-		Operations: make([]testHandlerOperation, 0, len(plan.operations)),
-	}
-
-	identifiers := make(map[string]string)
-	addIdentifier := func(name, source string) error {
-		existing := identifiers[name]
-		if existing != "" {
-			return errorf(
-				nil,
-				"generated identifier %q for %s conflicts with %s",
-				name,
-				source,
-				existing,
-			)
-		}
-		identifiers[name] = source
-		r.imports.usedAliases[name] = true
-		return nil
-	}
+func renderTestHandler(plan *generationPlan) ([]byte, error) {
+	r := newRenderer(plan.config.testHandlerPackage, "")
 	for _, name := range testHandlerReservedNames {
-		err := addIdentifier(name, "test handler runtime")
-		if err != nil {
-			return nil, testHandlerTemplateData{}, err
-		}
+		r.imports.usedAliases[name] = true
 	}
 
 	for _, op := range plan.operations {
 		if !token.IsExported(op.Name) {
-			return nil, testHandlerTemplateData{}, errorf(
+			return nil, errorf(
 				nil, "test handler operation %q must begin with an uppercase letter", op.Name,
 			)
 		}
 		if !token.IsExported(op.ResponseName) {
-			return nil, testHandlerTemplateData{}, errorf(
+			return nil, errorf(
 				nil, "test handler response type %q must be exported", op.ResponseName,
 			)
 		}
-		err := addIdentifier(op.Name+"Expectation", op.Name+" expectation")
-		if err != nil {
-			return nil, testHandlerTemplateData{}, err
-		}
-		for _, prefix := range []string{"Expect", "Default", "Reset"} {
-			r.imports.usedAliases[prefix+op.Name] = true
+		for _, name := range []string{
+			op.Name + "Expectation",
+			"Expect" + op.Name,
+			"Default" + op.Name,
+			"Reset" + op.Name,
+		} {
+			r.imports.usedAliases[name] = true
 		}
 	}
 
 	clientPackage := allocateIdentifier(plan.config.Package, r.imports.usedAliases)
 	r.imports.imports[plan.config.pkgPath] = clientPackage
 	typePrefix := clientPackage + "."
-	data.ErrorType = typePrefix + "Error"
-	data.RateLimitType = typePrefix + "RateLimit"
 
+	data := testHandlerTemplateData{
+		ClientPackage: clientPackage,
+		Operations:    make([]testHandlerOperation, 0, len(plan.operations)),
+	}
 	for index, op := range plan.operations {
 		variablesName := typePrefix + op.Name + "Variables"
 		handlerOperation := testHandlerOperation{
@@ -124,17 +99,8 @@ func newTestHandlerRenderer(plan *generationPlan) (*renderer, testHandlerTemplat
 		data.Operations = append(data.Operations, handlerOperation)
 	}
 
-	return r, data, nil
-}
-
-func renderTestHandler(plan *generationPlan) ([]byte, error) {
-	r, data, err := newTestHandlerRenderer(plan)
-	if err != nil {
-		return nil, err
-	}
-
 	var buffer bytes.Buffer
-	err = r.render("test_handler.go.tmpl", &buffer, data)
+	err := r.render("test_handler.go.tmpl", &buffer, data)
 	if err != nil {
 		return nil, err
 	}

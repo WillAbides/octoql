@@ -31,30 +31,12 @@ type plannedOperation struct {
 	ResponseName string
 }
 
-// generationPlan is the destination-neutral, read-only plan shared by client
-// and test-handler renderers.
+// generationPlan is the read-only plan shared by client and test-handler
+// renderers.
 type generationPlan struct {
 	config     Config
 	operations []*plannedOperation
 	typeMap    map[string]goType
-}
-
-func renderTypeDefinitions(r *renderer, typeMap map[string]goType) ([]byte, error) {
-	names := make([]string, 0, len(typeMap))
-	for name := range typeMap {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	var buffer bytes.Buffer
-	for _, name := range names {
-		err := typeMap[name].WriteDefinition(&buffer, r)
-		if err != nil {
-			return nil, err
-		}
-		buffer.WriteString("\n\n")
-	}
-	return buffer.Bytes(), nil
 }
 
 // usedFragments returns the named fragments transitively spread into op.
@@ -434,22 +416,26 @@ func reserveClientDeclarations(plan *generationPlan, scope *importScope) {
 func renderClient(plan *generationPlan) ([]byte, error) {
 	r := newRenderer(plan.config.Package, plan.config.pkgPath)
 	reserveClientDeclarations(plan, r.imports)
-	err := registerBoundTypeImports(plan.typeMap, r.imports)
-	if err != nil {
-		return nil, err
-	}
-
-	typeDefinitions, err := renderTypeDefinitions(r, plan.typeMap)
-	if err != nil {
-		return nil, err
-	}
+	registerBoundTypeImports(plan.typeMap, r.imports)
 
 	var bodyBuf bytes.Buffer
-	err = r.render("runtime.go.tmpl", &bodyBuf, nil)
+	err := r.render("runtime.go.tmpl", &bodyBuf, nil)
 	if err != nil {
 		return nil, err
 	}
-	bodyBuf.Write(typeDefinitions)
+
+	typeNames := make([]string, 0, len(plan.typeMap))
+	for name := range plan.typeMap {
+		typeNames = append(typeNames, name)
+	}
+	sort.Strings(typeNames)
+	for _, name := range typeNames {
+		err = plan.typeMap[name].WriteDefinition(&bodyBuf, r)
+		if err != nil {
+			return nil, err
+		}
+		bodyBuf.WriteString("\n\n")
+	}
 
 	for _, op := range plan.operations {
 		err = r.render("operation.go.tmpl", &bodyBuf, op)

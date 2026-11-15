@@ -13,7 +13,7 @@ import (
 var templates embed.FS
 
 // renderer renders Go declarations and templates into one target package using
-// an isolated importScope, leaving the shared generationPlan untouched.
+// an isolated importScope.
 type renderer struct {
 	pkgName       string
 	imports       *importScope
@@ -28,7 +28,7 @@ func newRenderer(pkgName, pkgPath string) *renderer {
 	}
 }
 
-func (r *renderer) typeRef(typ goType) (string, error) {
+func (r *renderer) typeRef(typ goType) string {
 	return typ.renderRef(r.imports)
 }
 

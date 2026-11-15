@@ -33,9 +33,8 @@ type Config struct {
 	baseDir string
 	// The package-path into which we are generating.
 	pkgPath string
-	// The package name and path for the generated test handler.
+	// The package name for the generated test handler.
 	testHandlerPackage string
-	testHandlerPkgPath string
 	normalized         bool
 	outputs            []inspectedPath
 }
@@ -253,7 +252,6 @@ func (c *Config) validatePackageNameAndPath() error {
 		)
 	}
 	c.testHandlerPackage = handlerPackage
-	c.testHandlerPkgPath = handlerPkgPath
 	return nil
 }
 

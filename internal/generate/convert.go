@@ -1,7 +1,7 @@
 package generate
 
 // This file converts validated GraphQL operations, fragments, and input types
-// into destination-neutral Go type definitions in planState.typeMap.
+// into Go type definitions in planState.typeMap.
 
 import (
 	"fmt"
