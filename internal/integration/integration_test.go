@@ -144,87 +144,50 @@ func TestOmitempty(t *testing.T) {
 	assert.Equal(t, 17, requirePtrValue(t, response.User.ContributionCount))
 }
 
-func TestCustomMarshal(t *testing.T) {
+func TestBoundScalar(t *testing.T) {
 	client := newTestClient(t)
 
-	response, err := client.queryWithCustomMarshal(t.Context(), queryWithCustomMarshalVariables{
-		Date: testutil.Date(time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC)),
-	})
+	matchedDate := testutil.Date(time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))
+	unmatchedDate := testutil.Date(time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC))
+	expectedMidnight := testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC))
 
+	response, err := client.queryWithBoundScalar(t.Context(), queryWithBoundScalarVariables{
+		Date:         matchedDate,
+		Dates:        []testutil.Date{matchedDate},
+		OptionalDate: &matchedDate,
+	})
 	require.NoError(t, err)
 
-	assert.Len(t, response.UsersCreatedOn, 1)
-	user := response.UsersCreatedOn[0]
-	assert.Equal(t, "1", user.Id)
-	assert.Equal(t, "octocat", user.Login)
-	assert.Equal(t,
-		testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)),
-		requirePtrValue(t, user.CreatedAt))
+	require.Len(t, response.ByDate, 1)
+	assert.Equal(t, "1", response.ByDate[0].Id)
+	assert.Equal(t, "octocat", response.ByDate[0].Login)
+	assert.Equal(t, expectedMidnight, requirePtrValue(t, response.ByDate[0].CreatedAt))
 
-	response, err = client.queryWithCustomMarshal(t.Context(), queryWithCustomMarshalVariables{
-		Date: testutil.Date(time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC)),
-	})
+	require.Len(t, response.ByDates, 1)
+	assert.Equal(t, "1", response.ByDates[0].Id)
+	assert.Equal(t, "octocat", response.ByDates[0].Login)
+	assert.Equal(t, expectedMidnight, requirePtrValue(t, response.ByDates[0].CreatedAt))
 
-	require.NoError(t, err)
-	assert.Empty(t, response.UsersCreatedOn)
-}
-
-func TestCustomMarshalSlice(t *testing.T) {
-	client := newTestClient(t)
-
-	response, err := client.queryWithCustomMarshalSlice(t.Context(), queryWithCustomMarshalSliceVariables{
-		Dates: []testutil.Date{testutil.Date(time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))},
-	})
-
-	require.NoError(t, err)
-
-	assert.Len(t, response.UsersCreatedOnDates, 1)
-	user := response.UsersCreatedOnDates[0]
-	assert.Equal(t, "1", user.Id)
-	assert.Equal(t, "octocat", user.Login)
-	assert.Equal(t,
-		testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)),
-		requirePtrValue(t, user.CreatedAt))
-
-	response, err = client.queryWithCustomMarshalSlice(t.Context(), queryWithCustomMarshalSliceVariables{
-		Dates: []testutil.Date{testutil.Date(time.Date(2021, time.January, 1, 12, 34, 56, 789, time.UTC))},
-	})
-
-	require.NoError(t, err)
-	assert.Empty(t, response.UsersCreatedOnDates)
-}
-
-func TestCustomMarshalOptional(t *testing.T) {
-	client := newTestClient(t)
-
-	date := testutil.Date(time.Date(2025, time.January, 1, 12, 34, 56, 789, time.UTC))
-	response, err := client.queryWithCustomMarshalOptional(t.Context(), queryWithCustomMarshalOptionalVariables{
-		Date: &date,
-	})
-
-	require.NoError(t, err)
-
-	assert.Len(t, response.UserSearch, 1)
-	user := response.UserSearch[0]
-	require.NotNil(t, user)
-	assert.Equal(t, "1", user.Id)
-	assert.Equal(t, "octocat", user.Login)
-	assert.Equal(t,
-		testutil.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)),
-		requirePtrValue(t, user.CreatedAt))
+	require.Len(t, response.BySearch, 1)
+	require.NotNil(t, response.BySearch[0])
+	assert.Equal(t, "1", response.BySearch[0].Id)
+	assert.Equal(t, "octocat", response.BySearch[0].Login)
+	assert.Equal(t, expectedMidnight, requirePtrValue(t, response.BySearch[0].CreatedAt))
 
 	login := "raven"
-	response, err = client.queryWithCustomMarshalOptional(t.Context(), queryWithCustomMarshalOptionalVariables{
+	response, err = client.queryWithBoundScalar(t.Context(), queryWithBoundScalarVariables{
+		Date:  unmatchedDate,
+		Dates: []testutil.Date{unmatchedDate},
 		Login: &login,
 	})
-
 	require.NoError(t, err)
-	assert.Len(t, response.UserSearch, 1)
-	user = response.UserSearch[0]
-	require.NotNil(t, user)
-	assert.Equal(t, "2", user.Id)
-	assert.Equal(t, "raven", user.Login)
-	assert.Nil(t, user.CreatedAt)
+	assert.Empty(t, response.ByDate)
+	assert.Empty(t, response.ByDates)
+	require.Len(t, response.BySearch, 1)
+	require.NotNil(t, response.BySearch[0])
+	assert.Equal(t, "2", response.BySearch[0].Id)
+	assert.Equal(t, "raven", response.BySearch[0].Login)
+	assert.Nil(t, response.BySearch[0].CreatedAt)
 }
 
 func TestInterfaceNoFragments(t *testing.T) {

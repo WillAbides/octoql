@@ -2773,102 +2773,80 @@ func (v *queryFragmentActorsUser) _octoqlPremarshalJSON() (*_octoqlPremarshalque
 	return &retval, nil
 }
 
-// queryWithCustomMarshalOptionalResponse is returned by queryWithCustomMarshalOptional on success.
-type queryWithCustomMarshalOptionalResponse struct {
-	UserSearch []*queryWithCustomMarshalOptionalUserSearchUser `json:"userSearch"`
-}
-
-// GetUserSearch returns queryWithCustomMarshalOptionalResponse.UserSearch, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalOptionalResponse) GetUserSearch() []*queryWithCustomMarshalOptionalUserSearchUser {
-	return v.UserSearch
-}
-
-// queryWithCustomMarshalOptionalUserSearchUser includes the requested fields of the GraphQL type User.
-type queryWithCustomMarshalOptionalUserSearchUser struct {
+// queryWithBoundScalarByDateUser includes the requested fields of the GraphQL type User.
+type queryWithBoundScalarByDateUser struct {
 	Id        string         `json:"id"`
 	Login     string         `json:"login"`
 	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
-// GetId returns queryWithCustomMarshalOptionalUserSearchUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalOptionalUserSearchUser) GetId() string { return v.Id }
+// GetId returns queryWithBoundScalarByDateUser.Id, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarByDateUser) GetId() string { return v.Id }
 
-// GetLogin returns queryWithCustomMarshalOptionalUserSearchUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalOptionalUserSearchUser) GetLogin() string { return v.Login }
+// GetLogin returns queryWithBoundScalarByDateUser.Login, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarByDateUser) GetLogin() string { return v.Login }
 
-// GetCreatedAt returns queryWithCustomMarshalOptionalUserSearchUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalOptionalUserSearchUser) GetCreatedAt() *testutil.Date {
-	return v.CreatedAt
-}
+// GetCreatedAt returns queryWithBoundScalarByDateUser.CreatedAt, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarByDateUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
 
-// queryWithCustomMarshalOptionalVariables contains the variables accepted by queryWithCustomMarshalOptional.
-type queryWithCustomMarshalOptionalVariables struct {
-	Date  *testutil.Date `json:"date"`
-	Login *string        `json:"login"`
-}
-
-// queryWithCustomMarshalResponse is returned by queryWithCustomMarshal on success.
-type queryWithCustomMarshalResponse struct {
-	UsersCreatedOn []queryWithCustomMarshalUsersCreatedOnUser `json:"usersCreatedOn"`
-}
-
-// GetUsersCreatedOn returns queryWithCustomMarshalResponse.UsersCreatedOn, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalResponse) GetUsersCreatedOn() []queryWithCustomMarshalUsersCreatedOnUser {
-	return v.UsersCreatedOn
-}
-
-// queryWithCustomMarshalSliceResponse is returned by queryWithCustomMarshalSlice on success.
-type queryWithCustomMarshalSliceResponse struct {
-	UsersCreatedOnDates []queryWithCustomMarshalSliceUsersCreatedOnDatesUser `json:"usersCreatedOnDates"`
-}
-
-// GetUsersCreatedOnDates returns queryWithCustomMarshalSliceResponse.UsersCreatedOnDates, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalSliceResponse) GetUsersCreatedOnDates() []queryWithCustomMarshalSliceUsersCreatedOnDatesUser {
-	return v.UsersCreatedOnDates
-}
-
-// queryWithCustomMarshalSliceUsersCreatedOnDatesUser includes the requested fields of the GraphQL type User.
-type queryWithCustomMarshalSliceUsersCreatedOnDatesUser struct {
+// queryWithBoundScalarByDatesUser includes the requested fields of the GraphQL type User.
+type queryWithBoundScalarByDatesUser struct {
 	Id        string         `json:"id"`
 	Login     string         `json:"login"`
 	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
-// GetId returns queryWithCustomMarshalSliceUsersCreatedOnDatesUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetId() string { return v.Id }
+// GetId returns queryWithBoundScalarByDatesUser.Id, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarByDatesUser) GetId() string { return v.Id }
 
-// GetLogin returns queryWithCustomMarshalSliceUsersCreatedOnDatesUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetLogin() string { return v.Login }
+// GetLogin returns queryWithBoundScalarByDatesUser.Login, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarByDatesUser) GetLogin() string { return v.Login }
 
-// GetCreatedAt returns queryWithCustomMarshalSliceUsersCreatedOnDatesUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalSliceUsersCreatedOnDatesUser) GetCreatedAt() *testutil.Date {
-	return v.CreatedAt
-}
+// GetCreatedAt returns queryWithBoundScalarByDatesUser.CreatedAt, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarByDatesUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
 
-// queryWithCustomMarshalSliceVariables contains the variables accepted by queryWithCustomMarshalSlice.
-type queryWithCustomMarshalSliceVariables struct {
-	Dates []testutil.Date `json:"dates"`
-}
-
-// queryWithCustomMarshalUsersCreatedOnUser includes the requested fields of the GraphQL type User.
-type queryWithCustomMarshalUsersCreatedOnUser struct {
+// queryWithBoundScalarBySearchUser includes the requested fields of the GraphQL type User.
+type queryWithBoundScalarBySearchUser struct {
 	Id        string         `json:"id"`
 	Login     string         `json:"login"`
 	CreatedAt *testutil.Date `json:"createdAt"`
 }
 
-// GetId returns queryWithCustomMarshalUsersCreatedOnUser.Id, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalUsersCreatedOnUser) GetId() string { return v.Id }
+// GetId returns queryWithBoundScalarBySearchUser.Id, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarBySearchUser) GetId() string { return v.Id }
 
-// GetLogin returns queryWithCustomMarshalUsersCreatedOnUser.Login, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalUsersCreatedOnUser) GetLogin() string { return v.Login }
+// GetLogin returns queryWithBoundScalarBySearchUser.Login, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarBySearchUser) GetLogin() string { return v.Login }
 
-// GetCreatedAt returns queryWithCustomMarshalUsersCreatedOnUser.CreatedAt, and is useful for accessing the field via an interface.
-func (v *queryWithCustomMarshalUsersCreatedOnUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
+// GetCreatedAt returns queryWithBoundScalarBySearchUser.CreatedAt, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarBySearchUser) GetCreatedAt() *testutil.Date { return v.CreatedAt }
 
-// queryWithCustomMarshalVariables contains the variables accepted by queryWithCustomMarshal.
-type queryWithCustomMarshalVariables struct {
-	Date testutil.Date `json:"date"`
+// queryWithBoundScalarResponse is returned by queryWithBoundScalar on success.
+type queryWithBoundScalarResponse struct {
+	ByDate   []queryWithBoundScalarByDateUser    `json:"byDate"`
+	ByDates  []queryWithBoundScalarByDatesUser   `json:"byDates"`
+	BySearch []*queryWithBoundScalarBySearchUser `json:"bySearch"`
+}
+
+// GetByDate returns queryWithBoundScalarResponse.ByDate, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarResponse) GetByDate() []queryWithBoundScalarByDateUser { return v.ByDate }
+
+// GetByDates returns queryWithBoundScalarResponse.ByDates, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarResponse) GetByDates() []queryWithBoundScalarByDatesUser {
+	return v.ByDates
+}
+
+// GetBySearch returns queryWithBoundScalarResponse.BySearch, and is useful for accessing the field via an interface.
+func (v *queryWithBoundScalarResponse) GetBySearch() []*queryWithBoundScalarBySearchUser {
+	return v.BySearch
+}
+
+// queryWithBoundScalarVariables contains the variables accepted by queryWithBoundScalar.
+type queryWithBoundScalarVariables struct {
+	Date         testutil.Date   `json:"date"`
+	Dates        []testutil.Date `json:"dates"`
+	OptionalDate *testutil.Date  `json:"optionalDate"`
+	Login        *string         `json:"login"`
 }
 
 // queryWithDirectivesAndSkipIncludeVariables contains the variables accepted by queryWithDirectivesAndSkipInclude.
@@ -5346,30 +5324,30 @@ func (c *Client) getRepository(
 	return &response, nil
 }
 
-// The query executed by queryWithCustomMarshal.
-const queryWithCustomMarshal_Operation = "\nquery queryWithCustomMarshal ($date: Date!) {\n\tusersCreatedOn(date: $date) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n"
+// The query executed by queryWithBoundScalar.
+const queryWithBoundScalar_Operation = "\nquery queryWithBoundScalar ($date: Date!, $dates: [Date!]!, $optionalDate: Date, $login: String) {\n\tbyDate: usersCreatedOn(date: $date) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n\tbyDates: usersCreatedOnDates(dates: $dates) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n\tbySearch: userSearch(createdOn: $optionalDate, login: $login) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n"
 
-// queryWithCustomMarshalPartialDataError contains partial data returned by queryWithCustomMarshal.
-type queryWithCustomMarshalPartialDataError struct {
-	data *queryWithCustomMarshalResponse
+// queryWithBoundScalarPartialDataError contains partial data returned by queryWithBoundScalar.
+type queryWithBoundScalarPartialDataError struct {
+	data *queryWithBoundScalarResponse
 	err  error
 }
 
-func (e *queryWithCustomMarshalPartialDataError) Error() string {
+func (e *queryWithBoundScalarPartialDataError) Error() string {
 	if e == nil || e.err == nil {
 		return "graphql response contains partial data"
 	}
 	return e.err.Error()
 }
 
-func (e *queryWithCustomMarshalPartialDataError) Unwrap() error {
+func (e *queryWithBoundScalarPartialDataError) Unwrap() error {
 	if e == nil {
 		return nil
 	}
 	return e.err
 }
 
-func (e *queryWithCustomMarshalPartialDataError) PartialData() *queryWithCustomMarshalResponse {
+func (e *queryWithBoundScalarPartialDataError) PartialData() *queryWithBoundScalarResponse {
 	if e == nil {
 		return nil
 	}
@@ -5377,20 +5355,20 @@ func (e *queryWithCustomMarshalPartialDataError) PartialData() *queryWithCustomM
 }
 
 // PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithCustomMarshalPartialDataError) PartialDataValue() any {
+func (e *queryWithBoundScalarPartialDataError) PartialDataValue() any {
 	return e.PartialData()
 }
 
-func (c *Client) queryWithCustomMarshal(
+func (c *Client) queryWithBoundScalar(
 	ctx context.Context,
-	vars queryWithCustomMarshalVariables,
-) (*queryWithCustomMarshalResponse, error) {
-	var response queryWithCustomMarshalResponse
+	vars queryWithBoundScalarVariables,
+) (*queryWithBoundScalarResponse, error) {
+	var response queryWithBoundScalarResponse
 	hasData, err := c._octoqlExecute(
 		ctx,
 		_octoqlPayload{
-			OperationName: "queryWithCustomMarshal",
-			Query:         queryWithCustomMarshal_Operation,
+			OperationName: "queryWithBoundScalar",
+			Query:         queryWithBoundScalar_Operation,
 			Variables:     &vars,
 		},
 		&response,
@@ -5399,129 +5377,7 @@ func (c *Client) queryWithCustomMarshal(
 		return nil, err
 	}
 	if err != nil {
-		return nil, &queryWithCustomMarshalPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
-}
-
-// The query executed by queryWithCustomMarshalOptional.
-const queryWithCustomMarshalOptional_Operation = "\nquery queryWithCustomMarshalOptional ($date: Date, $login: String) {\n\tuserSearch(createdOn: $date, login: $login) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n"
-
-// queryWithCustomMarshalOptionalPartialDataError contains partial data returned by queryWithCustomMarshalOptional.
-type queryWithCustomMarshalOptionalPartialDataError struct {
-	data *queryWithCustomMarshalOptionalResponse
-	err  error
-}
-
-func (e *queryWithCustomMarshalOptionalPartialDataError) Error() string {
-	if e == nil || e.err == nil {
-		return "graphql response contains partial data"
-	}
-	return e.err.Error()
-}
-
-func (e *queryWithCustomMarshalOptionalPartialDataError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.err
-}
-
-func (e *queryWithCustomMarshalOptionalPartialDataError) PartialData() *queryWithCustomMarshalOptionalResponse {
-	if e == nil {
-		return nil
-	}
-	return e.data
-}
-
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithCustomMarshalOptionalPartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
-func (c *Client) queryWithCustomMarshalOptional(
-	ctx context.Context,
-	vars queryWithCustomMarshalOptionalVariables,
-) (*queryWithCustomMarshalOptionalResponse, error) {
-	var response queryWithCustomMarshalOptionalResponse
-	hasData, err := c._octoqlExecute(
-		ctx,
-		_octoqlPayload{
-			OperationName: "queryWithCustomMarshalOptional",
-			Query:         queryWithCustomMarshalOptional_Operation,
-			Variables:     &vars,
-		},
-		&response,
-	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &queryWithCustomMarshalOptionalPartialDataError{
-			data: &response,
-			err:  err,
-		}
-	}
-	return &response, nil
-}
-
-// The query executed by queryWithCustomMarshalSlice.
-const queryWithCustomMarshalSlice_Operation = "\nquery queryWithCustomMarshalSlice ($dates: [Date!]!) {\n\tusersCreatedOnDates(dates: $dates) {\n\t\tid\n\t\tlogin\n\t\tcreatedAt\n\t}\n}\n"
-
-// queryWithCustomMarshalSlicePartialDataError contains partial data returned by queryWithCustomMarshalSlice.
-type queryWithCustomMarshalSlicePartialDataError struct {
-	data *queryWithCustomMarshalSliceResponse
-	err  error
-}
-
-func (e *queryWithCustomMarshalSlicePartialDataError) Error() string {
-	if e == nil || e.err == nil {
-		return "graphql response contains partial data"
-	}
-	return e.err.Error()
-}
-
-func (e *queryWithCustomMarshalSlicePartialDataError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.err
-}
-
-func (e *queryWithCustomMarshalSlicePartialDataError) PartialData() *queryWithCustomMarshalSliceResponse {
-	if e == nil {
-		return nil
-	}
-	return e.data
-}
-
-// PartialDataValue returns the partial response as an untyped value.
-func (e *queryWithCustomMarshalSlicePartialDataError) PartialDataValue() any {
-	return e.PartialData()
-}
-
-func (c *Client) queryWithCustomMarshalSlice(
-	ctx context.Context,
-	vars queryWithCustomMarshalSliceVariables,
-) (*queryWithCustomMarshalSliceResponse, error) {
-	var response queryWithCustomMarshalSliceResponse
-	hasData, err := c._octoqlExecute(
-		ctx,
-		_octoqlPayload{
-			OperationName: "queryWithCustomMarshalSlice",
-			Query:         queryWithCustomMarshalSlice_Operation,
-			Variables:     &vars,
-		},
-		&response,
-	)
-	if !hasData {
-		return nil, err
-	}
-	if err != nil {
-		return nil, &queryWithCustomMarshalSlicePartialDataError{
+		return nil, &queryWithBoundScalarPartialDataError{
 			data: &response,
 			err:  err,
 		}

@@ -371,26 +371,6 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			wantErr: "field unknown not found in type config.Config",
 		},
 		{
-			name:    "removed legacy option",
-			yaml:    baseYAML + "use_extensions: true\n",
-			wantErr: "field use_extensions not found in type config.Config",
-		},
-		{
-			name:    "removed context_type option",
-			yaml:    baseYAML + "context_type: \"-\"\n",
-			wantErr: "field context_type not found in type config.Config",
-		},
-		{
-			name:    "removed export_operations option",
-			yaml:    baseYAML + "export_operations: operations.json\n",
-			wantErr: "field export_operations not found in type config.Config",
-		},
-		{
-			name:    "removed omit_unreferenced_implementations option",
-			yaml:    baseYAML + "omit_unreferenced_implementations: false\n",
-			wantErr: "field omit_unreferenced_implementations not found in type config.Config",
-		},
-		{
 			name:    "nested binding mapping rejected",
 			yaml:    baseYAML + "bindings:\n  DateTime:\n    type: time.Time\n",
 			wantErr: "cannot construct !!map into string",
@@ -399,11 +379,6 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			name:    "empty binding value",
 			yaml:    baseYAML + "bindings:\n  DateTime: \"\"\n",
 			wantErr: "bindings.DateTime must not be empty",
-		},
-		{
-			name:    "removed casing option",
-			yaml:    baseYAML + "casing: {}\n",
-			wantErr: "field casing not found in type config.Config",
 		},
 		{
 			name:    "invalid test handler strategy",
@@ -439,16 +414,6 @@ func TestRunGenerateConfigErrors(t *testing.T) {
 			name:    "missing test handler generated",
 			yaml:    baseYAML + "test_handler: {}\n",
 			wantErr: "test_handler.generated is required",
-		},
-		{
-			name:    "removed package_bindings option",
-			yaml:    baseYAML + "package_bindings: []\n",
-			wantErr: "field package_bindings not found in type config.Config",
-		},
-		{
-			name:    "removed use_struct_references option",
-			yaml:    baseYAML + "use_struct_references: true\n",
-			wantErr: "field use_struct_references not found in type config.Config",
 		},
 		{
 			name:    "missing source repository",

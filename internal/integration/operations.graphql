@@ -56,22 +56,23 @@ query queryWithOmitempty ($login: String) @octoqlgenDefaults(omitempty: true) {
     contributionCount
   }
 }
-query queryWithCustomMarshal ($date: Date!) {
-  usersCreatedOn(date: $date) {
+query queryWithBoundScalar(
+  $date: Date!
+  $dates: [Date!]!
+  $optionalDate: Date @octoqlgen(pointer: true)
+  $login: String @octoqlgen(pointer: true)
+) {
+  byDate: usersCreatedOn(date: $date) {
     id
     login
     createdAt
   }
-}
-query queryWithCustomMarshalSlice ($dates: [Date!]!) {
-  usersCreatedOnDates(dates: $dates) {
+  byDates: usersCreatedOnDates(dates: $dates) {
     id
     login
     createdAt
   }
-}
-query queryWithCustomMarshalOptional ($date: Date @octoqlgen(pointer: true), $login: String @octoqlgen(pointer: true)) {
-  userSearch(createdOn: $date, login: $login) {
+  bySearch: userSearch(createdOn: $optionalDate, login: $login) {
     id
     login
     createdAt

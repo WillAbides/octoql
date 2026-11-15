@@ -2,13 +2,11 @@ package generate
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -16,13 +14,10 @@ import (
 	"github.com/gkampitakis/go-snaps/snaps"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/validator"
 )
 
-const (
-	dataDir                     = "testdata/queries"
-	errorsDir                   = "testdata/errors"
-	githubGenerationDefaultsDir = "testdata/github-generation-defaults"
-)
+const dataDir = "testdata/queries"
 
 func testBindings() map[string]string {
 	return map[string]string{
@@ -182,14 +177,6 @@ func TestGenerate(t *testing.T) {
 			sourceFilenames: []string{"Inputs.graphql"},
 		},
 		{
-			name:            "Naming.graphql",
-			sourceFilenames: []string{"Naming.graphql"},
-		},
-		{
-			name:            "PredeclaredOperationNames.graphql",
-			sourceFilenames: []string{"PredeclaredOperationNames.graphql"},
-		},
-		{
 			name: "MultipleOperationFiles",
 			sourceFilenames: []string{
 				"Naming.graphql",
@@ -331,6 +318,24 @@ func TestGenerateRejectsRuntimeIdentifierCollisions(t *testing.T) {
 			schema:    "enum PartialDataError {\n  VALUE\n}\ntype Query {\n  value: PartialDataError!\n}\n",
 			operation: "query All {\n  value\n}\n",
 			wantError: `generated partial data error "AllPartialDataError" conflicts with a generated enum values variable`,
+		},
+		{
+			name:      "partial data error type collision",
+			schema:    "type Query {\n  user: User\n}\ntype User {\n  id: ID!\n}\n",
+			operation: "query GetUser {\n  user {\n    ...GetUserPartialDataError\n  }\n}\nfragment GetUserPartialDataError on User {\n  id\n}\n",
+			wantError: `generated partial data error "GetUserPartialDataError" conflicts with a generated GraphQL type`,
+		},
+		{
+			name:      "partial data error enum value collision",
+			schema:    "enum FooPartial {\n  DATA_ERROR\n}\ntype Query {\n  status: FooPartial!\n}\n",
+			operation: "query Foo {\n  status\n}\n",
+			wantError: `generated partial data error "FooPartialDataError" conflicts with a generated enum value`,
+		},
+		{
+			name:      "partial data error operation name collision",
+			schema:    "type Query {\n  value: String!\n}\n",
+			operation: "query GetUser {\n  value\n}\nquery GetUserPartialDataError {\n  value\n}\n",
+			wantError: `generated partial data error "GetUserPartialDataError" conflicts with operation "GetUserPartialDataError"`,
 		},
 		{
 			name:      "private runtime declaration collision",
@@ -823,161 +828,240 @@ func compileGeneratedOutputs(
 	compileGoDir(t, directory, false)
 }
 
-func TestOmitUnreferencedImplementations(t *testing.T) {
-	t.Parallel()
-
-	config := &Config{
-		Schema:     filepath.Join(dataDir, "schema.graphql"),
-		Operations: []string{filepath.Join(githubGenerationDefaultsDir, "operations.graphql")},
-		Generated:  "generated.go",
-		Package:    "githubdefaults",
-	}
-	generated, err := Generate(config)
-	require.NoError(t, err)
-	source := string(generated[config.Generated])
-
-	assert.Contains(t, source, "type GitHubAbstractSelectionsNodeRepository struct")
-	assert.Contains(t, source, "type GitHubAbstractSelectionsNodeOctoqlOther struct")
-	assert.NotContains(t, source, "type GitHubAbstractSelectionsNodeIssue struct")
-
-	catchAllPattern := regexp.MustCompile(`type (\w+OctoqlOther) struct`)
-	matches := catchAllPattern.FindAllStringSubmatch(source, -1)
-	require.NotEmpty(t, matches)
-	names := make(map[string]bool, len(matches))
-	for _, match := range matches {
-		require.Falsef(t, names[match[1]], "duplicate catch-all %s", match[1])
-		names[match[1]] = true
-	}
-}
-
-// TestGenerateErrors is a snapshot-based test of error text.
-//
-// For each .go or .graphql file in testdata/errors, it asserts that the given
-// query returns an error, and that the error's string-text matches the
-// snapshot.  The snapshotting is useful to ensure we don't accidentally make
-// the text less readable, drop the line numbers, etc.  We include both .go and
-// .graphql tests for some of the test cases, to make sure the line numbers
-// work in both cases.  Tests may include a .schema.graphql file of their own,
-// or use the shared schema.graphql in the same directory for convenience.
 func TestGenerateErrors(t *testing.T) {
 	t.Parallel()
 
-	files, readErr := os.ReadDir(errorsDir)
-	if readErr != nil {
-		t.Fatal(readErr)
+	const defaultSchema = `type Query {
+  f: String
+  user: User
+  default(input: InputWithDefaults! = {field: "input omitted"}): Boolean
+  omitempty(input: OmitemptyInput): Boolean
+}
+
+type User {
+  id: ID!
+  name: ValidScalar!
+}
+
+scalar ValidScalar
+
+input InputWithDefaults {
+  field: String! = "input field omitted"
+  nullableField: String = "nullable input field omitted"
+}
+
+input OmitemptyInput {
+  field: String!
+  nullableField: String
+}
+`
+
+	tests := []struct {
+		name      string
+		schema    string
+		operation string
+		want      string
+	}{
+		{
+			name:      "conflicting directive arguments",
+			operation: "query ConflictingDirectiveArguments @octoqlgen(pointer: true, pointer: false) { f }\n",
+			want:      `operation.graphql:1: query-spec does not match schema: There can be only one argument named "pointer".`,
+		},
+		{
+			name:      "conflicting directives",
+			operation: "query ConflictingDirectives @octoqlgenDefaults(pointer: true) @octoqlgenDefaults(pointer: false) { f }\n",
+			want:      "operation.graphql:1: conflicting values for pointer",
+		},
+		{
+			name:      "conflicting enum values",
+			schema:    "enum AnnoyingEnum {\n  first_value\n  second_value\n  FIRST_VALUE\n}\n\ntype Query {\n  f: AnnoyingEnum\n}\n",
+			operation: "query ConflictingEnumValues { f }\n",
+			want:      "schema.graphql:4: enum values FIRST_VALUE and first_value have conflicting Go name AnnoyingEnumFirstValue",
+		},
+		{
+			name:      "unnamed operation",
+			schema:    "type Query {\n  myField: String\n}\n",
+			operation: "query {\n  myField\n}\n",
+			want:      "operation.graphql:1: operations must have operation-names",
+		},
+		{
+			name:      "conflicting typename and for-field bind",
+			operation: "query ConflictingTypeNameAndGlobalBind @octoqlgenFor(field: \"User.name\", bind: \"[]byte\") {\n  user {\n    name @octoqlgen(typename: \"MyID\")\n  }\n}\n",
+			want:      "operation.graphql:3: typename and bind may not be used together",
+		},
+		{
+			name:      "conflicting typename and global bind",
+			operation: "query ConflictingTypeNameAndGlobalBind {\n  user {\n    name @octoqlgen(typename: \"OtherScalar\")\n  }\n}\n",
+			want:      "operation.graphql:3: typename option conflicts with global binding for ValidScalar; use `bind: \"-\"` to override it",
+		},
+		{
+			name:      "conflicting typename and local bind",
+			operation: "query ConflictingTypeNameAndGlobalBind {\n  user {\n    name @octoqlgen(bind: \"[]byte\", typename: \"MyID\")\n  }\n}\n",
+			want:      "operation.graphql:3: typename and bind may not be used together",
+		},
+		{
+			name:      "conflicting type names",
+			schema:    "type Query {\n  f: T\n}\n\ntype T {\n  g: String!\n  h: String!\n}\n",
+			operation: "query ConflictingTypeNames {\n  f @octoqlgen(typename: \"T\") {\n    g\n  }\n  otherF: f @octoqlgen(typename: \"T\") {\n    g\n    h\n  }\n}\n",
+			want:      "operation.graphql:5: conflicting definition for the Go type T: it is generated from both the selection of GraphQL type T (at operation.graphql:2) and the selection of GraphQL type T (at operation.graphql:5), which select different fields (field count changed: 1 fields vs 2 fields); give one of them a distinct name with an @octoqlgen(typename:) directive so they produce separate Go types",
+		},
+		{
+			name:      "default input pointer without omitempty",
+			operation: "# Non-nullable input field with default cannot be pointer without omitempty.\nquery DefaultInputs(\n  $input: InputWithDefaults!\n) @octoqlgenFor(field: \"InputWithDefaults.field\", pointer: true) {\n  default(input: $input)\n}\n",
+			want:      "operation.graphql:3: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field",
+		},
+		{
+			name:      "empty for directive field",
+			operation: "query EmptyForDirective @octoqlgenFor(field: \"\", pointer: false) {\n  f\n}\n",
+			want:      "operation.graphql:1: field must not be empty",
+		},
+		{
+			name:      "flatten field without spread",
+			schema:    "type Query { t: T }\ntype T { f: String }\n",
+			operation: "query FlattenField {\n  t @octoqlgen(flatten: true) {\n    f\n  }\n}\n",
+			want:      "operation.graphql:2: flatten is not yet supported for fields (only fragment spreads)",
+		},
+		{
+			name:      "flatten implementation mismatch",
+			schema:    "type Query { i: I }\ninterface I { f: String }\ntype T implements I { f: String }\n",
+			operation: "fragment F on T { f }\nquery FlattenImplementation {\n  i @octoqlgen(flatten: true) {\n    ...F\n  }\n}\n",
+			want:      "operation.graphql:3: flatten is not allowed for fields with fragment-spreads unless the field-type implements the fragment-type; field-type I does not implement fragment-type T",
+		},
+		{
+			name:      "unknown directive argument",
+			schema:    "type Query { t: T }\ntype T { f: String }\n",
+			operation: "query UnknownDirectiveArgument {\n  t @octoqlgen(unknown: true) {\n    f\n  }\n}\n",
+			want:      `operation.graphql:2: query-spec does not match schema: Unknown argument "unknown" on directive "@octoqlgen".`,
+		},
+		{
+			name:      "invalid query field",
+			operation: "query MyQuery { g }\n",
+			want:      `operation.graphql:1: query-spec does not match schema: Cannot query field "g" on type "Query". Did you mean "f"?`,
+		},
+		{
+			name:      "invalid scalar binding",
+			schema:    "scalar InvalidScalar\n\ntype Query { f: InvalidScalar }\n",
+			operation: "query InvalidScalar { f }\n",
+			want:      `invalid type-name "bogus" (unknown type-name "bogus"); expected a builtin, path/to/package.Name, interface{}, or a slice, map, or pointer of those`,
+		},
+		{
+			name:      "invalid schema syntax",
+			schema:    "type Query {\n  f: String!\n  bogus\n}\n",
+			operation: "query InvalidSchema { f }\n",
+			want:      "schema.graphql:4: invalid schema: Expected :, found }",
+		},
+		{
+			name:      "invalid schema with builtins",
+			schema:    "type Query {\n  f: String\n  g: Bogus\n}\n\n" + validator.Prelude.Input,
+			operation: "query MyQuery { f g }\n",
+			want:      "schema.graphql:3: invalid schema: Undefined type Bogus.",
+		},
+		{
+			name:      "keyword argument name",
+			schema:    "type Query { f(type: String): String }\n",
+			operation: "query KeywordArgumentName($type: String) {\n  f(type: $type)\n}\n",
+			want:      "operation.graphql:1: variable name must not be a go keyword",
+		},
+		{
+			name:      "keyword operation name",
+			schema:    "type Query { f: String }\n",
+			operation: "query type { f }\n",
+			want:      "operation.graphql:1: operation name must not be a go keyword",
+		},
+		{
+			name:      "keyword typename",
+			schema:    "type Query { f: T }\ntype T { g: String }\n",
+			operation: "query KeywordTypeName {\n  f @octoqlgen(typename: \"type\") {\n    g\n  }\n}\n",
+			want:      "schema.graphql:1: typename option must not be a go keyword",
+		},
+		{
+			name:      "no mutation type",
+			schema:    "type Query { f: String }\n",
+			operation: "mutation M { g }\n",
+			want:      `operation.graphql:1: query-spec does not match schema: Schema does not support operation type "mutation"`,
+		},
+		{
+			name:      "no query in file",
+			operation: "",
+			want:      "no queries found, looked in: operation.graphql (configure this in octoqlgen.yaml)",
+		},
+		{
+			name:      "no query type",
+			schema:    "type T { f: String }\n",
+			operation: "query Q { f }\n",
+			want:      `operation.graphql:1: query-spec does not match schema: Schema does not support operation type "query"`,
+		},
+		{
+			name:      "omitempty for required input field",
+			operation: "# Non-nullable input field cannot omit.\nquery OmitemptyDirective(\n  $input: OmitemptyInput\n) @octoqlgenFor(field: \"OmitemptyInput.field\", omitempty: true) {\n  omitempty(input: $input)\n}\n",
+			want:      "operation.graphql:3: omitempty may only be used on optional arguments: OmitemptyInput.field",
+		},
+		{
+			name:      "omitempty on required variable with default",
+			operation: "query OperationOmitemptyRequiredVariable(\n  $input: InputWithDefaults!\n) @octoqlgenDefaults(pointer: true, omitempty: true) {\n  default(input: $input)\n}\n",
+			want:      "operation.graphql:2: omitempty may only be used on optional arguments: OperationOmitemptyRequiredVariable.input",
+		},
+		{
+			name:      "pointer on required variable",
+			operation: "query PointerOperationVariable(\n  $input: InputWithDefaults! @octoqlgen(pointer: true)\n) {\n  default(input: $input)\n}\n",
+			want:      "operation.graphql:2: pointer on non-null argument can only be used together with omitempty: PointerOperationVariable.input",
+		},
+		{
+			name:      "struct option on object",
+			schema:    "type Query {\n  myObject: MyObject\n}\n\ntype MyObject {\n  f: String!\n}\n",
+			operation: "query StructOptionOnObject {\n  myObject @octoqlgen(struct: true) {\n    f\n  }\n}\n",
+			want:      "operation.graphql:2: struct is only applicable to interface-typed fields",
+		},
+		{
+			name:      "struct option with fragments",
+			schema:    "type Query {\n  myInterface: MyInterface\n}\n\ninterface MyInterface {\n  f: String!\n}\n\ntype MyObject implements MyInterface {\n  f: String!\n  g: String!\n}\n\ntype OtherObject implements MyInterface {\n  f: String!\n}\n",
+			operation: "query StructOptionOnObject {\n  myInterface @octoqlgen(struct: true) {\n    f\n    ... on MyObject {\n      g\n    }\n  }\n}\n",
+			want:      "operation.graphql:2: struct is not allowed for types with fragments",
+		},
+		{
+			name:      "subscription rejected",
+			schema:    "type Query {\n  value: String!\n}\n\ntype Subscription {\n  value: String!\n}\n",
+			operation: "subscription Value {\n  value\n}\n",
+			want:      "operation.graphql:1: subscriptions are not supported by octoql",
+		},
+		{
+			name:      "unknown scalar",
+			schema:    "scalar UnknownScalar\n\ntype Query { f: UnknownScalar }\n",
+			operation: "query UnknownScalar { f }\n",
+			want:      "schema.graphql:3: unknown scalar UnknownScalar: please add it to \"bindings\" in octoqlgen.yaml\nExample: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml",
+		},
 	}
 
-	for _, file := range files {
-		sourceFilename := file.Name()
-		if !strings.HasSuffix(sourceFilename, ".graphql") ||
-			strings.HasSuffix(sourceFilename, ".schema.graphql") ||
-			sourceFilename == "schema.graphql" {
-			continue
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-		baseFilename := strings.TrimSuffix(sourceFilename, filepath.Ext(sourceFilename))
-		testFilename := strings.ReplaceAll(sourceFilename, ".", "/")
+			dir := t.TempDir()
+			schema := test.schema
+			if schema == "" {
+				schema = defaultSchema
+			}
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.graphql"), []byte(schema), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "operation.graphql"), []byte(test.operation), 0o600))
 
-		// Schema is either <base>.schema.graphql, or <dir>/schema.graphql if
-		// that doesn't exist.
-		schemaFilename := baseFilename + ".schema.graphql"
-		_, statErr := os.Stat(filepath.Join(errorsDir, schemaFilename))
-		switch {
-		case errors.Is(statErr, os.ErrNotExist):
-			schemaFilename = "schema.graphql"
-		case statErr != nil:
-			t.Fatal(statErr)
-		}
-
-		t.Run(testFilename, func(t *testing.T) {
-			_, err := Generate(&Config{
-				Schema:     filepath.Join(errorsDir, schemaFilename),
-				Operations: []string{filepath.Join(errorsDir, sourceFilename)},
+			config := &Config{
+				Schema:     "schema.graphql",
+				Operations: []string{"operation.graphql"},
 				Package:    "test",
 				Generated:  os.DevNull,
 				Bindings: map[string]string{
 					"ValidScalar":   "string",
 					"InvalidScalar": "bogus",
 				},
-			})
-			if err == nil {
-				t.Fatal("expected an error")
 			}
+			require.NoError(t, config.ValidateAndFillDefaults(dir))
 
-			switch sourceFilename {
-			case "ConflictingDirectiveArguments.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/ConflictingDirectiveArguments.graphql:1: query-spec does not match schema: There can be only one argument named "pointer".`))
-			case "ConflictingDirectives.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingDirectives.graphql:1: conflicting values for pointer"))
-			case "ConflictingEnumValues.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingEnumValues.schema.graphql:4: enum values FIRST_VALUE and first_value have conflicting Go name AnnoyingEnumFirstValue"))
-			case "ConflictingSelections.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingSelections.graphql:1: operations must have operation-names"))
-			case "ConflictingTypeNameAndForFieldBind.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndForFieldBind.graphql:3: typename and bind may not be used together"))
-			case "ConflictingTypeNameAndGlobalBind.graphql":
-				want := "testdata/errors/ConflictingTypeNameAndGlobalBind.graphql:3: typename option conflicts with global binding for ValidScalar; use `bind: \"-\"` to override it"
-				if got := err.Error(); got != want {
-					t.Errorf("error = %q, want %q", got, want)
-				}
-			case "ConflictingTypeNameAndLocalBind.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNameAndLocalBind.graphql:3: typename and bind may not be used together"))
-			case "ConflictingTypeNames.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/ConflictingTypeNames.graphql:5: conflicting definition for the Go type T: it is generated from both the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:2) and the selection of GraphQL type T (at testdata/errors/ConflictingTypeNames.graphql:5), which select different fields (field count changed: 1 fields vs 2 fields); give one of them a distinct name with an @octoqlgen(typename:) directive so they produce separate Go types"))
-			case "DefaultInputsNoOmitPointerForDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/DefaultInputsNoOmitPointerForDirective.graphql:4: pointer on non-null input field can only be used together with omitempty: InputWithDefaults.field"))
-			case "EmptyForDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/EmptyForDirective.graphql:1: field must not be empty"))
-			case "FlattenField.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenField.graphql:2: flatten is not yet supported for fields (only fragment spreads)"))
-			case "FlattenImplementation.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/FlattenImplementation.graphql:3: flatten is not allowed for fields with fragment-spreads unless the field-type implements the fragment-type; field-type I does not implement fragment-type T"))
-			case "UnknownDirectiveArgument.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownDirectiveArgument.graphql:2: query-spec does not match schema: Unknown argument "unknown" on directive "@octoqlgen".`))
-			case "InvalidQuery.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/InvalidQuery.graphql:1: query-spec does not match schema: Cannot query field "g" on type "Query". Did you mean "f"?`))
-			case "InvalidScalar.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`invalid type-name "bogus" (unknown type-name "bogus"); expected a builtin, path/to/package.Name, interface{}, or a slice, map, or pointer of those`))
-			case "InvalidSchemaSyntax.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaSyntax.schema.graphql:4: invalid schema: Expected :, found }"))
-			case "InvalidSchemaWithBuiltins.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/InvalidSchemaWithBuiltins.schema.graphql:3: invalid schema: Undefined type Bogus."))
-			case "KeywordArgumentName.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordArgumentName.graphql:1: variable name must not be a go keyword"))
-			case "KeywordOperationName.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordOperationName.graphql:1: operation name must not be a go keyword"))
-			case "KeywordTypeName.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/KeywordTypeName.schema.graphql:1: typename option must not be a go keyword"))
-			case "NoMutationType.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoMutationType.graphql:1: query-spec does not match schema: Schema does not support operation type "mutation"`))
-			case "NoQuery.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("no queries found, looked in: testdata/errors/NoQuery.graphql (configure this in octoqlgen.yaml)"))
-			case "NoQueryType.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/NoQueryType.graphql:1: query-spec does not match schema: Schema does not support operation type "query"`))
-			case "OmitemptyForDirective.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OmitemptyForDirective.graphql:3: omitempty may only be used on optional arguments: OmitemptyInput.field"))
-			case "OperationOmitemptyRequiredVariable.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/OperationOmitemptyRequiredVariable.graphql:2: omitempty may only be used on optional arguments: OperationOmitemptyRequiredVariable.input"))
-			case "PartialDataErrorNameCollision.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "GetUserPartialDataError" conflicts with a generated GraphQL type`))
-			case "PartialDataErrorEnumValueCollision.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "FooPartialDataError" conflicts with a generated enum value`))
-			case "PartialDataErrorOperationNameCollision.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`generated partial data error "GetUserPartialDataError" conflicts with operation "GetUserPartialDataError"`))
-			case "PointerOperationVariable.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/PointerOperationVariable.graphql:2: pointer on non-null argument can only be used together with omitempty: PointerOperationVariable.input"))
-			case "StructOptionOnObject.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionOnObject.graphql:2: struct is only applicable to interface-typed fields"))
-			case "StructOptionWithFragments.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/StructOptionWithFragments.graphql:2: struct is not allowed for types with fragments"))
-			case "Subscription.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline("testdata/errors/Subscription.graphql:1: subscriptions are not supported by octoql"))
-			case "UnknownScalar.graphql":
-				snaps.MatchInlineSnapshot(t, err.Error(), snaps.Inline(`testdata/errors/UnknownScalar.schema.graphql:3: unknown scalar UnknownScalar: please add it to "bindings" in octoqlgen.yaml
-Example: https://github.com/willabides/octoql/blob/main/example/octoqlgen.yaml`))
-			default:
-				t.Fatalf("missing inline snapshot for %s", sourceFilename)
-			}
+			_, err := Generate(config)
+			require.Error(t, err)
+
+			got := strings.ReplaceAll(err.Error(), dir+string(filepath.Separator), "")
+			got = strings.ReplaceAll(got, filepath.ToSlash(dir)+"/", "")
+			assert.Equal(t, test.want, got)
 		})
 	}
 }

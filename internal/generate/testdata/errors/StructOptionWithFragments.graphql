@@ -1,8 +1,0 @@
-query StructOptionOnObject {
-  myInterface @octoqlgen(struct: true) {
-    f
-    ... on MyObject {
-      g
-    }
-  }
-}
