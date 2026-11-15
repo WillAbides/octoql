@@ -78,12 +78,8 @@ package generate
 //			a { ... }   # type: BC
 //		}
 //   can collide.
-// All cases seem fairly rare in practice; eventually we'll likely allow users
-// the ability to specify their own names, which they could use to avoid this
-// (see [issue #12]).
-// TODO(benkraft): We should probably at least try to detect it and bail.
-//
-// [issue #12]: https://github.com/Khan/genqlient/issues/12
+// All cases seem fairly rare in practice, and users can resolve collisions with
+// @octoqlgen(typename: ...).
 //
 // To implement all of the above, as we traverse the operation (and schema) in
 // convert.go, we keep an immutable namePrefix value containing the joined

@@ -36,8 +36,6 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
          with UnmarshalJSON methods.)
     */}}
 
-    {{/* TODO(benkraft): Omit/simplify the first pass if all fields are
-         embedded/abstract. */ -}}
     var firstPass struct{
         *{{.GoName}}
         {{range .Fields -}}
@@ -45,8 +43,6 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
         {{.GoName}} {{ref "encoding/json.RawMessage"}} `json:"{{.JSONName}}"`
         {{end -}}
         {{end -}}
-        {{/* TODO(benkraft): In principle you might have a field-name that
-             conflicts with this one; avoid that. */ -}}
         _octoqlNoUnmarshalJSON
     }
     firstPass.{{.GoName}} = v

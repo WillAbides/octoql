@@ -124,10 +124,6 @@ func getQueries(
 ) (*ast.QueryDocument, error) {
 	// We merge all the queries into a single query-document, since operations
 	// in one might reference fragments in another.
-	//
-	// TODO(benkraft): It might be better to merge just within a filename, so
-	// that fragment-names don't need to be unique across files.  (Although
-	// then we may have other problems; and query-names still need to be.)
 	mergedQueryDoc := new(ast.QueryDocument)
 	for _, filename := range filenames {
 		text, err := os.ReadFile(filename)
