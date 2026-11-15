@@ -6,12 +6,6 @@ import (
 	"unicode/utf8"
 )
 
-func reverse(slice []string) {
-	for left, right := 0, len(slice)-1; left < right; left, right = left+1, right-1 {
-		slice[left], slice[right] = slice[right], slice[left]
-	}
-}
-
 func changeFirst(s string, f func(rune) rune) string {
 	c, n := utf8.DecodeRuneInString(s)
 	if c == utf8.RuneError { // empty or invalid

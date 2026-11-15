@@ -244,8 +244,7 @@ func (c *Config) validatePackageNameAndPath() error {
 		)
 	}
 	sameDirectory := filepath.Dir(c.TestHandlerGenerated) == filepath.Dir(c.Generated)
-	samePackagePath := c.pkgPath != "" && handlerPkgPath == c.pkgPath
-	if sameDirectory || samePackagePath {
+	if sameDirectory || handlerPkgPath == c.pkgPath {
 		return errorf(
 			nil,
 			"test handler must be generated in a separate package from the client",

@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
@@ -733,6 +734,6 @@ func precedingComment(pos *ast.Position) string {
 		commentLines = append(commentLines, strings.TrimSpace(strings.TrimPrefix(line, "#")))
 	}
 
-	reverse(commentLines)
+	slices.Reverse(commentLines)
 	return strings.TrimSpace(strings.Join(commentLines, "\n"))
 }

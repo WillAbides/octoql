@@ -48,7 +48,7 @@ var testHandlerReservedNames = []string{
 	"writeRequestError",
 }
 
-func renderTestHandler(plan *generationPlan) ([]byte, error) {
+func renderTestHandler(plan *planState) ([]byte, error) {
 	r := newRenderer(plan.config.testHandlerPackage, "")
 	for _, name := range testHandlerReservedNames {
 		r.imports.usedAliases[name] = true

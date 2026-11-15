@@ -31,14 +31,6 @@ type plannedOperation struct {
 	ResponseName string
 }
 
-// generationPlan is the read-only plan shared by client and test-handler
-// renderers.
-type generationPlan struct {
-	config     Config
-	operations []*plannedOperation
-	typeMap    map[string]goType
-}
-
 // usedFragments returns the named fragments transitively spread into op.
 func usedFragments(op *ast.OperationDefinition) ast.FragmentDefinitionList {
 	var retval ast.FragmentDefinitionList
@@ -327,7 +319,7 @@ func validateClientNames(typeMap map[string]goType, operations []*plannedOperati
 	return nil
 }
 
-func buildGenerationPlan(config *Config) (*generationPlan, error) {
+func buildGenerationPlan(config *Config) (*planState, error) {
 	operationFiles, err := config.resolveOperationFiles()
 	if err != nil {
 		return nil, err
@@ -386,15 +378,10 @@ func buildGenerationPlan(config *Config) (*generationPlan, error) {
 		return state.operations[i].Name < state.operations[j].Name
 	})
 
-	plan := &generationPlan{
-		config:     *config,
-		operations: state.operations,
-		typeMap:    state.typeMap,
-	}
-	return plan, nil
+	return state, nil
 }
 
-func reserveClientDeclarations(plan *generationPlan, scope *importScope) {
+func reserveClientDeclarations(plan *planState, scope *importScope) {
 	for _, name := range clientRuntimeDeclarations {
 		scope.usedAliases[name] = true
 	}
@@ -413,7 +400,7 @@ func reserveClientDeclarations(plan *generationPlan, scope *importScope) {
 	}
 }
 
-func renderClient(plan *generationPlan) ([]byte, error) {
+func renderClient(plan *planState) ([]byte, error) {
 	r := newRenderer(plan.config.Package, plan.config.pkgPath)
 	reserveClientDeclarations(plan, r.imports)
 	registerBoundTypeImports(plan.typeMap, r.imports)
