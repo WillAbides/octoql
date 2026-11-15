@@ -1,9 +1,8 @@
 {{/* We need to generate UnmarshalJSON methods for some types that we want to
      handle specially.  Specifically, we generate an UnmarshalJSON for each
      struct with a field meeting any of these criteria:
-        - an embedded (anonymous) field; technically we only need an
-          UnmarshalJSON if the embedded type needs one, but it's easier to
-          generate it unconditionally
+        - an embedded (anonymous) field, so every embedded fragment struct is
+          populated even when fields overlap across the struct and its embeds
         - a field of interface type
      Additionally, since we add `json:"-"` to fields we handle specially, for
      any field which requires a MarshalJSON, we also generate an UnmarshalJSON,
@@ -28,7 +27,7 @@ func (v *{{.GoName}}) UnmarshalJSON(b []byte) error {
          (v).  But if we do that naively on a
          value of type <.GoName>, it will call this function again, and recurse
          infinitely.  So we make a wrapper type which embeds both this type and
-         NoUnmarshalJSON, which prevents either's UnmarshalJSON method from
+         _octoqlNoUnmarshalJSON, which prevents either's UnmarshalJSON method from
          being promoted.  For more on why this is so difficult, see
          https://github.com/benjaminjkraft/notes/blob/master/go-json-interfaces.md.
          (Note there are a few different ways "hide" the method, but this one

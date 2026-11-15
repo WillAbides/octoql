@@ -18,7 +18,7 @@
 # once reports an error if more than one of them declares @octoqlgen.
 
 directive @octoqlgen(
-    """Omit this variable, or input-type field, when its value is empty."""
+    """Omit this variable when its value is empty."""
     omitempty: Boolean
 
     """Whether the value uses a pointer type in Go."""

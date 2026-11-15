@@ -311,6 +311,6 @@ func TestDirectiveFilesAreCurrent(t *testing.T) {
 		data, err := os.ReadFile(filepath.Join(repositoryRoot, path))
 		require.NoError(t, err)
 		assert.Equal(t, internal.DirectiveFileContents, string(data),
-			"%s is out of date, copy directive.FileContents over it", path)
+			"%s is out of date, copy internal.DirectiveFileContents over it", path)
 	}
 }

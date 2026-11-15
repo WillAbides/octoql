@@ -8,7 +8,7 @@ import (
 
 func changeFirst(s string, f func(rune) rune) string {
 	c, n := utf8.DecodeRuneInString(s)
-	if c == utf8.RuneError { // empty or invalid
+	if c == utf8.RuneError { // empty, invalid UTF-8, or leading replacement character
 		return s
 	}
 	return string(f(c)) + s[n:]

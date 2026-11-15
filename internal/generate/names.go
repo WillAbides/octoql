@@ -49,7 +49,7 @@ package generate
 //			... on U { h { h3 h4 } }
 //		}
 //	}
-// The field g must have type QFIG (not QFTG and QFHG), so that QFI's method
+// The field g must have type QFIG (not QFTG and QFUG), so that QFI's method
 // GetG() can return a consistent type.  But the fields h must have types QFTH
 // and QFUH (not QFIH), because the two are different: the former has fields h1
 // and h2, whereas the latter has fields h3 and h4.  So, in summary, since `g`
@@ -79,7 +79,7 @@ package generate
 //		}
 //   can collide.
 // All cases seem fairly rare in practice, and users can resolve collisions with
-// @octoqlgen(typename: ...).
+// @octoqlgen(typename: ...) or a field alias.
 //
 // To implement all of the above, as we traverse the operation (and schema) in
 // convert.go, we keep an immutable namePrefix value containing the joined
@@ -89,10 +89,11 @@ package generate
 // remain independent. This file maintains that prefix and computes the actual
 // type-name from it.
 //
-// Note that input objects and enums are handled separately (inline in
-// convertDefinition) since the same considerations don't apply and their names
-// are thus quite simple.  We also specially-handle the type of the toplevel
-// response object (inline in convertOperation).
+// Note that input objects and enums are handled separately (in
+// convertInputDefinition and convertOutputDefinition) since the same
+// considerations don't apply and their names are thus quite simple. We also
+// specially-handle the type of the toplevel response object (inline in
+// convertOperation).
 
 import (
 	"strings"
@@ -127,13 +128,14 @@ func nextPrefix(prefix namePrefix, field *ast.Field) namePrefix {
 	return namePrefix{text: prefix.text + fieldAlias}
 }
 
-// Given a prefix, and the GraphQL of the current type, compute the name
+// Given a prefix and the GraphQL name of the current type, compute the name
 // we should give it in Go.
 func makeTypeName(prefix namePrefix, typeName string) string {
 	typeName = upperFirst(typeName)
 
-	// If the prefix has just one part, that's the operation-name.  There's no
-	// need to add "Query" or "Mutation".
+	// If the prefix has just one part (the operation name, fragment name, or
+	// explicit typename), keep it as-is without appending the root GraphQL
+	// type name.
 	if prefix.single {
 		return prefix.text
 	}
@@ -147,9 +149,10 @@ func makeTypeName(prefix namePrefix, typeName string) string {
 
 // Like makeTypeName, but append typeName unconditionally.
 //
-// This is used for when you specify a type-name for a field of interface
-// type; we use YourName for the interface, but need to do YourNameImplName for
-// the implementations.
+// This is used when a single-part prefix (such as a named fragment or explicit
+// typename on an abstract type, or a child field whose typename matches its
+// parent's single-part prefix) needs the GraphQL type name appended to keep
+// implementation or child type names distinct.
 func makeLongTypeName(prefix namePrefix, typeName string) string {
 	return prefix.text + upperFirst(typeName)
 }

@@ -149,15 +149,10 @@ func sanitizeBuildDirName(name string) string {
 	return builder.String()
 }
 
-// TestGenerate is a snapshot-based test of code-generation.
+// TestGenerate is a snapshot-based test of code generation using the shared
+// schema and operation files in testdata/queries.
 //
-// This file just has the test runner; the actual data is all in
-// testdata/queries.  Specifically, the schema used for all the queries is in
-// schema.graphql; the queries themselves are in TestName.graphql.  The test
-// asserts that running octoqlgen on that query produces the generated code in
-// an external snapshot.
-//
-// To update the snapshots (if the code-generator has changed), run the test
+// To update the snapshots (if the code generator has changed), run the test
 // with `UPDATE_SNAPS=true`. Generated Go snapshots are compiled, so the test
 // verifies the snapshot rather than only the in-memory generated output.
 func TestGenerate(t *testing.T) {

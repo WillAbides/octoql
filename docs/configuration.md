@@ -117,8 +117,8 @@ Type: `array` · Required
 Filenames or globs holding the operations to generate code for, relative
 to `octoqlgen.yaml`.
 
-These are `.graphql` (or `.graphqls` / `.gql`) files containing
-operations in SDL form. Extracting operations from string literals in Go
+These are `.graphql` (or `.graphqls` / `.gql`) files containing GraphQL
+operations and fragments. Extracting operations from string literals in Go
 files is not supported.
 
 Operations are always written as a list, even when only one path is
@@ -203,10 +203,11 @@ operation match those present in the Go type.
 When binding to types in the same package as the generated code, take
 care not to bind to generated types, or the result is circular.
 
-To get equivalent behavior for a single operation, use
-`@octoqlgen(bind: ...)`. See the directive reference. See also
-`@octoqlgen(typename: ...)`, which maps a builtin scalar to a nonstandard
-type that octoqlgen defines for you.
+To bind a single variable or selected field, use `@octoqlgen(bind: ...)`,
+or use `@octoqlgenFor(field: "Type.field", bind: ...)` for a named type's
+field. See the directive reference. See also `@octoqlgen(typename: ...)`,
+which maps a builtin scalar to a nonstandard type that octoqlgen defines
+for you.
 
 ## `test_handler`
 

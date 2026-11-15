@@ -30,10 +30,10 @@ func newInterfaceGetterField(goName, graphQLName, rawRef string) *goStructField 
 // genuinely different result types are still rejected.
 //
 // This over-rejection cannot be isolated through the full
-// generate-and-compile pipeline: any concrete implementer of such an interface
-// must provide both same-named getters, which is itself a legitimate
-// struct-getter collision that fails generation first.  The interface method
-// set is valid Go only in isolation, so the check is exercised directly here.
+// generate-and-compile pipeline: selecting both fields in GraphQL gives the
+// concrete implementation or catch-all struct two fields that normalize to the
+// same Go identifier, which fails struct validation first. The interface
+// method-set check is therefore exercised directly here.
 func TestCheckInterfaceIdentifiersAliasSignatures(t *testing.T) {
 	tests := []struct {
 		name         string
