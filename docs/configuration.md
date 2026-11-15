@@ -182,7 +182,7 @@ Each value is the fully qualified Go type expression to bind to, such as
 
 ```yaml
 bindings:
-  URI: net/url.URL
+  URI: github.com/you/yourpkg.URI
 ```
 
 Values may be any named type qualified by its full package path, any
