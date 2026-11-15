@@ -52,6 +52,9 @@ func NewMaterializer() *Materializer {
 	}
 }
 
+// Materialize returns verified schema bytes for request, fetching and writing
+// missing remote schemas directly with WriteFile without cross-process staging
+// or link-based publication.
 func (m *Materializer) Materialize(ctx context.Context, request *Request) ([]byte, error) {
 	if isRemote(request.Source) && request.SHA256 == "" {
 		return nil, errors.New("schema sha256 is required for remote sources")

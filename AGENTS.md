@@ -110,6 +110,10 @@
   types would make `types: local` validation depend on operation order.
 - Keep GitHub-focused generator fixtures and defaults. The pinned public GitHub
   schema is materialized on demand, remains ignored, and must not be committed.
+  Generated outputs, config updates, and materialized schemas write directly
+  with `os.WriteFile` (`O_CREATE|O_EXCL` is used only when `octoqlgen init`
+  creates new files) rather than temp-file staging, `fsync`, or hard-link
+  publication.
 - Keep the generator in the root module. Generated application packages compile
   without a dependency on `github.com/willabides/octoql`; users pin the command
   as a Go tool dependency and regenerate to receive runtime fixes.
