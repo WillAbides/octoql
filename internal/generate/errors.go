@@ -13,8 +13,8 @@ import (
 )
 
 type errorPos struct {
-	filename  string
-	line, col int
+	filename string
+	line     int
 }
 
 func (p *errorPos) String() string {
@@ -78,7 +78,6 @@ func errorf(pos *ast.Position, msg string, args ...any) error {
 		errPos = &errorPos{
 			filename: pos.Src.Name,
 			line:     pos.Line,
-			col:      pos.Column,
 		}
 	case isOctoqlgen:
 		errPos = wrappedOctoqlgen.pos
@@ -92,7 +91,6 @@ func errorf(pos *ast.Position, msg string, args ...any) error {
 			errPos = &errorPos{
 				filename: filename,
 				line:     loc.Line,
-				col:      loc.Column,
 			}
 		}
 	}

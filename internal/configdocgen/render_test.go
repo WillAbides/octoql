@@ -41,41 +41,8 @@ properties:
       Prose about bindings.
     type: object
     additionalProperties:
-      $ref: '#/$defs/binding'
-  package_bindings:
-    description: Packages contributing bindings.
-    x-doc: |
-      Prose about package bindings.
-    type: array
-    items:
-      $ref: '#/$defs/packageBinding'
+      type: string
 $defs:
-  binding:
-    description: A single binding.
-    x-doc: |
-      Section prose for a binding.
-    type: object
-    required:
-      - type
-    properties:
-      type:
-        description: Go type.
-        x-doc: |
-          Prose about the bound Go type.
-        type: string
-  packageBinding:
-    description: A single package binding.
-    x-doc: |
-      Section prose for a package binding.
-    type: object
-    required:
-      - package
-    properties:
-      package:
-        description: Import path.
-        x-doc: |
-          Prose about the package import path.
-        type: string
   testHandler:
     description: Test handler configuration.
     x-doc: |
@@ -90,15 +57,6 @@ $defs:
         x-doc: |
           Nested leaf prose.
         type: string
-      types:
-        description: Source of handler types.
-        x-doc: |
-          Prose about types.
-        type: string
-        enum:
-          - client
-          - local
-        default: client
 `
 
 func TestRender(t *testing.T) {

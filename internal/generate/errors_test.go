@@ -33,7 +33,6 @@ func TestErrorf(t *testing.T) {
 		pos: &errorPos{
 			filename: "operations.graphql",
 			line:     4,
-			col:      2,
 		},
 		msg:     "invalid selection",
 		wrapped: gqlErr,

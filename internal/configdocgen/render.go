@@ -95,31 +95,7 @@ func (r *docRenderer) renderProperties(node *yaml.Node, prefix string, depth int
 			fmt.Fprintf(r.out, "\n%s\n", exampleLine(examples))
 		}
 
-		children, suffix, err := childSchema(value, r.defs)
-		if err != nil {
-			return err
-		}
-		if children == nil {
-			continue
-		}
-
-		childPath := path + suffix
-		childDepth := depth + 1
-		// Map and array entries resolve to a separate definition. Give that
-		// definition its own heading so the entry is linkable and its prose is
-		// not mistaken for a continuation of the parent's.
-		if suffix != "" {
-			entryDoc := scalarValue(children, "x-doc")
-			if entryDoc == "" {
-				*r.missing = append(*r.missing, childPath)
-				continue
-			}
-			fmt.Fprintf(r.out, "\n%s `%s`\n\n", strings.Repeat("#", childDepth), childPath)
-			r.out.WriteString(strings.TrimRight(entryDoc, "\n"))
-			r.out.WriteString("\n")
-			childDepth++
-		}
-		err = r.renderProperties(children, childPath, childDepth)
+		err = r.renderProperties(value, path, depth+1)
 		if err != nil {
 			return err
 		}
@@ -128,66 +104,13 @@ func (r *docRenderer) renderProperties(node *yaml.Node, prefix string, depth int
 	return nil
 }
 
-// childSchema returns the schema whose properties document the contents of
-// node, covering nested objects, keyed maps, and arrays of objects. The
-// returned suffix qualifies child paths so map and array entries are not
-// mistaken for direct fields.
-func childSchema(node, defs *yaml.Node) (*yaml.Node, string, error) {
-	if mappingValue(node, "properties") != nil {
-		return node, "", nil
-	}
-
-	additional := mappingValue(node, "additionalProperties")
-	if additional != nil && additional.Kind == yaml.MappingNode {
-		resolved, err := resolve(additional, defs)
-		if err != nil {
-			return nil, "", err
-		}
-		if mappingValue(resolved, "properties") != nil {
-			return resolved, ".<name>", nil
-		}
-	}
-
-	items := mappingValue(node, "items")
-	if items != nil {
-		resolved, err := resolve(items, defs)
-		if err != nil {
-			return nil, "", err
-		}
-		if mappingValue(resolved, "properties") != nil {
-			return resolved, "[]", nil
-		}
-	}
-
-	return nil, "", nil
-}
-
-// metadataLine summarizes the type, requiredness, default, and allowed values
-// of a property.
+// metadataLine summarizes the type and requiredness of a property.
 func metadataLine(node *yaml.Node, required bool) string {
-	parts := []string{fmt.Sprintf("Type: `%s`", propertyType(node))}
-
 	requirement := "Optional"
 	if required {
 		requirement = "Required"
 	}
-	parts = append(parts, requirement)
-
-	defaultValue := scalarValue(node, "default")
-	if defaultValue != "" {
-		parts = append(parts, fmt.Sprintf("Default: `%s`", defaultValue))
-	}
-
-	enum := mappingValue(node, "enum")
-	if enum != nil && len(enum.Content) > 0 {
-		values := make([]string, 0, len(enum.Content))
-		for _, item := range enum.Content {
-			values = append(values, fmt.Sprintf("`%s`", item.Value))
-		}
-		parts = append(parts, "Values: "+strings.Join(values, ", "))
-	}
-
-	return strings.Join(parts, " · ")
+	return fmt.Sprintf("Type: `%s` · %s", propertyType(node), requirement)
 }
 
 // propertyType reports the documented type of a property, defaulting to object
